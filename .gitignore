@@ -47,3 +47,9 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# macOS Desktop Services Store
+.DS_Store
+
+# Quarto project-specific file storeage folders
+.quarto
