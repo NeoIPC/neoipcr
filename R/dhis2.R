@@ -1,19 +1,28 @@
 import_dhis2 <- function(connection_options = dhis2_connection_options(), include_deleted = FALSE)
 {
   d2req_base <- dhis2_request(connection_options)
-  metadata_text <- d2req_base |>
+
+  metadata <- d2req_base |>
     httr2::req_url_path_append("metadata") |>
     httr2::req_url_query(
       paging = "false",
       translate = "false",
-      `programs:fields` = "id",
-      `programs:filter` = "code:eq:NEOIPC_CORE") |>
+      `programs:fields` = "id,programTrackedEntityAttributes[trackedEntityAttribute[id,valueType,code,displayName,displayShortName,displayFormName,displayDescription,optionSet[id]]],programStages[id,name,displayName,displayFormName,displayDescription,programStageDataElements[dataElement[id,valueType,code,displayName,displayShortName,displayFormName,displayDescription,optionSet[id]]]]",
+      `programs:filter` = "code:eq:NEOIPC_CORE",
+      `organisationUnitGroups:fields` = "code,organisationUnits[id,code,displayName,displayShortName,displayDescription]",
+      `organisationUnitGroups:filter` = "code:in:[COUNTRY,TEST_UNITS]",
+      `organisationUnits:fields` = "id,displayName,displayShortName,displayDescription,openingDate,comment,geometry,parent[id,code,displayName,displayShortName,displayDescription,comment,geometry,parent[code]]",
+      `organisationUnits:filter` = "organisationUnitGroups.code:eq:NEO_DEPARTMENT",
+      `organisationUnitGroupSets:fields` = "organisationUnitGroups[displayName,displayShortName,displayDescription,organisationUnits[id]]",
+      `organisationUnitGroupSets:filter` = "code:eq:NEOIPC_TRIALS",
+      `optionGroupSets:fields` = "optionGroups[code,displayName,displayShortName,displayDescription,options[code,displayName,displayFormName,displayDescription]]",
+      `optionGroupSets:filter` = "code:eq:ANTIMICROBIALS") |>
     httr2::req_perform() |>
-    httr2::resp_body_string("UTF-8")
-
-  metadata <- read_metadata(metadata_text)
+    httr2::resp_body_string("UTF-8") |>
+    read_metadata()
 
   reqs <- list()
+
   tracker_req <- d2req_base |>
     httr2::req_url_path_append("tracker") |>
     httr2::req_url_query(
@@ -21,15 +30,29 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), includ
       skipPaging = "true",
       includeDeleted = tolower(include_deleted))
 
-  reqs <- append(reqs, base::list(tracker_req |>
-                                    httr2::req_url_path_append("trackedEntities") |>
-                                    httr2::req_url_query(program = metadata$programId, fields = "trackedEntity,createdAt,createdAtClient,updatedAt,updatedAtClient,orgUnit,inactive,potentialDuplicate,attributes[code,value]")))
-  reqs <- append(reqs, base::list(tracker_req |>
-                                    httr2::req_url_path_append("enrollments") |>
-                                    httr2::req_url_query(fields = "enrollment,createdAt,createdAtClient,updatedAt,updatedAtClient,trackedEntity,status,orgUnit,enrolledAt,occurredAt,followUp,completedAt,notes")))
-  reqs <- append(reqs, base::list(tracker_req |>
-                                    httr2::req_url_path_append("events") |>
-                                    httr2::req_url_query(fields = "event,status,programStage,enrollment,trackedEntity,orgUnit,occurredAt,scheduledAt,followup,createdAt,updatedAt,completedAt,notes,dataValues[dataElement,value]")))
+  reqs <- append(
+    reqs,
+    list(
+      tracker_req |>
+        httr2::req_url_path_append("trackedEntities") |>
+        httr2::req_url_query(
+          program = metadata$programId,
+          fields = "trackedEntity,createdAt,createdAtClient,updatedAt,updatedAtClient,orgUnit,inactive,potentialDuplicate,attributes[code,value]")))
+
+  reqs <- append(
+    reqs,
+    list(
+      tracker_req |>
+        httr2::req_url_path_append("enrollments") |>
+        httr2::req_url_query(
+          fields = "enrollment,createdAt,createdAtClient,updatedAt,updatedAtClient,trackedEntity,status,orgUnit,enrolledAt,occurredAt,followUp,completedAt,notes")))
+
+  reqs <- append(
+    reqs,
+    list(
+      tracker_req |>
+        httr2::req_url_path_append("events") |>
+        httr2::req_url_query(fields = "event,status,programStage,enrollment,trackedEntity,orgUnit,occurredAt,scheduledAt,followup,createdAt,updatedAt,completedAt,notes,dataValues[dataElement,value]")))
 
   data <-  reqs |>
     httr2::req_perform_parallel() |>
@@ -38,12 +61,31 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), includ
   data
 }
 
-read_metadata <- function(text)
+read_metadata <- function(metadata_text)
 {
-  metadata <- jsonlite::fromJSON(text, simplifyVector = FALSE)
+  metadata <- jsonlite::fromJSON(metadata_text, simplifyVector = FALSE)
   ret <- list(
-    system = get_system(metadata),
-    programId = get_program_id(metadata))
+    system = get_system(metadata))
+
+  programId <- get_program_id(metadata)
+  if(!is.null(programId))
+    ret <- c(ret, list(programId = programId) )
+
+  programStages <- get_programStages(metadata)
+  if(!is.null(programStages))
+    ret <- c(ret, list(programStages = programStages) )
+
+  dataElements <- get_dataElements(metadata)
+  if(!is.null(dataElements))
+    ret <- c(ret, list(dataElements = dataElements) )
+
+  trackedEntityAttributes <- get_trackedEntityAttributes(metadata)
+  if(!is.null(trackedEntityAttributes))
+    ret <- c(ret, list(trackedEntityAttributes = trackedEntityAttributes) )
+
+  countries <- get_countries(metadata)
+  if(!is.null(countries))
+    ret <- c(ret, list(countries = countries) )
 
   ret
 }
@@ -51,6 +93,9 @@ read_metadata <- function(text)
 get_system <- function(metadata)
 {
   system <- purrr::pluck(metadata, "system")
+  if(is.null(system))
+    rlang::abort("Invalid DHIS2 metadata.", "neoipcr_metadata_system_missing")
+
   list(id = uuid::as.UUID(system$id),
        version = as.numeric_version(system$version),
        rev = system$rev,
@@ -60,8 +105,90 @@ get_system <- function(metadata)
 get_program_id <- function(metadata)
 {
   metadata |>
-    purrr::pluck("programs", 1, "id") |>
-    unlist(recursive = FALSE)
+    purrr::pluck("programs", 1, "id")
+}
+
+get_programStages <- function(metadata)
+{
+  programStages <- metadata |>
+    purrr::pluck("programs", 1, "programStages")
+
+  if(is.null(programStages))
+    NULL
+  else
+    programStages |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    dplyr::select(!"programStageDataElements")
+}
+
+get_dataElements <- function(metadata)
+{
+  programStages <- metadata |>
+    purrr::pluck("programs", 1, "programStages")
+
+  if(is.null(programStages))
+    NULL
+  else
+    programStages |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    dplyr::select("programStageDataElements") |>
+    tidyr::unnest_longer(1) |>
+    tidyr::unnest_wider(1) |>
+    tidyr::unnest_wider(1) |>
+    tidyr::unnest_wider("optionSet", names_sep = "_")
+}
+
+get_trackedEntityAttributes <- function(metadata)
+{
+  programTrackedEntityAttributes <- metadata |>
+    purrr::pluck("programs", 1, "programTrackedEntityAttributes")
+
+  if(is.null(programTrackedEntityAttributes))
+    NULL
+  else
+    programTrackedEntityAttributes |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    tidyr::unnest_wider(1) |>
+    tidyr::unnest_wider("optionSet", names_sep = "_")
+}
+
+get_countries <- function(metadata)
+{
+  organisationUnitGroups <- metadata |>
+    purrr::pluck("organisationUnitGroups")
+
+  if(is.null(organisationUnitGroups))
+    NULL
+  else
+    organisationUnitGroups |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    dplyr::filter(code == "COUNTRY") |>
+    dplyr::select("organisationUnits") |>
+    tidyr::unnest_longer(1) |>
+    tidyr::unnest_wider(1)
+}
+
+get_testUnitIds <- function(metadata)
+{
+  organisationUnitGroups <- metadata |>
+    purrr::pluck("organisationUnitGroups")
+
+  if(is.null(organisationUnitGroups))
+    NULL
+  else
+    organisationUnitGroups |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    dplyr::filter(code == "TEST_UNITS") |>
+    dplyr::select("organisationUnits") |>
+    tidyr::unnest_longer(1) |>
+    tidyr::unnest_wider(1) |>
+    dplyr::select("id") |>
+    unlist(use.names = FALSE)
 }
 
 dhis2_connection_options <- function(

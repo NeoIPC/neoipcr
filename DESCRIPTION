@@ -17,6 +17,7 @@ Depends:
     R (>= 4.4)
 Imports: 
     askpass (>= 1.2.0),
+    dplyr (>= 1.1.4),
     httr2 (>= 1.0.3),
     jsonlite (>= 1.8.9),
     purrr (>= 1.0.2),
