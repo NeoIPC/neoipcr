@@ -13,7 +13,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-# neoipcr
+# neoipcr - The R Package to Work With NeoIPC Data
 
 <!-- badges: start -->
 [![Codecov test coverage](https://codecov.io/gh/NeoIPC/neoipcr/graph/badge.svg)](https://app.codecov.io/gh/NeoIPC/neoipcr)

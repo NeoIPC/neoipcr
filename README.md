@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# neoipcr
+# neoipcr - The R Package to Work With NeoIPC Data
 
 <!-- badges: start -->
 
