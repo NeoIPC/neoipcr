@@ -1,3 +1,4 @@
+#' @importFrom rlang .data
 import_dhis2 <- function(connection_options = dhis2_connection_options(), include_deleted = FALSE)
 {
   d2req_base <- dhis2_request(connection_options)
@@ -180,7 +181,7 @@ get_countries <- function(metadata)
     organisationUnitGroups |>
     tibble::tibble() |>
     tidyr::unnest_wider(1) |>
-    dplyr::filter(code == "COUNTRY") |>
+    dplyr::filter(.data$code == "COUNTRY") |>
     dplyr::select("organisationUnits") |>
     tidyr::unnest_longer(1) |>
     tidyr::unnest_wider(1)
@@ -197,7 +198,7 @@ get_testUnitIds <- function(metadata)
     organisationUnitGroups |>
     tibble::tibble() |>
     tidyr::unnest_wider(1) |>
-    dplyr::filter(code == "TEST_UNITS") |>
+    dplyr::filter(.data$code == "TEST_UNITS") |>
     dplyr::select("organisationUnits") |>
     tidyr::unnest_longer(1) |>
     tidyr::unnest_wider(1) |>
@@ -217,7 +218,7 @@ get_hospitals <- function(metadata)
     hospitals <- organisationUnits |>
       tibble::tibble() |>
       tidyr::unnest_longer(1) |>
-      dplyr::filter(organisationUnits_id == "parent")
+      dplyr::filter(.data$organisationUnits_id == "parent")
     if(nrow(hospitals) < 1)
       NULL
     else
@@ -227,11 +228,11 @@ get_hospitals <- function(metadata)
       tidyr::unnest_wider(c("parent", "geometry"), names_sep = "_") |>
       tidyr::unnest_wider("geometry_coordinates", names_sep = "_") |>
       dplyr::rename(
-        country_code = parent_code,
-        longitude = geometry_coordinates_1,
-        latitude = geometry_coordinates_2) |>
-      dplyr::select(!geometry_type) |>
-      dplyr::filter(country_code != "NEOIPC") |>
+        country_code = "parent_code",
+        longitude = "geometry_coordinates_1",
+        latitude = "geometry_coordinates_2") |>
+      dplyr::select(!"geometry_type") |>
+      dplyr::filter(.data$country_code != "NEOIPC") |>
       dplyr::distinct()
   }
 
@@ -259,8 +260,8 @@ get_departments <- function(metadata)
           tidyselect::starts_with("parent_") & !tidyselect::ends_with("_id"),
           "geometry_type")) |>
       dplyr::rename(
-        longitude = geometry_coordinates_1,
-        latitude = geometry_coordinates_2)
+        longitude = "geometry_coordinates_1",
+        latitude = "geometry_coordinates_2")
     else
       t |>
       tidyr::unnest_wider("parent", names_sep = "_") |>
