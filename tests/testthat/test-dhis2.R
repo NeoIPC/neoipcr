@@ -282,3 +282,216 @@ test_that("read_metadata reads countries", {
 
   expect_equal(metadata$countries$code, c("CH", "DE"))
 })
+
+test_that("read_metadata reads hospitals", {
+  metadata <- read_metadata(
+    '
+{
+    "organisationUnits": [
+        {
+            "displayName": "Test department 1",
+            "displayShortName": "Test 1",
+            "id": "wcFyerorAmG",
+            "openingDate": "2024-11-10T00:00:00.000",
+            "parent": {
+                "code": "TEST_UNITS",
+                "displayDescription": "A few test units to evaluate DHIS2 as NeoIPC data collection platform.",
+                "displayName": "Test Units",
+                "displayShortName": "Test Units",
+                "id": "aCbeNKDGVks",
+                "parent": {
+                    "code": "NEOIPC"
+                }
+            }
+        },
+        {
+            "comment": "A `real` department",
+            "displayDescription": "This simulates a real neo department",
+            "displayName": "Test department 2",
+            "displayShortName": "Test 2",
+            "id": "oSpSLxOVIxE",
+            "openingDate": "2024-11-10T00:00:00.000",
+            "parent": {
+                "code": "DE_TEST_PARENT",
+                "comment": "This simulates a real hospital",
+                "displayName": "Test hospital 1",
+                "displayShortName": "Test hosp. 1",
+                "geometry": {
+                    "coordinates": [
+                        13.37819,
+                        52.523628
+                    ],
+                    "type": "Point"
+                },
+                "id": "oOpnrFqrBhJ",
+                "parent": {
+                    "code": "DE"
+                }
+            }
+        },
+        {
+            "comment": "A `real` department",
+            "displayDescription": "This simulates a real neo department",
+            "displayName": "Test department 3",
+            "displayShortName": "Test 3",
+            "id": "yTKmXIhJQkP",
+            "openingDate": "2024-11-10T00:00:00.000",
+            "parent": {
+                "code": "DE_TEST_PARENT",
+                "comment": "This simulates a real hospital",
+                "displayName": "Test hospital 1",
+                "displayShortName": "Test hosp. 1",
+                "geometry": {
+                    "coordinates": [
+                        13.37819,
+                        52.523628
+                    ],
+                    "type": "Point"
+                },
+                "id": "oOpnrFqrBhJ",
+                "parent": {
+                    "code": "DE"
+                }
+            }
+        },
+        {
+            "displayName": "Test department 4",
+            "displayShortName": "Test 4",
+            "id": "SEnzmeiCYis",
+            "openingDate": "2024-11-10T00:00:00.000",
+            "parent": {
+                "code": "GR_TEST_PARENT",
+                "displayName": "Test hospital 2",
+                "displayShortName": "Test hosp. 2",
+                "geometry": {
+                    "coordinates": [
+                        20.840438,
+                        39.621562
+                    ],
+                    "type": "Point"
+                },
+                "id": "TKfIqRxsPuF",
+                "parent": {
+                    "code": "EL"
+                }
+            }
+        }
+    ],
+    "system": {
+        "date": "2024-11-10T16:14:26.354+0000",
+        "id": "f78bc2df-35f5-46f5-9500-3944dba1b01d",
+        "rev": "3fcd748",
+        "version": "2.40.3.2"
+    }
+}')
+
+  expect_equal(metadata$hospitals$code, c("DE_TEST_PARENT", "GR_TEST_PARENT"))
+})
+
+test_that("read_metadata reads departments", {
+  metadata <- read_metadata(
+    '
+{
+    "organisationUnits": [
+        {
+            "displayName": "Test department 1",
+            "displayShortName": "Test 1",
+            "id": "wcFyerorAmG",
+            "openingDate": "2024-11-10T00:00:00.000",
+            "parent": {
+                "code": "TEST_UNITS",
+                "displayDescription": "A few test units to evaluate DHIS2 as NeoIPC data collection platform.",
+                "displayName": "Test Units",
+                "displayShortName": "Test Units",
+                "id": "aCbeNKDGVks",
+                "parent": {
+                    "code": "NEOIPC"
+                }
+            }
+        },
+        {
+            "comment": "A `real` department",
+            "displayDescription": "This simulates a real neo department",
+            "displayName": "Test department 2",
+            "displayShortName": "Test 2",
+            "id": "oSpSLxOVIxE",
+            "openingDate": "2024-11-10T00:00:00.000",
+            "parent": {
+                "code": "DE_TEST_PARENT",
+                "comment": "This simulates a real hospital",
+                "displayName": "Test hospital 1",
+                "displayShortName": "Test hosp. 1",
+                "geometry": {
+                    "coordinates": [
+                        13.37819,
+                        52.523628
+                    ],
+                    "type": "Point"
+                },
+                "id": "oOpnrFqrBhJ",
+                "parent": {
+                    "code": "DE"
+                }
+            }
+        },
+        {
+            "comment": "A `real` department",
+            "displayDescription": "This simulates a real neo department",
+            "displayName": "Test department 3",
+            "displayShortName": "Test 3",
+            "id": "yTKmXIhJQkP",
+            "openingDate": "2024-11-10T00:00:00.000",
+            "parent": {
+                "code": "DE_TEST_PARENT",
+                "comment": "This simulates a real hospital",
+                "displayName": "Test hospital 1",
+                "displayShortName": "Test hosp. 1",
+                "geometry": {
+                    "coordinates": [
+                        13.37819,
+                        52.523628
+                    ],
+                    "type": "Point"
+                },
+                "id": "oOpnrFqrBhJ",
+                "parent": {
+                    "code": "DE"
+                }
+            }
+        },
+        {
+            "displayName": "Test department 4",
+            "displayShortName": "Test 4",
+            "id": "SEnzmeiCYis",
+            "openingDate": "2024-11-10T00:00:00.000",
+            "parent": {
+                "code": "GR_TEST_PARENT",
+                "displayName": "Test hospital 2",
+                "displayShortName": "Test hosp. 2",
+                "geometry": {
+                    "coordinates": [
+                        20.840438,
+                        39.621562
+                    ],
+                    "type": "Point"
+                },
+                "id": "TKfIqRxsPuF",
+                "parent": {
+                    "code": "EL"
+                }
+            }
+        }
+    ],
+    "system": {
+        "date": "2024-11-10T16:14:26.354+0000",
+        "id": "f78bc2df-35f5-46f5-9500-3944dba1b01d",
+        "rev": "3fcd748",
+        "version": "2.40.3.2"
+    }
+}')
+
+  expect_equal(
+    metadata$departments$displayName,
+    c("Test department 1", "Test department 2", "Test department 3",
+      "Test department 4"))
+})

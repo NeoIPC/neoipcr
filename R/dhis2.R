@@ -16,7 +16,9 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), includ
       `organisationUnitGroupSets:fields` = "organisationUnitGroups[displayName,displayShortName,displayDescription,organisationUnits[id]]",
       `organisationUnitGroupSets:filter` = "code:eq:NEOIPC_TRIALS",
       `optionGroupSets:fields` = "optionGroups[code,displayName,displayShortName,displayDescription,options[code,displayName,displayFormName,displayDescription]]",
-      `optionGroupSets:filter` = "code:eq:ANTIMICROBIALS") |>
+      `optionGroupSets:filter` = "code:eq:ANTIMICROBIALS",
+      `users:fields` = "id,username,firstName,surname,email,created,lastLogin,organisationUnits[id],dataViewOrganisationUnits[id],teiSearchOrganisationUnits[id],userRoles[id]",
+      `users:filter` = "disabled:eq:false") |>
     httr2::req_perform() |>
     httr2::resp_body_string("UTF-8") |>
     read_metadata()
@@ -58,7 +60,7 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), includ
     httr2::req_perform_parallel() |>
     httr2::resps_data(function(resp) list(httr2::resp_body_json(resp) |> tibble::tibble() |> tidyr::unnest_longer(1) |> tidyr::unnest_wider(1)))
 
-  data
+  c(data, list(metadata = metadata))
 }
 
 read_metadata <- function(metadata_text)
@@ -86,6 +88,18 @@ read_metadata <- function(metadata_text)
   countries <- get_countries(metadata)
   if(!is.null(countries))
     ret <- c(ret, list(countries = countries) )
+
+  hospitals <- get_hospitals(metadata)
+  if(!is.null(hospitals))
+    ret <- c(ret, list(hospitals = hospitals) )
+
+  departments <- get_departments(metadata)
+  if(!is.null(departments))
+    ret <- c(ret, list(departments = departments) )
+
+  users <- get_users(metadata)
+  if(!is.null(users))
+    ret <- c(ret, list(users = users) )
 
   ret
 }
@@ -189,6 +203,76 @@ get_testUnitIds <- function(metadata)
     tidyr::unnest_wider(1) |>
     dplyr::select("id") |>
     unlist(use.names = FALSE)
+}
+
+get_hospitals <- function(metadata)
+{
+  organisationUnits <- metadata |>
+    purrr::pluck("organisationUnits")
+
+  if(is.null(organisationUnits))
+    NULL
+  else
+  {
+    hospitals <- organisationUnits |>
+      tibble::tibble() |>
+      tidyr::unnest_longer(1) |>
+      dplyr::filter(organisationUnits_id == "parent")
+    if(nrow(hospitals) < 1)
+      NULL
+    else
+      hospitals |>
+      dplyr::select(1) |>
+      tidyr::unnest_wider(1) |>
+      tidyr::unnest_wider(c("parent", "geometry"), names_sep = "_") |>
+      tidyr::unnest_wider("geometry_coordinates", names_sep = "_") |>
+      dplyr::rename(
+        country_code = parent_code,
+        longitude = geometry_coordinates_1,
+        latitude = geometry_coordinates_2) |>
+      dplyr::select(!geometry_type) |>
+      dplyr::filter(country_code != "NEOIPC") |>
+      dplyr::distinct()
+  }
+
+}
+
+get_departments <- function(metadata)
+{
+  organisationUnits <- metadata |>
+    purrr::pluck("organisationUnits")
+
+  if(is.null(organisationUnits))
+    NULL
+  else
+  {
+    t <- organisationUnits |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1)
+
+    if("geometry" %in% names(t))
+      t |>
+      tidyr::unnest_wider(c("parent", "geometry"), names_sep = "_") |>
+      tidyr::unnest_wider("geometry_coordinates", names_sep = "_") |>
+      dplyr::select(
+        !c(
+          tidyselect::starts_with("parent_") & !tidyselect::ends_with("_id"),
+          "geometry_type")) |>
+      dplyr::rename(
+        longitude = geometry_coordinates_1,
+        latitude = geometry_coordinates_2)
+    else
+      t |>
+      tidyr::unnest_wider("parent", names_sep = "_") |>
+      dplyr::select(
+        !c(
+          tidyselect::starts_with("parent_") & !tidyselect::ends_with("_id")))
+  }
+}
+
+get_users <- function(metadata)
+{
+
 }
 
 dhis2_connection_options <- function(
