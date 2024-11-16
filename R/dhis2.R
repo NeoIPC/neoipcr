@@ -50,14 +50,14 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), includ
       tracker_req |>
         httr2::req_url_path_append("enrollments") |>
         httr2::req_url_query(
-          fields = "enrollment,createdAt,createdAtClient,updatedAt,updatedAtClient,trackedEntity,status,orgUnit,enrolledAt,occurredAt,followUp,completedAt,notes")))
+          fields = "enrollment,createdAt,createdAtClient,updatedAt,updatedAtClient,trackedEntity,status,orgUnit,enrolledAt,occurredAt,followUp,deleted,completedAt,completedBy,storedBy,createdBy[username],updatedBy[username],notes")))
 
   reqs <- append(
     reqs,
     list(
       tracker_req |>
         httr2::req_url_path_append("events") |>
-        httr2::req_url_query(fields = "event,status,programStage,enrollment,trackedEntity,orgUnit,occurredAt,scheduledAt,followup,createdAt,updatedAt,completedAt,notes,dataValues[dataElement,value]")))
+        httr2::req_url_query(fields = "event,status,programStage,enrollment,trackedEntity,orgUnit,scheduledAt,occurredAt,completedAt,followup,deleted,createdAt,createdAtClient,updatedAt,updatedAtClient,storedBy,createdBy[username],updatedBy[username],notes,dataValues[dataElement,value,createdAt,updatedAt,createdBy[username]]")))
 
   data <-  reqs |>
     httr2::req_perform_parallel() |>
@@ -68,19 +68,159 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), includ
 
   c(data, list(
     patients = read_patients(data[[1]]),
-    enrollments = read_enrollments(enrollments, events),
+    enrollments = read_enrollments(enrollments, events, metadata),
     surgeries = read_surgeries(events),
     infections = read_infections(events),
     metadata = metadata,
     raw_metadata = raw_metadata))
 }
 
+read_eventData <- function(
+    events,
+    metadata,
+    programStageName,
+    prefix = NULL,
+    dataElementFilter = NULL)
+{
+  eventId <- metadata$programStages |>
+    dplyr::filter(name == programStageName) |>
+    dplyr::pull("id")
+
+  e <- events |>
+    dplyr::filter(programStage == eventId) |>
+    dplyr::select(!c("programStage")) |>
+    dplyr::mutate(
+      notes = process_notes(notes)) |>
+    dplyr::mutate(dplyr::across(tidyselect::any_of(c(
+      "createdAt",
+      "updatedAt")), readr::parse_datetime)) |>
+    dplyr::mutate(dplyr::across(tidyselect::any_of(c(
+      "occurredAt",
+      "scheduledAt",
+      "completedAt")), ~ readr::parse_date(stringr::str_sub(.x, end = 10)))) |>
+    dplyr::mutate(dplyr::across(
+      tidyselect::any_of(c("followup", "deleted")),
+      as.logical)) |>
+    tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
+    tidyr::hoist("updatedBy", updatedBy = 1, .remove = FALSE) |>
+    dplyr::mutate(
+      status = factor(status, levels = c(
+        "ACTIVE", "COMPLETED", "VISITED", "SCHEDULE", "OVERDUE", "SKIPPED")))
+
+
+  if(!is.null(prefix))
+    e <- e |> dplyr::rename_with(
+      ~ paste0(prefix, .x, recycle0 = TRUE),
+      !c("enrollment","trackedEntity", "dataValues"))
+
+  e <- e |>
+    tidyr::unnest_longer("dataValues") |>
+    tidyr::unnest_wider("dataValues", names_sep = "_") |>
+    dplyr::inner_join(
+      metadata$dataElements |>
+        dplyr::select("id", "code"),
+      dplyr::join_by(dataValues_dataElement == id)) |>
+    dplyr::select(!c("dataValues_dataElement", "dataValues_createdAt", "dataValues_updatedAt", "dataValues_createdBy"))
+
+  if(!is.null(dataElementFilter))
+    e <- e |>
+    dplyr::filter(dataElementFilter(code))
+
+  e |>
+    tidyr::pivot_wider(names_from = code, values_from = dataValues_value) |>
+    convert_dataElementColumns(metadata$dataElements)
+}
+
+convert_dataElementColumns <- function(t, dataElements)
+{
+  t |>
+    dplyr::mutate(
+      dplyr::across(
+        tidyselect::any_of(dataElements |> dplyr::pull("code")),
+        ~ convert_dataElementColumn(.x, dplyr::cur_column(), dataElements)
+        )
+      )
+}
+
+convert_dataElementColumn <- function(col, col_name, dataElements)
+{
+  col_type <- dataElements |>
+    get_valueType(col_name)
+
+  if(stringr::str_starts(col_type, "INTEGER"))
+    as.integer(col)
+  else if(col_type %in% c("BOOLEAN", "TRUE_ONLY"))
+    as.logical(col)
+  else
+    col
+}
+
+get_valueType <- function(dataElements, dataElementCode)
+{
+  dataElements |>
+    dplyr::filter(code == dataElementCode) |>
+    dplyr::pull("valueType")
+}
+
 read_infections <- function(events)
 {
 }
 
-read_enrollments <- function(enrollments, events)
+read_enrollments <- function(enrollments, events, metadata)
 {
+  admissions <- read_eventData(events, metadata, "Admission", "admission_")
+
+  surveillanceEnds <- read_eventData(
+    events,
+    metadata,
+    "Surveillance-End",
+    "surveillanceEnd_",
+    \(x) stringr::str_starts(x, "NEOIPC_SURVEILLANCE_END_AB_SUBST", TRUE))
+
+  enrollments |>
+    dplyr::mutate(dplyr::across(tidyselect::any_of(c(
+      "createdAt",
+      "createdAtClient",
+      "updatedAt",
+      "updatedAtClient",
+      "completedAt")), readr::parse_datetime)) |>
+    dplyr::mutate(dplyr::across(tidyselect::any_of(c(
+      "enrolledAt",
+      "occurredAt")), ~ readr::parse_date(stringr::str_sub(.x, end = 10)))) |>
+    dplyr::mutate(dplyr::across(
+      tidyselect::any_of(c("followUp", "deleted")),
+      as.logical)) |>
+    tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
+    tidyr::hoist("updatedBy", updatedBy = 1, .remove = FALSE) |>
+    dplyr::mutate(
+      status = factor(status, levels = c(
+        "ACTIVE", "COMPLETED", "CANCELLED"))) |>
+    dplyr::mutate(
+      notes = process_notes(notes)) |>
+    dplyr::rename_with(~ paste0("enrollment_", .x, recycle0 = TRUE), !c("enrollment","trackedEntity")) |>
+    dplyr::left_join(admissions, dplyr::join_by(enrollment, trackedEntity)) |>
+    dplyr::left_join(surveillanceEnds, dplyr::join_by(enrollment, trackedEntity))
+}
+
+process_notes <- function(notes)
+{
+  sapply(
+    notes,
+    \(x){
+      if(length(x) == 0)
+        NA
+      else
+        paste0(
+          purrr::map_chr(
+            x,
+            \(y) {
+              sprintf(
+                '%s %s (%s): "%s"',
+                y[["createdBy"]][["firstName"]],
+                y[["createdBy"]][["surname"]],
+                format(readr::parse_datetime(y[["storedAt"]]), "%x %X"),
+                y[["value"]])
+              }), collapse = "; ")})
 }
 
 read_surgeries <- function(events)
