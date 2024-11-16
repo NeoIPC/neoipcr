@@ -3,7 +3,7 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), includ
 {
   d2req_base <- dhis2_request(connection_options)
 
-  metadata <- d2req_base |>
+  raw_metadata <- d2req_base |>
     httr2::req_url_path_append("metadata") |>
     httr2::req_url_query(
       paging = "false",
@@ -21,7 +21,9 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), includ
       `users:fields` = "id,username,firstName,surname,email,created,lastLogin,organisationUnits[id],dataViewOrganisationUnits[id],teiSearchOrganisationUnits[id],userRoles[id]",
       `users:filter` = "disabled:eq:false") |>
     httr2::req_perform() |>
-    httr2::resp_body_string("UTF-8") |>
+    httr2::resp_body_string("UTF-8")
+
+  metadata <- raw_metadata |>
     read_metadata()
 
   reqs <- list()
@@ -61,7 +63,65 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), includ
     httr2::req_perform_parallel() |>
     httr2::resps_data(function(resp) list(httr2::resp_body_json(resp) |> tibble::tibble() |> tidyr::unnest_longer(1) |> tidyr::unnest_wider(1)))
 
-  c(data, list(metadata = metadata))
+  enrollments <- data[[2]]
+  events <- data[[3]]
+
+  c(data, list(
+    patients = read_patients(data[[1]]),
+    enrollments = read_enrollments(enrollments, events),
+    surgeries = read_surgeries(events),
+    infections = read_infections(events),
+    metadata = metadata,
+    raw_metadata = raw_metadata))
+}
+
+read_infections <- function(events)
+{
+}
+
+read_enrollments <- function(enrollments, events)
+{
+}
+
+read_surgeries <- function(events)
+{
+}
+
+read_patients <- function(trackedEntities)
+{
+  patients <- trackedEntities |>
+    tidyr::unnest_longer("attributes") |>
+    tidyr::unnest_wider("attributes", names_sep = "_") |>
+    tidyr::pivot_wider(
+      names_from = attributes_code,
+      values_from = attributes_value) |>
+    dplyr::mutate(dplyr::across(tidyselect::any_of(c(
+      "createdAt",
+      "createdAtClient",
+      "updatedAt",
+      "updatedAtClient")), readr::parse_datetime)) |>
+    dplyr::mutate(dplyr::across(tidyselect::any_of(c(
+      "inactive",
+      "potentialDuplicate",
+      "NEOIPC_TEA_MULTIPLE_BIRTH")), as.logical)) |>
+    dplyr::mutate(dplyr::across(tidyselect::any_of(c(
+      "NEOIPC_TEA_DELIVERY_MODE",
+      "NeoIPC_TEA_TOTAL_GESTATION_DAYS",
+      "NEOIPC_TEA_SIBLINGS",
+      "NEOIPC_TEA_BIRTH_WEIGHT")), as.integer))
+
+  if("NEOIPC_TEA_SIBLINGS" %in% names(patients))
+    patients <- patients |>
+    dplyr::mutate(
+      NEOIPC_TEA_SIBLINGS = tidyr::replace_na(.data$NEOIPC_TEA_SIBLINGS, 1))
+
+  if("NEOIPC_TEA_MULTIPLE_BIRTH" %in% names(patients))
+    patients <- patients |>
+    dplyr::mutate(
+      NEOIPC_TEA_MULTIPLE_BIRTH = tidyr::replace_na(
+        .data$NEOIPC_TEA_MULTIPLE_BIRTH, FALSE))
+
+  patients
 }
 
 read_metadata <- function(metadata_text)
@@ -273,7 +333,66 @@ get_departments <- function(metadata)
 
 get_users <- function(metadata)
 {
+  users <- metadata |>
+    purrr::pluck("users")
 
+  if(is.null(users))
+    NULL
+  else
+    users |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    dplyr::select(
+      !c(
+        "organisationUnits",
+        "dataViewOrganisationUnits",
+        "teiSearchOrganisationUnits",
+        "userRoles")) |>
+    dplyr::mutate(
+      created = readr::parse_datetime(.data$created),
+      lastLogin = readr::parse_datetime(.data$lastLogin))
+}
+
+get_users_orgUnits <- function(metadata)
+{
+  users <- metadata |>
+    purrr::pluck("users")
+
+  if(is.null(users))
+    NULL
+  else
+    users |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    dplyr::select(
+      c(
+        "id",
+        "organisationUnits",
+        "dataViewOrganisationUnits",
+        "teiSearchOrganisationUnits")) |>
+    tidyr::pivot_longer(
+      cols = c(
+        "organisationUnits",
+        "dataViewOrganisationUnits",
+        "teiSearchOrganisationUnits"),
+      names_to = "type",
+      values_to = "organisationUnit_id")
+}
+
+get_users_roles <- function(metadata)
+{
+  users <- metadata |>
+    purrr::pluck("users")
+
+  if(is.null(users))
+    NULL
+  else
+    users |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    dplyr::select(c("id","userRoles")) |>
+    tidyr::unnest_longer(2) |>
+    tidyr::unnest_wider(2, names_sep = "_")
 }
 
 dhis2_connection_options <- function(

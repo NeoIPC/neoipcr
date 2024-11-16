@@ -495,3 +495,5 @@ test_that("read_metadata reads departments", {
     c("Test department 1", "Test department 2", "Test department 3",
       "Test department 4"))
 })
+
+# ToDo: get_users,
