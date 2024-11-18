@@ -42,7 +42,7 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), includ
         httr2::req_url_path_append("trackedEntities") |>
         httr2::req_url_query(
           program = metadata$programId,
-          fields = "trackedEntity,createdAt,createdAtClient,updatedAt,updatedAtClient,orgUnit,inactive,potentialDuplicate,attributes[code,value]")))
+          fields = "trackedEntity,createdAt,createdAtClient,updatedAt,updatedAtClient,orgUnit,inactive,deleted,createdBy[username],updatedBy[username],potentialDuplicate,attributes[code,value]")))
 
   reqs <- append(
     reqs,
@@ -67,7 +67,7 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), includ
   events <- data[[3]]
 
   c(data, list(
-    patients = read_patients(data[[1]]),
+    patients = read_patients(data[[1]], metadata),
     enrollments = read_enrollments(enrollments, events, metadata),
     surgeries = read_surgeries(events),
     infections = read_infections(events),
@@ -83,14 +83,14 @@ read_eventData <- function(
     dataElementFilter = NULL)
 {
   eventId <- metadata$programStages |>
-    dplyr::filter(name == programStageName) |>
+    dplyr::filter(.data$name == programStageName) |>
     dplyr::pull("id")
 
   e <- events |>
-    dplyr::filter(programStage == eventId) |>
+    dplyr::filter(.data$programStage == eventId) |>
     dplyr::select(!c("programStage")) |>
     dplyr::mutate(
-      notes = process_notes(notes)) |>
+      notes = process_notes(.data$notes)) |>
     dplyr::mutate(dplyr::across(tidyselect::any_of(c(
       "createdAt",
       "updatedAt")), readr::parse_datetime)) |>
@@ -104,7 +104,7 @@ read_eventData <- function(
     tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
     tidyr::hoist("updatedBy", updatedBy = 1, .remove = FALSE) |>
     dplyr::mutate(
-      status = factor(status, levels = c(
+      status = factor(.data$status, levels = c(
         "ACTIVE", "COMPLETED", "VISITED", "SCHEDULE", "OVERDUE", "SKIPPED")))
 
 
@@ -119,15 +119,15 @@ read_eventData <- function(
     dplyr::inner_join(
       metadata$dataElements |>
         dplyr::select("id", "code"),
-      dplyr::join_by(dataValues_dataElement == id)) |>
+      dplyr::join_by("dataValues_dataElement" == "id")) |>
     dplyr::select(!c("dataValues_dataElement", "dataValues_createdAt", "dataValues_updatedAt", "dataValues_createdBy"))
 
   if(!is.null(dataElementFilter))
     e <- e |>
-    dplyr::filter(dataElementFilter(code))
+    dplyr::filter(dataElementFilter(.data$code))
 
   e |>
-    tidyr::pivot_wider(names_from = code, values_from = dataValues_value) |>
+    tidyr::pivot_wider(names_from = .data$code, values_from = .data$dataValues_value) |>
     convert_dataElementColumns(metadata$dataElements)
 }
 
@@ -158,7 +158,7 @@ convert_dataElementColumn <- function(col, col_name, dataElements)
 get_valueType <- function(dataElements, dataElementCode)
 {
   dataElements |>
-    dplyr::filter(code == dataElementCode) |>
+    dplyr::filter(.data$code == dataElementCode) |>
     dplyr::pull("valueType")
 }
 
@@ -190,16 +190,65 @@ read_enrollments <- function(enrollments, events, metadata)
     dplyr::mutate(dplyr::across(
       tidyselect::any_of(c("followUp", "deleted")),
       as.logical)) |>
-    tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
-    tidyr::hoist("updatedBy", updatedBy = 1, .remove = FALSE) |>
+    hoist_createdByAndupdatedBy() |>
     dplyr::mutate(
-      status = factor(status, levels = c(
+      status = factor(.data$status, levels = c(
         "ACTIVE", "COMPLETED", "CANCELLED"))) |>
     dplyr::mutate(
-      notes = process_notes(notes)) |>
+      notes = process_notes(.data$notes)) |>
     dplyr::rename_with(~ paste0("enrollment_", .x, recycle0 = TRUE), !c("enrollment","trackedEntity")) |>
-    dplyr::left_join(admissions, dplyr::join_by(enrollment, trackedEntity)) |>
-    dplyr::left_join(surveillanceEnds, dplyr::join_by(enrollment, trackedEntity))
+    dplyr::left_join(admissions, dplyr::join_by("enrollment", "trackedEntity")) |>
+    dplyr::left_join(surveillanceEnds, dplyr::join_by("enrollment", "trackedEntity")) |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("enrollment_completedBy" == "username")) |>
+    dplyr::mutate(enrollment_completedBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("enrollment_storedBy" == "username")) |>
+    dplyr::mutate(enrollment_storedBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("enrollment_createdBy" == "username")) |>
+    dplyr::mutate(enrollment_createdBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("enrollment_updatedBy" == "username")) |>
+    dplyr::mutate(enrollment_updatedBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("admission_storedBy" == "username")) |>
+    dplyr::mutate(admission_storedBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("admission_createdBy" == "username")) |>
+    dplyr::mutate(admission_createdBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("admission_updatedBy" == "username")) |>
+    dplyr::mutate(admission_updatedBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("surveillanceEnd_storedBy" == "username")) |>
+    dplyr::mutate(surveillanceEnd_storedBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("surveillanceEnd_createdBy" == "username")) |>
+    dplyr::mutate(surveillanceEnd_createdBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("surveillanceEnd_updatedBy" == "username")) |>
+    dplyr::mutate(surveillanceEnd_updatedBy = .data$key, .keep = "unused")
 }
 
 process_notes <- function(notes)
@@ -227,14 +276,22 @@ read_surgeries <- function(events)
 {
 }
 
-read_patients <- function(trackedEntities)
+hoist_createdByAndupdatedBy <- function(table)
+{
+  table |>
+    tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
+    tidyr::hoist("updatedBy", updatedBy = 1, .remove = FALSE)
+}
+
+read_patients <- function(trackedEntities, metadata)
 {
   patients <- trackedEntities |>
     tidyr::unnest_longer("attributes") |>
     tidyr::unnest_wider("attributes", names_sep = "_") |>
     tidyr::pivot_wider(
-      names_from = attributes_code,
-      values_from = attributes_value) |>
+      names_from = .data$attributes_code,
+      values_from = .data$attributes_value) |>
+    hoist_createdByAndupdatedBy() |>
     dplyr::mutate(dplyr::across(tidyselect::any_of(c(
       "createdAt",
       "createdAtClient",
@@ -248,7 +305,18 @@ read_patients <- function(trackedEntities)
       "NEOIPC_TEA_DELIVERY_MODE",
       "NeoIPC_TEA_TOTAL_GESTATION_DAYS",
       "NEOIPC_TEA_SIBLINGS",
-      "NEOIPC_TEA_BIRTH_WEIGHT")), as.integer))
+      "NEOIPC_TEA_BIRTH_WEIGHT")), as.integer))|>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("createdBy" == "username")) |>
+    dplyr::mutate(createdBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("updatedBy" == "username")) |>
+    dplyr::mutate(updatedBy = .data$key, .keep = "unused") |>
+    add_key_column()
 
   if("NEOIPC_TEA_SIBLINGS" %in% names(patients))
     patients <- patients |>
@@ -294,7 +362,7 @@ read_metadata <- function(metadata_text)
   if(!is.null(hospitals))
     ret <- c(ret, list(hospitals = hospitals) )
 
-  departments <- get_departments(metadata)
+  departments <- get_departments(metadata, hospitals)
   if(!is.null(departments))
     ret <- c(ret, list(departments = departments) )
 
@@ -419,6 +487,7 @@ get_hospitals <- function(metadata)
       tibble::tibble() |>
       tidyr::unnest_longer(1) |>
       dplyr::filter(.data$organisationUnits_id == "parent")
+
     if(nrow(hospitals) < 1)
       NULL
     else
@@ -433,12 +502,13 @@ get_hospitals <- function(metadata)
         latitude = "geometry_coordinates_2") |>
       dplyr::select(!"geometry_type") |>
       dplyr::filter(.data$country_code != "NEOIPC") |>
-      dplyr::distinct()
+      dplyr::distinct() |>
+      add_key_column()
   }
 
 }
 
-get_departments <- function(metadata)
+get_departments <- function(metadata, hospitals)
 {
   organisationUnits <- metadata |>
     purrr::pluck("organisationUnits")
@@ -448,11 +518,15 @@ get_departments <- function(metadata)
   else
   {
     t <- organisationUnits |>
-    tibble::tibble() |>
-    tidyr::unnest_wider(1)
+      tibble::tibble() |>
+      tidyr::unnest_wider(1) |>
+      dplyr::mutate(
+        openingDate =  readr::parse_date(
+          stringr::str_sub(.data$openingDate, end = 10)))
+
 
     if("geometry" %in% names(t))
-      t |>
+      t <- t |>
       tidyr::unnest_wider(c("parent", "geometry"), names_sep = "_") |>
       tidyr::unnest_wider("geometry_coordinates", names_sep = "_") |>
       dplyr::select(
@@ -463,11 +537,18 @@ get_departments <- function(metadata)
         longitude = "geometry_coordinates_1",
         latitude = "geometry_coordinates_2")
     else
-      t |>
+      t <- t |>
       tidyr::unnest_wider("parent", names_sep = "_") |>
       dplyr::select(
         !c(
           tidyselect::starts_with("parent_") & !tidyselect::ends_with("_id")))
+
+    t |>
+      dplyr::left_join(hospitals |> dplyr::select("id", "key"),
+                       dplyr::join_by("parent_id" == "id")) |>
+      dplyr::mutate(hospital = .data$key, .keep = "unused") |>
+      dplyr::select(!"parent_id") |>
+      add_key_column()
   }
 }
 
@@ -490,7 +571,17 @@ get_users <- function(metadata)
         "userRoles")) |>
     dplyr::mutate(
       created = readr::parse_datetime(.data$created),
-      lastLogin = readr::parse_datetime(.data$lastLogin))
+      lastLogin = readr::parse_datetime(.data$lastLogin)) |>
+    add_key_column()
+}
+
+add_key_column <- function(table)
+{
+  table |>
+    dplyr::mutate(random = ids::random_id(nrow(table))) |>
+    dplyr::arrange(.data$random) |>
+    dplyr::mutate(key = dplyr::row_number()) |>
+    dplyr::select(!"random")
 }
 
 get_users_orgUnits <- function(metadata)

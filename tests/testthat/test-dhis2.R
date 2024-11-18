@@ -385,7 +385,7 @@ test_that("read_metadata reads hospitals", {
     }
 }')
 
-  expect_equal(metadata$hospitals$code, c("DE_TEST_PARENT", "GR_TEST_PARENT"))
+  expect_equal(metadata$hospitals |> dplyr::arrange(code) |> dplyr::pull(code), c("DE_TEST_PARENT", "GR_TEST_PARENT"))
 })
 
 test_that("read_metadata reads departments", {
@@ -491,7 +491,7 @@ test_that("read_metadata reads departments", {
 }')
 
   expect_equal(
-    metadata$departments$displayName,
+    metadata$departments |> dplyr::arrange(displayName) |> dplyr::pull(displayName),
     c("Test department 1", "Test department 2", "Test department 3",
       "Test department 4"))
 })
