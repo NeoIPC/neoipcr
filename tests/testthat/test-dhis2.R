@@ -13,31 +13,33 @@ generate_programStage <- function(programStageName, programStageElements, dataEl
       programStage <- c(programStage, list(
         programStageDataElements = list(
           list(
-            id = jsonlite::unbox("Lwa9Jp5xSnR"),
-            code = jsonlite::unbox("NEOIPC_ADMISSION_LOS"),
-            valueType = jsonlite::unbox("INTEGER_ZERO_OR_POSITIVE"),
-            displayName = jsonlite::unbox("NeoIPC Admission Length of Stay"),
-            displayShortName = jsonlite::unbox("NeoIPC Adm. LOS"),
-            displayFormName = jsonlite::unbox("Day of occurrence after admission"),
-            displayDescription = jsonlite::unbox("Length of Stay (should always be 0). For Reporting purpose only")),
+            dataElement = list(
+              id = jsonlite::unbox("Lwa9Jp5xSnR"),
+              code = jsonlite::unbox("NEOIPC_ADMISSION_LOS"),
+              valueType = jsonlite::unbox("INTEGER_ZERO_OR_POSITIVE"),
+              displayName = jsonlite::unbox("NeoIPC Admission Length of Stay"),
+              displayShortName = jsonlite::unbox("NeoIPC Adm. LOS"),
+              displayFormName = jsonlite::unbox("Day of occurrence after admission"),
+              displayDescription = jsonlite::unbox("Length of Stay (should always be 0). For Reporting purpose only"))),
           list(
-            id = jsonlite::unbox("rvq4L9wWbwW"),
-            code = jsonlite::unbox("NEOIPC_ADMISSION_DOL"),
-            valueType = jsonlite::unbox("INTEGER_POSITIVE"),
-            displayName = jsonlite::unbox("NeoIPC Admission on day of life"),
-            displayShortName = jsonlite::unbox("NeoIPC Adm. DOL"),
-            displayFormName = jsonlite::unbox("Admission on day of life"),
-            displayDescription = jsonlite::unbox("For infants that have not been delivered in your own hospital, record the infant\'s day of life on the day of admission (day of birth = day of life 1. The next day, starting at 00:00, is the second day of life.)")),
+            dataElement = list(
+              id = jsonlite::unbox("rvq4L9wWbwW"),
+              code = jsonlite::unbox("NEOIPC_ADMISSION_DOL"),
+              valueType = jsonlite::unbox("INTEGER_POSITIVE"),
+              displayName = jsonlite::unbox("NeoIPC Admission on day of life"),
+              displayShortName = jsonlite::unbox("NeoIPC Adm. DOL"),
+              displayFormName = jsonlite::unbox("Admission on day of life"),
+              displayDescription = jsonlite::unbox("For infants that have not been delivered in your own hospital, record the infant\'s day of life on the day of admission (day of birth = day of life 1. The next day, starting at 00:00, is the second day of life.)"))),
           list(
-            id = jsonlite::unbox("AgBqfnnsUzd"),
-            code = jsonlite::unbox("NEOIPC_ADMISSION_TYPE"),
-            valueType = jsonlite::unbox("INTEGER_POSITIVE"),
-            displayName = jsonlite::unbox("NeoIPC Admission type"),
-            displayShortName = jsonlite::unbox("NeoIPC Adm. type"),
-            displayFormName = jsonlite::unbox("Admission type"),
-            displayDescription = jsonlite::unbox("Describes if the infant was born in your hospital or if it was admitted after birth and if so, how long after birth."),
-            optionSet = list(id = jsonlite::unbox("l6HnyhcwF28")))
-        )))
+            dataElement = list(
+              id = jsonlite::unbox("AgBqfnnsUzd"),
+              code = jsonlite::unbox("NEOIPC_ADMISSION_TYPE"),
+              valueType = jsonlite::unbox("INTEGER_POSITIVE"),
+              displayName = jsonlite::unbox("NeoIPC Admission type"),
+              displayShortName = jsonlite::unbox("NeoIPC Adm. type"),
+              displayFormName = jsonlite::unbox("Admission type"),
+              displayDescription = jsonlite::unbox("Describes if the infant was born in your hospital or if it was admitted after birth and if so, how long after birth."),
+              optionSet = list(id = jsonlite::unbox("l6HnyhcwF28")))))))
   }
   else if(programStageName == "Surgical Procedure")
   {
@@ -50,14 +52,14 @@ generate_programStage <- function(programStageName, programStageElements, dataEl
       programStage <- c(programStage, list(
         programStageDataElements = list(
           list(
-            id = jsonlite::unbox("DTZ9HfILgnX"),
-            code = jsonlite::unbox("NEOIPC_SURGERY_EMERGENCY_PROCEDURE"),
-            valueType = jsonlite::unbox("BOOLEAN"),
-            displayName = jsonlite::unbox("NeoIPC Surgery Emergency procedure"),
-            displayShortName = jsonlite::unbox("NeoIPC Surg. Emergency"),
-            displayFormName = jsonlite::unbox("Emergency procedure"),
-            displayDescription = jsonlite::unbox("Yes: A procedure that is documented per the facility’s protocol to be an emergency or urgent procedure. No: The intervention is initiated and performed in a planned manner Unknown: No information available."))
-        )))
+            dataElement = list(
+              id = jsonlite::unbox("DTZ9HfILgnX"),
+              code = jsonlite::unbox("NEOIPC_SURGERY_EMERGENCY_PROCEDURE"),
+              valueType = jsonlite::unbox("BOOLEAN"),
+              displayName = jsonlite::unbox("NeoIPC Surgery Emergency procedure"),
+              displayShortName = jsonlite::unbox("NeoIPC Surg. Emergency"),
+              displayFormName = jsonlite::unbox("Emergency procedure"),
+              displayDescription = jsonlite::unbox("Yes: A procedure that is documented per the facility’s protocol to be an emergency or urgent procedure. No: The intervention is initiated and performed in a planned manner Unknown: No information available."))))))
   }
 
   programStage

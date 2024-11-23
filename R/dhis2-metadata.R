@@ -226,6 +226,7 @@ read_metadata_dataElements <- function(metadata)
     dplyr::select("programStageDataElements") |>
     tidyr::unnest_longer(1) |>
     tidyr::unnest_wider(1) |>
+    tidyr::unnest_wider(1) |>
     tidyr::hoist("optionSet", optionSet = "id", .remove = FALSE)
 }
 
@@ -275,7 +276,7 @@ read_metadata_test_unit_ids <- function(metadata)
 {
   organisationUnitGroups <- read_metadata_organisationUnitGroups(metadata, "TEST_UNITS")
 
-  if(rlang::is_null(organisationUnitGroups))
+  if(rlang::is_null(organisationUnitGroups) || nrow(organisationUnitGroups) < 1)
     return(NULL)
 
   organisationUnitGroups |>
