@@ -26,8 +26,10 @@ get_metadata <- function(d2_req_base, translate, locale)
         `organisationUnitGroups:filter` = "code:in:[COUNTRY,TEST_UNITS]",
         `organisationUnitGroupSets:fields` = "organisationUnitGroups[displayName,displayShortName,displayDescription,organisationUnits[id]]",
         `organisationUnitGroupSets:filter` = "code:eq:NEOIPC_TRIALS",
-        `optionGroupSets:fields` = "optionGroups[code,displayName,displayShortName,displayDescription,options[code,displayName,displayFormName,displayDescription]]",
-        `optionGroupSets:filter` = "code:in:[ATC5,WHO_AWARE]"),
+        `optionGroupSets:fields` = "code,optionGroups[code,displayName,displayShortName,displayDescription,options[id]]",
+        `optionGroupSets:filter` = "code:in:[ATC5,WHO_AWARE]",
+        `options:fields` = "id,code,displayName,displayFormName,displayDescription",
+        `options:filter` = "optionSet.code:eq:NEOIPC_ANTIMICROBIAL_SUBSTANCES"),
 
     # We try to read the complete user information via the metadata endpoint
     # so that we can audit who added/changed what.
