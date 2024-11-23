@@ -1,4 +1,5 @@
 #' @importFrom rlang .data
+#' @export
 import_dhis2 <- function(connection_options = dhis2_connection_options(), translate = TRUE, locale = NULL, include_deleted = FALSE)
 {
   d2req_base <- dhis2_request(connection_options)
@@ -53,6 +54,27 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
     metadata = metadata))
 }
 
+
+#' @export
+dhis2_connection_options <- function(
+    token, username, password = NULL, scheme = "https",
+    hostname = "neoipc.charite.de", port = NULL, path = "/api")
+{
+  ret <- list(
+    base_url = httr2::url_build(
+      list(scheme = scheme, hostname = hostname, port = port, path = path)))
+
+  switch(
+    rlang::check_exclusive(token, username, .require = FALSE),
+    token = c(ret, list(token = read_token(token))),
+    username = c(ret, list(username = username, password = password)),
+    c(ret, list(
+      username = askpass::askpass(
+        prompt = sprintf(
+          "Please enter your username for %s: ", ret$base_url)),
+      password = password))
+  )
+}
 
 read_eventData <- function(
     events,
@@ -286,15 +308,21 @@ read_patients <- function(trackedEntities, metadata)
       "NEOIPC_TEA_SIBLINGS",
       "NEOIPC_TEA_BIRTH_WEIGHT")), as.integer))|>
     dplyr::left_join(
-      metadata$users |>
+      metadata[["users"]] |>
         dplyr::select("username", "key"),
       dplyr::join_by("createdBy" == "username")) |>
     dplyr::mutate(createdBy = .data$key, .keep = "unused") |>
     dplyr::left_join(
-      metadata$users |>
+      metadata[["users"]] |>
         dplyr::select("username", "key"),
       dplyr::join_by("updatedBy" == "username")) |>
     dplyr::mutate(updatedBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata[["departments"]] |>
+        dplyr::select("id", "key"),
+      dplyr::join_by("orgUnit" == "id")) |>
+    dplyr::mutate(department = .data$key, .keep = "unused") |>
+    dplyr::select(!"orgUnit") |>
     add_key_column()
 
   if("NEOIPC_TEA_SIBLINGS" %in% names(patients))
@@ -379,26 +407,6 @@ get_users_roles <- function(metadata)
     dplyr::select(c("id","userRoles")) |>
     tidyr::unnest_longer(2) |>
     tidyr::unnest_wider(2, names_sep = "_")
-}
-
-dhis2_connection_options <- function(
-    token, username, password = NULL, scheme = "https",
-    hostname = "neoipc.charite.de", port = NULL, path = "/api")
-{
-  ret <- list(
-    base_url = httr2::url_build(
-      list(scheme = scheme, hostname = hostname, port = port, path = path)))
-
-  switch(
-    rlang::check_exclusive(token, username, .require = FALSE),
-    token = c(ret, list(token = read_token(token))),
-    username = c(ret, list(username = username, password = password)),
-    c(ret, list(
-      username = askpass::askpass(
-        prompt = sprintf(
-          "Please enter your username for %s: ", ret$base_url)),
-      password = password))
-  )
 }
 
 read_token <- function(token)
