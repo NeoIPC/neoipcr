@@ -26,9 +26,9 @@ get_metadata <- function(d2_req_base, translate, locale)
         `organisationUnitGroups:filter` = "code:in:[COUNTRY,TEST_UNITS]",
         `organisationUnitGroupSets:fields` = "organisationUnitGroups[displayName,displayShortName,displayDescription,organisationUnits[id]]",
         `organisationUnitGroupSets:filter` = "code:eq:NEOIPC_TRIALS",
-        `optionGroupSets:fields` = "code,optionGroups[code,displayName,displayShortName,displayDescription,options[id]]",
+        `optionGroupSets:fields` = "code,optionGroups[code,displayName,displayShortName,displayDescription,options[code]]",
         `optionGroupSets:filter` = "code:in:[ATC5,WHO_AWARE]",
-        `options:fields` = "id,code,displayName,displayFormName,displayDescription",
+        `options:fields` = "code,displayName,displayFormName,displayDescription",
         `options:filter` = "optionSet.code:eq:NEOIPC_ANTIMICROBIAL_SUBSTANCES"),
 
     # We try to read the complete user information via the metadata endpoint
@@ -128,7 +128,11 @@ read_metadata <- function(metadata)
     programId = read_metadata_program_id(metadata),
     programStages = read_metadata_programStages(metadata),
     dataElements = read_metadata_dataElements(metadata),
-    trackedEntityAttributes = read_metadata_trackedEntityAttributes(metadata))
+    trackedEntityAttributes = read_metadata_trackedEntityAttributes(metadata),
+    antimicrobialSubstances = read_metadata_AntimicrobialSubstances(metadata))
+
+
+  #awareCategories = read_metadata_AWaReCategories(metadata)
 
   countries <- read_metadata_countries(metadata)
   if(!rlang::is_null(countries))
@@ -285,6 +289,58 @@ read_metadata_test_unit_ids <- function(metadata)
     dplyr::select("organisationUnits") |>
     tidyr::unnest_longer(1) |>
     tidyr::unnest_wider(1)
+}
+
+read_metadata_AntimicrobialSubstances <- function(metadata)
+{
+  optionGroupSets <- metadata |>
+    purrr::pluck("optionGroupSets")
+
+  if(rlang::is_null(optionGroupSets))
+    rlang::abort("Invalid DHIS2 metadata. The optionGroupSets list is missing.", "neoipcr_metadata_optionGroupSets_missing")
+
+  optionGroupSets <- optionGroupSets |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    dplyr::rename(system = .data$code) |>
+    tidyr::unnest_longer(2) |>
+    tidyr::unnest_wider(2) |>
+    dplyr::rename(group = .data$code) |>
+    dplyr::select(c("system", "group", "options")) |>
+    tidyr::unnest_longer("options") |>
+    tidyr::hoist("options", code = "code")
+
+  options <- metadata |>
+    purrr::pluck("options")
+
+  if(rlang::is_null(options))
+    rlang::abort("Invalid DHIS2 metadata. The options list is missing.", "neoipcr_metadata_options_missing")
+
+  options |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    dplyr::left_join(optionGroupSets, dplyr::join_by("code")) |>
+    tidyr::pivot_wider(names_from = "system", values_from = "group") |>
+    dplyr::mutate(WHO_AWARE = stringr::str_sub(.data$WHO_AWARE, start = 11))
+}
+
+read_metadata_AWaReCategories <- function(metadata)
+{
+  aware <- metadata |>
+    purrr::pluck("optionGroupSets") |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    dplyr::filter(.data$code == "WHO_AWARE") |>
+    dplyr::select(2) |>
+    tidyr::unnest_longer(2) |>
+    tidyr::unnest_wider(2)
+
+  awareCategories <- aware |>
+    dplyr::select(c("code", "options")) |>
+    tidyr::unnest_longer("options") |>
+    tidyr::hoist("options", options = "code", .remove = FALSE)
+
+  optionGroupSets
 }
 
 read_organisationUnits_hospitals <- function(organisationUnits)
