@@ -74,6 +74,8 @@ dhis2_connection_options <- function(
           "Please enter your username for %s: ", ret$base_url)),
       password = password))
   )
+
+  ret
 }
 
 read_eventData <- function(
