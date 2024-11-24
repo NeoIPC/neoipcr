@@ -125,24 +125,26 @@ generate_system <- function()
 
 generate_organisationUnitGroups <- function(countries, testUnits)
 {
-  organisationUnitGroups <- list()
+  organisationUnitGroups <- NULL
 
   if(countries)
-    organisationUnitGroups <- list(
+    organisationUnitGroups <- list(list(
       code = jsonlite::unbox("COUNTRY"),
       organisationUnits = list(
         list(
+          id = jsonlite::unbox("P3M2xL6Gtbs"),
           code = jsonlite::unbox("CH"),
           displayName = jsonlite::unbox("Switzerland"),
           displayShortName = jsonlite::unbox("Switzerland")
         ),
         list(
+          id = jsonlite::unbox("TS5pOUJsdoa"),
           code = jsonlite::unbox("DE"),
           displayName = jsonlite::unbox("Germany"),
-          displayShortName = jsonlite::unbox("Germany"))))
+          displayShortName = jsonlite::unbox("Germany")))))
 
   if(testUnits)
-    organisationUnitGroups <- c(organisationUnitGroups, list(
+    organisationUnitGroups <- c(organisationUnitGroups, list(list(
       code = jsonlite::unbox("TEST_UNITS"),
       organisationUnits = list(
         list(
@@ -155,15 +157,157 @@ generate_organisationUnitGroups <- function(countries, testUnits)
           id = jsonlite::unbox("hzte6b3Z8Zd"),
           code = jsonlite::unbox("TEST_02"),
           displayName = jsonlite::unbox("Test unit 02"),
-          displayShortName = jsonlite::unbox("Test 02")))))
+          displayShortName = jsonlite::unbox("Test 02"))))))
 
   organisationUnitGroups
+}
+
+generate_optionGroupSets <- function(awareCategories, atc5Categories)
+{
+  optionGroupSets <- NULL
+
+  if(awareCategories)
+    optionGroupSets <- list(list(
+      code = jsonlite::unbox("WHO_AWARE"),
+      optionGroups = list(
+        list(
+          code = jsonlite::unbox("WHO_AWARE_ACCESS"),
+          displayName = jsonlite::unbox("AWaRe Access"),
+          displayShortName = jsonlite::unbox("AWaRe A"),
+          displayDescription = jsonlite::unbox("Access antibiotics that have a narrow spectrum of activity and a good safety profile in terms of side-effects."),
+          options = list(
+            list(code = jsonlite::unbox("J01CA04")),
+            list(code = jsonlite::unbox("J01CA15"))
+          )),
+        list(
+          code = jsonlite::unbox("WHO_AWARE_RESERVE"),
+          displayName = jsonlite::unbox("AWaRe Reserve"),
+          displayShortName = jsonlite::unbox("AWaRe R"),
+          displayDescription = jsonlite::unbox("Reserve antibiotics that are last-choice antibiotics used to treat multidrug-resistant infections."),
+          options = list(
+            list(code = jsonlite::unbox("J01DI03")),
+            list(code = jsonlite::unbox("J01XA03"))
+          )),
+        list(
+          code = jsonlite::unbox("WHO_AWARE_WATCH"),
+          displayName = jsonlite::unbox("AWaRe Watch"),
+          displayShortName = jsonlite::unbox("AWaRe W"),
+          displayDescription = jsonlite::unbox("Watch antibiotics that are broader-spectrum antibiotics and are recommended as first-choice options for patients with more severe clinical presentations or for infections where the causative pathogens are more likely to be resistant to Access antibiotics."),
+          options = list(
+            list(code = jsonlite::unbox("J01XA02")),
+            list(code = jsonlite::unbox("J01MA09"))
+          ))
+        )))
+
+  if(atc5Categories)
+    optionGroupSets <- c(optionGroupSets, list(list(
+      code = jsonlite::unbox("ATC5"),
+      optionGroups = list(
+        list(
+          code = jsonlite::unbox("J01CF"),
+          displayName = jsonlite::unbox("Beta-lactamase resistant penicillins"),
+          displayShortName = jsonlite::unbox("Beta-lactamase resistant penicillins"),
+          options = list(
+            list(code = jsonlite::unbox("J01CF04")),
+            list(code = jsonlite::unbox("J01CF01"))
+          )),
+        list(
+          code = jsonlite::unbox("J01DH"),
+          displayName = jsonlite::unbox("Carbapenems"),
+          displayShortName = jsonlite::unbox("Carbapenems"),
+          options = list(
+            list(code = jsonlite::unbox("J01DH02")),
+            list(code = jsonlite::unbox("J01DH56"))
+          )),
+        list(
+          code = jsonlite::unbox("J01CR"),
+          displayName = jsonlite::unbox("Combinations of penicillins, incl. beta-lactamase inhibitors"),
+          displayShortName = jsonlite::unbox("Penicillins + beta-lactamase inhibitors"),
+          displayDescription = jsonlite::unbox("This group comprises combinations of penicillins and/or beta-lactamase inhibitors. Combinations containing one penicillin and enzyme inhibitor are classified at different 5th levels according to the penicillin."),
+          options = list(
+            list(code = jsonlite::unbox("J01CR02")),
+            list(code = jsonlite::unbox("J01CR05"))
+          ))
+      ))))
+
+  optionGroupSets
+}
+
+generate_options <- function()
+{
+  list(
+    list(
+      code = jsonlite::unbox("J01CA04"),
+      displayName = jsonlite::unbox("Amoxicillin"),
+      displayFormName = jsonlite::unbox("Amoxicillin")
+    ),
+    list(
+      code = jsonlite::unbox("J01CA15"),
+      displayName = jsonlite::unbox("Talampicillin"),
+      displayFormName = jsonlite::unbox("Talampicillin")
+    ),
+    list(
+      code = jsonlite::unbox("J01DI03"),
+      displayName = jsonlite::unbox("Faropenem"),
+      displayFormName = jsonlite::unbox("Faropenem")
+    ),
+    list(
+      code = jsonlite::unbox("J01XA03"),
+      displayName = jsonlite::unbox("Telavancin"),
+      displayFormName = jsonlite::unbox("Telavancin")
+    ),
+    list(
+      code = jsonlite::unbox("J01XA02"),
+      displayName = jsonlite::unbox("Teicoplanin"),
+      displayFormName = jsonlite::unbox("Teicoplanin")
+    ),
+    list(
+      code = jsonlite::unbox("J01MA09"),
+      displayName = jsonlite::unbox("Sparfloxacin"),
+      displayFormName = jsonlite::unbox("Sparfloxacin")
+    ),
+    list(
+      code = jsonlite::unbox("J01CF04"),
+      displayName = jsonlite::unbox("Oxacillin"),
+      displayFormName = jsonlite::unbox("Oxacillin")
+    ),
+    list(
+      code = jsonlite::unbox("J01CF01"),
+      displayName = jsonlite::unbox("Dicloxacillin"),
+      displayFormName = jsonlite::unbox("Dicloxacillin")
+    ),
+    list(
+      code = jsonlite::unbox("J01DH02"),
+      displayName = jsonlite::unbox("Meropenem"),
+      displayFormName = jsonlite::unbox("Meropenem")
+    ),
+    list(
+      code = jsonlite::unbox("J01DH56"),
+      displayName = jsonlite::unbox("Imipenem/Cilastatin/Relebactam"),
+      displayFormName = jsonlite::unbox("Imipenem/Cilastatin/Relebactam")
+    ),
+    list(
+      code = jsonlite::unbox("J01CR02"),
+      displayName = jsonlite::unbox("Amoxicillin/Clavulanic-acid"),
+      displayFormName = jsonlite::unbox("Amoxicillin/Clavulanic-acid")
+    ),
+    list(
+      code = jsonlite::unbox("J01CR05"),
+      displayName = jsonlite::unbox("Piperacillin/Tazobactam"),
+      displayFormName = jsonlite::unbox("Piperacillin/Tazobactam")
+    ),
+    list(
+      code = jsonlite::unbox("J01MA17"),
+      displayName = jsonlite::unbox("Prulifloxacin"),
+      displayFormName = jsonlite::unbox("Prulifloxacin"))
+  )
 }
 
 generate_metadata <- function(system, programId,
                               programStages, dataElements,
                               trackedEntityAttributes, countries,
-                              testUnits)
+                              testUnits, awareCategories,
+                              atc5Categories, antimicrobials)
 {
   metadata <- list()
 
@@ -174,7 +318,13 @@ generate_metadata <- function(system, programId,
     metadata <- c(metadata, list(programs = list(generate_program(programId, programStages, dataElements, trackedEntityAttributes))))
 
   if(countries || testUnits)
-    metadata <- c(metadata, list(organisationUnitGroups = list(generate_organisationUnitGroups(countries, testUnits))))
+    metadata <- c(metadata, list(organisationUnitGroups = generate_organisationUnitGroups(countries, testUnits)))
+
+  if(awareCategories || atc5Categories)
+    metadata <- c(metadata, list(optionGroupSets = generate_optionGroupSets(awareCategories, atc5Categories)))
+
+  if(antimicrobials)
+    metadata <- c(metadata, list(options = generate_options()))
 
   jsonlite::toJSON(metadata)
 }
@@ -182,12 +332,14 @@ generate_metadata <- function(system, programId,
 rmd <- function(add_system = TRUE, add_programId = TRUE,
                 add_programStages = TRUE, add_dataElements = TRUE,
                 add_trackedEntityAttributes = TRUE, add_Countries = TRUE,
-                add_testUnits = TRUE)
+                add_testUnits = TRUE, add_awareCategories = TRUE,
+                add_atc5Categories = TRUE, add_antimicrobials = TRUE)
 {
   json_text <- generate_metadata(add_system, add_programId,
                                  add_programStages, add_dataElements,
                                  add_trackedEntityAttributes, add_Countries,
-                                 add_testUnits)
+                                 add_testUnits, add_awareCategories,
+                                 add_atc5Categories, add_antimicrobials)
 
   #browser()
   metadata <- jsonlite::fromJSON(json_text, simplifyVector = FALSE)
@@ -290,7 +442,7 @@ test_that("read_metadata reads data", {
   expect_equal(metadata$trackedEntityAttributes$optionSet, c(NA, "R2yCnsqxamL"))
 
   # countries
-  expect_equal(metadata$countries$code, c("CH", "DE"))
+  expect_equal(metadata$countries$code, ordered(c("CH", "DE")))
 })
 
 

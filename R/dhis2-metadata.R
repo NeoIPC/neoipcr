@@ -60,10 +60,25 @@ get_metadata <- function(d2_req_base, translate, locale)
 }
 
 read_metadata_reponses <- function(resps)
-  resps |>
+{
+  metadata <- resps |>
     filter_metadata_reponses() |>
     lapply(read_metadata_reponse) |>
     unlist(recursive = FALSE)
+
+  # Make the country_code column a factor but make sure it contains all
+  # potential values
+  metadata[["hospitals"]] <- metadata[["hospitals"]] |>
+    dplyr::left_join(
+      metadata[["countries"]] |>
+        dplyr::select("code") |>
+        dplyr::rename(zzz = .data$code),
+      dplyr::join_by("country_code" == "zzz"),
+      keep = TRUE) |>
+    dplyr::mutate(country_code = .data$zzz, .keep = "unused")
+
+  metadata
+}
 
 filter_metadata_reponses <- function(resps)
 {
@@ -129,10 +144,9 @@ read_metadata <- function(metadata)
     programStages = read_metadata_programStages(metadata),
     dataElements = read_metadata_dataElements(metadata),
     trackedEntityAttributes = read_metadata_trackedEntityAttributes(metadata),
-    antimicrobialSubstances = read_metadata_AntimicrobialSubstances(metadata))
-
-
-  #awareCategories = read_metadata_AWaReCategories(metadata)
+    antimicrobialSubstances = read_metadata_AntimicrobialSubstances(metadata),
+    awareCategories = read_metadata_AWaReCategories(metadata),
+    atc5Categories = read_metadata_atc5Categories(metadata))
 
   countries <- read_metadata_countries(metadata)
   if(!rlang::is_null(countries))
@@ -275,7 +289,8 @@ read_metadata_countries <- function(metadata)
   organisationUnitGroups |>
     dplyr::select("organisationUnits") |>
     tidyr::unnest_longer(1) |>
-    tidyr::unnest_wider(1)
+    tidyr::unnest_wider(1) |>
+    dplyr::mutate(dplyr::across(!"id", ordered))
 }
 
 read_metadata_test_unit_ids <- function(metadata)
@@ -302,10 +317,10 @@ read_metadata_AntimicrobialSubstances <- function(metadata)
   optionGroupSets <- optionGroupSets |>
     tibble::tibble() |>
     tidyr::unnest_wider(1) |>
-    dplyr::rename(system = .data$code) |>
+    dplyr::rename(system = "code") |>
     tidyr::unnest_longer(2) |>
     tidyr::unnest_wider(2) |>
-    dplyr::rename(group = .data$code) |>
+    dplyr::rename(group = "code") |>
     dplyr::select(c("system", "group", "options")) |>
     tidyr::unnest_longer("options") |>
     tidyr::hoist("options", code = "code")
@@ -321,26 +336,80 @@ read_metadata_AntimicrobialSubstances <- function(metadata)
     tidyr::unnest_wider(1) |>
     dplyr::left_join(optionGroupSets, dplyr::join_by("code")) |>
     tidyr::pivot_wider(names_from = "system", values_from = "group") |>
-    dplyr::mutate(WHO_AWARE = stringr::str_sub(.data$WHO_AWARE, start = 11))
+    dplyr::mutate(
+      WHO_AWARE = ordered(
+        stringr::str_sub(.data$WHO_AWARE, start = 11),
+        levels = c("ACCESS","WATCH","RESERVE"))) |>
+    dplyr::mutate(dplyr::across(tidyselect::where(rlang::is_character), ordered))
+}
+
+read_metadata_optionGroupSets <- function(metadata, filter)
+{
+  optionGroupSets <- metadata |>
+    purrr::pluck("optionGroupSets")
+
+  if(rlang::is_null(optionGroupSets))
+    rlang::abort("Invalid DHIS2 metadata. The optionGroupSets list is missing.", "neoipcr_metadata_optionGroupSets_missing")
+
+  filtered <- optionGroupSets |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    dplyr::filter(.data$code == filter)
+
+  if(nrow(filtered) < 1)
+    rlang::abort(sprintf("Invalid DHIS2 metadata. The optionGroupSets list does not contain elements with code %s.", filter), "neoipcr_metadata_optionGroupSets_code_missing")
+
+  filtered |>
+    dplyr::select(2) |>
+    tidyr::unnest_longer(1) |>
+    tidyr::unnest_wider(1) |>
+    dplyr::select(!"options")
+}
+
+read_metadata_atc5Categories <- function(metadata)
+{
+  atc5 <- read_metadata_optionGroupSets(metadata, "ATC5") |>
+    dplyr::mutate(
+      code = ordered(.data$code)) |>
+    dplyr::arrange(.data$code)
+
+  # We want the levels of the other factors to be ordered like the code
+  shortNameLevels = atc5 |>
+    dplyr::distinct(.data$displayShortName) |>
+    dplyr::pull("displayShortName")
+
+  nameLevels = atc5 |>
+    dplyr::distinct(.data$displayName) |>
+    dplyr::pull("displayName")
+
+  atc5 |>
+    dplyr::mutate(
+      displayShortName = ordered(.data$displayShortName, levels = shortNameLevels),
+      displayName = ordered(.data$displayName, levels = nameLevels))
 }
 
 read_metadata_AWaReCategories <- function(metadata)
 {
-  aware <- metadata |>
-    purrr::pluck("optionGroupSets") |>
-    tibble::tibble() |>
-    tidyr::unnest_wider(1) |>
-    dplyr::filter(.data$code == "WHO_AWARE") |>
-    dplyr::select(2) |>
-    tidyr::unnest_longer(2) |>
-    tidyr::unnest_wider(2)
+  aware <- read_metadata_optionGroupSets(metadata, "WHO_AWARE") |>
+    dplyr::mutate(
+      code = ordered(stringr::str_sub(.data$code, start = 11), levels = c("ACCESS","WATCH","RESERVE")),
+      displayShortName = stringr::str_sub(.data$displayShortName, start = 7),
+      displayName = stringr::str_sub(.data$displayName, start = 7)) |>
+    dplyr::arrange(.data$code)
 
-  awareCategories <- aware |>
-    dplyr::select(c("code", "options")) |>
-    tidyr::unnest_longer("options") |>
-    tidyr::hoist("options", options = "code", .remove = FALSE)
+  # We want the levels of the other factors to be ordered ACCESS < WATCH < RESERVE
+  shortNameLevels = aware |>
+    dplyr::distinct(.data$displayShortName) |>
+    dplyr::pull("displayShortName")
 
-  optionGroupSets
+  nameLevels = aware |>
+    dplyr::distinct(.data$displayName) |>
+    dplyr::pull("displayName")
+
+  aware |>
+    dplyr::mutate(
+      displayShortName = ordered(.data$displayShortName, levels = shortNameLevels),
+      displayName = ordered(.data$displayName, levels = nameLevels))
 }
 
 read_organisationUnits_hospitals <- function(organisationUnits)
