@@ -43,12 +43,16 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
     httr2::req_perform_parallel() |>
     httr2::resps_data(function(resp) list(httr2::resp_body_json(resp) |> tibble::tibble() |> tidyr::unnest_longer(1) |> tidyr::unnest_wider(1)))
 
+  trackedEntities <- data[[1]]
   enrollments <- data[[2]]
   events <- data[[3]]
 
+  patients = read_patients(trackedEntities, metadata)
+  enrollments = read_enrollments(enrollments, events, metadata, patients)
+
   c(data, list(
-    patients = read_patients(data[[1]], metadata),
-    enrollments = read_enrollments(enrollments, events, metadata),
+    patients = patients,
+    enrollments = enrollments,
     surgeries = read_surgeries(events),
     infections = read_infections(events),
     metadata = metadata))
@@ -167,7 +171,7 @@ read_infections <- function(events)
 {
 }
 
-read_enrollments <- function(enrollments, events, metadata)
+read_enrollments <- function(enrollments, events, metadata, patients)
 {
   admissions <- read_eventData(events, metadata, "Admission", "admission_")
 
@@ -221,6 +225,12 @@ read_enrollments <- function(enrollments, events, metadata)
       dplyr::join_by("enrollment_updatedBy" == "username")) |>
     dplyr::mutate(enrollment_updatedBy = .data$key, .keep = "unused") |>
     dplyr::left_join(
+      metadata[["departments"]] |>
+        dplyr::select("id", "key"),
+      dplyr::join_by("enrollment_orgUnit" == "id")) |>
+    dplyr::mutate(enrollment_orgUnit = .data$key, .keep = "unused") |>
+    dplyr::rename(enrollment_department = .data$enrollment_orgUnit) |>
+    dplyr::left_join(
       metadata$users |>
         dplyr::select("username", "key"),
       dplyr::join_by("admission_storedBy" == "username")) |>
@@ -236,6 +246,12 @@ read_enrollments <- function(enrollments, events, metadata)
       dplyr::join_by("admission_updatedBy" == "username")) |>
     dplyr::mutate(admission_updatedBy = .data$key, .keep = "unused") |>
     dplyr::left_join(
+      metadata[["departments"]] |>
+        dplyr::select("id", "key"),
+      dplyr::join_by("admission_orgUnit" == "id")) |>
+    dplyr::mutate(admission_orgUnit = .data$key, .keep = "unused") |>
+    dplyr::rename(admission_department = .data$admission_orgUnit) |>
+    dplyr::left_join(
       metadata$users |>
         dplyr::select("username", "key"),
       dplyr::join_by("surveillanceEnd_storedBy" == "username")) |>
@@ -249,7 +265,22 @@ read_enrollments <- function(enrollments, events, metadata)
       metadata$users |>
         dplyr::select("username", "key"),
       dplyr::join_by("surveillanceEnd_updatedBy" == "username")) |>
-    dplyr::mutate(surveillanceEnd_updatedBy = .data$key, .keep = "unused")
+    dplyr::mutate(surveillanceEnd_updatedBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata[["departments"]] |>
+        dplyr::select("id", "key"),
+      dplyr::join_by("surveillanceEnd_orgUnit" == "id")) |>
+    dplyr::mutate(surveillanceEnd_orgUnit = .data$key, .keep = "unused") |>
+    dplyr::rename(surveillanceEnd_department = .data$surveillanceEnd_orgUnit) |>
+    dplyr::inner_join(
+      patients |>
+        dplyr::select("trackedEntity", "key"),
+      dplyr::join_by("trackedEntity")) |>
+    dplyr::mutate(patient = .data$key, .keep = "unused") |>
+    dplyr::relocate("patient", .after = "enrollment") |>
+    dplyr::select(!"trackedEntity") |>
+    add_key_column()
+
 }
 
 process_notes <- function(notes)
