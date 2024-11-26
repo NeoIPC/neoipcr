@@ -24,7 +24,7 @@ get_metadata <- function(d2_req_base, translate, locale)
         `programs:filter` = "code:eq:NEOIPC_CORE",
         `organisationUnitGroups:fields` = "code,organisationUnits[id,code,displayName,displayShortName,displayDescription]",
         `organisationUnitGroups:filter` = "code:in:[COUNTRY,TEST_UNITS]",
-        `organisationUnitGroupSets:fields` = "organisationUnitGroups[displayName,displayShortName,displayDescription,organisationUnits[id]]",
+        `organisationUnitGroupSets:fields` = "organisationUnitGroups[code,displayName,displayShortName,displayDescription,organisationUnits[id]]",
         `organisationUnitGroupSets:filter` = "code:eq:NEOIPC_TRIALS",
         `optionGroupSets:fields` = "code,optionGroups[code,displayName,displayShortName,displayDescription,options[code]]",
         `optionGroupSets:filter` = "code:in:[ATC5,WHO_AWARE]",
@@ -76,6 +76,12 @@ read_metadata_reponses <- function(resps)
       dplyr::join_by("country_code" == "zzz"),
       keep = TRUE) |>
     dplyr::mutate(country_code = .data$zzz, .keep = "unused")
+
+  metadata$departments <- metadata$departments |>
+    dplyr::mutate(
+      isTestUnit = .data$id %in% metadata$testUnitIds)
+
+  metadata$testUnitIds <- NULL
 
   metadata
 }
@@ -146,7 +152,9 @@ read_metadata <- function(metadata)
     trackedEntityAttributes = read_metadata_trackedEntityAttributes(metadata),
     antimicrobialSubstances = read_metadata_AntimicrobialSubstances(metadata),
     awareCategories = read_metadata_AWaReCategories(metadata),
-    atc5Categories = read_metadata_atc5Categories(metadata))
+    atc5Categories = read_metadata_atc5Categories(metadata),
+    testUnitIds = read_metadata_test_unit_ids(metadata),
+    trials = read_metadata_trials(metadata))
 
   countries <- read_metadata_countries(metadata)
   if(!rlang::is_null(countries))
@@ -303,6 +311,20 @@ read_metadata_test_unit_ids <- function(metadata)
   organisationUnitGroups |>
     dplyr::select("organisationUnits") |>
     tidyr::unnest_longer(1) |>
+    tidyr::unnest_wider(1) |>
+    dplyr::pull("id")
+}
+
+read_metadata_trials <- function(metadata)
+{
+  organisationUnitGroups <- metadata |>
+    purrr::pluck("organisationUnitGroupSets", 1, "organisationUnitGroups")
+
+  if(rlang::is_null(organisationUnitGroups))
+    return(NULL)
+
+  organisationUnitGroups |>
+    tibble::tibble() |>
     tidyr::unnest_wider(1)
 }
 
