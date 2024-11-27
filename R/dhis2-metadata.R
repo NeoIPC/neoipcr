@@ -28,8 +28,8 @@ get_metadata <- function(d2_req_base, translate, locale)
         `organisationUnitGroupSets:filter` = "code:eq:NEOIPC_TRIALS",
         `optionGroupSets:fields` = "code,optionGroups[code,displayName,displayShortName,displayDescription,options[code]]",
         `optionGroupSets:filter` = "code:in:[ATC5,WHO_AWARE]",
-        `options:fields` = "code,displayName,displayFormName,displayDescription",
-        `options:filter` = "optionSet.code:eq:NEOIPC_ANTIMICROBIAL_SUBSTANCES"),
+        `options:fields` = "code,displayName,displayFormName,displayDescription,optionSet[code]",
+        `options:filter` = "optionSet.code:in:[NEOIPC_ASA_SCORE,NEOIPC_ADMISSION_TYPES,NEOIPC_ANTIMICROBIAL_SUBSTANCES,NEOIPC_BSI_DEVICE_ASS,NEOIPC_BSI_PATHOGEN_RECOVERED_FROM,NEOIPC_DELIVERY_MODES]"),
 
     # We try to read the complete user information via the metadata endpoint
     # so that we can audit who added/changed what.
@@ -154,7 +154,8 @@ read_metadata <- function(metadata)
     awareCategories = read_metadata_AWaReCategories(metadata),
     atc5Categories = read_metadata_atc5Categories(metadata),
     testUnitIds = read_metadata_test_unit_ids(metadata),
-    trials = read_metadata_trials(metadata))
+    trials = read_metadata_trials(metadata),
+    deliveryModes = read_metadata_deliveryModes(metadata))
 
   countries <- read_metadata_countries(metadata)
   if(!rlang::is_null(countries))
@@ -328,6 +329,22 @@ read_metadata_trials <- function(metadata)
     tidyr::unnest_wider(1)
 }
 
+read_metadata_options <- function(metadata, filter)
+{
+  options <- metadata |>
+    purrr::pluck("options")
+
+  if(rlang::is_null(options))
+    rlang::abort("Invalid DHIS2 metadata. The options list is missing.", "neoipcr_metadata_options_missing")
+
+  options |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    tidyr::unnest_wider("optionSet", names_sep = "_") |>
+    dplyr::filter(.data$optionSet_code == filter) |>
+    dplyr::select(!"optionSet_code")
+}
+
 read_metadata_AntimicrobialSubstances <- function(metadata)
 {
   optionGroupSets <- metadata |>
@@ -347,15 +364,7 @@ read_metadata_AntimicrobialSubstances <- function(metadata)
     tidyr::unnest_longer("options") |>
     tidyr::hoist("options", code = "code")
 
-  options <- metadata |>
-    purrr::pluck("options")
-
-  if(rlang::is_null(options))
-    rlang::abort("Invalid DHIS2 metadata. The options list is missing.", "neoipcr_metadata_options_missing")
-
-  options |>
-    tibble::tibble() |>
-    tidyr::unnest_wider(1) |>
+  read_metadata_options(metadata, "NEOIPC_ANTIMICROBIAL_SUBSTANCES") |>
     dplyr::left_join(optionGroupSets, dplyr::join_by("code")) |>
     tidyr::pivot_wider(names_from = "system", values_from = "group") |>
     dplyr::mutate(
@@ -364,6 +373,15 @@ read_metadata_AntimicrobialSubstances <- function(metadata)
         levels = c("ACCESS","WATCH","RESERVE"))) |>
     dplyr::mutate(dplyr::across(tidyselect::where(rlang::is_character), ordered))
 }
+
+read_metadata_deliveryModes <- function(metadata)
+  read_metadata_options(metadata, "NEOIPC_DELIVERY_MODES") |>
+  dplyr::arrange(.data$code) |>
+  dplyr::mutate(
+    code = ordered(.data$code),
+    displayName = ordered(.data$displayName, levels = .data$displayName),
+    displayFormName = ordered(.data$displayFormName, levels = .data$displayFormName)
+  )
 
 read_metadata_optionGroupSets <- function(metadata, filter)
 {
