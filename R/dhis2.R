@@ -333,8 +333,10 @@ read_patients <- function(trackedEntities, metadata)
       "inactive",
       "potentialDuplicate",
       "NEOIPC_TEA_MULTIPLE_BIRTH")), as.logical)) |>
+    dplyr::mutate(
+      NEOIPC_TEA_DELIVERY_MODE = factor(
+        .data$NEOIPC_TEA_DELIVERY_MODE)) |>
     dplyr::mutate(dplyr::across(tidyselect::any_of(c(
-      "NEOIPC_TEA_DELIVERY_MODE",
       "NeoIPC_TEA_TOTAL_GESTATION_DAYS",
       "NEOIPC_TEA_SIBLINGS",
       "NEOIPC_TEA_BIRTH_WEIGHT")), as.integer))|>
