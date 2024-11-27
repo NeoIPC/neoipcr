@@ -378,9 +378,9 @@ read_metadata_deliveryModes <- function(metadata)
   read_metadata_options(metadata, "NEOIPC_DELIVERY_MODES") |>
   dplyr::arrange(.data$code) |>
   dplyr::mutate(
-    code = ordered(.data$code),
-    displayName = ordered(.data$displayName, levels = .data$displayName),
-    displayFormName = ordered(.data$displayFormName, levels = .data$displayFormName)
+    code =  factor(.data$code, levels = unique(.data$code)),
+    displayName = factor(.data$displayName, levels = unique(.data$displayName)),
+    displayFormName = factor(.data$displayFormName, levels = unique(.data$displayFormName))
   )
 
 read_metadata_optionGroupSets <- function(metadata, filter)
