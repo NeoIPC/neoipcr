@@ -29,7 +29,7 @@ get_metadata <- function(d2_req_base, translate, locale)
         `optionGroupSets:fields` = "code,optionGroups[code,displayName,displayShortName,displayDescription,options[code]]",
         `optionGroupSets:filter` = "code:in:[ATC5,WHO_AWARE]",
         `options:fields` = "code,displayName,displayFormName,displayDescription,optionSet[code]",
-        `options:filter` = "optionSet.code:in:[NEOIPC_ASA_SCORE,NEOIPC_ADMISSION_TYPES,NEOIPC_ANTIMICROBIAL_SUBSTANCES,NEOIPC_BSI_DEVICE_ASS,NEOIPC_BSI_PATHOGEN_RECOVERED_FROM,NEOIPC_DELIVERY_MODES]"),
+        `options:filter` = "optionSet.code:in:[NEOIPC_ASA_SCORE,NEOIPC_ADMISSION_TYPES,NEOIPC_ANTIMICROBIAL_SUBSTANCES,NEOIPC_BSI_DEVICE_ASS,NEOIPC_BSI_PATHOGEN_RECOVERED_FROM,NEOIPC_DELIVERY_MODES,NEOIPC_HAP_DEVICE_ASS,NEOIPC_HAP_RESPIRATORY_TRACT_SAMPLE_SOURCES,NEOIPC_SSI_TYPE,NEOIPC_SEX_VALUES,NEOIPC_SURVEILLANCE_END_REASON,NEOIPC_WOUND_CLASSES,NEOIPC_YES_NO_NO_FOLLOWUP,NEOIPC_YES_NO_NOT_TESTED]"),
 
     # We try to read the complete user information via the metadata endpoint
     # so that we can audit who added/changed what.
@@ -78,10 +78,20 @@ read_metadata_reponses <- function(resps)
     dplyr::mutate(country_code = .data$zzz, .keep = "unused")
 
   metadata$departments <- metadata$departments |>
-    dplyr::mutate(
-      isTestUnit = .data$id %in% metadata$testUnitIds)
+    dplyr::mutate(isTestUnit = .data$id %in% metadata$testUnitIds) |>
+    dplyr::left_join(metadata$trials |>
+                       dplyr::select("code", "organisationUnits") |>
+                       tidyr::unnest_longer(2) |>
+                       tidyr::unnest_wider(2), dplyr::join_by("id")) |>
+    dplyr::mutate(isTrial = !is.na(.data$code)) |>
+    tidyr::pivot_wider(
+      names_from = "code",
+      values_from = "isTrial",
+      values_fill = FALSE) |>
+    dplyr::select(!tidyselect::any_of("NA"))
 
   metadata$testUnitIds <- NULL
+  metadata$trials$organisationUnits <- NULL
 
   metadata
 }
@@ -155,7 +165,8 @@ read_metadata <- function(metadata)
     atc5Categories = read_metadata_atc5Categories(metadata),
     testUnitIds = read_metadata_test_unit_ids(metadata),
     trials = read_metadata_trials(metadata),
-    deliveryModes = read_metadata_deliveryModes(metadata))
+    deliveryModes = read_metadata_deliveryModes(metadata),
+    sexes = read_metadata_sexes(metadata))
 
   countries <- read_metadata_countries(metadata)
   if(!rlang::is_null(countries))
@@ -329,7 +340,7 @@ read_metadata_trials <- function(metadata)
     tidyr::unnest_wider(1)
 }
 
-read_metadata_options <- function(metadata, filter)
+read_metadata_options <- function(metadata, filter, code_levels = NULL, ordered = FALSE)
 {
   options <- metadata |>
     purrr::pluck("options")
@@ -337,12 +348,23 @@ read_metadata_options <- function(metadata, filter)
   if(rlang::is_null(options))
     rlang::abort("Invalid DHIS2 metadata. The options list is missing.", "neoipcr_metadata_options_missing")
 
-  options |>
+  options <- options |>
     tibble::tibble() |>
     tidyr::unnest_wider(1) |>
     tidyr::unnest_wider("optionSet", names_sep = "_") |>
     dplyr::filter(.data$optionSet_code == filter) |>
     dplyr::select(!"optionSet_code")
+
+  if(!rlang::is_null(code_levels))
+    options <- options |>
+    dplyr::mutate(
+      code = factor(.data$code, levels = code_levels, ordered = ordered)) |>
+    dplyr::arrange(.data$code) |>
+    dplyr::mutate(
+      displayName = factor(.data$displayName, levels = unique(.data$displayName), ordered = ordered),
+      displayFormName = factor(.data$displayFormName, levels = unique(.data$displayFormName), ordered = ordered))
+
+  options
 }
 
 read_metadata_AntimicrobialSubstances <- function(metadata)
@@ -368,22 +390,22 @@ read_metadata_AntimicrobialSubstances <- function(metadata)
     dplyr::left_join(optionGroupSets, dplyr::join_by("code")) |>
     tidyr::pivot_wider(names_from = "system", values_from = "group") |>
     dplyr::mutate(
-      WHO_AWARE = ordered(
-        stringr::str_sub(.data$WHO_AWARE, start = 11),
-        levels = c("ACCESS","WATCH","RESERVE"))) |>
-    dplyr::mutate(dplyr::across(tidyselect::where(rlang::is_character), ordered))
+      WHO_AWARE = factor(.data$WHO_AWARE,
+        levels = c("WHO_AWARE_ACCESS","WHO_AWARE_WATCH","WHO_AWARE_RESERVE"))) |>
+    dplyr::mutate(dplyr::across(tidyselect::where(rlang::is_character), factor))
 }
 
 read_metadata_deliveryModes <- function(metadata)
-  read_metadata_options(metadata, "NEOIPC_DELIVERY_MODES") |>
-  dplyr::arrange(.data$code) |>
-  dplyr::mutate(
-    code =  factor(.data$code),
-    displayName = factor(.data$displayName, levels = unique(.data$displayName)),
-    displayFormName = factor(.data$displayFormName, levels = unique(.data$displayFormName))
-  )
+  read_metadata_options(metadata,
+                        "NEOIPC_DELIVERY_MODES",
+                        c("1","2","3"))
 
-read_metadata_optionGroupSets <- function(metadata, filter)
+read_metadata_sexes <- function(metadata)
+  read_metadata_options(metadata,
+                        "NEOIPC_SEX_VALUES",
+                        code_levels = c("f","m","u"))
+
+read_metadata_optionGroupSets <- function(metadata, filter, code_levels = NULL, ordered = FALSE)
 {
   optionGroupSets <- metadata |>
     purrr::pluck("optionGroupSets")
@@ -391,66 +413,49 @@ read_metadata_optionGroupSets <- function(metadata, filter)
   if(rlang::is_null(optionGroupSets))
     rlang::abort("Invalid DHIS2 metadata. The optionGroupSets list is missing.", "neoipcr_metadata_optionGroupSets_missing")
 
-  filtered <- optionGroupSets |>
+  optionGroupSets <- optionGroupSets |>
     tibble::tibble() |>
     tidyr::unnest_wider(1) |>
     dplyr::filter(.data$code == filter)
 
-  if(nrow(filtered) < 1)
+  if(nrow(optionGroupSets) < 1)
     rlang::abort(sprintf("Invalid DHIS2 metadata. The optionGroupSets list does not contain elements with code %s.", filter), "neoipcr_metadata_optionGroupSets_code_missing")
 
-  filtered |>
+  optionGroupSets <- optionGroupSets |>
     dplyr::select(2) |>
     tidyr::unnest_longer(1) |>
     tidyr::unnest_wider(1) |>
     dplyr::select(!"options")
+
+  if(!rlang::is_null(code_levels))
+    optionGroupSets <- optionGroupSets |>
+    dplyr::mutate(
+      code = factor(.data$code, levels = code_levels, ordered = ordered)) |>
+    dplyr::arrange(.data$code) |>
+    dplyr::mutate(
+      displayName = factor(
+        .data$displayName,
+        levels = unique(.data$displayName),
+        ordered = ordered),
+      displayFormName = factor(
+        .data$displayShortName,
+        levels = unique(.data$displayShortName),
+        ordered = ordered))
+
+  optionGroupSets
 }
 
 read_metadata_atc5Categories <- function(metadata)
-{
   atc5 <- read_metadata_optionGroupSets(metadata, "ATC5") |>
+    dplyr::arrange(.data$code) |>
     dplyr::mutate(
-      code = ordered(.data$code)) |>
-    dplyr::arrange(.data$code)
-
-  # We want the levels of the other factors to be ordered like the code
-  shortNameLevels = atc5 |>
-    dplyr::distinct(.data$displayShortName) |>
-    dplyr::pull("displayShortName")
-
-  nameLevels = atc5 |>
-    dplyr::distinct(.data$displayName) |>
-    dplyr::pull("displayName")
-
-  atc5 |>
-    dplyr::mutate(
-      displayShortName = ordered(.data$displayShortName, levels = shortNameLevels),
-      displayName = ordered(.data$displayName, levels = nameLevels))
-}
+      code = factor(.data$code),
+      displayShortName = ordered(.data$displayShortName, levels = unique(.data$displayShortName)),
+      displayName = ordered(.data$displayName, levels = unique(.data$displayName)))
 
 read_metadata_AWaReCategories <- function(metadata)
-{
-  aware <- read_metadata_optionGroupSets(metadata, "WHO_AWARE") |>
-    dplyr::mutate(
-      code = ordered(stringr::str_sub(.data$code, start = 11), levels = c("ACCESS","WATCH","RESERVE")),
-      displayShortName = stringr::str_sub(.data$displayShortName, start = 7),
-      displayName = stringr::str_sub(.data$displayName, start = 7)) |>
-    dplyr::arrange(.data$code)
-
-  # We want the levels of the other factors to be ordered ACCESS < WATCH < RESERVE
-  shortNameLevels = aware |>
-    dplyr::distinct(.data$displayShortName) |>
-    dplyr::pull("displayShortName")
-
-  nameLevels = aware |>
-    dplyr::distinct(.data$displayName) |>
-    dplyr::pull("displayName")
-
-  aware |>
-    dplyr::mutate(
-      displayShortName = ordered(.data$displayShortName, levels = shortNameLevels),
-      displayName = ordered(.data$displayName, levels = nameLevels))
-}
+  aware <- read_metadata_optionGroupSets(metadata, "WHO_AWARE",
+                                         c("WHO_AWARE_ACCESS","WHO_AWARE_WATCH","WHO_AWARE_RESERVE"))
 
 read_organisationUnits_hospitals <- function(organisationUnits)
 {
