@@ -20,7 +20,7 @@ get_metadata <- function(d2_req_base, translate, locale)
     # every NeoIPC user should be allowed to see
     md_req |>
       httr2::req_url_query(
-        `programs:fields` = "id,programTrackedEntityAttributes[trackedEntityAttribute[id,valueType,code,displayName,displayShortName,displayFormName,displayDescription,optionSet[id]]],programStages[id,name,displayName,displayFormName,displayDescription,programStageDataElements[dataElement[id,valueType,code,displayName,displayShortName,displayFormName,displayDescription,optionSet[id]]]]",
+        `programs:fields` = "id,programTrackedEntityAttributes[trackedEntityAttribute[id,valueType,code,displayName,displayShortName,displayFormName,displayDescription,optionSet[id]]],programStages[id,name,displayName,displayFormName,displayDescription,programStageDataElements[dataElement[id,valueType,code,displayName,displayShortName,displayFormName,displayDescription,optionSet[code]]]]",
         `programs:filter` = "code:eq:NEOIPC_CORE",
         `organisationUnitGroups:fields` = "code,organisationUnits[id,code,displayName,displayShortName,displayDescription]",
         `organisationUnitGroups:filter` = "code:in:[COUNTRY,TEST_UNITS]",
@@ -28,7 +28,7 @@ get_metadata <- function(d2_req_base, translate, locale)
         `organisationUnitGroupSets:filter` = "code:eq:NEOIPC_TRIALS",
         `optionGroupSets:fields` = "code,optionGroups[code,displayName,displayShortName,displayDescription,options[code]]",
         `optionGroupSets:filter` = "code:in:[ATC5,WHO_AWARE]",
-        `options:fields` = "code,displayName,displayFormName,displayDescription,optionSet[code]",
+        `options:fields` = "code,displayName,displayFormName,displayDescription,sortOrder,optionSet[code]",
         `options:filter` = "optionSet.code:in:[NEOIPC_ASA_SCORE,NEOIPC_ADMISSION_TYPES,NEOIPC_ANTIMICROBIAL_SUBSTANCES,NEOIPC_BSI_DEVICE_ASS,NEOIPC_BSI_PATHOGEN_RECOVERED_FROM,NEOIPC_DELIVERY_MODES,NEOIPC_HAP_DEVICE_ASS,NEOIPC_HAP_RESPIRATORY_TRACT_SAMPLE_SOURCES,NEOIPC_SSI_TYPE,NEOIPC_SEX_VALUES,NEOIPC_SURVEILLANCE_END_REASON,NEOIPC_WOUND_CLASSES,NEOIPC_YES_NO_NO_FOLLOWUP,NEOIPC_YES_NO_NOT_TESTED]"),
 
     # We try to read the complete user information via the metadata endpoint
@@ -99,12 +99,15 @@ read_metadata_reponses <- function(resps)
 filter_metadata_reponses <- function(resps)
 {
   successes <- resps |>
-    httr2::resps_successes()
+    httr2::resps_successes() |>
+    resps_not_login()
 
+  if(length(successes) == 3)
+    return(successes)
   if(length(successes) == 4)
-    successes <- successes[resps_not_me(resps)]
+    return(successes[resps_not_me(resps)])
 
-  successes
+  rlang::abort(sprintf("Expected 3 or 4 successful queries but got %i.", length(successes)))
 }
 
 read_metadata_reponse <- function(resp)
@@ -154,21 +157,36 @@ read_metadata_users <- function(metadata)
 
 read_metadata <- function(metadata)
 {
-  ret <- list(
-    system = read_metadata_system(metadata),
-    programId = read_metadata_program_id(metadata),
-    programStages = read_metadata_programStages(metadata),
-    dataElements = read_metadata_dataElements(metadata),
-    trackedEntityAttributes = read_metadata_trackedEntityAttributes(metadata),
-    antimicrobialSubstances = read_metadata_AntimicrobialSubstances(metadata),
-    awareCategories = read_metadata_AWaReCategories(metadata),
-    atc5Categories = read_metadata_atc5Categories(metadata),
-    testUnitIds = read_metadata_test_unit_ids(metadata),
-    trials = read_metadata_trials(metadata),
-    deliveryModes = read_metadata_deliveryModes(metadata),
-    sexes = read_metadata_sexes(metadata))
-
+  system = read_metadata_system(metadata)
+  programId = read_metadata_program_id(metadata)
+  programStages = read_metadata_programStages(metadata)
+  dataElements = read_metadata_dataElements(metadata)
+  trackedEntityAttributes = read_metadata_trackedEntityAttributes(metadata)
+  antimicrobialSubstances = read_metadata_AntimicrobialSubstances(metadata)
+  awareCategories = read_metadata_AWaReCategories(metadata)
+  atc5Categories = read_metadata_atc5Categories(metadata)
+  testUnitIds = read_metadata_test_unit_ids(metadata)
+  trials = read_metadata_trials(metadata)
+  deliveryModes = read_metadata_deliveryModes(metadata)
+  sexes = read_metadata_sexes(metadata)
+  options = read_metadata_options(metadata)
   countries <- read_metadata_countries(metadata)
+
+  ret <- list(
+    system = system,
+    programId = programId,
+    programStages = programStages,
+    options = options,
+    dataElements = dataElements,
+    trackedEntityAttributes = trackedEntityAttributes,
+    antimicrobialSubstances = antimicrobialSubstances,
+    awareCategories = awareCategories,
+    atc5Categories = atc5Categories,
+    testUnitIds = testUnitIds,
+    trials = trials,
+    deliveryModes = deliveryModes,
+    sexes = sexes)
+
   if(!rlang::is_null(countries))
     ret <- c(ret, list(countries = countries))
 
@@ -267,7 +285,7 @@ read_metadata_dataElements <- function(metadata)
     tidyr::unnest_longer(1) |>
     tidyr::unnest_wider(1) |>
     tidyr::unnest_wider(1) |>
-    tidyr::hoist("optionSet", optionSet = "id", .remove = FALSE)
+    tidyr::hoist("optionSet", optionSet = "code", .remove = FALSE)
 }
 
 read_metadata_trackedEntityAttributes <- function(metadata)
@@ -340,7 +358,7 @@ read_metadata_trials <- function(metadata)
     tidyr::unnest_wider(1)
 }
 
-read_metadata_options <- function(metadata, filter, code_levels = NULL, ordered = FALSE)
+read_metadata_options <- function(metadata, filter = NULL)
 {
   options <- metadata |>
     purrr::pluck("options")
@@ -352,20 +370,22 @@ read_metadata_options <- function(metadata, filter, code_levels = NULL, ordered 
     tibble::tibble() |>
     tidyr::unnest_wider(1) |>
     tidyr::unnest_wider("optionSet", names_sep = "_") |>
-    dplyr::filter(.data$optionSet_code == filter) |>
-    dplyr::select(!"optionSet_code")
+    dplyr::arrange(.data$optionSet_code, .data$sortOrder)
 
-  if(!rlang::is_null(code_levels))
+  if(!rlang::is_null(filter))
     options <- options |>
-    dplyr::mutate(
-      code = factor(.data$code, levels = code_levels, ordered = ordered)) |>
-    dplyr::arrange(.data$code) |>
-    dplyr::mutate(
-      displayName = factor(.data$displayName, levels = unique(.data$displayName), ordered = ordered),
-      displayFormName = factor(.data$displayFormName, levels = unique(.data$displayFormName), ordered = ordered))
+      dplyr::filter(.data$optionSet_code == filter) |>
+      dplyr::select(!"optionSet_code")
 
   options
 }
+
+convert_metadata_options <- function(options, ordered = FALSE)
+  options |>
+    dplyr::mutate(
+      code = factor(.data$code, levels = unique(.data$code), ordered = ordered),
+      displayName = factor(.data$displayName, levels = unique(.data$displayName), ordered = ordered),
+      displayFormName = factor(.data$displayFormName, levels = unique(.data$displayFormName), ordered = ordered))
 
 read_metadata_AntimicrobialSubstances <- function(metadata)
 {
@@ -396,14 +416,12 @@ read_metadata_AntimicrobialSubstances <- function(metadata)
 }
 
 read_metadata_deliveryModes <- function(metadata)
-  read_metadata_options(metadata,
-                        "NEOIPC_DELIVERY_MODES",
-                        c("1","2","3"))
+  read_metadata_options(metadata, "NEOIPC_DELIVERY_MODES") |>
+  convert_metadata_options()
 
 read_metadata_sexes <- function(metadata)
-  read_metadata_options(metadata,
-                        "NEOIPC_SEX_VALUES",
-                        code_levels = c("f","m","u"))
+  read_metadata_options(metadata, "NEOIPC_SEX_VALUES") |>
+  convert_metadata_options()
 
 read_metadata_optionGroupSets <- function(metadata, filter, code_levels = NULL, ordered = FALSE)
 {
@@ -514,9 +532,16 @@ read_organisationUnits_departments <- function(organisationUnits, hospitals)
     dplyr::select(!tidyselect::starts_with("parent"))
 }
 
+resps_not_login <- function(resps)
+  resps[vapply(resps, resp_not_login, logical(1))]
+
+resp_not_login <- function(resp)
+  httr2::resp_url_path(resp) |>
+  stringr::str_ends("/security/login.action", negate = TRUE)
+
 resps_not_me <- function(resps)
   vapply(resps, resp_not_me, logical(1))
 
 resp_not_me <- function(resp)
   httr2::resp_url_path(resp) |>
-    stringr::str_ends("/me", negate = TRUE)
+  stringr::str_ends("/me", negate = TRUE)

@@ -61,7 +61,7 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
 
 #' @export
 dhis2_connection_options <- function(
-    token, username, password = NULL, scheme = "https",
+    token, username, session_id, password = NULL, scheme = "https",
     hostname = "neoipc.charite.de", port = NULL, path = "/api")
 {
   ret <- list(
@@ -69,9 +69,10 @@ dhis2_connection_options <- function(
       list(scheme = scheme, hostname = hostname, port = port, path = path)))
 
   switch(
-    rlang::check_exclusive(token, username, .require = FALSE),
+    rlang::check_exclusive(token, username, session_id, .require = FALSE),
     token = c(ret, list(token = read_token(token))),
     username = c(ret, list(username = username, password = password)),
+    session_id = c(ret, list(session_id = session_id)),
     c(ret, list(
       username = askpass::askpass(
         prompt = sprintf(
@@ -110,7 +111,28 @@ read_eventData <- function(
     tidyr::hoist("updatedBy", updatedBy = 1, .remove = FALSE) |>
     dplyr::mutate(
       status = factor(.data$status, levels = c(
-        "ACTIVE", "COMPLETED", "VISITED", "SCHEDULE", "OVERDUE", "SKIPPED")))
+        "ACTIVE", "COMPLETED", "VISITED", "SCHEDULE", "OVERDUE", "SKIPPED"))) |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("storedBy" == "username")) |>
+    dplyr::mutate(storedBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("createdBy" == "username")) |>
+    dplyr::mutate(createdBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata$users |>
+        dplyr::select("username", "key"),
+      dplyr::join_by("updatedBy" == "username")) |>
+    dplyr::mutate(updatedBy = .data$key, .keep = "unused") |>
+    dplyr::left_join(
+      metadata[["departments"]] |>
+        dplyr::select("id", "key"),
+      dplyr::join_by("orgUnit" == "id")) |>
+    dplyr::mutate(orgUnit = .data$key, .keep = "unused") |>
+    dplyr::rename(department = .data$orgUnit)
 
 
   if(!is.null(prefix))
@@ -133,38 +155,42 @@ read_eventData <- function(
 
   e |>
     tidyr::pivot_wider(names_from = "code", values_from = "dataValues_value") |>
-    convert_dataElementColumns(metadata$dataElements)
+    convert_dataElementColumns(metadata$dataElements, metadata$options)
 }
 
-convert_dataElementColumns <- function(t, dataElements)
+convert_dataElementColumns <- function(t, dataElements, options)
 {
   t |>
     dplyr::mutate(
       dplyr::across(
         tidyselect::any_of(dataElements |> dplyr::pull("code")),
-        ~ convert_dataElementColumn(.x, dplyr::cur_column(), dataElements)
+        ~ convert_dataElementColumn(.x, dplyr::cur_column(), dataElements, options)
         )
       )
 }
 
-convert_dataElementColumn <- function(col, col_name, dataElements)
+convert_dataElementColumn <- function(col, col_name, dataElements, options)
 {
   col_type <- dataElements |>
-    get_valueType(col_name)
+    dplyr::filter(.data$code == col_name) |>
+    dplyr::select("valueType", "optionSet") |>
+    unlist()
 
-  if(stringr::str_starts(col_type, "INTEGER"))
+  if(!rlang::is_na(col_type[["optionSet"]])){
+    o <- options |>
+      dplyr::filter(.data$optionSet_code == col_type[["optionSet"]])
+
+  if(nrow(o) > 0)
+    return(factor(col, levels = (o |> dplyr::pull("code"))))
+  }
+
+  if(stringr::str_starts(col_type[["valueType"]], "INTEGER"))
     as.integer(col)
-  else if(col_type %in% c("BOOLEAN", "TRUE_ONLY"))
+  else if(col_type[["valueType"]] %in% c("BOOLEAN", "TRUE_ONLY"))
     as.logical(col)
   else
     col
-}
 
-get_valueType <- function(dataElements, dataElementCode)
-{
-  dataElements |>
-    dplyr::filter(.data$code == dataElementCode) |>
-    dplyr::pull("valueType")
 }
 
 read_infections <- function(events)
@@ -230,48 +256,6 @@ read_enrollments <- function(enrollments, events, metadata, patients)
       dplyr::join_by("enrollment_orgUnit" == "id")) |>
     dplyr::mutate(enrollment_orgUnit = .data$key, .keep = "unused") |>
     dplyr::rename(enrollment_department = .data$enrollment_orgUnit) |>
-    dplyr::left_join(
-      metadata$users |>
-        dplyr::select("username", "key"),
-      dplyr::join_by("admission_storedBy" == "username")) |>
-    dplyr::mutate(admission_storedBy = .data$key, .keep = "unused") |>
-    dplyr::left_join(
-      metadata$users |>
-        dplyr::select("username", "key"),
-      dplyr::join_by("admission_createdBy" == "username")) |>
-    dplyr::mutate(admission_createdBy = .data$key, .keep = "unused") |>
-    dplyr::left_join(
-      metadata$users |>
-        dplyr::select("username", "key"),
-      dplyr::join_by("admission_updatedBy" == "username")) |>
-    dplyr::mutate(admission_updatedBy = .data$key, .keep = "unused") |>
-    dplyr::left_join(
-      metadata[["departments"]] |>
-        dplyr::select("id", "key"),
-      dplyr::join_by("admission_orgUnit" == "id")) |>
-    dplyr::mutate(admission_orgUnit = .data$key, .keep = "unused") |>
-    dplyr::rename(admission_department = .data$admission_orgUnit) |>
-    dplyr::left_join(
-      metadata$users |>
-        dplyr::select("username", "key"),
-      dplyr::join_by("surveillanceEnd_storedBy" == "username")) |>
-    dplyr::mutate(surveillanceEnd_storedBy = .data$key, .keep = "unused") |>
-    dplyr::left_join(
-      metadata$users |>
-        dplyr::select("username", "key"),
-      dplyr::join_by("surveillanceEnd_createdBy" == "username")) |>
-    dplyr::mutate(surveillanceEnd_createdBy = .data$key, .keep = "unused") |>
-    dplyr::left_join(
-      metadata$users |>
-        dplyr::select("username", "key"),
-      dplyr::join_by("surveillanceEnd_updatedBy" == "username")) |>
-    dplyr::mutate(surveillanceEnd_updatedBy = .data$key, .keep = "unused") |>
-    dplyr::left_join(
-      metadata[["departments"]] |>
-        dplyr::select("id", "key"),
-      dplyr::join_by("surveillanceEnd_orgUnit" == "id")) |>
-    dplyr::mutate(surveillanceEnd_orgUnit = .data$key, .keep = "unused") |>
-    dplyr::rename(surveillanceEnd_department = .data$surveillanceEnd_orgUnit) |>
     dplyr::inner_join(
       patients |>
         dplyr::select("trackedEntity", "key"),
@@ -461,13 +445,12 @@ dhis2_request <- function(connection_options = dhis2_connection_options())
 {
   req <- httr2::request(connection_options$base_url)
   if(exists('token', where = connection_options))
-  {
     req |>
       httr2::req_headers(Authorization = sprintf("ApiToken %s", connection_options$token), .redact = "Authorization")
-  }
+  else if(exists('session_id', where = connection_options))
+    req |>
+      httr2::req_cookies_set(JSESSIONID = connection_options$session_id)
   else
-  {
     req |>
       httr2::req_auth_basic(username = connection_options$username, password = connection_options$password)
-  }
 }

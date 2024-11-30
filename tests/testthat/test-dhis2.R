@@ -39,7 +39,7 @@ generate_programStage <- function(programStageName, programStageElements, dataEl
               displayShortName = jsonlite::unbox("NeoIPC Adm. type"),
               displayFormName = jsonlite::unbox("Admission type"),
               displayDescription = jsonlite::unbox("Describes if the infant was born in your hospital or if it was admitted after birth and if so, how long after birth."),
-              optionSet = list(id = jsonlite::unbox("l6HnyhcwF28")))))))
+              optionSet = list(code = jsonlite::unbox("NEOIPC_ADMISSION_TYPES")))))))
   }
   else if(programStageName == "Surgical Procedure")
   {
@@ -239,67 +239,93 @@ generate_options <- function()
     list(
       code = jsonlite::unbox("J01CA04"),
       displayName = jsonlite::unbox("Amoxicillin"),
-      displayFormName = jsonlite::unbox("Amoxicillin")
+      displayFormName = jsonlite::unbox("Amoxicillin"),
+      sortOrder = jsonlite::unbox(2),
+      optionSet = list(code = jsonlite::unbox("NEOIPC_ANTIMICROBIAL_SUBSTANCES"))
     ),
     list(
       code = jsonlite::unbox("J01CA15"),
       displayName = jsonlite::unbox("Talampicillin"),
-      displayFormName = jsonlite::unbox("Talampicillin")
+      displayFormName = jsonlite::unbox("Talampicillin"),
+      sortOrder = jsonlite::unbox(222),
+      optionSet = list(code = jsonlite::unbox("NEOIPC_ANTIMICROBIAL_SUBSTANCES"))
     ),
     list(
       code = jsonlite::unbox("J01DI03"),
       displayName = jsonlite::unbox("Faropenem"),
-      displayFormName = jsonlite::unbox("Faropenem")
+      displayFormName = jsonlite::unbox("Faropenem"),
+      sortOrder = jsonlite::unbox(97),
+      optionSet = list(code = jsonlite::unbox("NEOIPC_ANTIMICROBIAL_SUBSTANCES"))
     ),
     list(
       code = jsonlite::unbox("J01XA03"),
       displayName = jsonlite::unbox("Telavancin"),
-      displayFormName = jsonlite::unbox("Telavancin")
+      displayFormName = jsonlite::unbox("Telavancin"),
+      sortOrder = jsonlite::unbox(227),
+      optionSet = list(code = jsonlite::unbox("NEOIPC_ANTIMICROBIAL_SUBSTANCES"))
     ),
     list(
       code = jsonlite::unbox("J01XA02"),
       displayName = jsonlite::unbox("Teicoplanin"),
-      displayFormName = jsonlite::unbox("Teicoplanin")
+      displayFormName = jsonlite::unbox("Teicoplanin"),
+      sortOrder = jsonlite::unbox(226),
+      optionSet = list(code = jsonlite::unbox("NEOIPC_ANTIMICROBIAL_SUBSTANCES"))
     ),
     list(
       code = jsonlite::unbox("J01MA09"),
       displayName = jsonlite::unbox("Sparfloxacin"),
-      displayFormName = jsonlite::unbox("Sparfloxacin")
+      displayFormName = jsonlite::unbox("Sparfloxacin"),
+      sortOrder = jsonlite::unbox(187),
+      optionSet = list(code = jsonlite::unbox("NEOIPC_ANTIMICROBIAL_SUBSTANCES"))
     ),
     list(
       code = jsonlite::unbox("J01CF04"),
       displayName = jsonlite::unbox("Oxacillin"),
-      displayFormName = jsonlite::unbox("Oxacillin")
+      displayFormName = jsonlite::unbox("Oxacillin"),
+      sortOrder = jsonlite::unbox(153),
+      optionSet = list(code = jsonlite::unbox("NEOIPC_ANTIMICROBIAL_SUBSTANCES"))
     ),
     list(
       code = jsonlite::unbox("J01CF01"),
       displayName = jsonlite::unbox("Dicloxacillin"),
-      displayFormName = jsonlite::unbox("Dicloxacillin")
+      displayFormName = jsonlite::unbox("Dicloxacillin"),
+      sortOrder = jsonlite::unbox(88),
+      optionSet = list(code = jsonlite::unbox("NEOIPC_ANTIMICROBIAL_SUBSTANCES"))
     ),
     list(
       code = jsonlite::unbox("J01DH02"),
       displayName = jsonlite::unbox("Meropenem"),
-      displayFormName = jsonlite::unbox("Meropenem")
+      displayFormName = jsonlite::unbox("Meropenem"),
+      sortOrder = jsonlite::unbox(129),
+      optionSet = list(code = jsonlite::unbox("NEOIPC_ANTIMICROBIAL_SUBSTANCES"))
     ),
     list(
       code = jsonlite::unbox("J01DH56"),
       displayName = jsonlite::unbox("Imipenem/Cilastatin/Relebactam"),
-      displayFormName = jsonlite::unbox("Imipenem/Cilastatin/Relebactam")
+      displayFormName = jsonlite::unbox("Imipenem/Cilastatin/Relebactam"),
+      sortOrder = jsonlite::unbox(114),
+      optionSet = list(code = jsonlite::unbox("NEOIPC_ANTIMICROBIAL_SUBSTANCES"))
     ),
     list(
       code = jsonlite::unbox("J01CR02"),
       displayName = jsonlite::unbox("Amoxicillin/Clavulanic-acid"),
-      displayFormName = jsonlite::unbox("Amoxicillin/Clavulanic-acid")
+      displayFormName = jsonlite::unbox("Amoxicillin/Clavulanic-acid"),
+      sortOrder = jsonlite::unbox(3),
+      optionSet = list(code = jsonlite::unbox("NEOIPC_ANTIMICROBIAL_SUBSTANCES"))
     ),
     list(
       code = jsonlite::unbox("J01CR05"),
       displayName = jsonlite::unbox("Piperacillin/Tazobactam"),
-      displayFormName = jsonlite::unbox("Piperacillin/Tazobactam")
+      displayFormName = jsonlite::unbox("Piperacillin/Tazobactam"),
+      sortOrder = jsonlite::unbox(165),
+      optionSet = list(code = jsonlite::unbox("NEOIPC_ANTIMICROBIAL_SUBSTANCES"))
     ),
     list(
       code = jsonlite::unbox("J01MA17"),
       displayName = jsonlite::unbox("Prulifloxacin"),
-      displayFormName = jsonlite::unbox("Prulifloxacin"))
+      displayFormName = jsonlite::unbox("Prulifloxacin"),
+      sortOrder = jsonlite::unbox(174),
+      optionSet = list(code = jsonlite::unbox("NEOIPC_ANTIMICROBIAL_SUBSTANCES")))
   )
 }
 
@@ -371,7 +397,7 @@ test_that("dhis2_connection_options fails if token and username are set", {
     dhis2_connection_options(
       token = "d2pat_test_token",
       username = "admin"),
-    "Exactly one of `token` or `username` must be supplied.")
+    "Exactly one of `token`, `username`, or `session_id` must be supplied.")
 })
 
 test_that("read_metadata fails if system missing", {
@@ -435,7 +461,7 @@ test_that("read_metadata reads data", {
 
   # dataElements
   expect_equal(metadata$dataElements$id, c("Lwa9Jp5xSnR", "rvq4L9wWbwW", "AgBqfnnsUzd", "DTZ9HfILgnX"))
-  expect_equal(metadata$dataElements$optionSet, c(NA, NA, "l6HnyhcwF28", NA))
+  expect_equal(metadata$dataElements$optionSet, c(NA, NA, "NEOIPC_ADMISSION_TYPES", NA))
 
   # trackedEntityAttributes
   expect_equal(metadata$trackedEntityAttributes$id, c("yQwpowV0o08", "E5OMg8BC8be"))
