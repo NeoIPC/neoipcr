@@ -53,8 +53,21 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
   c(data, list(
     patients = patients,
     enrollments = enrollments,
-    surgeries = read_surgeries(events),
-    infections = read_infections(events),
+    surgeries = read_eventData(events, metadata, "Surgical Procedure"),
+    sepses = read_eventData(
+      events, metadata, "Primary Sepsis/BSI",
+      dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_BSI_PATHOGEN", TRUE)),
+    necs = read_eventData(
+      events, metadata, "Necrotizing enterocolitis",
+      dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_NEC_SEC_BSI_PATHOGEN", TRUE)),
+    ssis = read_eventData(
+      events, metadata, "Surgical Site Infection",
+      dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_SSI_PATHOGEN", TRUE) &
+        stringr::str_starts(x, "NEOIPC_SSI_SEC_BSI_PATHOGEN", TRUE)),
+    pneumonias = read_eventData(
+      events, metadata, "Pneumonia",
+      dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_HAP_PATHOGEN", TRUE) &
+        stringr::str_starts(x, "NEOIPC_HAP_SEC_BSI_PATHOGEN", TRUE)),
     metadata = metadata))
 }
 
@@ -154,7 +167,7 @@ read_eventData <- function(
     dplyr::filter(dataElementFilter(.data$code))
 
   e |>
-    tidyr::pivot_wider(names_from = "code", values_from = "dataValues_value") |>
+    tidyr::pivot_wider(names_from = "code", values_from = "dataValues_value", names_sort = TRUE) |>
     convert_dataElementColumns(metadata$dataElements, metadata$options)
 }
 
