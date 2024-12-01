@@ -49,25 +49,35 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
 
   patients = read_patients(trackedEntities, metadata)
   enrollments = read_enrollments(enrollments, events, metadata, patients)
+  surgeries = read_eventData(events, metadata, "Surgical Procedure") |>
+    recode_enrollments(enrollments)
+  sepses = read_eventData(
+    events, metadata, "Primary Sepsis/BSI",
+    dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_BSI_PATHOGEN", TRUE)) |>
+    recode_enrollments(enrollments)
+  necs = read_eventData(
+    events, metadata, "Necrotizing enterocolitis",
+    dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_NEC_SEC_BSI_PATHOGEN", TRUE)) |>
+    recode_enrollments(enrollments)
+  ssis = read_eventData(
+    events, metadata, "Surgical Site Infection",
+    dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_SSI_PATHOGEN", TRUE) &
+      stringr::str_starts(x, "NEOIPC_SSI_SEC_BSI_PATHOGEN", TRUE)) |>
+    recode_enrollments(enrollments)
+  pneumonias = read_eventData(
+    events, metadata, "Pneumonia",
+    dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_HAP_PATHOGEN", TRUE) &
+      stringr::str_starts(x, "NEOIPC_HAP_SEC_BSI_PATHOGEN", TRUE)) |>
+    recode_enrollments(enrollments)
 
   c(data, list(
     patients = patients,
     enrollments = enrollments,
-    surgeries = read_eventData(events, metadata, "Surgical Procedure"),
-    sepses = read_eventData(
-      events, metadata, "Primary Sepsis/BSI",
-      dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_BSI_PATHOGEN", TRUE)),
-    necs = read_eventData(
-      events, metadata, "Necrotizing enterocolitis",
-      dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_NEC_SEC_BSI_PATHOGEN", TRUE)),
-    ssis = read_eventData(
-      events, metadata, "Surgical Site Infection",
-      dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_SSI_PATHOGEN", TRUE) &
-        stringr::str_starts(x, "NEOIPC_SSI_SEC_BSI_PATHOGEN", TRUE)),
-    pneumonias = read_eventData(
-      events, metadata, "Pneumonia",
-      dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_HAP_PATHOGEN", TRUE) &
-        stringr::str_starts(x, "NEOIPC_HAP_SEC_BSI_PATHOGEN", TRUE)),
+    surgeries = surgeries,
+    sepses = sepses,
+    necs = necs,
+    ssis = ssis,
+    pneumonias = pneumonias,
     metadata = metadata))
 }
 
@@ -99,7 +109,8 @@ read_eventData <- function(
     metadata,
     programStageName,
     prefix = NULL,
-    dataElementFilter = NULL)
+    dataElementFilter = NULL,
+    addKeyColumn = TRUE)
 {
   eventId <- metadata$programStages |>
     dplyr::filter(.data$name == programStageName) |>
@@ -147,6 +158,10 @@ read_eventData <- function(
     dplyr::mutate(orgUnit = .data$key, .keep = "unused") |>
     dplyr::rename(department = .data$orgUnit)
 
+  if(addKeyColumn)
+    e <- e |>
+    add_key_column()
+
 
   if(!is.null(prefix))
     e <- e |> dplyr::rename_with(
@@ -170,6 +185,15 @@ read_eventData <- function(
     tidyr::pivot_wider(names_from = "code", values_from = "dataValues_value", names_sort = TRUE) |>
     convert_dataElementColumns(metadata$dataElements, metadata$options)
 }
+
+recode_enrollments <- function(events, enrollments)
+  events |>
+    dplyr::inner_join(
+      enrollments |>
+        dplyr::select("key", "enrollment") |>
+        dplyr::rename(enrollment_key = .data$key),
+      dplyr::join_by("enrollment")) |>
+    dplyr::mutate(enrollment = .data$enrollment_key, .keep = "unused")
 
 convert_dataElementColumns <- function(t, dataElements, options)
 {
@@ -212,14 +236,20 @@ read_infections <- function(events)
 
 read_enrollments <- function(enrollments, events, metadata, patients)
 {
-  admissions <- read_eventData(events, metadata, "Admission", "admission_")
+  admissions <- read_eventData(
+    events,
+    metadata,
+    "Admission",
+    "admission_",
+    addKeyColumn = FALSE)
 
   surveillanceEnds <- read_eventData(
     events,
     metadata,
     "Surveillance-End",
     "surveillanceEnd_",
-    \(x) stringr::str_starts(x, "NEOIPC_SURVEILLANCE_END_AB_SUBST", TRUE))
+    \(x) stringr::str_starts(x, "NEOIPC_SURVEILLANCE_END_AB_SUBST", TRUE),
+    addKeyColumn = FALSE)
 
   enrollments |>
     dplyr::mutate(dplyr::across(tidyselect::any_of(c(
@@ -394,7 +424,8 @@ add_key_column <- function(table)
     dplyr::mutate(random = ids::random_id(nrow(table))) |>
     dplyr::arrange(.data$random) |>
     dplyr::mutate(key = dplyr::row_number()) |>
-    dplyr::select(!"random")
+    dplyr::select(!"random") |>
+    dplyr::relocate("key")
 }
 
 get_users_orgUnits <- function(metadata)
