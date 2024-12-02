@@ -8,7 +8,8 @@ generate_programStage <- function(programStageName, programStageElements, dataEl
       programStage <- c(programStage, list(
         id = jsonlite::unbox("YGowWPumDia"),
         name = jsonlite::unbox("Admission"),
-        displayName = jsonlite::unbox("Aufnahme")))
+        displayName = jsonlite::unbox("Aufnahme"),
+        displayFormName = jsonlite::unbox("Aufnahme")))
     if(dataElements)
       programStage <- c(programStage, list(
         programStageDataElements = list(
@@ -47,7 +48,8 @@ generate_programStage <- function(programStageName, programStageElements, dataEl
       programStage <- c(programStage, list(
         id = jsonlite::unbox("BHWwaviIFvy"),
         name = jsonlite::unbox("Surgical Procedure"),
-        displayName = jsonlite::unbox("Operativer Eingriff")))
+        displayName = jsonlite::unbox("Operativer Eingriff"),
+        displayFormName = jsonlite::unbox("Operativer Eingriff")))
     if(dataElements)
       programStage <- c(programStage, list(
         programStageDataElements = list(
@@ -456,8 +458,8 @@ test_that("read_metadata reads data", {
   # programId
   expect_equal(metadata$programId, "D8mSSpOpsKj")
 
-  # programStages
-  expect_equal(metadata$programStages$name, c("Admission", "Surgical Procedure"))
+  # eventTypes
+  expect_equal(sort(as.character(metadata$eventTypes$name)), c("Admission", "Surgical Procedure"))
 
   # dataElements
   expect_equal(metadata$dataElements$id, c("Lwa9Jp5xSnR", "rvq4L9wWbwW", "AgBqfnnsUzd", "DTZ9HfILgnX"))

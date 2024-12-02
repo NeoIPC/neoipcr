@@ -159,7 +159,7 @@ read_metadata <- function(metadata)
 {
   system = read_metadata_system(metadata)
   programId = read_metadata_program_id(metadata)
-  programStages = read_metadata_programStages(metadata)
+  eventTypes = read_metadata_programStages(metadata)
   dataElements = read_metadata_dataElements(metadata)
   trackedEntityAttributes = read_metadata_trackedEntityAttributes(metadata)
   antimicrobialSubstances = read_metadata_AntimicrobialSubstances(metadata)
@@ -175,7 +175,7 @@ read_metadata <- function(metadata)
   ret <- list(
     system = system,
     programId = programId,
-    programStages = programStages,
+    eventTypes = eventTypes,
     options = options,
     dataElements = dataElements,
     trackedEntityAttributes = trackedEntityAttributes,
@@ -262,7 +262,25 @@ read_metadata_programStages <- function(metadata)
   programStages |>
     tibble::tibble() |>
     tidyr::unnest_wider(1) |>
-    dplyr::select(!tidyselect::any_of("programStageDataElements"))
+    dplyr::select(!tidyselect::any_of("programStageDataElements")) |>
+    dplyr::mutate(
+      name = factor(
+        .data$name,
+        levels = c(
+          "Admission",
+          "Surgical Procedure",
+          "Primary Sepsis/BSI",
+          "Necrotizing enterocolitis",
+          "Surgical Site Infection",
+          "Pneumonia",
+          "Surveillance-End"))
+    ) |>
+    dplyr::arrange(.data$name) |>
+    dplyr::mutate(
+      displayName = factor(.data$displayName, levels = unique(.data$displayName)),
+      displayFormName = factor(.data$displayFormName, levels = unique(.data$displayFormName))
+    ) |>
+    add_key_column()
 }
 
 read_metadata_dataElements <- function(metadata)

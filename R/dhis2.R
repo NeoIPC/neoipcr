@@ -47,28 +47,34 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
   enrollments <- data[[2]]
   events <- data[[3]]
 
-  patients = read_patients(trackedEntities, metadata)
-  enrollments = read_enrollments(enrollments, events, metadata, patients)
-  surgeries = read_eventData(events, metadata, "Surgical Procedure") |>
+  patients <- read_patients(trackedEntities, metadata)
+  enrollments <- read_enrollments(enrollments, events, metadata, patients)
+  surgeries <- read_eventData(events, metadata, "Surgical Procedure") |>
     recode_enrollments(enrollments)
-  sepses = read_eventData(
+  sepses <- read_eventData(
     events, metadata, "Primary Sepsis/BSI",
     dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_BSI_PATHOGEN", TRUE)) |>
-    recode_enrollments(enrollments)
-  necs = read_eventData(
+    recode_enrollments(enrollments)# |>
+    #infer_sepsis_types()
+  necs <- read_eventData(
     events, metadata, "Necrotizing enterocolitis",
     dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_NEC_SEC_BSI_PATHOGEN", TRUE)) |>
     recode_enrollments(enrollments)
-  ssis = read_eventData(
+  ssis <- read_eventData(
     events, metadata, "Surgical Site Infection",
     dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_SSI_PATHOGEN", TRUE) &
       stringr::str_starts(x, "NEOIPC_SSI_SEC_BSI_PATHOGEN", TRUE)) |>
     recode_enrollments(enrollments)
-  pneumonias = read_eventData(
+  pneumonias <- read_eventData(
     events, metadata, "Pneumonia",
     dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_HAP_PATHOGEN", TRUE) &
       stringr::str_starts(x, "NEOIPC_HAP_SEC_BSI_PATHOGEN", TRUE)) |>
     recode_enrollments(enrollments)
+  causative_pathogens <- read_causative_pathogens(events, metadata) |>
+    recode_events(list(sepses, necs, ssis, pneumonias))
+
+  sepses <- sepses |>
+    infer_sepsis_types(causative_pathogens)
 
   c(data, list(
     patients = patients,
@@ -78,6 +84,7 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
     necs = necs,
     ssis = ssis,
     pneumonias = pneumonias,
+    causative_pathogens = causative_pathogens,
     metadata = metadata))
 }
 
@@ -110,15 +117,17 @@ read_eventData <- function(
     programStageName,
     prefix = NULL,
     dataElementFilter = NULL,
-    addKeyColumn = TRUE)
+    addKeyColumn = TRUE,
+    keepEventType = TRUE)
 {
-  eventId <- metadata$programStages |>
-    dplyr::filter(.data$name == programStageName) |>
-    dplyr::pull("id")
-
   e <- events |>
-    dplyr::filter(.data$programStage == eventId) |>
-    dplyr::select(!c("programStage")) |>
+    dplyr::inner_join(
+      metadata$eventTypes |>
+        dplyr::filter(.data$name == programStageName) |>
+        dplyr::select("id","key"),
+      dplyr::join_by("programStage" == "id")) |>
+    dplyr::mutate(eventType = .data$key, .keep = "unused") |>
+    dplyr::select(!"programStage") |>
     dplyr::mutate(
       notes = process_notes(.data$notes)) |>
     dplyr::mutate(dplyr::across(tidyselect::any_of(c(
@@ -162,6 +171,9 @@ read_eventData <- function(
     e <- e |>
     add_key_column()
 
+  if(!keepEventType)
+    e <- e |>
+    dplyr::select(!"eventType")
 
   if(!is.null(prefix))
     e <- e |> dplyr::rename_with(
@@ -194,6 +206,96 @@ recode_enrollments <- function(events, enrollments)
         dplyr::rename(enrollment_key = .data$key),
       dplyr::join_by("enrollment")) |>
     dplyr::mutate(enrollment = .data$enrollment_key, .keep = "unused")
+
+recode_events <- function(events, eventList)
+{
+  map = dplyr::bind_rows(lapply(eventList, \(x) x |> dplyr::select("key", "event")))
+  events |>
+    dplyr::left_join(map, dplyr::join_by("event")) |>
+    dplyr::relocate("key") |>
+    dplyr::select(!"event")
+}
+
+get_pathogen_list <- function()
+{
+  pc <- pathogenConcepts |>
+    dplyr::rename("name" = "concept") |>
+    dplyr::mutate(synonym_for = rlang::na_int)
+
+  not_listed <- pc |>
+    dplyr::slice_head()
+
+  rest <- pc |>
+      dplyr::filter(.data$id != 0) |>
+      dplyr::bind_rows(
+        pathogenSynonyms |>
+          dplyr::inner_join(
+            pathogenConcepts |>
+              dplyr::select(!c("concept","concept_source","concept_id")),
+            dplyr::join_by("synonym_for" == "id")) |>
+          dplyr::relocate("concept_type", .before = "concept_source") |>
+          dplyr::relocate("synonym_for", .after = "show_coli_r") |>
+          dplyr::rename("name" = "synonym")) |>
+      dplyr::arrange(.data$name)
+
+  dplyr::bind_rows(not_listed, rest)
+}
+
+read_causative_pathogens <- function(events, metadata)
+{
+  e <- events |>
+    dplyr::inner_join(
+      metadata$eventTypes |>
+        dplyr::filter(.data$name %in% c(
+          "Primary Sepsis/BSI",
+          "Necrotizing enterocolitis",
+          "Surgical Site Infection",
+          "Pneumonia")) |>
+        dplyr::select("id", "name", "key") |>
+        dplyr::rename(
+          programStageid = "id",
+          programStageName = "name",
+          programStageKey = "key"),
+      dplyr::join_by("programStage" == "programStageid")) |>
+    dplyr::mutate(programStage = .data$programStageKey, .keep = "unused") |>
+    dplyr::rename(eventType = .data$programStage) |>
+    tidyr::unnest_longer("dataValues") |>
+    tidyr::unnest_wider("dataValues", names_sep = "_") |>
+    dplyr::inner_join(
+      metadata$dataElements |>
+        dplyr::select("id", "code"),
+      dplyr::join_by("dataValues_dataElement" == "id")) |>
+    dplyr::select(!c("dataValues_dataElement", "dataValues_createdAt", "dataValues_updatedAt", "dataValues_createdBy")) |>
+    dplyr::filter(stringr::str_detect(.data$code, "PATHOGEN_\\d")) |>
+    dplyr::mutate(
+      type = factor(stringr::str_replace(.data$code, "^.+(PATHOGEN)_\\d+(.*)$", "\\1\\2")),
+      index = as.integer(stringr::str_replace(.data$code, "^.+PATHOGEN_(\\d+).*$", "\\1")),
+      secondary_bsi = stringr::str_detect(.data$code, "_SEC_BSI_"),
+      .keep = "unused"
+    ) |>
+    dplyr::select("event", "eventType", "type", "index", "secondary_bsi", "dataValues_value",) |>
+    tidyr::pivot_wider(names_from = "type", values_from = "dataValues_value", names_sort = TRUE) |>
+    dplyr::mutate(dplyr::across(c("PATHOGEN_3GCR","PATHOGEN_CAR","PATHOGEN_COR","PATHOGEN_MRSA","PATHOGEN_VRE"), ~ as.logical(dplyr::na_if(as.integer(.x), -1)))) |>
+    dplyr::mutate(PATHOGEN = as.integer(.data$PATHOGEN))
+}
+
+infer_sepsis_types <- function(sepses, causative_pathogens)
+{
+  sepses |>
+    dplyr::left_join(
+      causative_pathogens |>
+        dplyr::inner_join(
+          get_pathogen_list() |>
+            dplyr::select("id", "is_cc"),
+          dplyr::join_by("PATHOGEN" == "id")) |>
+        dplyr::select("key","eventType","is_cc"),
+      dplyr::join_by("key", "eventType")) |>
+    dplyr::mutate(NEOIPC_BSI_TYPE = factor(dplyr::case_when(
+      is.na(.data$is_cc) ~ "Clin",
+      .data$is_cc ~ "CoNS",
+      !.data$is_cc ~ "BSI"
+    ), levels = c("BSI","CoNS","Clin")), .before = "NEOIPC_BSI_AB_TREATMENT")
+}
 
 convert_dataElementColumns <- function(t, dataElements, options)
 {
@@ -230,10 +332,6 @@ convert_dataElementColumn <- function(col, col_name, dataElements, options)
 
 }
 
-read_infections <- function(events)
-{
-}
-
 read_enrollments <- function(enrollments, events, metadata, patients)
 {
   admissions <- read_eventData(
@@ -241,7 +339,8 @@ read_enrollments <- function(enrollments, events, metadata, patients)
     metadata,
     "Admission",
     "admission_",
-    addKeyColumn = FALSE)
+    addKeyColumn = FALSE,
+    keepEventType = FALSE)
 
   surveillanceEnds <- read_eventData(
     events,
@@ -249,7 +348,8 @@ read_enrollments <- function(enrollments, events, metadata, patients)
     "Surveillance-End",
     "surveillanceEnd_",
     \(x) stringr::str_starts(x, "NEOIPC_SURVEILLANCE_END_AB_SUBST", TRUE),
-    addKeyColumn = FALSE)
+    addKeyColumn = FALSE,
+    keepEventType = FALSE)
 
   enrollments |>
     dplyr::mutate(dplyr::across(tidyselect::any_of(c(
@@ -329,10 +429,6 @@ process_notes <- function(notes)
                 format(readr::parse_datetime(y[["storedAt"]]), "%x %X"),
                 y[["value"]])
               }), collapse = "; ")})
-}
-
-read_surgeries <- function(events)
-{
 }
 
 hoist_createdByAndupdatedBy <- function(table)
