@@ -290,11 +290,15 @@ infer_sepsis_types <- function(sepses, causative_pathogens)
           dplyr::join_by("PATHOGEN" == "id")) |>
         dplyr::select("key","eventType","is_cc"),
       dplyr::join_by("key", "eventType")) |>
-    dplyr::mutate(NEOIPC_BSI_TYPE = factor(dplyr::case_when(
-      is.na(.data$is_cc) ~ "Clin",
-      .data$is_cc ~ "CoNS",
-      !.data$is_cc ~ "BSI"
-    ), levels = c("BSI","CoNS","Clin")), .before = "NEOIPC_BSI_AB_TREATMENT")
+    dplyr::mutate(
+      bsiType = factor(
+        dplyr::case_when(
+          is.na(.data$is_cc) ~ "Clin",
+          .data$is_cc ~ "CoNS",
+          !.data$is_cc ~ "BSI"),
+        levels = c("BSI","CoNS","Clin")),
+      .before = "NEOIPC_BSI_AB_TREATMENT") |>
+    dplyr::select(!"is_cc")
 }
 
 convert_dataElementColumns <- function(t, dataElements, options)
