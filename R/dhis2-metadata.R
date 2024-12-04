@@ -167,11 +167,21 @@ read_metadata <- function(metadata)
   atc5Categories <- read_metadata_atc5Categories(metadata)
   testUnitIds <- read_metadata_test_unit_ids(metadata)
   trials <- read_metadata_trials(metadata)
+
   options <- read_metadata_options(metadata)
-  deliveryModes <- read_metadata_deliveryModes(options)
-  sexes <- read_metadata_sexes(options)
+  admissionTypes <- read_metadata_admissionTypes(options)
+  asaScores <- read_metadata_asaScores(options)
+  sepsisDeviceAssociation <- read_metadata_sepsisDeviceAssociation(options)
   sepsisPathogenSources  <- read_metadata_sepsis_pathogen_sources(options)
+  deliveryModes <- read_metadata_deliveryModes(options)
+  pneumoniaDeviceAssociation <- read_metadata_pneumoniaDeviceAssociation(options)
   pneumoniaPathogenSources <- read_metadata_pneumonia_pathogen_sources(options)
+  sexes <- read_metadata_sexes(options)
+  ssiTypes <- read_metadata_ssiTypes(options)
+  surveillanceEndReasons <- read_metadata_surveillanceEndReasons(options)
+  woundClasses <- read_metadata_woundClasses(options)
+  testResults <- read_metadata_testResults(options)
+  surveillanceResults <- read_metadata_surveillanceResults(options)
 
   countries <- read_metadata_countries(metadata)
 
@@ -187,8 +197,20 @@ read_metadata <- function(metadata)
     atc5Categories = atc5Categories,
     testUnitIds = testUnitIds,
     trials = trials,
+    admissionTypes = admissionTypes,
+    asaScores = asaScores,
+    sepsisDeviceAssociation = sepsisDeviceAssociation,
+    sepsisPathogenSources,
     deliveryModes = deliveryModes,
-    sexes = sexes)
+    pneumoniaDeviceAssociation = pneumoniaDeviceAssociation,
+    pneumoniaPathogenSources = pneumoniaPathogenSources,
+    sexes = sexes,
+    ssiTypes = ssiTypes,
+    surveillanceEndReasons = surveillanceEndReasons,
+    woundClasses = woundClasses,
+    testResults = testResults,
+    surveillanceResults = surveillanceResults
+    )
 
   if(!rlang::is_null(countries))
     ret <- c(ret, list(countries = countries))
@@ -434,14 +456,19 @@ read_metadata_AntimicrobialSubstances <- function(metadata)
     dplyr::mutate(dplyr::across(tidyselect::where(rlang::is_character), factor))
 }
 
-read_metadata_deliveryModes <- function(options)
+read_metadata_admissionTypes <- function(options)
   options |>
-  filter_metadata_options("NEOIPC_DELIVERY_MODES") |>
+  filter_metadata_options("NEOIPC_ADMISSION_TYPES") |>
   convert_metadata_options()
 
-read_metadata_sexes <- function(options)
+read_metadata_asaScores <- function(options)
   options |>
-  filter_metadata_options("NEOIPC_SEX_VALUES") |>
+  filter_metadata_options("NEOIPC_ASA_SCORE") |>
+  convert_metadata_options()
+
+read_metadata_sepsisDeviceAssociation <- function(options)
+  options |>
+  filter_metadata_options("NEOIPC_BSI_DEVICE_ASS") |>
   convert_metadata_options()
 
 read_metadata_sepsis_pathogen_sources <- function(options)
@@ -449,10 +476,51 @@ read_metadata_sepsis_pathogen_sources <- function(options)
   filter_metadata_options("NEOIPC_BSI_PATHOGEN_RECOVERED_FROM") |>
   convert_metadata_options()
 
+read_metadata_deliveryModes <- function(options)
+  options |>
+  filter_metadata_options("NEOIPC_DELIVERY_MODES") |>
+  convert_metadata_options()
+
+read_metadata_pneumoniaDeviceAssociation <- function(options)
+  options |>
+  filter_metadata_options("NEOIPC_HAP_DEVICE_ASS") |>
+  convert_metadata_options()
+
 read_metadata_pneumonia_pathogen_sources <- function(options)
   options |>
   filter_metadata_options("NEOIPC_HAP_RESPIRATORY_TRACT_SAMPLE_SOURCES") |>
   convert_metadata_options()
+
+read_metadata_sexes <- function(options)
+  options |>
+  filter_metadata_options("NEOIPC_SEX_VALUES") |>
+  convert_metadata_options()
+
+read_metadata_ssiTypes <- function(options)
+  options |>
+  filter_metadata_options("NEOIPC_SSI_TYPE") |>
+  convert_metadata_options()
+
+read_metadata_surveillanceEndReasons <- function(options)
+  options |>
+  filter_metadata_options("NEOIPC_SURVEILLANCE_END_REASON") |>
+  convert_metadata_options()
+
+read_metadata_woundClasses <- function(options)
+  options |>
+  filter_metadata_options("NEOIPC_WOUND_CLASSES") |>
+  convert_metadata_options()
+
+read_metadata_testResults <- function(options)
+  options |>
+  filter_metadata_options("NEOIPC_YES_NO_NOT_TESTED") |>
+  convert_metadata_options()
+
+read_metadata_surveillanceResults <- function(options)
+  options |>
+  filter_metadata_options("NEOIPC_YES_NO_NO_FOLLOWUP") |>
+  convert_metadata_options()
+
 
 read_metadata_optionGroupSets <- function(metadata, filter, code_levels = NULL, ordered = FALSE)
 {
