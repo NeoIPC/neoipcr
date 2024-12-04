@@ -200,7 +200,7 @@ read_metadata <- function(metadata)
     admissionTypes = admissionTypes,
     asaScores = asaScores,
     sepsisDeviceAssociation = sepsisDeviceAssociation,
-    sepsisPathogenSources,
+    sepsisPathogenSources = sepsisPathogenSources,
     deliveryModes = deliveryModes,
     pneumoniaDeviceAssociation = pneumoniaDeviceAssociation,
     pneumoniaPathogenSources = pneumoniaPathogenSources,
