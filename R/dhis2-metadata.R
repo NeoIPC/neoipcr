@@ -157,19 +157,22 @@ read_metadata_users <- function(metadata)
 
 read_metadata <- function(metadata)
 {
-  system = read_metadata_system(metadata)
-  programId = read_metadata_program_id(metadata)
-  eventTypes = read_metadata_programStages(metadata)
-  dataElements = read_metadata_dataElements(metadata)
-  trackedEntityAttributes = read_metadata_trackedEntityAttributes(metadata)
-  antimicrobialSubstances = read_metadata_AntimicrobialSubstances(metadata)
-  awareCategories = read_metadata_AWaReCategories(metadata)
-  atc5Categories = read_metadata_atc5Categories(metadata)
-  testUnitIds = read_metadata_test_unit_ids(metadata)
-  trials = read_metadata_trials(metadata)
-  deliveryModes = read_metadata_deliveryModes(metadata)
-  sexes = read_metadata_sexes(metadata)
-  options = read_metadata_options(metadata)
+  system <- read_metadata_system(metadata)
+  programId <- read_metadata_program_id(metadata)
+  eventTypes <- read_metadata_programStages(metadata)
+  dataElements <- read_metadata_dataElements(metadata)
+  trackedEntityAttributes <- read_metadata_trackedEntityAttributes(metadata)
+  antimicrobialSubstances <- read_metadata_AntimicrobialSubstances(metadata)
+  awareCategories <- read_metadata_AWaReCategories(metadata)
+  atc5Categories <- read_metadata_atc5Categories(metadata)
+  testUnitIds <- read_metadata_test_unit_ids(metadata)
+  trials <- read_metadata_trials(metadata)
+  options <- read_metadata_options(metadata)
+  deliveryModes <- read_metadata_deliveryModes(options)
+  sexes <- read_metadata_sexes(options)
+  sepsisPathogenSources  <- read_metadata_sepsis_pathogen_sources(options)
+  pneumoniaPathogenSources <- read_metadata_pneumonia_pathogen_sources(options)
+
   countries <- read_metadata_countries(metadata)
 
   ret <- list(
@@ -376,7 +379,7 @@ read_metadata_trials <- function(metadata)
     tidyr::unnest_wider(1)
 }
 
-read_metadata_options <- function(metadata, filter = NULL)
+read_metadata_options <- function(metadata)
 {
   options <- metadata |>
     purrr::pluck("options")
@@ -384,19 +387,16 @@ read_metadata_options <- function(metadata, filter = NULL)
   if(rlang::is_null(options))
     rlang::abort("Invalid DHIS2 metadata. The options list is missing.", "neoipcr_metadata_options_missing")
 
-  options <- options |>
+  options |>
     tibble::tibble() |>
     tidyr::unnest_wider(1) |>
     tidyr::unnest_wider("optionSet", names_sep = "_") |>
     dplyr::arrange(.data$optionSet_code, .data$sortOrder)
-
-  if(!rlang::is_null(filter))
-    options <- options |>
-      dplyr::filter(.data$optionSet_code == filter) |>
-      dplyr::select(!"optionSet_code")
-
-  options
 }
+
+filter_metadata_options <- function(options, filter)options |>
+  dplyr::filter(.data$optionSet_code == filter) |>
+  dplyr::select(!"optionSet_code")
 
 convert_metadata_options <- function(options, ordered = FALSE)
   options |>
@@ -424,7 +424,8 @@ read_metadata_AntimicrobialSubstances <- function(metadata)
     tidyr::unnest_longer("options") |>
     tidyr::hoist("options", code = "code")
 
-  read_metadata_options(metadata, "NEOIPC_ANTIMICROBIAL_SUBSTANCES") |>
+  read_metadata_options(metadata) |>
+    filter_metadata_options("NEOIPC_ANTIMICROBIAL_SUBSTANCES") |>
     dplyr::left_join(optionGroupSets, dplyr::join_by("code")) |>
     tidyr::pivot_wider(names_from = "system", values_from = "group") |>
     dplyr::mutate(
@@ -433,12 +434,24 @@ read_metadata_AntimicrobialSubstances <- function(metadata)
     dplyr::mutate(dplyr::across(tidyselect::where(rlang::is_character), factor))
 }
 
-read_metadata_deliveryModes <- function(metadata)
-  read_metadata_options(metadata, "NEOIPC_DELIVERY_MODES") |>
+read_metadata_deliveryModes <- function(options)
+  options |>
+  filter_metadata_options("NEOIPC_DELIVERY_MODES") |>
   convert_metadata_options()
 
-read_metadata_sexes <- function(metadata)
-  read_metadata_options(metadata, "NEOIPC_SEX_VALUES") |>
+read_metadata_sexes <- function(options)
+  options |>
+  filter_metadata_options("NEOIPC_SEX_VALUES") |>
+  convert_metadata_options()
+
+read_metadata_sepsis_pathogen_sources <- function(options)
+  options |>
+  filter_metadata_options("NEOIPC_BSI_PATHOGEN_RECOVERED_FROM") |>
+  convert_metadata_options()
+
+read_metadata_pneumonia_pathogen_sources <- function(options)
+  options |>
+  filter_metadata_options("NEOIPC_HAP_RESPIRATORY_TRACT_SAMPLE_SOURCES") |>
   convert_metadata_options()
 
 read_metadata_optionGroupSets <- function(metadata, filter, code_levels = NULL, ordered = FALSE)
