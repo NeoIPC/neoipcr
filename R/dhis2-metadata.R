@@ -1,7 +1,5 @@
 get_metadata <- function(d2_req_base, translate, locale)
 {
-  reqs <- list()
-
   md_req_base <- d2_req_base |>
     httr2::req_url_query(
       paging = "false",
@@ -241,7 +239,7 @@ read_me <- function(me_data)
 
 read_organisationUnits <- function(organisationUnits)
 {
-  ret = list()
+  ret <- list()
   hospitals <- read_organisationUnits_hospitals(organisationUnits)
   if(!rlang::is_null(hospitals))
     ret <- c(ret, list(hospitals = hospitals) )

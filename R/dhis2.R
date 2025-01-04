@@ -49,6 +49,7 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
 
   patients <- read_patients(trackedEntities, metadata)
   enrollments <- read_enrollments(enrollments, events, metadata, patients)
+  ab_treatments <- read_ab_treatments(events, metadata, enrollments)
   surgeries <- read_eventData(events, metadata, "Surgical Procedure") |>
     recode_enrollments(enrollments)
   sepses <- read_eventData(
@@ -76,16 +77,18 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
   sepses <- sepses |>
     infer_sepsis_types(causative_pathogens)
 
-  c(data, list(
+  list(
+    events = events,
     patients = patients,
     enrollments = enrollments,
+    ab_treatments = ab_treatments,
     surgeries = surgeries,
     sepses = sepses,
     necs = necs,
     ssis = ssis,
     pneumonias = pneumonias,
     causative_pathogens = causative_pathogens,
-    metadata = metadata))
+    metadata = metadata)
 }
 
 
@@ -209,7 +212,7 @@ recode_enrollments <- function(events, enrollments)
 
 recode_events <- function(events, eventList)
 {
-  map = dplyr::bind_rows(lapply(eventList, \(x) x |> dplyr::select("key", "event")))
+  map <- dplyr::bind_rows(lapply(eventList, \(x) x |> dplyr::select("key", "event")))
   events |>
     dplyr::left_join(map, dplyr::join_by("event")) |>
     dplyr::relocate("key") |>
@@ -413,6 +416,35 @@ read_enrollments <- function(enrollments, events, metadata, patients)
     add_key_column()
 
 }
+
+read_ab_treatments <- function(events, metadata, enrollments) {
+  events |>
+    dplyr::inner_join(
+      metadata$eventTypes |>
+        dplyr::filter(.data$name == "Surveillance-End")
+        |> dplyr::select("id","key"),
+      dplyr::join_by("programStage" == "id")) |>
+    dplyr::select("enrollment","dataValues") |>
+    recode_enrollments(enrollments) |>
+    tidyr::unnest_longer(2) |>
+    tidyr::unnest_wider(2) |>
+    dplyr::select("enrollment","dataElement","value") |>
+    dplyr::inner_join(
+      metadata$dataElements |>
+        dplyr::filter(stringr::str_starts( .data$code, "NEOIPC_SURVEILLANCE_END_AB_SUBST_\\d\\d")) |>
+        dplyr::select("id", "code"),
+      dplyr::join_by("dataElement" == "id")) |>
+    dplyr::select(!"dataElement") |>
+    dplyr::mutate(
+      index = as.integer(
+        stringr::str_extract(.data$code,"^NEOIPC_SURVEILLANCE_END_AB_SUBST_\\d(\\d)(_DAYS)?$", 1)),
+      name = dplyr::if_else(stringr::str_ends(.data$code, "_DAYS"), "days", "substance_code"),
+      .keep = "unused") |>
+    tidyr::pivot_wider() |>
+    dplyr::arrange(.data$enrollment, .data$index) |>
+    dplyr::relocate(3, .after = 4)
+}
+
 
 process_notes <- function(notes)
 {
