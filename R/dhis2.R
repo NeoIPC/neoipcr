@@ -424,11 +424,12 @@ read_ab_treatments <- function(events, metadata, enrollments) {
         dplyr::filter(.data$name == "Surveillance-End")
         |> dplyr::select("id","key"),
       dplyr::join_by("programStage" == "id")) |>
-    dplyr::select("enrollment","dataValues") |>
+    dplyr::select("enrollment","status","dataValues") |>
     recode_enrollments(enrollments) |>
-    tidyr::unnest_longer(2) |>
-    tidyr::unnest_wider(2) |>
-    dplyr::select("enrollment","dataElement","value") |>
+    tidyr::unnest_longer(3) |>
+    tidyr::unnest_wider(3) |>
+    dplyr::select("enrollment","status","dataElement","value") |>
+    dplyr::rename(surveillanceEnd_status = .data$status) |>
     dplyr::inner_join(
       metadata$dataElements |>
         dplyr::filter(stringr::str_starts( .data$code, "NEOIPC_SURVEILLANCE_END_AB_SUBST_\\d\\d")) |>
