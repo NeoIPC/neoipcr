@@ -168,7 +168,7 @@ read_eventData <- function(
         dplyr::select("id", "key"),
       dplyr::join_by("orgUnit" == "id")) |>
     dplyr::mutate(orgUnit = .data$key, .keep = "unused") |>
-    dplyr::rename(department = .data$orgUnit)
+    dplyr::rename(department = "orgUnit")
 
   if(addKeyColumn)
     e <- e |>
@@ -206,7 +206,7 @@ recode_enrollments <- function(events, enrollments)
     dplyr::inner_join(
       enrollments |>
         dplyr::select("key", "enrollment") |>
-        dplyr::rename(enrollment_key = .data$key),
+        dplyr::rename(enrollment_key = "key"),
       dplyr::join_by("enrollment")) |>
     dplyr::mutate(enrollment = .data$enrollment_key, .keep = "unused")
 
@@ -261,7 +261,7 @@ read_causative_pathogens <- function(events, metadata)
           programStageKey = "key"),
       dplyr::join_by("programStage" == "programStageid")) |>
     dplyr::mutate(programStage = .data$programStageKey, .keep = "unused") |>
-    dplyr::rename(eventType = .data$programStage) |>
+    dplyr::rename(eventType = "programStage") |>
     tidyr::unnest_longer("dataValues") |>
     tidyr::unnest_wider("dataValues", names_sep = "_") |>
     dplyr::inner_join(
@@ -405,7 +405,7 @@ read_enrollments <- function(enrollments, events, metadata, patients)
         dplyr::select("id", "key"),
       dplyr::join_by("enrollment_orgUnit" == "id")) |>
     dplyr::mutate(enrollment_orgUnit = .data$key, .keep = "unused") |>
-    dplyr::rename(enrollment_department = .data$enrollment_orgUnit) |>
+    dplyr::rename(enrollment_department = "enrollment_orgUnit") |>
     dplyr::inner_join(
       patients |>
         dplyr::select("trackedEntity", "key"),
@@ -443,7 +443,7 @@ read_ab_treatments <- function(events, metadata, enrollments) {
       .keep = "unused") |>
     tidyr::pivot_wider() |>
     dplyr::mutate(days = as.integer(.data$days), .after = "substance_code") |>
-    dplyr::arrange(.data$enrollment, .data$index)
+    dplyr::arrange("enrollment", "index")
 }
 
 
