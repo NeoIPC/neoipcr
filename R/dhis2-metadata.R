@@ -20,6 +20,8 @@ get_metadata <- function(d2_req_base, translate, locale)
       httr2::req_url_query(
         `programs:fields` = "id,programTrackedEntityAttributes[trackedEntityAttribute[id,valueType,code,displayName,displayShortName,displayFormName,displayDescription,optionSet[id]]],programStages[id,name,displayName,displayFormName,displayDescription,programStageDataElements[dataElement[id,valueType,code,displayName,displayShortName,displayFormName,displayDescription,optionSet[code]]]]",
         `programs:filter` = "code:eq:NEOIPC_CORE",
+        `trackedEntityTypes:fields` = "id",
+        `trackedEntityTypes:filter` = "name:eq:NeoIPC Patient",
         `organisationUnitGroups:fields` = "code,organisationUnits[id,code,displayName,displayShortName,displayDescription]",
         `organisationUnitGroups:filter` = "code:in:[COUNTRY,TEST_UNITS]",
         `organisationUnitGroupSets:fields` = "organisationUnitGroups[code,displayName,displayShortName,displayDescription,organisationUnits[id]]",
@@ -157,6 +159,7 @@ read_metadata <- function(metadata)
 {
   system <- read_metadata_system(metadata)
   programId <- read_metadata_program_id(metadata)
+  trackedEntityTypeId <- metadata$trackedEntityTypes |> unlist(use.names = F)
   eventTypes <- read_metadata_programStages(metadata)
   dataElements <- read_metadata_dataElements(metadata)
   trackedEntityAttributes <- read_metadata_trackedEntityAttributes(metadata)
@@ -186,6 +189,7 @@ read_metadata <- function(metadata)
   ret <- list(
     system = system,
     programId = programId,
+    trackedEntityTypeId = trackedEntityTypeId,
     eventTypes = eventTypes,
     options = options,
     dataElements = dataElements,

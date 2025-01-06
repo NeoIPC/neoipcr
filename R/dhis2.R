@@ -21,7 +21,7 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
       tracker_req |>
         httr2::req_url_path_append("trackedEntities") |>
         httr2::req_url_query(
-          program = metadata$programId,
+          trackedEntityType = metadata$trackedEntityTypeId,
           fields = "trackedEntity,createdAt,createdAtClient,updatedAt,updatedAtClient,orgUnit,inactive,deleted,createdBy[username],updatedBy[username],potentialDuplicate,attributes[code,value]")))
 
   reqs <- append(
