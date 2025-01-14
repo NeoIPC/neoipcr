@@ -52,7 +52,7 @@ get_metadata <- function(d2_req_base, translate, locale)
       httr2::req_url_path_append("organisationUnits") |>
       httr2::req_url_query(
         withinUserHierarchy = "true",
-        fields = "id,displayName,displayShortName,displayDescription,openingDate,comment,geometry,parent[id,code,displayName,displayShortName,displayDescription,comment,geometry,parent[code]]",
+        fields = "id,code,displayName,displayShortName,displayDescription,openingDate,comment,geometry,parent[id,code,displayName,displayShortName,displayDescription,comment,geometry,parent[code]]",
         filter = "organisationUnitGroups.code:eq:NEO_DEPARTMENT")
   ) |>
     httr2::req_perform_parallel(on_error = "continue") |>
@@ -68,9 +68,9 @@ read_metadata_reponses <- function(resps)
 
   # Make the country_code column a factor but make sure it contains all
   # potential values
-  metadata[["hospitals"]] <- metadata[["hospitals"]] |>
+  metadata$hospitals <- metadata$hospitals |>
     dplyr::left_join(
-      metadata[["countries"]] |>
+      metadata$countries |>
         dplyr::select("code") |>
         dplyr::rename(zzz = .data$code),
       dplyr::join_by("country_code" == "zzz"),
@@ -80,14 +80,15 @@ read_metadata_reponses <- function(resps)
   metadata$departments <- metadata$departments |>
     dplyr::mutate(isTestUnit = .data$id %in% metadata$testUnitIds) |>
     dplyr::left_join(metadata$trials |>
-                       dplyr::select("code", "organisationUnits") |>
-                       tidyr::unnest_longer(2) |>
-                       tidyr::unnest_wider(2), dplyr::join_by("id")) |>
-    dplyr::mutate(isTrial = !is.na(.data$code)) |>
-    tidyr::pivot_wider(
-      names_from = "code",
-      values_from = "isTrial",
-      values_fill = FALSE) |>
+                       dplyr::mutate(
+                         organisationUnits = .data$organisationUnits,
+                         name = .data$code,
+                         .keep = "none"
+                       ) |>
+                       tidyr::unnest_longer(1) |>
+                       tidyr::unnest_wider(1), dplyr::join_by("id")) |>
+    dplyr::mutate(value = !is.na(.data$name)) |>
+    tidyr::pivot_wider(values_fill = FALSE) |>
     dplyr::select(!tidyselect::any_of("NA"))
 
   metadata$testUnitIds <- NULL
