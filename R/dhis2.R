@@ -99,7 +99,7 @@ dhis2_connection_options <- function(
 {
   ret <- list(
     base_url = httr2::url_build(
-      list(scheme = scheme, hostname = hostname, port = port, path = path)))
+      structure(list(scheme = scheme, hostname = hostname, port = port, path = path), class = "httr2_url")))
 
   switch(
     rlang::check_exclusive(token, username, session_id, .require = FALSE),
