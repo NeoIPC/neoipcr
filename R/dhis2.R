@@ -293,6 +293,9 @@ infer_sepsis_types <- function(sepses, causative_pathogens)
           dplyr::join_by("PATHOGEN" == "id")) |>
         dplyr::select("key","eventType","is_cc"),
       dplyr::join_by("key", "eventType")) |>
+    # if a sepsis contains both, a cc and a non-cc pathogen it is a non-cc sepsis
+    dplyr::group_by(across(!.data$is_cc)) |>
+    dplyr::summarise("is_cc" = as.logical(min(.data$is_cc))) |>
     dplyr::mutate(
       bsiType = factor(
         dplyr::case_when(
