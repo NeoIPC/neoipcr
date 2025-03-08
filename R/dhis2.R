@@ -55,8 +55,7 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
   sepses <- read_eventData(
     events, metadata, "Primary Sepsis/BSI",
     dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_BSI_PATHOGEN", TRUE)) |>
-    recode_enrollments(enrollments)# |>
-    #infer_sepsis_types()
+    recode_enrollments(enrollments)
   necs <- read_eventData(
     events, metadata, "Necrotizing enterocolitis",
     dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_NEC_SEC_BSI_PATHOGEN", TRUE)) |>
@@ -295,7 +294,7 @@ infer_sepsis_types <- function(sepses, causative_pathogens)
       dplyr::join_by("key", "eventType")) |>
     # if a sepsis contains both, a cc and a non-cc pathogen it is a non-cc sepsis
     dplyr::group_by(across(!.data$is_cc)) |>
-    dplyr::summarise("is_cc" = as.logical(min(.data$is_cc))) |>
+    dplyr::summarise("is_cc" = as.logical(min(.data$is_cc)), .groups = "drop") |>
     dplyr::mutate(
       bsiType = factor(
         dplyr::case_when(
