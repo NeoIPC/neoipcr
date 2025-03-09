@@ -108,7 +108,13 @@ filter_metadata_reponses <- function(resps)
   if(length(successes) == 4)
     return(successes[resps_not_me(resps)])
 
-  rlang::abort(sprintf("Expected 3 or 4 successful queries but got %i.", length(successes)))
+  rlang::abort(
+    sprintf("Expected 3 or 4 successful queries but got %i.", length(successes)),
+    body = resps |>
+      httr2::resps_failures() |>
+      lapply(\(resp)resp$message) |>
+      unlist() |>
+      unique())
 }
 
 read_metadata_reponse <- function(resp)
