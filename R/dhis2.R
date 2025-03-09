@@ -76,18 +76,30 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
   sepses <- sepses |>
     infer_sepsis_types(causative_pathogens)
 
-  list(
-    events = events,
-    patients = patients,
-    enrollments = enrollments,
-    ab_treatments = ab_treatments,
-    surgeries = surgeries,
-    sepses = sepses,
-    necs = necs,
-    ssis = ssis,
-    pneumonias = pneumonias,
-    causative_pathogens = causative_pathogens,
-    metadata = metadata)
+  class(patients) <- c("neoipc_pat", class(patients))
+  class(enrollments) <- c("neoipc_enr", class(enrollments))
+  class(ab_treatments) <- c("neoipc_trt", class(ab_treatments))
+  class(surgeries) <- c("neoipc_srg", class(surgeries))
+  class(sepses) <- c("neoipc_sep", class(sepses))
+  class(necs) <- c("neoipc_nec", class(necs))
+  class(ssis) <- c("neoipc_ssi", class(ssis))
+  class(pneumonias) <- c("neoipc_pne", class(pneumonias))
+  class(causative_pathogens) <- c("neoipc_cspath", class(causative_pathogens))
+
+  structure(
+    list(
+      events = events,
+      patients = patients,
+      enrollments = enrollments,
+      ab_treatments = ab_treatments,
+      surgeries = surgeries,
+      sepses = sepses,
+      necs = necs,
+      ssis = ssis,
+      pneumonias = pneumonias,
+      causative_pathogens = causative_pathogens,
+      metadata = metadata),
+    class = c("neoipc_ds", "list"))
 }
 
 
