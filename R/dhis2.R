@@ -1,10 +1,14 @@
-#' @importFrom rlang .data
 #' @export
 import_dhis2 <- function(connection_options = dhis2_connection_options(), translate = TRUE, locale = NULL, include_deleted = FALSE)
 {
+  check_neoipcr_dhis2_conopt(connection_options)
+
   d2req_base <- dhis2_request(connection_options)
 
-  metadata <- get_metadata(d2req_base, translate, locale)
+  user_info <- d2req_base |>
+    get_user_info()
+
+  metadata <- get_metadata(d2req_base, user_info, translate, locale)
 
   reqs <- list()
 
@@ -50,23 +54,24 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
   patients <- read_patients(trackedEntities, metadata)
   enrollments <- read_enrollments(enrollments, events, metadata, patients)
   ab_treatments <- read_ab_treatments(events, metadata, enrollments)
-  surgeries <- read_eventData(events, metadata, "Surgical Procedure") |>
+  surgeries <- read_eventData(
+    events, metadata, "Surgical Procedure", keyColumn = "surgery_key",) |>
     recode_enrollments(enrollments)
   sepses <- read_eventData(
-    events, metadata, "Primary Sepsis/BSI",
+    events, metadata, "Primary Sepsis/BSI", keyColumn = "sepsis_key",
     dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_BSI_PATHOGEN", TRUE)) |>
     recode_enrollments(enrollments)
   necs <- read_eventData(
-    events, metadata, "Necrotizing enterocolitis",
+    events, metadata, "Necrotizing enterocolitis", keyColumn = "nec_key",
     dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_NEC_SEC_BSI_PATHOGEN", TRUE)) |>
     recode_enrollments(enrollments)
   ssis <- read_eventData(
-    events, metadata, "Surgical Site Infection",
+    events, metadata, "Surgical Site Infection", keyColumn = "ssi_key",
     dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_SSI_PATHOGEN", TRUE) &
       stringr::str_starts(x, "NEOIPC_SSI_SEC_BSI_PATHOGEN", TRUE)) |>
     recode_enrollments(enrollments)
   pneumonias <- read_eventData(
-    events, metadata, "Pneumonia",
+    events, metadata, "Pneumonia", keyColumn = "pneumonia_key",
     dataElementFilter = \(x) stringr::str_starts(x, "NEOIPC_HAP_PATHOGEN", TRUE) &
       stringr::str_starts(x, "NEOIPC_HAP_SEC_BSI_PATHOGEN", TRUE)) |>
     recode_enrollments(enrollments)
@@ -76,53 +81,119 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
   sepses <- sepses |>
     infer_sepsis_types(causative_pathogens)
 
-  class(patients) <- c("neoipc_pat", class(patients))
-  class(enrollments) <- c("neoipc_enr", class(enrollments))
-  class(ab_treatments) <- c("neoipc_trt", class(ab_treatments))
-  class(surgeries) <- c("neoipc_srg", class(surgeries))
-  class(sepses) <- c("neoipc_sep", class(sepses))
-  class(necs) <- c("neoipc_nec", class(necs))
-  class(ssis) <- c("neoipc_ssi", class(ssis))
-  class(pneumonias) <- c("neoipc_pne", class(pneumonias))
-  class(causative_pathogens) <- c("neoipc_cspath", class(causative_pathogens))
+  class(patients) <- c("neoipcr_pat", class(patients))
+  class(enrollments) <- c("neoipcr_enr", class(enrollments))
+  class(ab_treatments) <- c("neoipcr_trt", class(ab_treatments))
+  class(surgeries) <- c("neoipcr_srg", class(surgeries))
+  class(sepses) <- c("neoipcr_sep", class(sepses))
+  class(necs) <- c("neoipcr_nec", class(necs))
+  class(ssis) <- c("neoipcr_ssi", class(ssis))
+  class(pneumonias) <- c("neoipcr_pne", class(pneumonias))
+  class(causative_pathogens) <- c("neoipcr_cspg", class(causative_pathogens))
+  class(metadata) <- c("neoipcr_metadata", class(metadata))
 
   structure(
     list(
-      events = events,
       patients = patients,
       enrollments = enrollments,
-      ab_treatments = ab_treatments,
-      surgeries = surgeries,
       sepses = sepses,
       necs = necs,
-      ssis = ssis,
       pneumonias = pneumonias,
+      surgeries = surgeries,
+      ssis = ssis,
+      ab_treatments = ab_treatments,
       causative_pathogens = causative_pathogens,
       metadata = metadata),
-    class = c("neoipc_ds", "list"))
+    class = c("neoipcr_ds", "list"))
 }
-
 
 #' @export
 dhis2_connection_options <- function(
-    token, username, session_id, password = NULL, scheme = "https",
+    token, username, session_id, scheme = "https",
     hostname = "neoipc.charite.de", port = NULL, path = "/api")
 {
   ret <- list(
     base_url = httr2::url_build(
       structure(list(scheme = scheme, hostname = hostname, port = port, path = path), class = "httr2_url")))
 
-  switch(
+  ret <- switch(
     rlang::check_exclusive(token, username, session_id, .require = FALSE),
     token = c(ret, list(token = read_token(token))),
-    username = c(ret, list(username = username, password = password)),
+    username = c(ret, list(username = username, password = get_password(ret$base_url))),
     session_id = c(ret, list(session_id = session_id)),
-    c(ret, list(
-      username = askpass::askpass(
-        prompt = sprintf(
-          "Please enter your username for %s: ", ret$base_url)),
-      password = password))
+    c(ret, get_auth_data(ret$base_url))
   )
+
+  structure(ret, class = "neoipcr_dhis2_conopt")
+}
+
+get_auth_data <- function(url)
+{
+  env_session_id <- Sys.getenv("NEOIPC_DHIS2_SESSION_ID", unset = NA)
+  if(!is.na(env_session_id)) return(list(session_id = session_id))
+
+  env_token <- Sys.getenv("NEOIPC_DHIS2_TOKEN", unset = NA)
+  if(!is.na(env_token)) return(list(token = read_token(env_token)))
+
+  user <- Sys.getenv("NEOIPC_DHIS2_USER", unset = NA)
+  if(is.na(user)) user <- askpass::askpass(
+    prompt = sprintf(
+      "Please enter your username for %s: ", url))
+
+  if(is.null(user)) rlang::abort(
+    message = "No username provided",
+    body = "Please provide username and password, a personal access token or a session id to authenticate to DHIS2")
+
+  list(username = user, password = get_password(url))
+}
+
+get_password <- function(url)
+{
+  pw <- Sys.getenv("NEOIPC_DHIS2_PASSWORD", unset = NA)
+  if(!is.na(pw)) return(pw)
+
+  pw <- askpass::askpass(
+    prompt = sprintf("Please enter your password for %s: ", url))
+
+  if(is.null(pw)) rlang::abort(
+    message = "No password provided",
+    body = "Please provide username and password, a personal access token or a session id to authenticate to DHIS2")
+
+  pw
+}
+
+read_token <- function(token)
+{
+  if(stringr::str_starts(token, "d2pat_") &&  nchar(token) == 48)
+    return(token)
+
+  fileInfo <- file.info(token, extra_cols = FALSE)
+  if(!rlang::is_na(fileInfo$isdir) && !fileInfo$isdir)
+  {
+    fileContent <- readChar(token, fileInfo$size)
+    if(stringr::str_starts(fileContent, "d2pat_") && nchar(fileContent) == 48)
+      return(fileContent)
+  }
+  rlang::abort("Invalid DHIS2 personal access token.")
+}
+
+#' @export
+print.neoipcr_dhis2_conopt <- function(x, ...)
+{
+  parts <- paste0("Base URL: ", x$base_url)
+  if(!is.null(x$token)) {
+    parts <- c(parts, "Authentication: Token")
+  } else if(!is.null(x$session_id)) {
+    parts <- c(parts, "Authentication: Cookie")
+  } else if(!is.null(x$username)) {
+    parts <- c(
+      parts,
+      "Authentication: Basic",
+      paste0("Username: ", x$username))
+  }
+
+  writeLines(parts)
+  invisible(x)
 }
 
 read_eventData <- function(
@@ -131,16 +202,15 @@ read_eventData <- function(
     programStageName,
     prefix = NULL,
     dataElementFilter = NULL,
-    addKeyColumn = TRUE,
+    keyColumn = NULL,
     keepEventType = TRUE)
 {
   e <- events |>
     dplyr::inner_join(
       metadata$eventTypes |>
         dplyr::filter(.data$name == programStageName) |>
-        dplyr::select("id","key"),
-      dplyr::join_by("programStage" == "id")) |>
-    dplyr::mutate(eventType = .data$key, .keep = "unused") |>
+        dplyr::select("programStage","event_type_key"),
+      dplyr::join_by("programStage")) |>
     dplyr::select(!"programStage") |>
     dplyr::mutate(
       notes = process_notes(.data$notes)) |>
@@ -161,33 +231,31 @@ read_eventData <- function(
         "ACTIVE", "COMPLETED", "VISITED", "SCHEDULE", "OVERDUE", "SKIPPED"))) |>
     dplyr::left_join(
       metadata$users |>
-        dplyr::select("username", "key"),
+        dplyr::select("username", "user_key"),
       dplyr::join_by("storedBy" == "username")) |>
-    dplyr::mutate(storedBy = .data$key, .keep = "unused") |>
+    dplyr::mutate(storedBy = .data$user_key, .keep = "unused") |>
     dplyr::left_join(
       metadata$users |>
-        dplyr::select("username", "key"),
+        dplyr::select("username", "user_key"),
       dplyr::join_by("createdBy" == "username")) |>
-    dplyr::mutate(createdBy = .data$key, .keep = "unused") |>
+    dplyr::mutate(createdBy = .data$user_key, .keep = "unused") |>
     dplyr::left_join(
       metadata$users |>
-        dplyr::select("username", "key"),
+        dplyr::select("username", "user_key"),
       dplyr::join_by("updatedBy" == "username")) |>
-    dplyr::mutate(updatedBy = .data$key, .keep = "unused") |>
+    dplyr::mutate(updatedBy = .data$user_key, .keep = "unused") |>
     dplyr::left_join(
-      metadata[["departments"]] |>
-        dplyr::select("id", "key"),
-      dplyr::join_by("orgUnit" == "id")) |>
-    dplyr::mutate(orgUnit = .data$key, .keep = "unused") |>
-    dplyr::rename(department = "orgUnit")
+      metadata$departments |>
+        dplyr::select("organisationUnit", "department_key"),
+      dplyr::join_by("orgUnit" == "organisationUnit"))
 
-  if(addKeyColumn)
+  if(!is.null(keyColumn))
     e <- e |>
-    add_key_column()
+    add_key_column(keyColumn)
 
   if(!keepEventType)
     e <- e |>
-    dplyr::select(!"eventType")
+    dplyr::select(!"event_type_key")
 
   if(!is.null(prefix))
     e <- e |> dplyr::rename_with(
@@ -214,19 +282,22 @@ read_eventData <- function(
 
 recode_enrollments <- function(events, enrollments)
   events |>
-    dplyr::inner_join(
-      enrollments |>
-        dplyr::select("key", "enrollment") |>
-        dplyr::rename(enrollment_key = "key"),
-      dplyr::join_by("enrollment")) |>
-    dplyr::mutate(enrollment = .data$enrollment_key, .keep = "unused")
+  dplyr::inner_join(
+    enrollments |>
+      dplyr::select("enrollment_key", "enrollment"),
+    dplyr::join_by("enrollment")) |>
+  dplyr::select(!"enrollment")
 
 recode_events <- function(events, eventList)
 {
-  map <- dplyr::bind_rows(lapply(eventList, \(x) x |> dplyr::select("key", "event")))
+  map <- dplyr::bind_rows(lapply(eventList, \(x) {
+    x |>
+      dplyr::select(dplyr::matches("^((sepsis|nec|ssi|pneumonia|surgery)_key)|(event)$")) |>
+      dplyr::rename(infection_key = dplyr::matches("^(sepsis|nec|ssi|pneumonia|surgery)_key$"))
+  }))
   events |>
     dplyr::left_join(map, dplyr::join_by("event")) |>
-    dplyr::relocate("key") |>
+    dplyr::relocate("infection_key") |>
     dplyr::select(!"event")
 }
 
@@ -265,14 +336,10 @@ read_causative_pathogens <- function(events, metadata)
           "Necrotizing enterocolitis",
           "Surgical Site Infection",
           "Pneumonia")) |>
-        dplyr::select("id", "name", "key") |>
-        dplyr::rename(
-          programStageid = "id",
-          programStageName = "name",
-          programStageKey = "key"),
-      dplyr::join_by("programStage" == "programStageid")) |>
-    dplyr::mutate(programStage = .data$programStageKey, .keep = "unused") |>
-    dplyr::rename(eventType = "programStage") |>
+        dplyr::select("programStage", "name", "event_type_key") |>
+        dplyr::rename(programStageName = "name"),
+      dplyr::join_by("programStage")) |>
+    dplyr::select(!"programStage") |>
     tidyr::unnest_longer("dataValues") |>
     tidyr::unnest_wider("dataValues", names_sep = "_") |>
     dplyr::inner_join(
@@ -287,7 +354,7 @@ read_causative_pathogens <- function(events, metadata)
       secondary_bsi = stringr::str_detect(.data$code, "_SEC_BSI_"),
       .keep = "unused"
     ) |>
-    dplyr::select("event", "eventType", "type", "index", "secondary_bsi", "dataValues_value",) |>
+    dplyr::select("event", "event_type_key", "type", "index", "secondary_bsi", "dataValues_value") |>
     tidyr::pivot_wider(names_from = "type", values_from = "dataValues_value", names_sort = TRUE) |>
     dplyr::mutate(dplyr::across(c("PATHOGEN_3GCR","PATHOGEN_CAR","PATHOGEN_COR","PATHOGEN_MRSA","PATHOGEN_VRE"), ~ as.logical(dplyr::na_if(as.integer(.x), -1)))) |>
     dplyr::mutate(PATHOGEN = as.integer(.data$PATHOGEN))
@@ -302,8 +369,8 @@ infer_sepsis_types <- function(sepses, causative_pathogens)
           get_pathogen_list() |>
             dplyr::select("id", "is_cc"),
           dplyr::join_by("PATHOGEN" == "id")) |>
-        dplyr::select("key","eventType","is_cc"),
-      dplyr::join_by("key", "eventType")) |>
+        dplyr::select("infection_key","event_type_key","is_cc"),
+      dplyr::join_by("sepsis_key" == "infection_key", "event_type_key")) |>
     # if a sepsis contains both, a cc and a non-cc pathogen it is a non-cc sepsis
     dplyr::group_by(across(!.data$is_cc)) |>
     dplyr::summarise("is_cc" = as.logical(min(.data$is_cc)), .groups = "drop") |>
@@ -336,21 +403,22 @@ convert_dataElementColumn <- function(col, col_name, dataElements, options)
     dplyr::select("valueType", "optionSet") |>
     unlist()
 
-  if(!rlang::is_na(col_type[["optionSet"]])){
+  if(!rlang::is_na(col_type[["optionSet"]]))
+  {
     o <- options |>
       dplyr::filter(.data$optionSet_code == col_type[["optionSet"]])
 
-  if(nrow(o) > 0)
-    return(factor(col, levels = (o |> dplyr::pull("code"))))
+    if(nrow(o) > 0)
+      return(factor(col, levels = (o |> dplyr::pull("code"))))
   }
 
   if(stringr::str_starts(col_type[["valueType"]], "INTEGER"))
-    as.integer(col)
-  else if(col_type[["valueType"]] %in% c("BOOLEAN", "TRUE_ONLY"))
-    as.logical(col)
-  else
-    col
+    return(as.integer(col))
 
+  if(col_type[["valueType"]] %in% c("BOOLEAN", "TRUE_ONLY"))
+    return(as.logical(col))
+
+  col
 }
 
 read_enrollments <- function(enrollments, events, metadata, patients)
@@ -360,7 +428,6 @@ read_enrollments <- function(enrollments, events, metadata, patients)
     metadata,
     "Admission",
     "admission_",
-    addKeyColumn = FALSE,
     keepEventType = FALSE)
 
   surveillanceEnds <- read_eventData(
@@ -369,7 +436,6 @@ read_enrollments <- function(enrollments, events, metadata, patients)
     "Surveillance-End",
     "surveillanceEnd_",
     \(x) stringr::str_starts(x, "NEOIPC_SURVEILLANCE_END_AB_SUBST", TRUE),
-    addKeyColumn = FALSE,
     keepEventType = FALSE)
 
   enrollments |>
@@ -396,54 +462,50 @@ read_enrollments <- function(enrollments, events, metadata, patients)
     dplyr::left_join(surveillanceEnds, dplyr::join_by("enrollment", "trackedEntity")) |>
     dplyr::left_join(
       metadata$users |>
-        dplyr::select("username", "key"),
+        dplyr::select("username", "user_key"),
       dplyr::join_by("enrollment_completedBy" == "username")) |>
-    dplyr::mutate(enrollment_completedBy = .data$key, .keep = "unused") |>
+    dplyr::mutate(enrollment_completedBy = .data$user_key, .keep = "unused") |>
     dplyr::left_join(
       metadata$users |>
-        dplyr::select("username", "key"),
+        dplyr::select("username", "user_key"),
       dplyr::join_by("enrollment_storedBy" == "username")) |>
-    dplyr::mutate(enrollment_storedBy = .data$key, .keep = "unused") |>
+    dplyr::mutate(enrollment_storedBy = .data$user_key, .keep = "unused") |>
     dplyr::left_join(
       metadata$users |>
-        dplyr::select("username", "key"),
+        dplyr::select("username", "user_key"),
       dplyr::join_by("enrollment_createdBy" == "username")) |>
-    dplyr::mutate(enrollment_createdBy = .data$key, .keep = "unused") |>
+    dplyr::mutate(enrollment_createdBy = .data$user_key, .keep = "unused") |>
     dplyr::left_join(
       metadata$users |>
-        dplyr::select("username", "key"),
+        dplyr::select("username", "user_key"),
       dplyr::join_by("enrollment_updatedBy" == "username")) |>
-    dplyr::mutate(enrollment_updatedBy = .data$key, .keep = "unused") |>
+    dplyr::mutate(enrollment_updatedBy = .data$user_key, .keep = "unused") |>
     dplyr::left_join(
-      metadata[["departments"]] |>
-        dplyr::select("id", "key"),
-      dplyr::join_by("enrollment_orgUnit" == "id")) |>
-    dplyr::mutate(enrollment_orgUnit = .data$key, .keep = "unused") |>
-    dplyr::rename(enrollment_department = "enrollment_orgUnit") |>
+      metadata$departments |>
+        dplyr::select("organisationUnit", "department_key"),
+      dplyr::join_by("enrollment_orgUnit" == "organisationUnit")) |>
+    dplyr::mutate(enrollment_department_key = .data$department_key, .keep = "unused") |>
     dplyr::inner_join(
       patients |>
-        dplyr::select("trackedEntity", "key"),
+        dplyr::select("trackedEntity", "patient_key"),
       dplyr::join_by("trackedEntity")) |>
-    dplyr::mutate(patient = .data$key, .keep = "unused") |>
-    dplyr::relocate("patient", .after = "enrollment") |>
     dplyr::select(!"trackedEntity") |>
-    add_key_column()
-
+    add_key_column("enrollment_key")
 }
 
 read_ab_treatments <- function(events, metadata, enrollments) {
   events |>
     dplyr::inner_join(
       metadata$eventTypes |>
-        dplyr::filter(.data$name == "Surveillance-End")
-        |> dplyr::select("id","key"),
-      dplyr::join_by("programStage" == "id")) |>
-    dplyr::select("enrollment","status","dataValues") |>
+        dplyr::filter(.data$name == "Surveillance-End") |>
+        dplyr::select("programStage","event_type_key"),
+      dplyr::join_by("programStage")) |>
+    dplyr::select("enrollment","dataValues") |>
     recode_enrollments(enrollments) |>
-    tidyr::unnest_longer(3) |>
-    tidyr::unnest_wider(3) |>
-    dplyr::select("enrollment","status","dataElement","value") |>
-    dplyr::rename(surveillanceEnd_status = .data$status) |>
+    dplyr::relocate("enrollment_key") |>
+    tidyr::unnest_longer(2) |>
+    tidyr::unnest_wider(2) |>
+    dplyr::select("enrollment_key","dataElement","value") |>
     dplyr::inner_join(
       metadata$dataElements |>
         dplyr::filter(stringr::str_starts( .data$code, "NEOIPC_SURVEILLANCE_END_AB_SUBST_\\d\\d")) |>
@@ -515,22 +577,21 @@ read_patients <- function(trackedEntities, metadata)
       "NEOIPC_TEA_SIBLINGS",
       "NEOIPC_TEA_BIRTH_WEIGHT")), as.integer))|>
     dplyr::left_join(
-      metadata[["users"]] |>
-        dplyr::select("username", "key"),
+      metadata$users |>
+        dplyr::select("username", "user_key"),
       dplyr::join_by("createdBy" == "username")) |>
-    dplyr::mutate(createdBy = .data$key, .keep = "unused") |>
+    dplyr::mutate(createdBy = .data$user_key, .keep = "unused") |>
     dplyr::left_join(
-      metadata[["users"]] |>
-        dplyr::select("username", "key"),
+      metadata$users |>
+        dplyr::select("username", "user_key"),
       dplyr::join_by("updatedBy" == "username")) |>
-    dplyr::mutate(updatedBy = .data$key, .keep = "unused") |>
+    dplyr::mutate(updatedBy = .data$user_key, .keep = "unused") |>
     dplyr::left_join(
-      metadata[["departments"]] |>
-        dplyr::select("id", "key"),
-      dplyr::join_by("orgUnit" == "id")) |>
-    dplyr::mutate(department = .data$key, .keep = "unused") |>
+      metadata$departments |>
+        dplyr::select("organisationUnit", "department_key"),
+      dplyr::join_by("orgUnit" == "organisationUnit")) |>
     dplyr::select(!"orgUnit") |>
-    add_key_column()
+    add_key_column("patient_key")
 
   if("NEOIPC_TEA_SIBLINGS" %in% names(patients))
     patients <- patients |>
@@ -565,14 +626,20 @@ get_testUnitIds <- function(metadata)
     unlist(use.names = FALSE)
 }
 
-add_key_column <- function(table)
+add_key_column <- function(table, key_name = "key", as_factor = FALSE)
 {
-  table |>
+  tmp <- table |>
     dplyr::mutate(random = ids::random_id(nrow(table))) |>
     dplyr::arrange(.data$random) |>
-    dplyr::mutate(key = dplyr::row_number()) |>
-    dplyr::select(!"random") |>
-    dplyr::relocate("key")
+    dplyr::select(!"random")
+
+  if (as_factor) tmp <- tmp |>
+      dplyr::mutate(!!key_name := as.factor(dplyr::row_number()))
+  else tmp <- tmp |>
+      dplyr::mutate(!!key_name := dplyr::row_number())
+
+  tmp |>
+    dplyr::relocate(key_name)
 }
 
 get_users_orgUnits <- function(metadata)
@@ -617,19 +684,36 @@ get_users_roles <- function(metadata)
     tidyr::unnest_wider(2, names_sep = "_")
 }
 
-read_token <- function(token)
+get_user_info <- function(req)
 {
-  if(stringr::str_starts(token, "d2pat_"))
-    return(token)
+  raw_info <- req |>
+    httr2::req_url_path_append("me") |>
+    httr2::req_url_query(
+      fields = "id,username,firstName,surname,email,created,userCredentials[lastLogin],organisationUnits[id],dataViewOrganisationUnits[id],teiSearchOrganisationUnits[id],userRoles[name,authorities],userGroups[name]") |>
+    httr2::req_perform() |>
+    httr2::resp_check_status() |>
+    httr2::resp_body_json(simplifyVector = TRUE)
 
-  fileInfo <- file.info(token, extra_cols = FALSE)
-  if(!rlang::is_na(fileInfo$isdir) && !fileInfo$isdir)
-  {
-    fileContent <- readChar(token, fileInfo$size)
-    if(stringr::str_starts(fileContent, "d2pat_"))
-      return(fileContent)
-  }
-  rlang::abort("Invalid DHIS2 personal access token.")
+  structure(list(
+    id = raw_info$id,
+    username = raw_info$username,
+    firstName = raw_info$firstName,
+    surname = raw_info$surname,
+    email = raw_info$email,
+    lastLogin = readr::parse_datetime(raw_info$userCredentials$lastLogin),
+    created = readr::parse_datetime(raw_info$created),
+    organisationUnits = raw_info$organisationUnits$id,
+    dataViewOrganisationUnits = raw_info$dataViewOrganisationUnits$id,
+    teiSearchOrganisationUnits = raw_info$teiSearchOrganisationUnits$id,
+    groups = raw_info$userGroups$name |>
+      sort(),
+    roles = raw_info$userRoles$name |>
+      sort(),
+    authorities = raw_info$userRoles$authorities |>
+      unlist() |>
+      unique() |>
+      sort()
+  ), class = c("neoipc_dhis2_usrinfo", "list"))
 }
 
 dhis2_request <- function(connection_options = dhis2_connection_options())

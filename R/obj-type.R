@@ -1,0 +1,4 @@
+is_neoipcr_ds <- function(x) inherits(x, "neoipcr_ds")
+is_scalar_neoipcr_ds <- function(x) inherits(x, "neoipcr_ds") && rlang::is_scalar_list(x)
+is_neoipcr_dhis2_conopt <- function(x) inherits(x, "neoipcr_dhis2_conopt")
+is_scalar_neoipcr_dhis2_conopt <- function(x) inherits(x, "neoipcr_dhis2_conopt") && rlang::is_scalar_list(x)
