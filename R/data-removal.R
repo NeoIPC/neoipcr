@@ -1,5 +1,11 @@
 apply_data_removal <- function(x, dataset_options)
 {
+  if(!("id" %in% dataset_options$patient_columns))
+  {
+    x$patients <- x$patients |>
+      dplyr::select(!tidyselect::any_of("patient_id"))
+  }
+
   if(!("patients" %in% dataset_options$include_dhis2_ids))
   {
     x$patients <- x$patients |>
@@ -59,7 +65,7 @@ apply_data_removal <- function(x, dataset_options)
     x$events <- x$events |>
       dplyr::select(!tidyselect::any_of("department_key"))
   }
-  else if(dataset_options$include_department == "pseudonymised")
+  else if(dataset_options$include_department == "pseudo")
   {
     if("departments" %in% dataset_options$include_dhis2_ids)
       x$metadata$departments <- x$metadata$departments |>
@@ -99,7 +105,7 @@ apply_data_removal <- function(x, dataset_options)
     x$events <- x$events |>
       dplyr::select(!tidyselect::any_of("hospital_key"))
   }
-  if(dataset_options$include_hospital == "pseudonymised")
+  if(dataset_options$include_hospital == "pseudo")
     x$metadata$hospitals <- NULL
 
   if(dataset_options$include_country == "no")
@@ -118,7 +124,7 @@ apply_data_removal <- function(x, dataset_options)
     x$events <- x$events |>
       dplyr::select(!tidyselect::any_of("country_key"))
   }
-  if(dataset_options$include_country == "pseudonymised")
+  if(dataset_options$include_country == "pseudo")
     x$metadata$countries <- NULL
 
   if(dataset_options$include_world_bank_class == "no")
@@ -140,13 +146,13 @@ apply_data_removal <- function(x, dataset_options)
     x$events <- x$events |>
       dplyr::select(!tidyselect::any_of("world_bank_class_key"))
   }
-  else if(dataset_options$include_world_bank_class == "pseudonymised")
+  else if(dataset_options$include_world_bank_class == "pseudo")
     x$metadata$worldBankClasses <- NULL
 
   if(dataset_options$include_user == "pseudonymised")
     x$metadata$users <- NULL
 
-  if(!dataset_options$include_patient_id)
+  if(!("id" %in% dataset_options$patient_columns))
     x$patients <- x$patients |>
       dplyr::select(!tidyselect::any_of("patient_id"))
 

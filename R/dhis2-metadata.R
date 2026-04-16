@@ -30,7 +30,7 @@ get_metadata_request <- function(req_base, user_info, dataset_options)
   {
     if(length(dataset_options$trial_keys) == 0)
     {
-      if(dataset_options$include_world_bank_class == "yes")
+      if(dataset_options$include_world_bank_class == "full")
         req <- req |>
           httr2::req_url_query(
             `organisationUnitGroupSets:fields` = "code,organisationUnitGroups[code,displayName,displayShortName,displayDescription,organisationUnits[id]]")
@@ -64,7 +64,7 @@ get_metadata_request <- function(req_base, user_info, dataset_options)
      dataset_options$include_country != "no" ||
      dataset_options$include_world_bank_class != "no")
   {
-    if(dataset_options$include_country == "yes")
+    if(dataset_options$include_country == "full")
       req <- req |>
         httr2::req_url_query(
           `organisationUnitGroups:fields` = "code,organisationUnits[id,code,displayName,displayShortName,displayDescription]")
@@ -102,7 +102,7 @@ get_metadata_request <- function(req_base, user_info, dataset_options)
   # We only read the complete user information via the metadata endpoint if we
   # have the required authorities to do so
   if (dataset_options$include_user != "no" && length(intersect(c("ALL","F_METADATA_EXPORT","F_USER_VIEW"), user_info$authorities)) > 0) {
-    if(dataset_options$include_user == "yes")
+    if(dataset_options$include_user == "full")
       req <- req |>
         httr2::req_url_query(
           `users:fields` = "id,username,firstName,surname,email,created,lastLogin,organisationUnits[id],dataViewOrganisationUnits[id],teiSearchOrganisationUnits[id],userRoles[id]")

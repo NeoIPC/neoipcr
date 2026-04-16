@@ -17,16 +17,36 @@
 #' @param department_filter NeoIPC department codes of the departments to
 #'  include into the dataset.
 #' @param include_world_bank_class Include the World Bank class into the
-#'  dataset. Possible values are "no", "pseudonymised" and "yes"
+#'  dataset. Possible values are "no", "pseudo" and "full"
 #' @param include_country Include the country into the dataset. Possible values
-#'  are "no", "pseudonymised" and "yes"
+#'  are "no", "pseudo" and "full"
 #' @param include_hospital Include the hospital into the dataset. Possible
-#'  values are "no", "pseudonymised" and "yes"
-#' @param include_department Include the department into the dataset.
-#'  Possible values are "no", "pseudonymised" and "yes"
+#'  values are "no", "pseudo" and "full"
+#' @param include_department Include the department into the dataset. Possible
+#'  values are "no", "pseudo" and "full"
 #' @param include_user Include the user metadata into the dataset. Possible
-#'  values are "no", "pseudonymised" and "yes"
-#' @param include_patient_id Include the NeoIPC Patient ID into the dataset.
+#'  values are "no", "pseudo" and "full"
+#' @param include_patient Include the patient tibble into the dataset and
+#'  expose the `patient_key` link column on downstream tibbles. Possible values
+#'  are "no", "pseudo" and "full". Under "no" the patient tibble is an empty
+#'  (0-col, 0-row) tibble and `patient_key` is absent from every downstream
+#'  tibble. Under "pseudo" the patient tibble carries only `patient_key` and
+#'  `patient_key` is present on downstream tibbles. Under "full" the patient
+#'  tibble also carries the columns selected by `patient_columns`.
+#' @param patient_columns Character vector selecting which patient-specific
+#'  columns beyond `patient_key` are included when `include_patient = "full"`.
+#'  Choices: "id", "birth_weight", "sex", "delivery_mode", "siblings",
+#'  "gest_age", "inactive", "potentialDuplicate". Empty (the default) means
+#'  all columns allowed by the gate. Ignored when `include_patient` is
+#'  "no" or "pseudo".
+#' @param include_enrollment Include the enrollment tibble into the dataset
+#'  and expose the `enrollment_key` link column on downstream tibbles. Same
+#'  three-mode semantics as `include_patient`.
+#' @param include_event Include the event tibble into the dataset and expose
+#'  the `event_key` link column on every downstream per-event table
+#'  (event details, per-event-type data, findings, substance days, event
+#'  notes, unknown pathogen names). Same three-mode semantics as
+#'  `include_patient`.
 #' @param include_dhis2_ids Include the DHIS2 ids into the dataset.
 #' @param include_timestamps Include the createdAt and modifiedAt timestamps
 #'  into the dataset.
@@ -56,20 +76,23 @@ dhis2_dataset_options <- function(
     gestational_age_to = NULL,
     country_filter = NULL,
     department_filter = NULL,
-    include_world_bank_class = c("no","pseudonymised","yes"),
-    include_country = c("no","pseudonymised","yes"),
-    include_hospital = c("no","pseudonymised","yes"),
-    include_department = c("no","pseudonymised","yes"),
-    include_user = c("no","pseudonymised","yes"),
-    include_patient_id = FALSE,
-    include_dhis2_ids = rlang::chr(),
+    include_world_bank_class = c("no","pseudo","full"),
+    include_country = c("no","pseudo","full"),
+    include_hospital = c("no","pseudo","full"),
+    include_department = c("no","pseudo","full"),
+    include_user = c("no","pseudo","full"),
+    include_patient = c("no","pseudo","full"),
+    patient_columns = character(),
+    include_enrollment = c("no","pseudo","full"),
+    include_event = c("no","pseudo","full"),
+    include_dhis2_ids = character(),
     include_timestamps = FALSE,
     include_test_data = FALSE,
     include_ineligible_patients = FALSE,
     include_unenrolled_patients = FALSE,
     include_invalid_patients = FALSE,
-    include_incomplete = rlang::chr(),
-    include_notes = rlang::chr(),
+    include_incomplete = character(),
+    include_notes = character(),
     include_deleted = FALSE,
     trial_keys = NULL,
     translate = TRUE,
@@ -86,7 +109,7 @@ dhis2_dataset_options <- function(
   check_number_whole(gestational_age_to, allow_null = TRUE)
   check_character(country_filter, allow_null = TRUE)
   check_character(department_filter, allow_null = TRUE)
-  check_bool(include_patient_id)
+  check_character(patient_columns)
   check_bool(include_timestamps)
   check_bool(include_test_data)
   check_bool(include_ineligible_patients)
@@ -115,7 +138,14 @@ dhis2_dataset_options <- function(
     include_hospital = rlang::arg_match(include_hospital),
     include_department = rlang::arg_match(include_department),
     include_user = rlang::arg_match(include_user),
-    include_patient_id = include_patient_id,
+    include_patient = rlang::arg_match(include_patient),
+    patient_columns = rlang::arg_match(
+      patient_columns,
+      c("id","birth_weight","sex","delivery_mode","siblings","gest_age",
+        "inactive","potentialDuplicate"),
+      multiple = TRUE),
+    include_enrollment = rlang::arg_match(include_enrollment),
+    include_event = rlang::arg_match(include_event),
     include_dhis2_ids = rlang::arg_match(
       include_dhis2_ids,
       c("countries","hospitals","departments","patients","enrollments",

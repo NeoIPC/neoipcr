@@ -8,11 +8,11 @@ base_ds <- make_populated_test_ds()
 # Defaults keep everything; overrides via ... replace specific flags.
 remove_with <- function(ds = base_ds, ...) {
   defaults <- list(
-    include_department       = "yes",
-    include_hospital         = "yes",
-    include_country          = "yes",
-    include_world_bank_class = "yes",
-    include_patient_id       = TRUE,
+    include_department       = "full",
+    include_hospital         = "full",
+    include_country          = "full",
+    include_world_bank_class = "full",
+    patient_columns          = "id",
     include_dhis2_ids        = c("patients", "enrollments", "departments",
                                  "events", "notes", "event_types", "users"))
   args <- utils::modifyList(defaults, list(...))
@@ -20,15 +20,15 @@ remove_with <- function(ds = base_ds, ...) {
   neoipcr:::apply_data_removal(ds, opts)
 }
 
-# --- include_patient_id ---
+# --- patient_columns — controls patient_id exposure ---
 
-test_that("apply_data_removal keeps patient_id when include_patient_id is TRUE", {
-  result <- remove_with(include_patient_id = TRUE)
+test_that("apply_data_removal keeps patient_id when 'id' is in patient_columns", {
+  result <- remove_with(patient_columns = "id")
   expect_true("patient_id" %in% names(result$patients))
 })
 
-test_that("apply_data_removal removes patient_id when include_patient_id is FALSE", {
-  result <- remove_with(include_patient_id = FALSE)
+test_that("apply_data_removal removes patient_id when 'id' not in patient_columns", {
+  result <- remove_with(patient_columns = character())
   expect_false("patient_id" %in% names(result$patients))
 })
 
@@ -87,8 +87,8 @@ test_that("apply_data_removal keeps all IDs when all types in include_dhis2_ids"
 
 # --- include_department ---
 
-test_that("include_department = yes keeps departments and department_key", {
-  result <- remove_with(include_department = "yes")
+test_that("include_department = fullkeeps departments and department_key", {
+  result <- remove_with(include_department = "full")
   expect_false(is.null(result$metadata$departments))
   expect_true("department_key" %in% names(result$patients))
   expect_true("department_key" %in% names(result$enrollments))
@@ -103,11 +103,11 @@ test_that("include_department = no removes departments table and department_key 
   expect_false("department_key" %in% names(result$events))
 })
 
-test_that("include_department = pseudonymised with dhis2 IDs keeps only department_key", {
+test_that("include_department = pseudo with dhis2 IDs keeps only department_key", {
   # `orgUnit` is the raw DHIS2 organisationUnit id; the privacy boundary for
-  # the "pseudonymised" branch strips it from every table at the end of the
+  # the "pseudo" branch strips it from every table at the end of the
   # function, so the metadata$departments tibble has just `department_key`.
-  result <- remove_with(include_department = "pseudonymised")
+  result <- remove_with(include_department = "pseudo")
   expect_equal(
     names(result$metadata$departments),
     "department_key")
@@ -119,9 +119,9 @@ test_that("include_department = pseudonymised with dhis2 IDs keeps only departme
   expect_false("orgUnit" %in% names(result$events))
 })
 
-test_that("include_department = pseudonymised without dhis2 IDs removes departments table", {
+test_that("include_department = pseudo without dhis2 IDs removes departments table", {
   result <- remove_with(
-    include_department = "pseudonymised",
+    include_department = "pseudo",
     include_dhis2_ids = c("patients", "enrollments",
       "events", "notes", "event_types", "users"))
   expect_null(result$metadata$departments)
@@ -139,8 +139,8 @@ test_that("include_hospital = no removes hospitals table and hospital_key column
   expect_false("hospital_key" %in% names(result$metadata$departments))
 })
 
-test_that("include_hospital = pseudonymised removes hospitals table but keeps hospital_key", {
-  result <- remove_with(include_hospital = "pseudonymised")
+test_that("include_hospital = pseudo removes hospitals table but keeps hospital_key", {
+  result <- remove_with(include_hospital = "pseudo")
   expect_null(result$metadata$hospitals)
   expect_true("hospital_key" %in% names(result$patients))
 })
@@ -158,8 +158,8 @@ test_that("include_country = no removes countries table and country_key from all
   expect_false("country_key" %in% names(result$metadata$departments))
 })
 
-test_that("include_country = pseudonymised removes countries table but keeps country_key", {
-  result <- remove_with(include_country = "pseudonymised")
+test_that("include_country = pseudo removes countries table but keeps country_key", {
+  result <- remove_with(include_country = "pseudo")
   expect_null(result$metadata$countries)
   expect_true("country_key" %in% names(result$patients))
 })
@@ -178,14 +178,14 @@ test_that("include_world_bank_class = no removes WB table and world_bank_class_k
   expect_false("world_bank_class_key" %in% names(result$metadata$departments))
 })
 
-test_that("include_world_bank_class = pseudonymised removes WB table but keeps key", {
-  result <- remove_with(include_world_bank_class = "pseudonymised")
+test_that("include_world_bank_class = pseudo removes WB table but keeps key", {
+  result <- remove_with(include_world_bank_class = "pseudo")
   expect_null(result$metadata$worldBankClasses)
   expect_true("world_bank_class_key" %in% names(result$patients))
 })
 
-test_that("include_world_bank_class = yes keeps everything", {
-  result <- remove_with(include_world_bank_class = "yes")
+test_that("include_world_bank_class = fullkeeps everything", {
+  result <- remove_with(include_world_bank_class = "full")
   expect_false(is.null(result$metadata$worldBankClasses))
   expect_true("world_bank_class_key" %in% names(result$patients))
 })
@@ -212,7 +212,7 @@ test_that("removing world_bank_class with country = no does not error on missing
 
 test_that("all include flags at most restrictive removes all optional data", {
   result <- remove_with(
-    include_patient_id       = FALSE,
+    patient_columns          = character(),
     include_dhis2_ids        = character(),
     include_department       = "no",
     include_hospital         = "no",

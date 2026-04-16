@@ -90,7 +90,7 @@ read_user_info_table <- function(user_info, include_user)
   if(include_user == "no")
     return(NULL)
 
-  if(include_user == "yes")
+  if(include_user == "full")
     return(
       user_info |>
         list() |>
@@ -126,7 +126,7 @@ read_metadata_users <- function(metadata, include_user)
     tibble::tibble() |>
     tidyr::unnest_wider(1)
 
-  if(include_user == "yes")
+  if(include_user == "full")
     users <- users |>
     dplyr::select(
       !c(

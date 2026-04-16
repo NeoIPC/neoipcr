@@ -124,9 +124,9 @@ test_that("read_metadata parses tracked entity attributes", {
     c("NEOIPC_PATIENT_ID", "NEOIPC_TEA_SEX"))
 })
 
-test_that("read_metadata parses countries when include_country is yes", {
+test_that("read_metadata parses countries when include_country is full", {
   metadata <- read_test_metadata(
-    dataset_options = dhis2_dataset_options(include_country = "yes"))
+    dataset_options = dhis2_dataset_options(include_country = "full"))
   expect_false(is.null(metadata$countries))
   expect_equal(nrow(metadata$countries), 2L)
   expect_equal(

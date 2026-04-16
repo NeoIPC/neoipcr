@@ -66,7 +66,7 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
       dplyr::join_by("optionSet" == "optionSet_code")) |>
     dplyr::select(!c("attributes_attribute", "optionSet"))
 
-  if(!dataset_options$include_patient_id && length(dataset_options$include_invalid_patients) <= 1)
+  if(!("id" %in% dataset_options$patient_columns) && length(dataset_options$include_invalid_patients) <= 1)
     patients <- patients |>
       dplyr::filter(.data$code != "NEOIPC_PATIENT_ID")
 

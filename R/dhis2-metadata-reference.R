@@ -231,7 +231,7 @@ read_metadata_wb_classes <- function(metadata, include_world_bank_class)
   if(rlang::is_null(organisationUnitGroups))
     return(NULL)
 
-  pseudonymise <- include_world_bank_class != "yes"
+  pseudonymise <- include_world_bank_class != "full"
 
   organisationUnitGroups <- organisationUnitGroups |>
     tibble::tibble() |>

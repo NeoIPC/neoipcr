@@ -428,16 +428,16 @@ make_populated_test_ds <- function(
 make_calc_test_ds <- function() {
   md <- read_test_metadata(
     dataset_options = dhis2_dataset_options(
-      include_department = "yes",
-      include_country    = "yes"))
+      include_department = "full",
+      include_country    = "full"))
   md$departments      <- make_test_metadata_departments()
   md$hospitals         <- make_test_metadata_hospitals()
   md$countries         <- make_test_metadata_countries()
   md$worldBankClasses  <- make_test_metadata_wb_classes()
   md$eventTypes        <- make_test_metadata_event_types()
   md$dataset_options   <- dhis2_dataset_options(
-    include_department = "yes",
-    include_country    = "yes")
+    include_department = "full",
+    include_country    = "full")
 
   patients <- make_test_patients(3,
     department_key = c(1L, 1L, 2L),

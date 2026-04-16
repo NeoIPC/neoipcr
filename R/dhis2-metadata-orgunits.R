@@ -4,7 +4,7 @@ get_organisationUnit_request <- function(req_base, user_info, dataset_options)
 {
   fields <- "id"
 
-  if(dataset_options$include_department == "yes")
+  if(dataset_options$include_department == "full")
     fields <- paste0(fields, ",code,displayName,displayShortName,displayDescription,openingDate,comment,geometry")
   # We need the department code for filtering or to transform the supplied exceptions
   else if(length(dataset_options$include_invalid_patients) > 1 || length(dataset_options$department_filter) > 0)
@@ -17,9 +17,9 @@ get_organisationUnit_request <- function(req_base, user_info, dataset_options)
   else
     country_fields <- "]"
 
-  if(dataset_options$include_hospital == "yes")
+  if(dataset_options$include_hospital == "full")
     fields <- paste0(fields, paste0(",parent[id,code,displayName,displayShortName,displayDescription,comment,geometry", country_fields))
-  else if (dataset_options$include_hospital == "pseudonymised" ||
+  else if (dataset_options$include_hospital == "pseudo" ||
            length(dataset_options$country_filter) > 0 ||
            dataset_options$include_country != "no" ||
            dataset_options$include_world_bank_class != "no")
