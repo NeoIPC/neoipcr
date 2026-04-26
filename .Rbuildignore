@@ -9,6 +9,7 @@
 ^tools$
 ^\.covrignore$
 ^CLAUDE\.md$
+^API-DESIGN\.md$
 ^coverage\.html$
 ^lib$
 ^scripts$
