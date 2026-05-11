@@ -144,7 +144,9 @@ get_infectious_agent_detection_rates_with_department_quartiles <- function(
       use_cache = use_cache) |>
     dplyr::select(tidyselect::all_of(c(group_cols, "n", "inf_with_pathogen")), rate = "n_per_iwp") |>
     dplyr::mutate(
-      drop_quartiles = n_deps < 5 | round(100 / .data$rate) >= median_inf_with_pathogen)
+      drop_quartiles = tidyr::replace_na(
+        n_deps < 5 | round(100 / .data$rate) >= median_inf_with_pathogen,
+        TRUE))
 
   if(nrow(r1) < 1)
   {
@@ -445,7 +447,9 @@ get_resistance_test_rate_with_department_quartiles <- function(
 
   rate <- rate |>
     dplyr::mutate(
-      drop_quartiles = .data$n_deps < 5 | round(100 / .data$rate) >= .data$median,
+      drop_quartiles = tidyr::replace_na(
+        .data$n_deps < 5 | round(100 / .data$rate) >= .data$median,
+        TRUE),
       q1 = dplyr::if_else(
         .data$drop_quartiles,
         NA,
@@ -628,7 +632,9 @@ get_resistance_rate_with_department_quartiles <- function(
 
   rate <- rate |>
     dplyr::mutate(
-      drop_quartiles = .data$n_deps < 5 | round(100 / .data$inf_rs_rate) >= .data$median,
+      drop_quartiles = tidyr::replace_na(
+        .data$n_deps < 5 | round(100 / .data$inf_rs_rate) >= .data$median,
+        TRUE),
       q1 = dplyr::if_else(
         .data$drop_quartiles,
         NA,
@@ -740,7 +746,9 @@ get_organism_resistance_rate_with_department_quartiles <- function(
 
   rate <- rate |>
     dplyr::mutate(
-      drop_quartiles = .data$n_deps < 5 | round(100 / .data$ia_rs_rate) >= .data$median,
+      drop_quartiles = tidyr::replace_na(
+        .data$n_deps < 5 | round(100 / .data$ia_rs_rate) >= .data$median,
+        TRUE),
       q1 = dplyr::if_else(
         .data$drop_quartiles,
         NA,

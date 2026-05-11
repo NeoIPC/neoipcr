@@ -235,7 +235,9 @@ get_usage_density_rate_table <- function(
         dplyr::join_by("factor")) |>
       ensure_quartile_cols() |>
       dplyr::mutate(
-        drop_quartiles = n_deps < 5 | round(100 / .data$pooled) >= median_patient_days,
+        drop_quartiles = tidyr::replace_na(
+          n_deps < 5 | round(100 / .data$pooled) >= median_patient_days,
+          TRUE),
         q1 = dplyr::if_else(
           .data$drop_quartiles,
           NA,
@@ -387,8 +389,9 @@ get_antibiotic_utilisation_table <- function(
     r <- r |>
       dplyr::left_join(quartiles, dplyr::join_by("row_id")) |>
       dplyr::mutate(
-        drop_quartiles = n_deps < 5 |
-          round(100 / .data$pooled) >= median_patient_days,
+        drop_quartiles = tidyr::replace_na(
+          n_deps < 5 | round(100 / .data$pooled) >= median_patient_days,
+          TRUE),
         q1 = dplyr::if_else(.data$drop_quartiles, NA, .data$q1),
         q2 = dplyr::if_else(.data$drop_quartiles, NA, .data$q2),
         q3 = dplyr::if_else(.data$drop_quartiles, NA, .data$q3))
@@ -547,7 +550,9 @@ get_ref_surgery_rate_table <- function(ref, use_cache = TRUE) {
   r <- r |>
     dplyr::inner_join(quartiles, dplyr::join_by("pro_cat")) |>
     dplyr::mutate(
-      drop_quartiles = n_deps < 5 | round(100 / .data$pooled) >= median_patients,
+      drop_quartiles = tidyr::replace_na(
+        n_deps < 5 | round(100 / .data$pooled) >= median_patients,
+        TRUE),
       q1 = dplyr::if_else(
         .data$drop_quartiles,
         NA,
@@ -646,7 +651,9 @@ get_incidence_density_rate_table <- function(
         dplyr::join_by("inf")) |>
       ensure_quartile_cols() |>
       dplyr::mutate(
-        drop_quartiles = n_deps < 5 | round(1000 / .data$pooled) >= median_patient_days,
+        drop_quartiles = tidyr::replace_na(
+          n_deps < 5 | round(1000 / .data$pooled) >= median_patient_days,
+          TRUE),
         q1 = dplyr::if_else(
           .data$drop_quartiles,
           NA,
@@ -780,7 +787,7 @@ get_dev_ass_incidence_density_rate_table <- function(
       dplyr::mutate(
         drop_quartiles = tidyr::replace_na(
           .data$n_deps < 5 | round(1000 / .data$rate) >= .data$median,
-          FALSE),
+          TRUE),
         q1 = dplyr::if_else(
           .data$drop_quartiles,
           NA,
@@ -926,7 +933,9 @@ get_infectious_agent_detection_rate_per_inf_type_table <- function(
         dplyr::join_by("event_type_key")) |>
       ensure_quartile_cols() |>
       dplyr::mutate(
-        drop_quartiles = .data$n < 5 | round(100 / .data$pooled) >= .data$median,
+        drop_quartiles = tidyr::replace_na(
+          .data$n < 5 | round(100 / .data$pooled) >= .data$median,
+          TRUE),
         q1 = dplyr::if_else(
           .data$drop_quartiles,
           NA,
@@ -1361,12 +1370,15 @@ get_abr_infection_rate_table <- function(
           use_cache = use_cache) |>
         dplyr::select("group"="species",tidyselect::all_of(rate_cols))))
 
-  # VRE only has one genus
+  # VRE is reported only for the Enterococcus genus. Non-Enterococcus or
+  # NA-genus rows would otherwise produce duplicate "Enterococcus spp."
+  # entries via the hardcoded label below.
   g <- x |>
     get_resistance(
       resistance = "vre",
       group_cols = "genus",
       use_cache = use_cache) |>
+    dplyr::filter(.data$genus == "Enterococcus") |>
     dplyr::select("group"="genus",tidyselect::all_of(rate_cols)) |>
     dplyr::mutate(group = "Enterococcus spp.")
 
@@ -1711,7 +1723,9 @@ get_secondary_bsi_rate_table <- function(
       # Determine if quartiles should be dropped
       r <- r |>
         dplyr::mutate(
-          drop_quartiles = n_deps < 5 | round(100 / .data$pooled) >= median_n) |>
+          drop_quartiles = tidyr::replace_na(
+            n_deps < 5 | round(100 / .data$pooled) >= median_n,
+            TRUE)) |>
         dplyr::left_join(quartiles, dplyr::join_by("event_type_key")) |>
         dplyr::mutate(
           dplyr::across(
