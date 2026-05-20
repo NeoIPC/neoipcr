@@ -471,16 +471,29 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
   events
 }
 
+# Reader for `infectiousAgentFindings` *and* its sibling
+# `unknownPathogenNames`. Returns a list with both tibbles.
+#
+# The split is load-bearing here, not at the call site: `name` is in
+# `findings_cols`'s `scratch` set (allowed into `finalize_to_schema()`
+# but stripped from the public output, because the design keeps the
+# main findings tibble lean — see the schema comment on
+# `unknownPathogenNames_cols`). Splitting *after* finalize sees no
+# `name` column and produces an always-empty `unknownPathogenNames`,
+# which silently broke Validation-Report Rule 20. The split therefore
+# runs on the pre-finalize intermediate while `name` is still
+# attached.
 read_infectious_agent_findings <- function(events_raw, processed_events, metadata, dataset_options)
 {
   opts <- dataset_options
 
-  # Entity gate short-circuit.
+  # Both children share the `include_event != "no"` gate. When closed,
+  # emit each child's schema-shaped 0×0 directly.
   if (!entity_exists(findings_cols, opts))
-    return(compile_schema(findings_cols, opts))
+    return(empty_findings_pair(opts))
 
   if (nrow(events_raw) == 0L)
-    return(compile_schema(findings_cols, opts))
+    return(empty_findings_pair(opts))
 
   # Pre-pivot type levels: every DE-suffix this reader turns into a
   # column. `names_expand = TRUE` + this factor guarantees every
@@ -506,11 +519,8 @@ read_infectious_agent_findings <- function(events_raw, processed_events, metadat
         dplyr::select("event", "event_key", "event_type_key"),
       dplyr::join_by("event"))
 
-  if (nrow(pathogen_data) == 0) {
-    public <- compile_schema(findings_cols, opts)
-    assert_schema(public, findings_cols, opts)
-    return(public)
-  }
+  if (nrow(pathogen_data) == 0)
+    return(empty_findings_pair(opts))
 
   pathogen_data <- pathogen_data |>
     tidyr::unnest_longer("dataValues") |>
@@ -521,13 +531,10 @@ read_infectious_agent_findings <- function(events_raw, processed_events, metadat
       dplyr::join_by("dataElement")) |>
     dplyr::filter(stringr::str_detect(.data$code, "PATHOGEN_\\d"))
 
-  if (nrow(pathogen_data) == 0) {
-    public <- compile_schema(findings_cols, opts)
-    assert_schema(public, findings_cols, opts)
-    return(public)
-  }
+  if (nrow(pathogen_data) == 0)
+    return(empty_findings_pair(opts))
 
-  public <- pathogen_data |>
+  intermediate <- pathogen_data |>
     dplyr::mutate(
       type = factor(
         tolower(stringr::str_replace(
@@ -571,43 +578,53 @@ read_infectious_agent_findings <- function(events_raw, processed_events, metadat
             as.integer(.data$source) == 3L ~ "U+L"),
         levels = c("B", "C", "B+C", "U", "L", "U+L")),
       .keep = "unused") |>
-    add_key_column("agent_finding_key") |>
+    add_key_column("agent_finding_key")
+
+  unknownPathogenNames <- split_unknown_pathogen_names(intermediate, opts)
+
+  findings <- intermediate |>
     finalize_to_schema(
       findings_cols, opts,
       scratch = c("event_type_key", "name", "pathogen"))
-  assert_schema(public, findings_cols, opts)
+  assert_schema(findings, findings_cols, opts)
 
-  public
+  list(
+    infectiousAgentFindings = findings,
+    unknownPathogenNames    = unknownPathogenNames)
 }
 
-# Split the `name` column off `infectiousAgentFindings` into its own
-# tibble. Called from the orchestrator after `read_infectious_agent_
-# findings()`. Under the schema contract `name` is always a declared
-# column on findings when `include_event == "full"`, so the split
-# runs unconditionally — no more `"name" %in% names(findings)` guard
-# at the call site.
-read_unknown_pathogen_names <- function(findings, dataset_options)
+# Pre-finalize-intermediate → `unknownPathogenNames`. Reads the still-
+# attached `name` column off the intermediate produced by
+# `read_infectious_agent_findings()`; only that caller has the
+# intermediate, so this is an internal helper, not an exported reader.
+split_unknown_pathogen_names <- function(intermediate, opts)
 {
-  opts <- dataset_options
-
   if (!entity_exists(unknownPathogenNames_cols, opts))
     return(compile_schema(unknownPathogenNames_cols, opts))
 
-  # Under pseudo events, `name` isn't declared on findings (payload
-  # atoms all require full). Emit the schema's 0-row shape directly.
-  if (!("name" %in% names(findings))) {
+  # Under pseudo events, payload atoms (including `name`) are gated off
+  # upstream — the intermediate has no `name` column to split. Emit the
+  # schema's 0-row shape directly.
+  if (!("name" %in% names(intermediate))) {
     public <- compile_schema(unknownPathogenNames_cols, opts)
     assert_schema(public, unknownPathogenNames_cols, opts)
     return(public)
   }
 
-  public <- findings |>
+  public <- intermediate |>
     dplyr::filter(!is.na(.data$name) & nzchar(.data$name)) |>
     dplyr::select("agent_finding_key", "name") |>
     finalize_to_schema(unknownPathogenNames_cols, opts)
   assert_schema(public, unknownPathogenNames_cols, opts)
 
   public
+}
+
+empty_findings_pair <- function(opts)
+{
+  list(
+    infectiousAgentFindings = compile_schema(findings_cols, opts),
+    unknownPathogenNames    = compile_schema(unknownPathogenNames_cols, opts))
 }
 
 read_substance_days <- function(events_raw, processed_events, metadata, dataset_options)

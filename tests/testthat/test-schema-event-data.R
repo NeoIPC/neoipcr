@@ -400,43 +400,45 @@ test_that("make_test_unknown_pathogen_names output matches unknownPathogenNames_
   expect_schema_matches(fixture, schema)
 })
 
-# ---- read_unknown_pathogen_names split behaviour ------------------------
+# ---- split_unknown_pathogen_names behaviour -----------------------------
 
-test_that("read_unknown_pathogen_names: empty findings → schema-shaped 0-row tibble", {
+test_that("split_unknown_pathogen_names: empty intermediate → schema-shaped 0-row tibble", {
   opts <- dhis2_dataset_options(include_event = "full")
-  findings <- make_test_iaf(event_keys = integer(0))
-  result <- neoipcr:::read_unknown_pathogen_names(findings, opts)
+  # Caller never reaches the split with a 0-row, no-`name` input
+  # (the reader's early-return paths handle that), but the helper
+  # itself must be robust to a 0-row `name`-bearing intermediate.
+  intermediate <- tibble::tibble(
+    agent_finding_key = integer(0),
+    name              = character(0))
+  result <- neoipcr:::split_unknown_pathogen_names(intermediate, opts)
   schema <- neoipcr:::compile_schema(
     neoipcr:::unknownPathogenNames_cols, opts)
   expect_schema_matches(result, schema)
   expect_equal(nrow(result), 0L)
 })
 
-test_that("read_unknown_pathogen_names: findings with `name` column split correctly", {
+test_that("split_unknown_pathogen_names: intermediate with `name` split correctly", {
   opts <- dhis2_dataset_options(include_event = "full")
-  # Inject `name` values into findings-fixture shape via a tibble
-  # mimicking what the reader emits pre-finalize. We bypass the
-  # fixture because it doesn't declare `name`; the split reader only
-  # reads `name` when it's present on findings.
-  findings_with_names <- tibble::tibble(
+  intermediate <- tibble::tibble(
     agent_finding_key = 1:4,
     name              = c(NA_character_, "", "Custom pathogen A",
                           "Custom pathogen B"))
-  result <- neoipcr:::read_unknown_pathogen_names(findings_with_names, opts)
+  result <- neoipcr:::split_unknown_pathogen_names(intermediate, opts)
   # Only non-NA, non-empty names should survive.
   expect_equal(nrow(result), 2L)
   expect_equal(result$name, c("Custom pathogen A", "Custom pathogen B"))
   expect_equal(result$agent_finding_key, c(3L, 4L))
 })
 
-test_that("read_unknown_pathogen_names: findings without `name` column → schema shape", {
-  # Under pseudo events, findings doesn't declare `name`. The split
-  # reader must gracefully return the schema's shape.
+test_that("split_unknown_pathogen_names: intermediate without `name` → schema shape", {
+  # Under pseudo events, the intermediate has no `name` column (payload
+  # atoms are gated off upstream). The split must gracefully emit the
+  # schema's shape.
   opts_pseudo <- dhis2_dataset_options(include_event = "pseudo")
-  findings <- tibble::tibble(
+  intermediate <- tibble::tibble(
     agent_finding_key = 1L,
     event_key         = 1L)
-  result <- neoipcr:::read_unknown_pathogen_names(findings, opts_pseudo)
+  result <- neoipcr:::split_unknown_pathogen_names(intermediate, opts_pseudo)
   schema <- neoipcr:::compile_schema(
     neoipcr:::unknownPathogenNames_cols, opts_pseudo)
   expect_schema_matches(result, schema)
