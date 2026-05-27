@@ -413,11 +413,11 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
           .data$code == "secondary_bsi", "sec_bsi", .data$code))
     else if (event_type_key == "hap")
       events <- events |>
-        dplyr::mutate(code = dplyr::case_match(
+        dplyr::mutate(code = dplyr::recode_values(
           .data$code,
           "device_association" ~ "dev_ass",
           "secondary_bsi"      ~ "sec_bsi",
-          .default             = .data$code))
+          default              = .data$code))
 
     # Filter to the declared DE codes. Pathogen + AB_SUBST codes fall
     # out here (they route to infectiousAgentFindings and substanceDays
@@ -557,8 +557,8 @@ read_infectious_agent_findings <- function(events_raw, processed_events, metadat
       dplyr::across(
         tidyselect::all_of(c("3gcr", "car", "cor", "mrsa", "vre")),
         ~ factor(
-          dplyr::case_match(as.integer(.x),
-                            0 ~ "no", 1 ~ "yes", -1 ~ "not_tested"),
+          dplyr::recode_values(as.integer(.x),
+                               0 ~ "no", 1 ~ "yes", -1 ~ "not_tested"),
           levels = c("no", "yes", "not_tested"))),
       multiple     = as.logical(.data$multiple),
       pathogen_key = as.integer(.data$pathogen),

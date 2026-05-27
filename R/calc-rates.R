@@ -17,7 +17,7 @@ get_dev_ass_incidence_density_rates <- function(
       dplyr::select("event_key", "dev_ass") |>
       dplyr::filter(.data$dev_ass != 0) |>
       dplyr::mutate(
-        dev = dplyr::case_match(
+        dev = dplyr::recode_values(
           as.integer(as.character(.data$dev_ass)),
           !!!dev_map),
         .keep = "unused")
@@ -429,7 +429,7 @@ get_resistance_test_rate_with_department_quartiles <- function(
         na.rm = TRUE)) |>
     dplyr::mutate(
       name=names(.data$value),
-      name=dplyr::case_match(
+      name=dplyr::recode_values(
         .data$name,
         "25%"~"q1",
         "50%"~"q2",
@@ -522,7 +522,7 @@ get_resistance_test_rate <- function(
       dplyr::across(
         tidyselect::all_of(resistance),
         ~ factor(
-          dplyr::case_match(
+          dplyr::recode_values(
             as.character(.x),
             "yes" ~ "tested",
             "no" ~ "tested",
@@ -613,7 +613,7 @@ get_resistance_rate_with_department_quartiles <- function(
           na.rm = TRUE)) |>
       dplyr::mutate(
         name=names(.data$value),
-        name=dplyr::case_match(
+        name=dplyr::recode_values(
           .data$name,
           "25%"~"q1",
           "50%"~"q2",
@@ -727,7 +727,7 @@ get_organism_resistance_rate_with_department_quartiles <- function(
           na.rm = TRUE)) |>
       dplyr::mutate(
         name=names(.data$value),
-        name=dplyr::case_match(
+        name=dplyr::recode_values(
           .data$name,
           "25%"~"q1",
           "50%"~"q2",

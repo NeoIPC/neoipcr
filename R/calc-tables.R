@@ -926,7 +926,7 @@ get_infectious_agent_detection_rate_per_inf_type_table <- function(
                 # with NaN here.
                 na.rm = TRUE,
                 names = FALSE))) |>
-          tidyr::unnest_wider(col = .data$q, names_sep = ""),
+          tidyr::unnest_wider("q", names_sep = ""),
         dplyr::join_by("event_type_key")) |>
       dplyr::inner_join(
         dep_stats,

@@ -60,7 +60,7 @@ read_metadata_programStages <- function(metadata, dataset_options)
                    "Necrotizing enterocolitis","Surgical Site Infection",
                    "Pneumonia","Surveillance-End")),
       event_type_key = factor(
-        dplyr::case_match(
+        dplyr::recode_values(
           .data$name,
           "Admission" ~ "adm",
           "Surgical Procedure" ~ "pro",
