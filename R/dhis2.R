@@ -546,7 +546,7 @@ read_ab_treatments <- function(events, metadata, enrollments) {
       .keep = "unused") |>
     tidyr::pivot_wider() |>
     dplyr::mutate(days = as.integer(.data$days), .after = "substance_code") |>
-    dplyr::arrange("enrollment", "index")
+    dplyr::arrange(.data$enrollment_key, .data$index)
 }
 
 
