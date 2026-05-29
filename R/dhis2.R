@@ -130,7 +130,7 @@ dhis2_connection_options <- function(
 get_auth_data <- function(url)
 {
   env_session_id <- Sys.getenv("NEOIPC_DHIS2_SESSION_ID", unset = NA)
-  if(!is.na(env_session_id)) return(list(session_id = session_id))
+  if(!is.na(env_session_id)) return(list(session_id = env_session_id))
 
   env_token <- Sys.getenv("NEOIPC_DHIS2_TOKEN", unset = NA)
   if(!is.na(env_token)) return(list(token = read_token(env_token)))
@@ -639,7 +639,7 @@ add_key_column <- function(table, key_name = "key", as_factor = FALSE)
       dplyr::mutate(!!key_name := dplyr::row_number())
 
   tmp |>
-    dplyr::relocate(key_name)
+    dplyr::relocate(dplyr::all_of(key_name))
 }
 
 get_users_orgUnits <- function(metadata)
