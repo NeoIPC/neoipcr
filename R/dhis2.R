@@ -541,7 +541,7 @@ read_ab_treatments <- function(events, metadata, enrollments) {
     dplyr::select(!"dataElement") |>
     dplyr::mutate(
       index = as.integer(
-        stringr::str_extract(.data$code,"^NEOIPC_SURVEILLANCE_END_AB_SUBST_\\d(\\d)(_DAYS)?$", 1)),
+        stringr::str_extract(.data$code,"^NEOIPC_SURVEILLANCE_END_AB_SUBST_\\d(\\d)(_DAYS)?$", group = 1)),
       name = dplyr::if_else(stringr::str_ends(.data$code, "_DAYS"), "days", "substance_code"),
       .keep = "unused") |>
     tidyr::pivot_wider() |>
@@ -748,10 +748,10 @@ get_user_info <- function(req)
 dhis2_request <- function(connection_options = dhis2_connection_options())
 {
   req <- httr2::request(connection_options$base_url)
-  if(exists('token', where = connection_options))
+  if(!is.null(connection_options$token))
     req |>
       httr2::req_headers(Authorization = sprintf("ApiToken %s", connection_options$token), .redact = "Authorization")
-  else if(exists('session_id', where = connection_options))
+  else if(!is.null(connection_options$session_id))
     req |>
       httr2::req_cookies_set(JSESSIONID = connection_options$session_id)
   else

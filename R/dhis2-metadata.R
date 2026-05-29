@@ -491,16 +491,15 @@ read_metadata_wb_classes <- function(metadata)
       .before = 1) |>
     dplyr::arrange(dplyr::desc(.data$fiscal_year), .data$class)
 
-  for (i in (as.POSIXlt(Sys.Date())$year + 1900):2025) {
-    filtered <- organisationUnitGroups |>
-      dplyr::filter(.data$fiscal_year == i)
+  if (nrow(organisationUnitGroups) == 0L)
+    return(organisationUnitGroups)
 
-    if (nrow(filtered) > 0) {
-      break
-    }
-  }
+  current_year <- as.POSIXlt(Sys.Date())$year + 1900
+  candidates <- organisationUnitGroups$fiscal_year[organisationUnitGroups$fiscal_year <= current_year]
+  target_year <- if (length(candidates) > 0L) max(candidates) else max(organisationUnitGroups$fiscal_year, na.rm = TRUE)
 
-  return(filtered)
+  organisationUnitGroups |>
+    dplyr::filter(.data$fiscal_year == target_year)
 }
 
 read_metadata_options <- function(metadata)
