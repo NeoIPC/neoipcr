@@ -1,3 +1,15 @@
+#' Import a NeoIPC dataset from a DHIS2 instance
+#'
+#' Fetches metadata, tracked entities, enrollments and events from a
+#' DHIS2 NeoIPC instance and returns them as a `neoipcr_ds` (a list of
+#' tibbles representing patients, enrollments, events, etc.).
+#'
+#' @param connection_options A `neoipcr_dhis2_conopt` object describing
+#'   how to connect to the DHIS2 instance. Use [dhis2_connection_options()].
+#' @param translate Whether to translate metadata into the configured locale.
+#' @param locale Optional locale identifier passed to DHIS2.
+#' @param include_deleted Whether to include deleted records.
+#' @return A `neoipcr_ds` list of tibbles.
 #' @export
 import_dhis2 <- function(connection_options = dhis2_connection_options(), translate = TRUE, locale = NULL, include_deleted = FALSE)
 {
@@ -107,6 +119,21 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
     class = c("neoipcr_ds", "list"))
 }
 
+#' Build connection options for a DHIS2 instance
+#'
+#' Constructs a `neoipcr_dhis2_conopt` object describing how to
+#' authenticate against a DHIS2 NeoIPC instance and reach its API. Exactly
+#' one of `token`, `username` or `session_id` must be supplied; missing
+#' credentials are filled from the `NEOIPC_DHIS2_*` environment variables
+#' or via interactive prompts.
+#'
+#' @param token A DHIS2 personal access token (string of the form
+#'   `d2pat_` followed by 42 characters, or a path to a file containing one).
+#' @param username DHIS2 username (paired with a password supplied via env
+#'   variable or prompt).
+#' @param session_id An existing DHIS2 session cookie value.
+#' @param scheme,hostname,port,path URL components for the DHIS2 API.
+#' @return A `neoipcr_dhis2_conopt` object.
 #' @export
 dhis2_connection_options <- function(
     token, username, session_id, scheme = "https",
@@ -372,7 +399,7 @@ infer_sepsis_types <- function(sepses, causative_pathogens)
         dplyr::select("infection_key","event_type_key","is_cc"),
       dplyr::join_by("sepsis_key" == "infection_key", "event_type_key")) |>
     # if a sepsis contains both, a cc and a non-cc pathogen it is a non-cc sepsis
-    dplyr::group_by(across(!.data$is_cc)) |>
+    dplyr::group_by(dplyr::across(!"is_cc")) |>
     dplyr::summarise("is_cc" = as.logical(min(.data$is_cc)), .groups = "drop") |>
     dplyr::mutate(
       bsiType = factor(
