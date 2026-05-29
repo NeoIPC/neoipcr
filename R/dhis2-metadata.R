@@ -655,7 +655,7 @@ read_metadata_optionGroupSets <- function(metadata, filter, code_levels = NULL, 
         .data$displayName,
         levels = unique(.data$displayName),
         ordered = ordered),
-      displayFormName = factor(
+      displayShortName = factor(
         .data$displayShortName,
         levels = unique(.data$displayShortName),
         ordered = ordered))
