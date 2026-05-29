@@ -67,7 +67,7 @@ import_dhis2 <- function(connection_options = dhis2_connection_options(), transl
   enrollments <- read_enrollments(enrollments, events, metadata, patients)
   ab_treatments <- read_ab_treatments(events, metadata, enrollments)
   surgeries <- read_eventData(
-    events, metadata, "Surgical Procedure", keyColumn = "surgery_key",) |>
+    events, metadata, "Surgical Procedure", keyColumn = "surgery_key") |>
     recode_enrollments(enrollments)
   sepses <- read_eventData(
     events, metadata, "Primary Sepsis/BSI", keyColumn = "sepsis_key",
