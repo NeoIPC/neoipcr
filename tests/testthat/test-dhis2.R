@@ -379,14 +379,14 @@ rmd <- function(add_system = TRUE, add_programId = TRUE,
 
 test_that("dhis2_connection_options defaults", {
   expect_equal(
-    dhis2_connection_options("d2pat_test_token")$base_url,
+    dhis2_connection_options("d2pat_789012345678901234567890123456789012345678")$base_url,
     "https://neoipc.charite.de/api")
 })
 
 test_that("dhis2_connection_options defaults", {
   expect_equal(
     dhis2_connection_options(
-      token = "d2pat_test_token",
+      token = "d2pat_789012345678901234567890123456789012345678",
       scheme = "http",
       hostname = "testhost",
       port = 8080,
@@ -397,7 +397,7 @@ test_that("dhis2_connection_options defaults", {
 test_that("dhis2_connection_options fails if token and username are set", {
   expect_error(
     dhis2_connection_options(
-      token = "d2pat_test_token",
+      token = "d2pat_789012345678901234567890123456789012345678",
       username = "admin"),
     "Exactly one of `token`, `username`, or `session_id` must be supplied.")
 })
