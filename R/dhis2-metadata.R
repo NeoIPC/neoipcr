@@ -138,13 +138,15 @@ read_metadata <- function(metadata)
   testResults <- read_metadata_testResults(options)
   surveillanceResults <- read_metadata_surveillanceResults(options)
   countries <- read_metadata_countries(metadata) |>
-    add_key_column('country_key', as_factor = TRUE) |>
-    dplyr::left_join(
-      world_bank_classes |>
-        dplyr::select("world_bank_class_key", "organisationUnits") |>
-        tidyr::unnest_longer(organisationUnits) |>
-        tidyr::hoist("organisationUnits", organisationUnit = list(1L)),
-      dplyr::join_by("organisationUnit"))
+    add_key_column('country_key', as_factor = TRUE)
+  if(!rlang::is_null(countries) && !rlang::is_null(world_bank_classes))
+    countries <- countries |>
+      dplyr::left_join(
+        world_bank_classes |>
+          dplyr::select("world_bank_class_key", "organisationUnits") |>
+          tidyr::unnest_longer("organisationUnits") |>
+          tidyr::hoist("organisationUnits", organisationUnit = list(1L)),
+        dplyr::join_by("organisationUnit"))
 
   ret <- list(
     system = system,
@@ -436,13 +438,20 @@ read_metadata_test_unit_ids <- function(metadata)
 
 read_metadata_trials <- function(metadata)
 {
-  for (i in 1:2) {
-    if ('NEOIPC_TRIALS' == (metadata |> purrr::pluck("organisationUnitGroupSets", i, "code"))) {
+  groupSets <- purrr::pluck(metadata, "organisationUnitGroupSets")
+  if(rlang::is_null(groupSets) || length(groupSets) == 0L)
+    return(NULL)
+
+  i <- NA_integer_
+  for (k in seq_along(groupSets)) {
+    if (isTRUE('NEOIPC_TRIALS' == purrr::pluck(groupSets, k, "code"))) {
+      i <- k
       break
     }
   }
-  organisationUnitGroups <- metadata |>
-    purrr::pluck("organisationUnitGroupSets", i, "organisationUnitGroups")
+  if(is.na(i)) return(NULL)
+
+  organisationUnitGroups <- purrr::pluck(groupSets, i, "organisationUnitGroups")
 
   if(rlang::is_null(organisationUnitGroups))
     return(NULL)
@@ -454,13 +463,20 @@ read_metadata_trials <- function(metadata)
 
 read_metadata_wb_classes <- function(metadata)
 {
-  for (i in 1:2) {
-    if ('WORLD_BANK_CLASSES' == (metadata |> purrr::pluck("organisationUnitGroupSets", i, "code"))) {
+  groupSets <- purrr::pluck(metadata, "organisationUnitGroupSets")
+  if(rlang::is_null(groupSets) || length(groupSets) == 0L)
+    return(NULL)
+
+  i <- NA_integer_
+  for (k in seq_along(groupSets)) {
+    if (isTRUE('WORLD_BANK_CLASSES' == purrr::pluck(groupSets, k, "code"))) {
+      i <- k
       break
     }
   }
-  organisationUnitGroups <- metadata |>
-    purrr::pluck("organisationUnitGroupSets", i, "organisationUnitGroups")
+  if(is.na(i)) return(NULL)
+
+  organisationUnitGroups <- purrr::pluck(groupSets, i, "organisationUnitGroups")
 
   if(rlang::is_null(organisationUnitGroups))
     return(NULL)

@@ -628,6 +628,8 @@ get_testUnitIds <- function(metadata)
 
 add_key_column <- function(table, key_name = "key", as_factor = FALSE)
 {
+  if(rlang::is_null(table)) return(NULL)
+
   tmp <- table |>
     dplyr::mutate(random = ids::random_id(nrow(table))) |>
     dplyr::arrange(.data$random) |>
