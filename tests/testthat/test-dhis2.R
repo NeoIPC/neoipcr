@@ -469,6 +469,8 @@ test_that("read_metadata reads data", {
   expect_equal(metadata$trackedEntityAttributes$id, c("yQwpowV0o08", "E5OMg8BC8be"))
   expect_equal(metadata$trackedEntityAttributes$optionSet, c(NA, "R2yCnsqxamL"))
 
-  # countries
-  expect_equal(metadata$countries$code, ordered(c("CH", "DE")))
+  # countries — add_key_column randomises row order for pseudonymisation,
+  # so check set membership rather than a specific sequence.
+  expect_setequal(as.character(metadata$countries$code), c("CH", "DE"))
+  expect_s3_class(metadata$countries$code, "ordered")
 })
