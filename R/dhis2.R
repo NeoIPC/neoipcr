@@ -234,6 +234,8 @@ import_dhis2 <- function(
       patients = patients,
       enrollments = enrollments,
       events = events,
+      eventDetails = eventDetails,
+      eventNotes = eventNotes,
       admissionData = admissionData,
       surveillanceEndData = surveillanceEndData,
       sepsisData = sepsisData,

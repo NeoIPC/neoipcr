@@ -2,7 +2,7 @@
 % Please edit documentation in R/calc.R
 \name{pretty_names}
 \alias{pretty_names}
-\title{Prettyf the names of a neoipcr object}
+\title{Prettify the names of a neoipcr object}
 \usage{
 pretty_names(x, ...)
 }
@@ -16,5 +16,5 @@ the same object as x but with pretty and potentially translated
 names
 }
 \description{
-Prettyf the names of a neoipcr object
+Prettify the names of a neoipcr object
 }

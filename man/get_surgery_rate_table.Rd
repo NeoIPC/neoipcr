@@ -2,7 +2,7 @@
 % Please edit documentation in R/calc.R
 \name{get_surgery_rate_table}
 \alias{get_surgery_rate_table}
-\title{Get the table with rates of surgical precedues}
+\title{Get the table with rates of surgical procedures}
 \usage{
 get_surgery_rate_table(ref, use_cache = TRUE)
 }
@@ -13,8 +13,8 @@ neoipcr_ds object}
 \item{use_cache}{Use the cache. Ignored if ref is a neoipcr_ref_ds object}
 }
 \value{
-A table containing the rates of surgical precedues
+A table containing the rates of surgical procedures
 }
 \description{
-Get the table with rates of surgical precedues
+Get the table with rates of surgical procedures
 }

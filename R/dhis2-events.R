@@ -213,7 +213,9 @@ read_event_notes <- function(events, processed_events, metadata, dataset_options
       metadata$users |>
         dplyr::select("username", "user_key"),
       dplyr::join_by("storedBy" == "username")) |>
-    dplyr::mutate(storedBy = .data$user_key, .keep = "unused") |>
+    dplyr::mutate(storedBy = .data$user_key, .keep = "unused")
+
+  events <- events |>
     dplyr::mutate(storedAt = readr::parse_datetime(.data$storedAt))
 
   events |>
