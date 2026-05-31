@@ -88,7 +88,7 @@ update_po <- function(dir = ".", verbose = FALSE) {
         if (length(msgids_plural_uniqe) > 0) '"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\\n"'
       )
     )
-    for (i in 1:nrow(msgids_info)) {
+    for (i in seq_len(nrow(msgids_info))) {
       msgid <- msgids_info[i,1]
       references <- unlist(msgids_info[i,2])
       writeLines(con = pot_con, c("", references, paste("msgid", msgid), 'msgstr ""'))
@@ -113,7 +113,7 @@ update_po <- function(dir = ".", verbose = FALSE) {
               'msgstr[1]    ""'
             )
           )
-          msgids_plural_uniqe <- msgids_plural_uniqe[-match(p, msgids_plural_uniqe)]
+          msgids_plural_uniqe <- msgids_plural_uniqe[msgids_plural_uniqe != p[1L]]
         }
   }
 

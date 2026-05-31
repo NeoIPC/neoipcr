@@ -20,9 +20,9 @@
 #'  are "no", "pseudonymised" and "yes"
 #' @param include_hospital Include the hospital into the dataset. Possible
 #'  values are "no", "pseudonymised" and "yes"
-#' @param include_department Include the World Bank class into the dataset.
+#' @param include_department Include the department into the dataset.
 #'  Possible values are "no", "pseudonymised" and "yes"
-#' @param include_user Include the World Bank class into the dataset. Possible
+#' @param include_user Include the user metadata into the dataset. Possible
 #'  values are "no", "pseudonymised" and "yes"
 #' @param include_patient_id Include the NeoIPC Patient ID into the dataset.
 #' @param include_dhis2_id Include the DHIS2 ids into the dataset.

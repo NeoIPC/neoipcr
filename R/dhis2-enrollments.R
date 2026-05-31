@@ -1,6 +1,9 @@
 get_enrollments_request <- function(req_base, dataset_options, programId)
 {
-  fields <- "enrollment,trackedEntity,enrolledAt,followUp,notes"
+  fields <- "enrollment,trackedEntity,enrolledAt,followUp"
+
+  if("enrollments" %in% dataset_options$include_notes)
+    fields <- paste0(fields, ",notes")
 
   if("enrollments" %in% dataset_options$include_incomplete)
     fields <- paste0(fields,",status")
@@ -45,7 +48,7 @@ read_enrollments <- function(enrollments, patients, metadata, dataset_options)
     dplyr::mutate(
       enrolledAt = readr::parse_date(
         stringr::str_sub(.data$enrolledAt, end = 10))) |>
-    dplyr::select(!c("trackedEntity","notes"))
+    dplyr::select(!"trackedEntity")
 
   if("enrollments" %in% dataset_options$include_incomplete)
     enrollments <- enrollments |>

@@ -26,7 +26,7 @@ filter_dataset <- function(
       gestational_age_to,
       keep_non_core_patients)
 
-  x$countries <- x$countries |>
+  x$metadata$countries <- x$metadata$countries |>
     filter_countries(countries)
 
   if(remove_orphans)

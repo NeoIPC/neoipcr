@@ -173,7 +173,10 @@ read_event_details <- function(events, processed_events, metadata, dataset_optio
         metadata$users |>
           dplyr::select("user_key", "username"),
         dplyr::join_by("updatedBy" == "username")) |>
-      dplyr::mutate(updatedBy = .data$user_key, .keep = "unused") |>
+      dplyr::mutate(updatedBy = .data$user_key, .keep = "unused")
+
+  if(dataset_options$include_timestamps)
+    events <- events |>
       dplyr::mutate(dplyr::across(dplyr::ends_with("At"), readr::parse_datetime))
 
   events |>
