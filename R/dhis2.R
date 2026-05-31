@@ -319,7 +319,7 @@ add_key_column <- function(table, key_name = "key", as_factor = FALSE)
 convert_value <- function(values, valueTypes, levelsLists)
 {
   ret <- NULL
-  for (i in 1:length(values)) {
+  for (i in seq_along(values)) {
     value <- values[i]
     valueType <- valueTypes[i]
     levels <- unlist(levelsLists[i])

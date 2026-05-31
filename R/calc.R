@@ -122,13 +122,13 @@ get_usage_density_rate_table <- function(ref, use_cache = TRUE)
     cache(ref, "usage_density_rate_table")
 }
 
-#' Get the table with rates of surgical precedues
+#' Get the table with rates of surgical procedures
 #'
 #' @param ref The reference data set which can be either a neoipcr_ref_ds or a
 #'  neoipcr_ds object
 #' @param use_cache Use the cache. Ignored if ref is a neoipcr_ref_ds object
 #'
-#' @returns A table containing the rates of surgical precedues
+#' @returns A table containing the rates of surgical procedures
 #' @export
 get_surgery_rate_table <- function(ref, use_cache = TRUE)
 {
@@ -525,7 +525,7 @@ get_infectious_agent_detection_rate_per_agent_table <- function(ref, use_cache =
       use_cache = use_cache) |>
     dplyr::select("group"="domain","n","rate","q1","q2","q3") |>
     dplyr::arrange(dplyr::desc(.data$rate))
-  for (i in 1:nrow(d)) {
+  for (i in seq_len(nrow(d))) {
     di <- d[i,]
     if(!is.na(di$group) && di$group == "Bacteria") {
       lv1 <- dplyr::bind_cols(lv = 1L, tl = "domain", di)
@@ -536,7 +536,7 @@ get_infectious_agent_detection_rate_per_agent_table <- function(ref, use_cache =
         dplyr::filter(.data$domain == di$group) |>
         dplyr::select("group"="order","n","rate","q1","q2","q3") |>
         dplyr::arrange(dplyr::desc(.data$rate))
-      for (j in 1:nrow(o)) {
+      for (j in seq_len(nrow(o))) {
         oj <- o[j,]
         lv2 <- dplyr::bind_cols(lv = 2L, tl = "order", oj)
         g <- ref |>
@@ -546,7 +546,7 @@ get_infectious_agent_detection_rate_per_agent_table <- function(ref, use_cache =
           dplyr::filter(.data$order == oj$group) |>
           dplyr::select("group"="genus","n","rate","q1","q2","q3") |>
           dplyr::arrange(dplyr::desc(.data$rate))
-        for (k in 1:nrow(g)) {
+        for (k in seq_len(nrow(g))) {
           gk <- g[k,]
           lv3 <- dplyr::bind_cols(lv = 3L, tl = "genus", gk |> dplyr::mutate(group = paste(.data$group, "spp.")))
           if(gk$group == "Staphylococcus") {
@@ -557,7 +557,7 @@ get_infectious_agent_detection_rate_per_agent_table <- function(ref, use_cache =
               dplyr::filter(.data$genus == "Staphylococcus") |>
               dplyr::select("group"="coagulase","n","rate","q1","q2","q3") |>
               dplyr::arrange(dplyr::desc(.data$rate))
-            for (l in 1:nrow(c)) {
+            for (l in seq_len(nrow(c))) {
               cl <- c[l,]
               c_text <- switch (as.character(cl$group),
                 "n" = "Coagulase-negative staphylococci",
@@ -622,7 +622,7 @@ get_infectious_agent_detection_rate_per_agent_table <- function(ref, use_cache =
         dplyr::filter(.data$domain == di$group) |>
         dplyr::select("group"="kingdom","n","rate","q1","q2","q3") |>
         dplyr::arrange(dplyr::desc(.data$rate))
-      for (j in 1:nrow(kd)) {
+      for (j in seq_len(nrow(kd))) {
         kj <- kd[j,]
         lv1 <- dplyr::bind_cols(lv = 1L, tl = "kingdom", kj)
         g <- ref |>
@@ -632,7 +632,7 @@ get_infectious_agent_detection_rate_per_agent_table <- function(ref, use_cache =
           dplyr::filter(.data$kingdom == kj$group) |>
           dplyr::select("group"="genus","n","rate","q1","q2","q3") |>
           dplyr::arrange(dplyr::desc(.data$rate))
-        for (k in 1:nrow(g)) {
+        for (k in seq_len(nrow(g))) {
           gk <- g[k,]
           lv2 <- dplyr::bind_cols(lv = 2L, tl = "genus", gk |> dplyr::mutate(group = paste(.data$group, "spp.")))
           s <- ref |>
@@ -710,7 +710,7 @@ get_resistance_test_rate_table <- function(ref, use_cache = TRUE)
     cache(ref, "resistance_test_rate_table")
 }
 
-#' Prettyf the names of a neoipcr object
+#' Prettify the names of a neoipcr object
 #'
 #' @param x an object used to select a method.
 #' @param ... further arguments passed to or from other methods.
@@ -1308,7 +1308,10 @@ get_risk_time <- function(x, group_cols = NULL, use_cache = TRUE)
   aware_days <- get_aware_days(x, use_cache)
 
   x$surveillanceEndData |>
-    dplyr::inner_join(aware_days, dplyr::join_by("event_key")) |>
+    dplyr::left_join(aware_days, dplyr::join_by("event_key")) |>
+    dplyr::mutate(dplyr::across(
+      tidyselect::any_of(c("a_days", "w_days", "r_days")),
+      ~ tidyr::replace_na(.x, 0L))) |>
     dplyr::inner_join(
       x$events |>
         dplyr::select("event_key","enrollment_key"),

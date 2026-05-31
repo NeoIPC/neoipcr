@@ -10,7 +10,7 @@ Authors@R: c(
            comment = c(Funding = "The NeoIPC project has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement No 965328."))
            )
 Description: Tools for working with NeoIPC Surveillance data.
-Bugs: https://github.com/NeoIPC/neoipcr/issues
+BugReports: https://github.com/NeoIPC/neoipcr/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

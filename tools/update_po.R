@@ -125,7 +125,7 @@ update_po <- function(dir = ".", verbose = FALSE) {
                          full.names = TRUE)
   description_info <- read.dcf(
     "DESCRIPTION",
-    fields = c("Package", "Version", "Bugs", "Authors@R", "Encoding"))
+    fields = c("Package", "Version", "BugReports", "Authors@R", "Encoding"))
   package_name <- description_info[1L]
   version <- description_info[2L]
   bugs <- description_info[3L]

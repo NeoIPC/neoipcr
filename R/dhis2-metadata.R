@@ -169,21 +169,11 @@ read_metadata_reponses <- function(resps, user_info, dataset_options)
      !is.null(dataset_options$country_filter) ||
      dataset_options$include_country != "no" ||
      dataset_options$include_world_bank_class != "no")
-  {
-    if(dataset_options$include_test_data)
-      metadata$hospitals <- metadata$hospitals |>
-        dplyr::anti_join(
-          metadata$departments |>
-            dplyr::filter(.data$isTest) |>
-            dplyr::select("hospital_key"),
-          dplyr::join_by("hospital_key"))
-    else
-      metadata$hospitals <- metadata$hospitals |>
-        dplyr::semi_join(
-          metadata$departments |>
-            dplyr::select("hospital_key"),
-          dplyr::join_by("hospital_key"))
-  }
+    metadata$hospitals <- metadata$hospitals |>
+      dplyr::semi_join(
+        metadata$departments |>
+          dplyr::select("hospital_key"),
+        dplyr::join_by("hospital_key"))
 
   if(dataset_options$include_country != "no" ||
      !is.null(dataset_options$country_filter) ||

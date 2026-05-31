@@ -32,5 +32,4 @@ import_dhis2().
 library(neoipcr)
 
 data <- import_dhis2()
-#> [working] (0 + 0) -> 1 -> 2 | ■■■■■■■■■■■■■■■■■■■■■ 67%
 ```
