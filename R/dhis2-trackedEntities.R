@@ -69,7 +69,7 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
     patients <- patients |>
       dplyr::filter(.data$code != "NEOIPC_PATIENT_ID")
 
-  if(!dataset_options$include_timestamps)
+  if(dataset_options$include_timestamps)
     patients <- patients |>
       dplyr::mutate(dplyr::across(tidyselect::contains("At", ignore.case = FALSE), readr::parse_datetime))
 

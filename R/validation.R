@@ -33,7 +33,7 @@ validation_rule_2 <- function(x, exceptions)
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
     rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 1),
+      gettextf("Validation rule %i failed to execute.", 2),
       gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
     return()
   }

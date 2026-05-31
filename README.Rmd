@@ -36,7 +36,7 @@ pak::pak("NeoIPC/neoipcr")
 
 To import data from the NeoIPC surveillance DHIS2 server use import_dhis2().
 
-```{r example}
+```{r example, eval=FALSE}
 library(neoipcr)
 
 data <- import_dhis2()

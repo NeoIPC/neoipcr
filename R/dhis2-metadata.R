@@ -197,7 +197,7 @@ read_metadata_reponses <- function(resps, user_info, dataset_options)
 
   if(!is.null(dataset_options$trial_keys))
     metadata$departments <- metadata$departments |>
-      dplyr::anti_join(
+      dplyr::semi_join(
         metadata$trials |>
           dplyr::select("organisationUnits") |>
           tidyr::unnest_longer("organisationUnits") |>
@@ -801,13 +801,14 @@ read_metadata_wb_classes <- function(metadata, include_world_bank_class)
       .before = 1) |>
     dplyr::arrange(dplyr::desc(.data$fiscal_year), .data$class)
 
-  for (i in (as.POSIXlt(Sys.Date())$year + 1900):2025) {
+  if (nrow(organisationUnitGroups) == 0L) {
+    filtered <- organisationUnitGroups
+  } else {
+    current_year <- as.POSIXlt(Sys.Date())$year + 1900
+    candidates <- organisationUnitGroups$fiscal_year[organisationUnitGroups$fiscal_year <= current_year]
+    target_year <- if (length(candidates) > 0L) max(candidates) else max(organisationUnitGroups$fiscal_year, na.rm = TRUE)
     filtered <- organisationUnitGroups |>
-      dplyr::filter(.data$fiscal_year == i)
-
-    if (nrow(filtered) > 0) {
-      break
-    }
+      dplyr::filter(.data$fiscal_year == target_year)
   }
 
   filtered <- filtered |>
@@ -889,7 +890,7 @@ read_metadata_optionGroupSets <- function(
         .data$displayName,
         levels = unique(.data$displayName),
         ordered = ordered),
-      displayFormName = factor(
+      displayShortName = factor(
         .data$displayShortName,
         levels = unique(.data$displayShortName),
         ordered = ordered))

@@ -98,7 +98,7 @@ update_po <- function(dir = ".", verbose = FALSE) {
         if (p[1L] %in% msgids_plural_uniqe)
         {
           writeLines(
-            con = con,
+            con = pot_con,
             c(
               "",
               paste(

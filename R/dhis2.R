@@ -313,7 +313,7 @@ add_key_column <- function(table, key_name = "key", as_factor = FALSE)
       dplyr::mutate(!!key_name := dplyr::row_number())
 
   tmp |>
-    dplyr::relocate(key_name)
+    dplyr::relocate(dplyr::all_of(key_name))
 }
 
 convert_value <- function(values, valueTypes, levelsLists)

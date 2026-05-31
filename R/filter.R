@@ -18,7 +18,7 @@ filter_dataset <- function(
   x$admissionData <- x$admissionData |>
     filter_admissions(keep_non_core_patients)
 
-  x <- x |>
+  x$patients <- x$patients |>
     filter_patients(
       birth_weight_from,
       birth_weight_to,
@@ -26,7 +26,7 @@ filter_dataset <- function(
       gestational_age_to,
       keep_non_core_patients)
 
-  x <- x |>
+  x$countries <- x$countries |>
     filter_countries(countries)
 
   if(remove_orphans)
