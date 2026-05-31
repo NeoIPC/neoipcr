@@ -2,30 +2,22 @@
 % Please edit documentation in R/dhis2.R
 \name{import_dhis2}
 \alias{import_dhis2}
-\title{Import a NeoIPC dataset from a DHIS2 instance}
+\title{Import data from a NeoIPC DHIS2 server}
 \usage{
 import_dhis2(
   connection_options = dhis2_connection_options(),
-  translate = TRUE,
-  locale = NULL,
-  include_deleted = FALSE
+  dataset_options = dhis2_dataset_options()
 )
 }
 \arguments{
-\item{connection_options}{A \code{neoipcr_dhis2_conopt} object describing
-how to connect to the DHIS2 instance. Use \code{\link[=dhis2_connection_options]{dhis2_connection_options()}}.}
+\item{connection_options}{The options to use for connecting to the DHIS2
+server.}
 
-\item{translate}{Whether to translate metadata into the configured locale.}
-
-\item{locale}{Optional locale identifier passed to DHIS2.}
-
-\item{include_deleted}{Whether to include deleted records.}
+\item{dataset_options}{The options to use for the dataset configuration}
 }
 \value{
-A \code{neoipcr_ds} list of tibbles.
+A NeoIPC dataset.
 }
 \description{
-Fetches metadata, tracked entities, enrollments and events from a
-DHIS2 NeoIPC instance and returns them as a \code{neoipcr_ds} (a list of
-tibbles representing patients, enrollments, events, etc.).
+Import data from a NeoIPC DHIS2 server
 }

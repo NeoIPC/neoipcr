@@ -11,15 +11,10 @@ Tools for working with NeoIPC Surveillance data.
 \author{
 \strong{Maintainer}: Brar Christian Piening \email{brar.piening@charite.de} (\href{https://orcid.org/0000-0002-4478-5597}{ORCID})
 
-Authors:
-\itemize{
-  \item Brar Christian Piening \email{brar.piening@charite.de} (\href{https://orcid.org/0000-0002-4478-5597}{ORCID})
-}
-
 Other contributors:
 \itemize{
-  \item The NeoIPC Consortium [copyright holder]
-  \item The European Union (Funding: The NeoIPC project has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement No 965328.) [funder]
+  \item NeoIPC Surveillance Toolkit development team \email{NeoIPC-Support@charite.de} [copyright holder]
+  \item The European Union (The NeoIPC project has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement No 965328.) [funder]
 }
 
 }

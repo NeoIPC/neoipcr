@@ -16,7 +16,9 @@ knitr::opts_chunk$set(
 # neoipcr - The R Package to Work With NeoIPC Data
 
 <!-- badges: start -->
+
 [![Codecov test coverage](https://codecov.io/gh/NeoIPC/neoipcr/graph/badge.svg)](https://app.codecov.io/gh/NeoIPC/neoipcr)
+
 <!-- badges: end -->
 
 The goal of neoipcr is to facilitate working with data from the NeoIPC project
@@ -28,4 +30,14 @@ You can install the development version of neoipcr from [GitHub](https://github.
 ``` r
 # install.packages("pak")
 pak::pak("NeoIPC/neoipcr")
+```
+
+## Importing Data From DHIS2
+
+To import data from the NeoIPC surveillance DHIS2 server use import_dhis2().
+
+```{r example}
+library(neoipcr)
+
+data <- import_dhis2()
 ```
