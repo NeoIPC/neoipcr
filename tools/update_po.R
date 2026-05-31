@@ -23,7 +23,7 @@ update_po <- function(dir = ".", verbose = FALSE) {
           dplyr::filter(token == "STR_CONST") |>
           dplyr::mutate(
             reference = paste0("#: ", sub(paste0("^", stringr::str_escape(tools::file_path_as_absolute(".")), "/?"), "", tools::file_path_as_absolute(f)), ":", line1),
-            msgid = as.character(sapply(.data$text, \(x)sub("[ \t\n]*$", "", sub("^[ \t\n]*", "", eval(parse(text=x)))))),
+            msgid = as.character(sapply(.data$text, \(x) eval(parse(text=x)))),
             .keep = "none")
       }
 

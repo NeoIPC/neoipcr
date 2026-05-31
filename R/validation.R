@@ -2,20 +2,19 @@ validation_rule_1 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(1L),
-    x$patients |>
-      dplyr::select(
-        tidyselect::any_of(c("hospital_key", "department_key")),
-        "patient_key") |>
-      dplyr::anti_join(
-        x$enrollments,
-        dplyr::join_by("patient_key")) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key"))))
+  r <- x$patients |>
+    dplyr::select(
+      tidyselect::any_of(c("hospital_key", "department_key")),
+      "patient_key") |>
+    dplyr::anti_join(
+      x$enrollments,
+      dplyr::join_by("patient_key")) |>
+    dplyr::select(
+      tidyselect::any_of(
+        c("hospital_key",
+          "department_key",
+          "patient_key"))) |>
+    dplyr::mutate(rule_id = 1L, .before = 1)
 
   if(!is.null(exceptions))
     r <- r |>
@@ -38,30 +37,29 @@ validation_rule_2 <- function(x, exceptions)
     return()
   }
 
-  r <- dplyr::bind_cols(
-    rule_id = c(2L),
-    x$enrollments |>
-      dplyr::select(
-        tidyselect::any_of(c("hospital_key", "department_key")),
-        "patient_key",
-        "enrollment_key",
-        "enrollment_status" = "status") |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "end") |>
-          dplyr::select(
-            "enrollment_key",
-            "event_key",
-            "event_status" = "status"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::filter(.data$enrollment_status == "ACTIVE" & .data$event_status == "COMPLETED") |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key",
-            "enrollment_key",
-            "event_key"))))
+  r <- x$enrollments |>
+    dplyr::select(
+      tidyselect::any_of(c("hospital_key", "department_key")),
+      "patient_key",
+      "enrollment_key",
+      "enrollment_status" = "status") |>
+    dplyr::inner_join(
+      x$events |>
+        dplyr::filter(.data$event_type_key == "end") |>
+        dplyr::select(
+          "enrollment_key",
+          "event_key",
+          "event_status" = "status"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::filter(.data$enrollment_status == "ACTIVE" & .data$event_status == "COMPLETED") |>
+    dplyr::select(
+      tidyselect::any_of(
+        c("hospital_key",
+          "department_key",
+          "patient_key",
+          "enrollment_key",
+          "event_key"))) |>
+    dplyr::mutate(rule_id = 2L, .before = 1)
 
   if(!is.null(exceptions))
     r <- r |>
