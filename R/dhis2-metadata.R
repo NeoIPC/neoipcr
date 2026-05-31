@@ -723,13 +723,21 @@ read_metadata_trials <- function(metadata, trial_keys)
   if(is.null(trial_keys))
     return(NULL)
 
-  for (i in 1:2) {
-    if ('NEOIPC_TRIALS' ==
-        (purrr::pluck(metadata,"organisationUnitGroupSets", i, "code"))) break
-  }
-  organisationUnitGroups <- metadata |>
-    purrr::pluck("organisationUnitGroupSets", i, "organisationUnitGroups")
+  groupSets <- purrr::pluck(metadata, "organisationUnitGroupSets")
+  if(rlang::is_null(groupSets))
+    return(NULL)
 
+  trialsIdx <- NULL
+  for (i in seq_along(groupSets)) {
+    if (identical(purrr::pluck(groupSets, i, "code"), "NEOIPC_TRIALS")) {
+      trialsIdx <- i
+      break
+    }
+  }
+  if(is.null(trialsIdx))
+    return(NULL)
+
+  organisationUnitGroups <- purrr::pluck(groupSets, trialsIdx, "organisationUnitGroups")
   if(rlang::is_null(organisationUnitGroups))
     return(NULL)
 
@@ -748,13 +756,21 @@ read_metadata_wb_classes <- function(metadata, include_world_bank_class)
   if(include_world_bank_class == "no")
     return(NULL)
 
-  for (i in 1:2) {
-    if ('WORLD_BANK_CLASSES' ==
-        (purrr::pluck(metadata, "organisationUnitGroupSets", i, "code"))) break
-  }
-  organisationUnitGroups <- metadata |>
-    purrr::pluck("organisationUnitGroupSets", i, "organisationUnitGroups")
+  groupSets <- purrr::pluck(metadata, "organisationUnitGroupSets")
+  if(rlang::is_null(groupSets))
+    return(NULL)
 
+  wbIdx <- NULL
+  for (i in seq_along(groupSets)) {
+    if (identical(purrr::pluck(groupSets, i, "code"), "WORLD_BANK_CLASSES")) {
+      wbIdx <- i
+      break
+    }
+  }
+  if(is.null(wbIdx))
+    return(NULL)
+
+  organisationUnitGroups <- purrr::pluck(groupSets, wbIdx, "organisationUnitGroups")
   if(rlang::is_null(organisationUnitGroups))
     return(NULL)
 

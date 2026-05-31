@@ -461,12 +461,12 @@ test_that("read_metadata reads data", {
   # eventTypes
   expect_equal(sort(as.character(metadata$eventTypes$name)), c("Admission", "Surgical Procedure"))
 
-  # dataElements
-  expect_equal(metadata$dataElements$id, c("Lwa9Jp5xSnR", "rvq4L9wWbwW", "AgBqfnnsUzd", "DTZ9HfILgnX"))
+  # dataElements (refactored readers rename id -> dataElement)
+  expect_equal(metadata$dataElements$dataElement, c("Lwa9Jp5xSnR", "rvq4L9wWbwW", "AgBqfnnsUzd", "DTZ9HfILgnX"))
   expect_equal(metadata$dataElements$optionSet, c(NA, NA, "NEOIPC_ADMISSION_TYPES", NA))
 
-  # trackedEntityAttributes
-  expect_equal(metadata$trackedEntityAttributes$id, c("yQwpowV0o08", "E5OMg8BC8be"))
+  # trackedEntityAttributes (refactored readers rename id -> attribute)
+  expect_equal(metadata$trackedEntityAttributes$attribute, c("yQwpowV0o08", "E5OMg8BC8be"))
   expect_equal(metadata$trackedEntityAttributes$optionSet, c(NA, "R2yCnsqxamL"))
 
   # countries — add_key_column randomises row order for pseudonymisation,

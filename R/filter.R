@@ -313,6 +313,9 @@ apply_data_removal <- function(x, dataset_options)
   else if(dataset_options$include_world_bank_class == "pseudonymised")
     x$metadata$worldBankClasses <- NULL
 
+  if(dataset_options$include_user == "pseudonymised")
+    x$metadata$users <- NULL
+
   if(!dataset_options$include_patient_id)
     x$patients <- x$patients |>
       dplyr::select(!tidyselect::any_of("neoipc_patient_id"))
