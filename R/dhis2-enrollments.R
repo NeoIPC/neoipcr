@@ -19,7 +19,7 @@ get_enrollments_request <- function(req_base, dataset_options, programId)
   if(!dataset_options$include_test_data ||
      length(dataset_options$country_filter) > 0 ||
      length(dataset_options$department_filter) > 0 ||
-     !is.null(dataset_options$trial_keys) ||
+     length(dataset_options$trial_keys) > 0 ||
      dataset_options$include_department != "no" ||
      dataset_options$include_hospital != "no" ||
      dataset_options$include_country != "no" ||
@@ -127,7 +127,7 @@ read_enrollments <- function(enrollments, patients, metadata, dataset_options)
 
   if(!dataset_options$include_test_data ||
      length(dataset_options$country_filter) > 0 ||
-     !is.null(dataset_options$trial_keys))
+     length(dataset_options$trial_keys) > 0)
     enrollments <- enrollments |>
       dplyr::semi_join(metadata$departments, dplyr::join_by("orgUnit"))
 

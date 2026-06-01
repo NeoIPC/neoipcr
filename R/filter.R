@@ -251,12 +251,6 @@ apply_postfilter <- function(x)
 
 apply_data_removal <- function(x, dataset_options)
 {
-  if(!dataset_options$include_patient_id)
-  {
-    x$patients <- x$patients |>
-      dplyr::select(!tidyselect::any_of("patient_id"))
-  }
-
   if(!("patients" %in% dataset_options$include_dhis2_ids))
   {
     x$patients <- x$patients |>
@@ -290,7 +284,7 @@ apply_data_removal <- function(x, dataset_options)
   {
     if("departments" %in% dataset_options$include_dhis2_ids)
       x$metadata$departments <- x$metadata$departments |>
-        dplyr::select(tidyselect::all_of(c("department_key","orgUnit")))
+        dplyr::select(tidyselect::all_of("department_key"))
     else
       x$metadata$departments <- NULL
   }
