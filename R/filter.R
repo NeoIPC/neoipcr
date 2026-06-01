@@ -7,7 +7,6 @@ filter_dataset <- function(
     gestational_age_from = NULL,
     gestational_age_to = NULL,
     countries = NULL,
-    units = NULL,
     keep_non_core_patients = FALSE,
     remove_orphans = TRUE)
 {

@@ -254,13 +254,13 @@ validation_rule_7 <- function(x, exceptions)
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
     rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 6L),
+      gettextf("Validation rule %i failed to execute.", 7L),
       gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
     return()
   }
 
   r <- dplyr::bind_cols(
-    rule_id = c(6L),
+    rule_id = c(7L),
     x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
@@ -300,13 +300,13 @@ validation_rule_8 <- function(x, exceptions)
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
     rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 6L),
+      gettextf("Validation rule %i failed to execute.", 8L),
       gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
     return()
   }
 
   r <- dplyr::bind_cols(
-    rule_id = c(6L),
+    rule_id = c(8L),
     x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
@@ -346,13 +346,13 @@ validation_rule_9 <- function(x, exceptions)
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
     rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 6L),
+      gettextf("Validation rule %i failed to execute.", 9L),
       gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
     return()
   }
 
   r <- dplyr::bind_cols(
-    rule_id = c(6L),
+    rule_id = c(9L),
     x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
@@ -392,13 +392,13 @@ validation_rule_10 <- function(x, exceptions)
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
     rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 6L),
+      gettextf("Validation rule %i failed to execute.", 10L),
       gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
     return()
   }
 
   r <- dplyr::bind_cols(
-    rule_id = c(6L),
+    rule_id = c(10L),
     x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
@@ -438,13 +438,13 @@ validation_rule_11 <- function(x, exceptions)
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
     rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 6L),
+      gettextf("Validation rule %i failed to execute.", 11L),
       gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
     return()
   }
 
   r <- dplyr::bind_cols(
-    rule_id = c(6L),
+    rule_id = c(11L),
     x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
@@ -483,7 +483,7 @@ validation_rule_12 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   r <- dplyr::bind_cols(
-    rule_id = c(13L),
+    rule_id = c(12L),
     x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
@@ -591,7 +591,7 @@ validation_rule_14 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   r <- dplyr::bind_cols(
-    rule_id = c(13L),
+    rule_id = c(14L),
     x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
@@ -645,7 +645,7 @@ validation_rule_15 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   r <- dplyr::bind_cols(
-    rule_id = c(13L),
+    rule_id = c(15L),
     x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
@@ -699,7 +699,7 @@ validation_rule_16 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   r <- dplyr::bind_cols(
-    rule_id = c(13L),
+    rule_id = c(16L),
     x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),

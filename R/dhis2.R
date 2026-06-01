@@ -272,12 +272,20 @@ import_dhis2 <- function(
   }
 
   trackedEntities_raw <- parse_resp(resps[[1]])
-  if (nrow(trackedEntities_raw) == 0)
+  if (nrow(trackedEntities_raw) == 0) {
+    filter_summary <- if (!is.null(dataset_options$department_filter))
+      paste0("department_filter: ",
+             paste(dataset_options$department_filter, collapse = ", "))
+    else if (!is.null(dataset_options$country_filter))
+      paste0("country_filter: ",
+             paste(dataset_options$country_filter, collapse = ", "))
+    else
+      "active organisation units: <accessible>"
     rlang::abort(c(
       "No tracked entities returned by DHIS2.",
       "i" = "The selected organisation unit(s) may have no enrolled patients.",
-      "i" = paste0("Organisation unit(s): ",
-                   paste(connection_options$orgUnit, collapse = ", "))))
+      "i" = filter_summary))
+  }
   enrollments_raw <- parse_resp(resps[[2]])
   events_raw <- resps[seq(3, length(resps))] |>
     purrr::map(parse_resp) |>
@@ -542,7 +550,7 @@ add_key_column <- function(table, key_name = "key")
 
 convert_value <- function(values, valueTypes, levelsLists)
 {
-  ret <- NULL
+  convertedValues <- vector(mode = "list", length = length(values))
   for (i in seq_along(values)) {
     value <- values[i]
     valueType <- valueTypes[i]
