@@ -7,6 +7,7 @@
 
 [![Codecov test
 coverage](https://codecov.io/gh/NeoIPC/neoipcr/graph/badge.svg)](https://app.codecov.io/gh/NeoIPC/neoipcr)
+
 <!-- badges: end -->
 
 The goal of neoipcr is to facilitate working with data from the NeoIPC
@@ -20,4 +21,15 @@ You can install the development version of neoipcr from
 ``` r
 # install.packages("pak")
 pak::pak("NeoIPC/neoipcr")
+```
+
+## Importing Data From DHIS2
+
+To import data from the NeoIPC surveillance DHIS2 server use
+import_dhis2().
+
+``` r
+library(neoipcr)
+
+data <- import_dhis2()
 ```

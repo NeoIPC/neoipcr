@@ -1,0 +1,132 @@
+# English neoipcr Translation Template File.
+# Copyright (C) 2025 NeoIPC Surveillance Toolkit development team
+# This file is distributed under the same license as the neoipcr package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: neoipcr 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
+"POT-Creation-Date: 2025-04-22 23:01+0200\n"
+"PO-Revision-Date: 2025-04-22 23:03+0200\n"
+"Last-Translator: Brar Piening <brar.piening@charite.de>\n"
+"Language-Team: NeoIPC-Support <NeoIPC-Support@charite.de>\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: R/calc.R:524
+msgid "Procedure code"
+msgstr ""
+
+#: R/calc.R:524
+#: R/calc.R:668
+msgid "Procedure category"
+msgstr ""
+
+#: R/calc.R:628
+msgid "Overall"
+msgstr ""
+
+#: R/calc.R:629
+msgid "Abdominal surgery"
+msgstr ""
+
+#: R/calc.R:630
+msgid "Neurosurgery"
+msgstr ""
+
+#: R/calc.R:631
+msgid "Inguinal hernia surgery"
+msgstr ""
+
+#: R/calc.R:632
+msgid "Cardiac- / large vessel surgery"
+msgstr ""
+
+#: R/calc.R:633
+msgid "Lung- / pleural space- / thoracic surgery"
+msgstr ""
+
+#: R/calc.R:634
+msgid "Oesophageal surgery"
+msgstr ""
+
+#: R/calc.R:635
+msgid "Other"
+msgstr ""
+
+#: R/calc.R:636
+msgid "Not a surgical procedure"
+msgstr ""
+
+#: R/calc.R:637
+msgid "Not yet categorised"
+msgstr ""
+
+#: R/calc.R:668
+msgid "Number of procedures"
+msgstr ""
+
+#: R/calc.R:668
+msgid "Pooled rate"
+msgstr ""
+
+#: R/calc.R:668
+msgid "Q1"
+msgstr "Q₁"
+
+#: R/calc.R:669
+msgid "Q2"
+msgstr "Q₂"
+
+#: R/calc.R:669
+msgid "Q3"
+msgstr "Q₃"
+
+#: R/dhis2-connect.R:65
+msgid "Invalid DHIS2 personal access token."
+msgstr ""
+
+#: R/dhis2-connect.R:74
+msgid "Please enter your password for %s:"
+msgstr ""
+
+#: R/dhis2-connect.R:77
+msgid "No password provided"
+msgstr ""
+
+#: R/dhis2-connect.R:78
+#: R/dhis2-connect.R:98
+msgid ""
+"Please provide username and password, a personal access token or a session "
+"id to authenticate to DHIS2"
+msgstr ""
+
+#: R/dhis2-connect.R:94
+msgid "Please enter your username for %s:"
+msgstr ""
+
+#: R/dhis2-connect.R:97
+msgid "No username provided"
+msgstr ""
+
+#: R/validation.R:36
+msgid "Validation rule %i failed to execute."
+msgstr ""
+
+#: R/validation.R:37
+msgid ""
+"The dataset must contain the enrolment status and the event status to "
+"execute this rule."
+msgstr ""
+
+#: R/validation.R:79
+msgid "The patient record does not have an enrolment."
+msgstr ""
+
+#: R/validation.R:84
+msgid ""
+"The patient record has a completed surveillance end form but the enrolment "
+"is still active."
+msgstr ""
