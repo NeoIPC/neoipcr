@@ -336,7 +336,7 @@ apply_data_removal <- function(x, dataset_options)
 
   if(!dataset_options$include_patient_id)
     x$patients <- x$patients |>
-      dplyr::select(!tidyselect::any_of("neoipc_patient_id"))
+      dplyr::select(!tidyselect::any_of("patient_id"))
 
   return(x)
 }
