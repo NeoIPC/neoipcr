@@ -753,7 +753,7 @@ read_metadata_users <- function(metadata, include_user)
 
 read_metadata_trials <- function(metadata, trial_keys)
 {
-  if(is.null(trial_keys))
+  if(length(trial_keys) < 1)
     return(NULL)
 
   groupSets <- purrr::pluck(metadata, "organisationUnitGroupSets")
