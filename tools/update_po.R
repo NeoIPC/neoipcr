@@ -117,8 +117,11 @@ update_po <- function(dir = ".", verbose = FALSE) {
         }
   }
 
+  wd_bkp <- getwd()
+  on.exit(setwd(wd_bkp))
+  setwd(dir)
   collation_bkp <- Sys.getlocale("LC_COLLATE")
-  on.exit(Sys.setlocale("LC_COLLATE", collation_bkp))
+  on.exit(Sys.setlocale("LC_COLLATE", collation_bkp), add = TRUE)
   Sys.setlocale("LC_COLLATE", "C")
   dir.create("po", FALSE)
   po_files <- list.files(path = "po", pattern = "^R-.+\\.pot?$",

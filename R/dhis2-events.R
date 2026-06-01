@@ -300,8 +300,8 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
   if(event_type_key == "adm")
     events <- events |>
     dplyr::select(
-      tidyselect::all_of(
-        c("event_key","type","dol", sort(tidyselect::peek_vars()))))
+      tidyselect::all_of(c("event_key","type","dol")),
+      tidyselect::everything())
   else if(event_type_key == "end")
     events <- events |>
     dplyr::mutate(vs_days = .data$inv_days + .data$niv_days) |>
@@ -309,18 +309,19 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
       tidyselect::all_of(
         c("event_key","reason","patient_days","cvc_days","pvc_days","vs_days",
           "inv_days","niv_days","ab_days","human_milk_days",
-          "kangaroo_care_days","probiotic_days", sort(tidyselect::peek_vars()))))
+          "kangaroo_care_days","probiotic_days")),
+      tidyselect::everything())
   else if(event_type_key == "bsi")
     events <- events |>
     dplyr::select(
-      tidyselect::any_of(
-        c("event_key","dev_ass","los","dol", sort(tidyselect::peek_vars()))))
+      tidyselect::any_of(c("event_key","dev_ass","los","dol")),
+      tidyselect::everything())
   else if(event_type_key == "nec")
     events <- events |>
     dplyr::rename(sec_bsi = .data$secondary_bsi) |>
     dplyr::select(
-      tidyselect::any_of(
-        c("event_key","los","dol","sec_bsi", sort(tidyselect::peek_vars()))))
+      tidyselect::any_of(c("event_key","los","dol","sec_bsi")),
+      tidyselect::everything())
   else if(event_type_key == "hap")
     events <- events |>
     dplyr::rename(
@@ -328,20 +329,23 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
       sec_bsi = .data$secondary_bsi) |>
     dplyr::select(
       tidyselect::any_of(
-        c("event_key","dev_ass","los","dol","sec_bsi","microbiological_test_result", sort(tidyselect::peek_vars()))))
+        c("event_key","dev_ass","los","dol","sec_bsi","microbiological_test_result")),
+      tidyselect::everything())
   else if(event_type_key == "ssi")
     events <- events |>
     dplyr::select(
       tidyselect::any_of(
         c("event_key","los","dol","infection_type","sec_bsi","organisms_superf",
-          "organisms_organ", sort(tidyselect::peek_vars()))))
+          "organisms_organ")),
+      tidyselect::everything())
   else if(event_type_key == "pro")
     events <- events |>
     dplyr::select(
       tidyselect::any_of(
         c("event_key","los","dol","procedure_description","main_procedure_code",
           "side_procedure_code_1","side_procedure_code_2","asa_score",
-          "wound_class","duration","infection_signs", sort(tidyselect::peek_vars()))))
+          "wound_class","duration","infection_signs")),
+      tidyselect::everything())
 
   events
 }
