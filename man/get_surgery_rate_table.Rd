@@ -4,13 +4,13 @@
 \alias{get_surgery_rate_table}
 \title{Get the table with rates of surgical procedures}
 \usage{
-get_surgery_rate_table(ref, use_cache = TRUE)
+get_surgery_rate_table(x, use_cache = TRUE)
 }
 \arguments{
-\item{ref}{The reference data set which can be either a neoipcr_ref_ds or a
+\item{x}{The data set which can be either a neoipcr_unit_ds or a
 neoipcr_ds object}
 
-\item{use_cache}{Use the cache. Ignored if ref is a neoipcr_ref_ds object}
+\item{use_cache}{Use the cache. Ignored if ref is a neoipcr_unit_ds object}
 }
 \value{
 A table containing the rates of surgical procedures

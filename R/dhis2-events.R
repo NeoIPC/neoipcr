@@ -23,7 +23,7 @@ get_events_request <- function(req_base, dataset_options, programId)
   }
 
   if(!dataset_options$include_test_data ||
-     !is.null(dataset_options$country_filter) ||
+     length(dataset_options$country_filter) > 0 ||
      !is.null(dataset_options$trial_keys) ||
      dataset_options$include_department != "no" ||
      dataset_options$include_hospital != "no" ||
@@ -70,48 +70,28 @@ read_events <- function(events, enrollments, patients, metadata, dataset_options
       occurredAt = readr::parse_date(
         stringr::str_sub(.data$occurredAt, end = 10)))
 
-  if(dataset_options$include_world_bank_class != "no")
-    events <- events |>
-      dplyr::inner_join(
-        metadata$departments |>
-          dplyr::select("orgUnit", "department_key", "hospital_key"),
-        dplyr::join_by("orgUnit")) |>
-      dplyr::inner_join(
-        metadata$hospitals |>
-          dplyr::select("hospital_key","country_key"),
-        dplyr::join_by("hospital_key")) |>
-      dplyr::inner_join(
-        metadata$countries |>
-          dplyr::select("country_key", "world_bank_class_key"),
-        dplyr::join_by("country_key"))
-  else if(dataset_options$include_country != "no")
-    events <- events |>
-      dplyr::inner_join(
-        metadata$departments |>
-          dplyr::select("orgUnit", "department_key", "hospital_key"),
-        dplyr::join_by("orgUnit")) |>
-      dplyr::inner_join(
-        metadata$hospitals |>
-          dplyr::select("hospital_key","country_key"),
-        dplyr::join_by("hospital_key"))
-  else if(dataset_options$include_test_data ||
-          dataset_options$include_hospital != "no" ||
-          dataset_options$include_department != "no")
+  if(dataset_options$include_test_data ||
+     dataset_options$include_department != "no" ||
+     dataset_options$include_hospital != "no" ||
+     dataset_options$include_country != "no" ||
+     dataset_options$include_world_bank_class != "no")
   {
-    fields <- "orgUnit"
-
+    cols <- "orgUnit"
+    if(dataset_options$include_department != "no")
+      cols <- c(cols, "department_key")
     if(dataset_options$include_hospital != "no")
-      fields <- c(fields, "department_key", "hospital_key")
-    else if(dataset_options$include_department != "no")
-      fields <- c(fields, "department_key")
-
+      cols <- c(cols, "hospital_key")
+    if(dataset_options$include_country != "no")
+      cols <- c(cols, "country_key")
+    if(dataset_options$include_world_bank_class != "no")
+      cols <- c(cols, "world_bank_class_key")
     if(dataset_options$include_test_data)
-      fields <- c(fields, "isTest")
+      cols <- c(cols, "isTest")
 
     events <- events |>
-      dplyr::inner_join(
+      dplyr::left_join(
         metadata$departments |>
-          dplyr::select(tidyselect::all_of(fields)),
+          dplyr::select(tidyselect::any_of(cols)),
         dplyr::join_by("orgUnit"))
   }
 
@@ -125,7 +105,7 @@ read_events <- function(events, enrollments, patients, metadata, dataset_options
       )
 
   if(!dataset_options$include_test_data ||
-     !is.null(dataset_options$country_filter) ||
+     length(dataset_options$country_filter) > 0 ||
      !is.null(dataset_options$trial_keys))
     events <- events |>
       dplyr::semi_join(metadata$departments, dplyr::join_by("orgUnit"))
@@ -155,15 +135,10 @@ read_event_details <- function(events, processed_events, metadata, dataset_optio
         dplyr::select("event_key", "event"),
       dplyr::join_by("event"))
 
-  if(dataset_options$include_user != "no")
+  if(dataset_options$include_user != "no") {
     events <- events |>
       tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
       tidyr::hoist("updatedBy", updatedBy = 1, .remove = FALSE) |>
-      dplyr::left_join(
-        metadata$users |>
-          dplyr::select("user_key", "username"),
-        dplyr::join_by("storedBy" == "username")) |>
-      dplyr::mutate(storedBy = .data$user_key, .keep = "unused") |>
       dplyr::left_join(
         metadata$users |>
           dplyr::select("user_key", "username"),
@@ -178,6 +153,15 @@ read_event_details <- function(events, processed_events, metadata, dataset_optio
   if(dataset_options$include_timestamps)
     events <- events |>
       dplyr::mutate(dplyr::across(dplyr::ends_with("At"), readr::parse_datetime))
+
+    if("storedBy" %in% names(events))
+      events <- events |>
+        dplyr::left_join(
+          metadata$users |>
+            dplyr::select("user_key", "username"),
+          dplyr::join_by("storedBy" == "username")) |>
+        dplyr::mutate(storedBy = .data$user_key, .keep = "unused")
+  }
 
   events |>
     dplyr::select(
@@ -198,10 +182,25 @@ read_event_notes <- function(events, processed_events, metadata, dataset_options
         dplyr::select("event_key", "event"),
       dplyr::join_by("event")) |>
     dplyr::select("event_key", "notes") |>
-    tidyr::unnest_longer("notes") |>
-    tidyr::unnest_wider("notes")
+    dplyr::filter(!is.na(.data$notes) & lengths(.data$notes) > 0)
 
-  if(dataset_options$include_user != "no")
+  if(nrow(events) == 0)
+    return(NULL)
+
+  events <- events |>
+    tidyr::unnest_longer("notes") |>
+    tidyr::hoist("notes",
+      note = "note",
+      value = "value",
+      storedBy = "storedBy",
+      storedAt = "storedAt",
+      createdBy = "createdBy",
+      .remove = TRUE)
+
+  if(nrow(events) == 0)
+    return(NULL)
+
+  if(dataset_options$include_user != "no") {
     events <- events |>
     tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
     dplyr::left_join(
@@ -234,7 +233,8 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
     tidyr::unnest_longer("dataValues") |>
     tidyr::unnest_wider("dataValues")
 
-  if(dataset_options$include_user != "no")
+  if(dataset_options$include_user != "no" &&
+     "createdBy" %in% names(events))
     events <- events |>
       tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
       dplyr::left_join(
@@ -245,7 +245,9 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
         createdBy = .data$user_key,
         .keep = "unused")
 
-  if(dataset_options$include_timestamps)
+  if(dataset_options$include_timestamps &&
+     "createdAt" %in% names(events) &&
+     "updatedAt" %in% names(events))
     events <- events |>
       dplyr::mutate(
         createdAt = readr::parse_datetime(.data$createdAt),
@@ -318,15 +320,15 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
       tidyselect::everything())
   else if(event_type_key == "nec")
     events <- events |>
-    dplyr::rename(sec_bsi = .data$secondary_bsi) |>
+    dplyr::rename(tidyselect::any_of(c(sec_bsi = "secondary_bsi"))) |>
     dplyr::select(
       tidyselect::any_of(c("event_key","los","dol","sec_bsi")),
       tidyselect::everything())
   else if(event_type_key == "hap")
     events <- events |>
-    dplyr::rename(
-      dev_ass = .data$device_association,
-      sec_bsi = .data$secondary_bsi) |>
+    dplyr::rename(tidyselect::any_of(c(
+      dev_ass = "device_association",
+      sec_bsi = "secondary_bsi"))) |>
     dplyr::select(
       tidyselect::any_of(
         c("event_key","dev_ass","los","dol","sec_bsi","microbiological_test_result")),
@@ -352,20 +354,35 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
 
 read_infectious_agent_findings <- function(events_raw, processed_events, metadata, dataset_options)
 {
-  events_raw |>
+  pathogen_data <- events_raw |>
     dplyr::select("event", "dataValues") |>
     dplyr::inner_join(
       processed_events |>
         dplyr::filter(.data$event_type_key %in% c("bsi","nec","ssi","hap")) |>
         dplyr::select("event", "event_key", "event_type_key"),
-      dplyr::join_by("event")) |>
+      dplyr::join_by("event"))
+
+  empty_result <- tibble::tibble(
+    event_key = integer(), secondary_bsi = logical(),
+    pathogen_key = integer(), index = integer(),
+    source = factor(levels = c("B","C","B+C","U","L","U+L")))
+
+  if (nrow(pathogen_data) == 0)
+    return(empty_result)
+
+  pathogen_data <- pathogen_data |>
     tidyr::unnest_longer("dataValues") |>
     tidyr::unnest_wider("dataValues") |>
     dplyr::inner_join(
       metadata$dataElements |>
         dplyr::select("dataElement", "code"),
       dplyr::join_by("dataElement")) |>
-    dplyr::filter(stringr::str_detect(.data$code, "PATHOGEN_\\d")) |>
+    dplyr::filter(stringr::str_detect(.data$code, "PATHOGEN_\\d"))
+
+  if (nrow(pathogen_data) == 0)
+    return(empty_result)
+
+  pathogen_data |>
     dplyr::mutate(
       type = factor(tolower(stringr::str_replace(.data$code, "^.+(PATHOGEN)_\\d+(.*)$", "\\1\\2"))),
       index = as.integer(stringr::str_replace(.data$code, "^.+PATHOGEN_(\\d+).*$", "\\1")),

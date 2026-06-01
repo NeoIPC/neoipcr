@@ -7,6 +7,7 @@ filter_dataset <- function(
     gestational_age_from = NULL,
     gestational_age_to = NULL,
     countries = NULL,
+    units = NULL,
     keep_non_core_patients = FALSE,
     remove_orphans = TRUE)
 {
@@ -113,7 +114,7 @@ filter_countries <- function(
     countries,
     included_countries)
 {
-  if(is.null(included_countries))
+  if(is.null(included_countries) || length(included_countries) < 1)
     return(countries)
 
   countries |>
@@ -158,9 +159,17 @@ apply_postfilter <- function(x)
       dplyr::join_by("enrollment_key"))
 
   # Filtering by country will only work if we have country information
+  # Keep enrollments with NA country_key (test data without a country)
   if(!is.null(countries) && "country_key" %in% names(enrollments))
     enrollments <- enrollments |>
-    dplyr::semi_join(countries, dplyr::join_by("country_key"))
+    dplyr::filter(
+      is.na(.data$country_key) |
+      .data$country_key %in% countries$country_key)
+
+  # Filtering by unit will only work if we have unit information
+  if(!is.null(departments) && "department_key" %in% names(enrollments))
+    enrollments <- enrollments |>
+    dplyr::semi_join(departments, dplyr::join_by("department_key"))
 
   ########################################################
   ## Second filter all the other elements by enrollments #
@@ -243,9 +252,34 @@ apply_postfilter <- function(x)
 
 apply_data_removal <- function(x, dataset_options)
 {
+  if(!dataset_options$include_patient_id)
+  {
+    x$patients <- x$patients |>
+      dplyr::select(!tidyselect::any_of("patient_id"))
+  }
+
+  if(!("patients" %in% dataset_options$include_dhis2_ids))
+  {
+    x$patients <- x$patients |>
+      dplyr::select(!tidyselect::any_of("trackedEntity"))
+  }
+
+  if(!("enrollments" %in% dataset_options$include_dhis2_ids))
+  {
+    x$enrollments <- x$enrollments |>
+      dplyr::select(!tidyselect::any_of("enrollment"))
+  }
+
+  if(!("departments" %in% dataset_options$include_dhis2_ids))
+  {
+    x$metadata$departments <- x$metadata$departments |>
+      dplyr::select(!tidyselect::any_of("orgUnit"))
+  }
+
   if(dataset_options$include_department == "no")
   {
     x$metadata$departments <- NULL
+
     x$patients <- x$patients |>
       dplyr::select(!tidyselect::any_of("department_key"))
     x$enrollments <- x$enrollments |>
@@ -253,8 +287,14 @@ apply_data_removal <- function(x, dataset_options)
     x$events <- x$events |>
       dplyr::select(!tidyselect::any_of("department_key"))
   }
-  if(dataset_options$include_department == "pseudonymised")
-    x$metadata$departments <- NULL
+  else if(dataset_options$include_department == "pseudonymised")
+  {
+    if("departments" %in% dataset_options$include_dhis2_ids)
+      x$metadata$departments <- x$metadata$departments |>
+        dplyr::select(tidyselect::all_of(c("department_key","orgUnit")))
+    else
+      x$metadata$departments <- NULL
+  }
 
   # `orgUnit` is the raw DHIS2 organisationUnit id for the department
   # the row belongs to. The readers keep it on patient/enrollment rows
