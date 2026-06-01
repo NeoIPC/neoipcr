@@ -99,7 +99,8 @@ validation_rule_3 <- function(x, exceptions)
       context = list(
         list(
           enrolledAt = .data$enrolledAt,
-          occurredAt = .data$occurredAt)))
+          occurredAt = .data$occurredAt)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -141,7 +142,8 @@ validation_rule_4 <- function(x, exceptions)
       context = list(
         list(
           admOccurredAt = .data$admOccurredAt,
-          endOccurredAt = .data$endOccurredAt)))
+          endOccurredAt = .data$endOccurredAt)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -185,7 +187,8 @@ validation_rule_5 <- function(x, exceptions)
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)))
+          status = .data$status)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -230,7 +233,8 @@ validation_rule_6 <- function(x, exceptions)
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)))
+          status = .data$status)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -275,7 +279,8 @@ validation_rule_7 <- function(x, exceptions)
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)))
+          status = .data$status)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -320,7 +325,8 @@ validation_rule_8 <- function(x, exceptions)
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)))
+          status = .data$status)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -365,7 +371,8 @@ validation_rule_9 <- function(x, exceptions)
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)))
+          status = .data$status)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -410,7 +417,8 @@ validation_rule_10 <- function(x, exceptions)
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)))
+          status = .data$status)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -455,7 +463,8 @@ validation_rule_11 <- function(x, exceptions)
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)))
+          status = .data$status)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -508,7 +517,8 @@ validation_rule_12 <- function(x, exceptions)
           enrolledAt = .data$enrolledAt,
           occurredAt.adm = .data$occurredAt.adm,
           occurredAt.end = .data$occurredAt.end,
-          occurredAt.bsi = .data$occurredAt.bsi)))
+          occurredAt.bsi = .data$occurredAt.bsi)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -561,7 +571,8 @@ validation_rule_13 <- function(x, exceptions)
           enrolledAt = .data$enrolledAt,
           occurredAt.adm = .data$occurredAt.adm,
           occurredAt.end = .data$occurredAt.end,
-          occurredAt.nec = .data$occurredAt.nec)))
+          occurredAt.nec = .data$occurredAt.nec)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -614,7 +625,8 @@ validation_rule_14 <- function(x, exceptions)
           enrolledAt = .data$enrolledAt,
           occurredAt.adm = .data$occurredAt.adm,
           occurredAt.end = .data$occurredAt.end,
-          occurredAt.hap = .data$occurredAt.hap)))
+          occurredAt.hap = .data$occurredAt.hap)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -667,7 +679,8 @@ validation_rule_15 <- function(x, exceptions)
           enrolledAt = .data$enrolledAt,
           occurredAt.adm = .data$occurredAt.adm,
           occurredAt.end = .data$occurredAt.end,
-          occurredAt.pro = .data$occurredAt.pro)))
+          occurredAt.pro = .data$occurredAt.pro)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -720,7 +733,8 @@ validation_rule_16 <- function(x, exceptions)
           enrolledAt = .data$enrolledAt,
           occurredAt.adm = .data$occurredAt.adm,
           occurredAt.end = .data$occurredAt.end,
-          occurredAt.ssi = .data$occurredAt.ssi)))
+          occurredAt.ssi = .data$occurredAt.ssi)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -832,7 +846,8 @@ validation_rule_18 <- function(x, exceptions)
           enrolledAt = .data$enrolledAt,
           occurredAt = .data$occurredAt,
           patient_days = .data$patient_days,
-          patient_days_calculated = .data$patient_days_calculated)))
+          patient_days_calculated = .data$patient_days_calculated)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -934,7 +949,8 @@ validation_rule_22 <- function(x, exceptions)
       context = list(
         list(
           procedure_description = .data$procedure_description,
-          procedure_code = .data$main_procedure_code)))
+          procedure_code = .data$main_procedure_code)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -993,7 +1009,8 @@ validation_rule_23 <- function(x, exceptions)
       context = list(
         list(
           procedure_description = .data$procedure_description,
-          procedure_code = .data$side_procedure_code_1)))
+          procedure_code = .data$side_procedure_code_1)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -1056,7 +1073,8 @@ validation_rule_24 <- function(x, exceptions)
       context = list(
         list(
           procedure_description = .data$procedure_description,
-          procedure_code = .data$side_procedure_code_2)))
+          procedure_code = .data$side_procedure_code_2)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -1184,7 +1202,8 @@ validation_rule_29 <- function(x, exceptions)
     dplyr::group_by(dplyr::across(!c("dol"))) |>
     dplyr::summarise(
       context = list(
-        list(dol = .data$dol)))
+        list(dol = .data$dol)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
@@ -1368,7 +1387,8 @@ validation_rule_38 <- function(x, exceptions)
     dplyr::group_by(dplyr::across(!c("dos"))) |>
     dplyr::summarise(
       context = list(
-        list(dos = .data$dos)))
+        list(dos = .data$dos)),
+      .groups = "drop")
 
   if(!is.null(exceptions))
     r <- r |>
