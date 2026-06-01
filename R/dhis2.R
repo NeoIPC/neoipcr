@@ -255,12 +255,12 @@ import_dhis2 <- function(
 dhis2_request <- function(connection_options)
 {
   req <- httr2::request(connection_options$base_url)
-  if(exists('token', where = connection_options))
+  if(!is.null(connection_options$token))
     req |>
     httr2::req_headers(
       Authorization = sprintf("ApiToken %s", connection_options$token),
       .redact = "Authorization")
-  else if(exists('session_id', where = connection_options))
+  else if(!is.null(connection_options$session_id))
     req |>
     httr2::req_cookies_set(JSESSIONID = connection_options$session_id)
   else

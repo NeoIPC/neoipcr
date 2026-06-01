@@ -62,7 +62,6 @@ get_metadata_request <- function(req_base, user_info, dataset_options)
 
   if(!is.null(dataset_options$country_filter) ||
      dataset_options$include_country != "no" ||
-     !is.null(dataset_options$country_filter) ||
      dataset_options$include_world_bank_class != "no")
   {
     if(dataset_options$include_country == "yes")
