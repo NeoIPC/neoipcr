@@ -4113,3 +4113,165 @@ get_cached <- function(container, key) {
 
   return(NULL)
 }
+
+# --- Antibiotic utilisation table ---
+
+get_antibiotic_utilisation_table <- function(
+    x, use_cache = TRUE, include_quartiles = TRUE) {
+  cache_key <- "antibiotic_utilisation_table"
+  if (!is.null(r <- x |> check_ds_and_try_get_table(
+    cache_key, use_cache, include_quartiles)))
+    return(r)
+
+  patient_days <- get_risk_time(x, use_cache = use_cache)$patient_days
+
+  # ATC5-level totals
+  atc5_totals <- summarise_substance_days(x, level = "atc5", use_cache = use_cache) |>
+    dplyr::rename(n = "days") |>
+    dplyr::mutate(
+      row_id = .data$code,
+      atc5_group = .data$code,
+      row_type = factor("atc5", levels = c("atc5", "substance")),
+      aware = factor(NA_character_,
+                     levels = c("WHO_AWARE_ACCESS", "WHO_AWARE_WATCH",
+                                "WHO_AWARE_RESERVE")))
+
+  # Substance-level totals
+  substance_totals <- summarise_substance_days(
+    x, level = "substance", use_cache = use_cache) |>
+    dplyr::rename(n = "days") |>
+    dplyr::inner_join(
+      x$metadata$antimicrobialSubstances |>
+        dplyr::select(tidyselect::all_of(c("code", "WHO_AWARE", "ATC5"))),
+      dplyr::join_by("code")) |>
+    dplyr::mutate(
+      row_id = .data$code,
+      atc5_group = as.character(.data$ATC5),
+      row_type = factor("substance", levels = c("atc5", "substance")),
+      aware = .data$WHO_AWARE) |>
+    dplyr::select(!c("WHO_AWARE", "ATC5"))
+
+  # Combine and compute rates + CIs
+  r <- dplyr::bind_rows(atc5_totals, substance_totals) |>
+    dplyr::filter(.data$n > 0L) |>
+    dplyr::mutate(
+      pooled = .data$n / patient_days * 100) |>
+    (\(d) dplyr::bind_cols(d, poisson_ci_cols(d$n, patient_days, multiplier = 100)))()
+
+  if (include_quartiles) {
+    # Department-level aggregation for quartiles
+    dept_substance <- summarise_substance_days(
+      x, level = "substance", group_cols = "department_key",
+      use_cache = use_cache) |>
+      dplyr::rename(n = "days", row_id = "code") |>
+      dplyr::mutate(row_type = "substance")
+
+    dept_atc5 <- summarise_substance_days(
+      x, level = "atc5", group_cols = "department_key",
+      use_cache = use_cache) |>
+      dplyr::rename(n = "days", row_id = "code") |>
+      dplyr::mutate(row_type = "atc5")
+
+    dept_patient_days <- get_risk_time(
+      x, group_cols = "department_key", use_cache = use_cache) |>
+      dplyr::select("department_key", "patient_days")
+
+    dept_rates <- dplyr::bind_rows(dept_substance, dept_atc5) |>
+      dplyr::inner_join(dept_patient_days, dplyr::join_by("department_key")) |>
+      dplyr::mutate(rate = .data$n / .data$patient_days * 100)
+
+    n_deps <- nrow(dept_patient_days)
+    median_patient_days <- stats::median(dept_patient_days$patient_days)
+
+    # Compute quartiles per row_id
+    quartiles <- dept_rates |>
+      dplyr::group_by(.data$row_id) |>
+      dplyr::reframe(
+        q = list(stats::quantile(.data$rate, probs = quartile_probs,
+                                 names = FALSE))) |>
+      tidyr::unnest_wider("q", names_sep = "") |>
+      ensure_quartile_cols()
+
+    r <- r |>
+      dplyr::left_join(quartiles, dplyr::join_by("row_id")) |>
+      dplyr::mutate(
+        drop_quartiles = n_deps < 5 |
+          round(100 / .data$pooled) >= median_patient_days,
+        q1 = dplyr::if_else(.data$drop_quartiles, NA, .data$q1),
+        q2 = dplyr::if_else(.data$drop_quartiles, NA, .data$q2),
+        q3 = dplyr::if_else(.data$drop_quartiles, NA, .data$q3))
+
+    # Bootstrap CIs for quartiles where gate passes
+    boot_cis <- r |>
+      dplyr::group_by(.data$row_id) |>
+      dplyr::group_map(~ {
+        ci <- if (.x$drop_quartiles[1]) {
+          tibble::tibble(q1_ci_lower = NA_real_, q1_ci_upper = NA_real_,
+                         q2_ci_lower = NA_real_, q2_ci_upper = NA_real_,
+                         q3_ci_lower = NA_real_, q3_ci_upper = NA_real_)
+        } else {
+          d <- dept_rates |> dplyr::filter(.data$row_id == .y$row_id)
+          bootstrap_quantile_ci(d$n, d$patient_days,
+                                type = "poisson", multiplier = 100)
+        }
+        dplyr::bind_cols(.y, ci)
+      }) |>
+      dplyr::bind_rows()
+
+    r <- r |>
+      dplyr::left_join(boot_cis, by = "row_id") |>
+      dplyr::select(!"drop_quartiles")
+  }
+
+  # Sort: by ATC5 group, then ATC5 header before substances, then by code
+  r |>
+    dplyr::arrange(.data$atc5_group, .data$row_type, .data$row_id) |>
+    dplyr::select("row_id", "atc5_group", "row_type", "display_name", "aware",
+                  "n", "pooled", "ci_lower", "ci_upper",
+                  tidyselect::any_of(c("q1", "q2", "q3",
+                    "q1_ci_lower", "q1_ci_upper",
+                    "q2_ci_lower", "q2_ci_upper",
+                    "q3_ci_lower", "q3_ci_upper"))) |>
+    cache(x, cache_key)
+}
+
+# --- Reference surgery-rate table ---
+
+#' Get the table with rates of surgical procedures
+#'
+#' @param x A `neoipcr_ds` dataset.
+#' @param use_cache Use the per-dataset cache to short-circuit recomputation.
+#'
+#' @returns A tibble of surgical-procedure rates per category, with pooled rate
+#'  and CI columns.
+#' @export
+get_surgery_rate_table <- function(x, use_cache = TRUE) {
+  # ToDo: Class for unit dataset
+  check_neoipcr_ds(x)
+
+  # if(is_neoipcr_ref_ds(x))
+  #   return(x$surgery_rate_table)
+
+  if(use_cache && !is.null(r <- get_cached(x, "surgery_rate_table")))
+    return(r)
+
+  tibble::tibble(
+    pro_cat = "overall",
+    n = get_procedures(x, use_cache = use_cache) |>
+      dplyr::pull()) |>
+    dplyr::bind_rows(
+      get_procedures(
+        x,
+        group_cols = "pro_cat",
+        use_cache = use_cache)
+    ) |>
+    dplyr::bind_cols(
+      get_risk_population(x, use_cache = use_cache) |>
+        dplyr::select("n_patients")
+    ) |>
+    dplyr::mutate(pooled = .data$n / .data$n_patients * 100) |>
+    (\(d) dplyr::bind_cols(d, poisson_ci_cols(d$n, d$n_patients, multiplier = 100)))() |>
+    dplyr::select(!"n_patients") |>
+    add_class("neoipcr_tbl_sr") |>
+    cache(x, "surgery_rate_table")
+}

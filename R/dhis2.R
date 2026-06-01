@@ -35,9 +35,6 @@
 #' @param include_unenrolled_patients Include data from unenrolled NeoIPC
 #'  patient records into the dataset.
 #' @param include_test_data Include data from test departments into the dataset.
-#' @param include_ineligible_patients Include data from patients that do not
-#'  meet the NeoIPC Core patient case eligibility criteria.
-#' @param include_unenrolled_patients Include patients without enrollments.
 #' @param include_invalid_patients Include data from patient records that
 #'  could have validation errors
 #' @param include_incomplete Include incomplete records into the dataset.

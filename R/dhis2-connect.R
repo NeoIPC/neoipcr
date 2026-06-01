@@ -72,19 +72,18 @@ get_password <- function(url)
   pw <- Sys.getenv("NEOIPC_DHIS2_PASSWORD", unset = NA)
   if(!is.na(pw)) return(pw)
 
-  if(!interactive()) rlang::abort(
-    message = gettext("No password found"),
-    body = c(
-      gettext("NEOIPC_DHIS2_USER is set but NEOIPC_DHIS2_PASSWORD is not."),
-      gettext("Set the NEOIPC_DHIS2_PASSWORD environment variable, or use a personal access token (NEOIPC_DHIS2_TOKEN) instead."),
-      gettext("Interactive password prompting is only available in interactive R sessions.")))
+  if(!interactive()) rlang::abort(c(
+    gettext("No password found"),
+    "i" = gettext("NEOIPC_DHIS2_USER is set but NEOIPC_DHIS2_PASSWORD is not."),
+    "i" = gettext("Set the NEOIPC_DHIS2_PASSWORD environment variable, or use a personal access token (NEOIPC_DHIS2_TOKEN) instead."),
+    "i" = gettext("Interactive password prompting is only available in interactive R sessions.")))
 
   pw <- askpass::askpass(
     prompt = gettextf("Please enter your password for %s: ", url))
 
-  if(is.null(pw)) rlang::abort(
-    message = gettext("No password provided"),
-    body = gettext("Please provide username and password, a personal access token or a session id to authenticate to DHIS2"))
+  if(is.null(pw)) rlang::abort(c(
+    gettext("No password provided"),
+    "i" = gettext("Please provide username and password, a personal access token or a session id to authenticate to DHIS2.")))
 
   pw
 }

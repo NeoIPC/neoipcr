@@ -78,9 +78,7 @@ validation_rule_3 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(3L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -94,7 +92,8 @@ validation_rule_3 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","enrolledAt","occurredAt")) |>
+            "patient_key")),"enrollment_key","enrolledAt","occurredAt") |>
+    dplyr::mutate(rule_id = 3L, .before = 1) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt"))) |>
     dplyr::summarise(
       context = list(
@@ -111,15 +110,12 @@ validation_rule_3 <- function(x, exceptions)
   return(r)
 }
 
-# Find enrolments where the admission date and the surveillance end date are the
-# same.
+# Find enrolments where the surveillance end date is before the admission date.
 validation_rule_4 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(4L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key") |>
@@ -138,7 +134,8 @@ validation_rule_4 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","admOccurredAt","endOccurredAt")) |>
+            "patient_key")),"enrollment_key","admOccurredAt","endOccurredAt") |>
+    dplyr::mutate(rule_id = 4L, .before = 1) |>
     dplyr::group_by(dplyr::across(!c("admOccurredAt","endOccurredAt"))) |>
     dplyr::summarise(
       context = list(
@@ -168,9 +165,7 @@ validation_rule_5 <- function(x, exceptions)
     return()
   }
 
-  r <- dplyr::bind_cols(
-    rule_id = c(5L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -184,7 +179,8 @@ validation_rule_5 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status")) |>
+            "patient_key")),"enrollment_key","status") |>
+    dplyr::mutate(rule_id = 5L, .before = 1) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
@@ -213,9 +209,7 @@ validation_rule_6 <- function(x, exceptions)
     return()
   }
 
-  r <- dplyr::bind_cols(
-    rule_id = c(6L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrollment_status" = "status") |>
@@ -230,7 +224,8 @@ validation_rule_6 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status")) |>
+            "patient_key")),"enrollment_key","status") |>
+    dplyr::mutate(rule_id = 6L, .before = 1) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
@@ -259,9 +254,7 @@ validation_rule_7 <- function(x, exceptions)
     return()
   }
 
-  r <- dplyr::bind_cols(
-    rule_id = c(7L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrollment_status" = "status") |>
@@ -276,7 +269,8 @@ validation_rule_7 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status")) |>
+            "patient_key")),"enrollment_key","status") |>
+    dplyr::mutate(rule_id = 7L, .before = 1) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
@@ -305,9 +299,7 @@ validation_rule_8 <- function(x, exceptions)
     return()
   }
 
-  r <- dplyr::bind_cols(
-    rule_id = c(8L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrollment_status" = "status") |>
@@ -322,7 +314,8 @@ validation_rule_8 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status")) |>
+            "patient_key")),"enrollment_key","status") |>
+    dplyr::mutate(rule_id = 8L, .before = 1) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
@@ -351,9 +344,7 @@ validation_rule_9 <- function(x, exceptions)
     return()
   }
 
-  r <- dplyr::bind_cols(
-    rule_id = c(9L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrollment_status" = "status") |>
@@ -368,7 +359,8 @@ validation_rule_9 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status")) |>
+            "patient_key")),"enrollment_key","status") |>
+    dplyr::mutate(rule_id = 9L, .before = 1) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
@@ -397,9 +389,7 @@ validation_rule_10 <- function(x, exceptions)
     return()
   }
 
-  r <- dplyr::bind_cols(
-    rule_id = c(10L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrollment_status" = "status") |>
@@ -414,7 +404,8 @@ validation_rule_10 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status")) |>
+            "patient_key")),"enrollment_key","status") |>
+    dplyr::mutate(rule_id = 10L, .before = 1) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
@@ -443,9 +434,7 @@ validation_rule_11 <- function(x, exceptions)
     return()
   }
 
-  r <- dplyr::bind_cols(
-    rule_id = c(11L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrollment_status" = "status") |>
@@ -460,7 +449,8 @@ validation_rule_11 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status")) |>
+            "patient_key")),"enrollment_key","status") |>
+    dplyr::mutate(rule_id = 11L, .before = 1) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
@@ -482,9 +472,7 @@ validation_rule_12 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(12L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -511,7 +499,8 @@ validation_rule_12 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.bsi")) |>
+            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.bsi") |>
+    dplyr::mutate(rule_id = 12L, .before = 1) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.bsi"))) |>
     dplyr::summarise(
       context = list(
@@ -536,9 +525,7 @@ validation_rule_13 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(13L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -565,7 +552,8 @@ validation_rule_13 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.nec")) |>
+            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.nec") |>
+    dplyr::mutate(rule_id = 13L, .before = 1) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.nec"))) |>
     dplyr::summarise(
       context = list(
@@ -590,9 +578,7 @@ validation_rule_14 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(14L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -619,7 +605,8 @@ validation_rule_14 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.hap")) |>
+            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.hap") |>
+    dplyr::mutate(rule_id = 14L, .before = 1) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.hap"))) |>
     dplyr::summarise(
       context = list(
@@ -644,9 +631,7 @@ validation_rule_15 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(15L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -673,7 +658,8 @@ validation_rule_15 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.pro")) |>
+            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.pro") |>
+    dplyr::mutate(rule_id = 15L, .before = 1) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.pro"))) |>
     dplyr::summarise(
       context = list(
@@ -698,9 +684,7 @@ validation_rule_16 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(16L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -727,7 +711,8 @@ validation_rule_16 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.ssi")) |>
+            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.ssi") |>
+    dplyr::mutate(rule_id = 16L, .before = 1) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.ssi"))) |>
     dplyr::summarise(
       context = list(
@@ -760,7 +745,7 @@ validation_rule_17 <- function(x, exceptions)
       "patient_key","enrollment_key","enrolledAt") |>
     dplyr::inner_join(
       x$events |>
-        dplyr::filter(.data$event_type_key == "adm") |>
+        dplyr::filter(.data$event_type_key == "end") |>
         dplyr::select("enrollment_key","event_key","occurredAt"),
       dplyr::join_by("enrollment_key")) |>
     dplyr::mutate(
@@ -769,9 +754,7 @@ validation_rule_17 <- function(x, exceptions)
         .data$occurredAt),
       .keep = "unused")
 
-  r <- dplyr::bind_cols(
-    rule_id = c(17L),
-    intervals |>
+  r <- intervals |>
       dplyr::inner_join(
         intervals,
         dplyr::join_by("patient_key"),
@@ -789,7 +772,8 @@ validation_rule_17 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key.x",
             "department_key.x"
-            )),"patient_key","enrollment_key.x","enrollment_key.y","surveillanceInterval.x","surveillanceInterval.y")) |>
+            )),"patient_key","enrollment_key.x","enrollment_key.y","surveillanceInterval.x","surveillanceInterval.y") |>
+    dplyr::mutate(rule_id = 17L, .before = 1) |>
     dplyr::rename_with(
       ~ stringr::str_extract(.x,"^[^\\.]*"),
       !tidyselect::any_of(
@@ -818,9 +802,7 @@ validation_rule_18 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(18L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -841,7 +823,8 @@ validation_rule_18 <- function(x, exceptions)
           c("hospital_key",
             "department_key",
             "patient_key")),"enrollment_key","enrolledAt","occurredAt",
-        "patient_days","patient_days_calculated")) |>
+        "patient_days","patient_days_calculated") |>
+    dplyr::mutate(rule_id = 18L, .before = 1) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt","patient_days","patient_days_calculated"))) |>
     dplyr::summarise(
       context = list(
@@ -867,11 +850,10 @@ validation_rule_19 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(19L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 19L, .before = 1)
 
   return(r)
 }
@@ -882,11 +864,10 @@ validation_rule_20 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(20L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 20L, .before = 1)
 
   return(r)
 }
@@ -898,11 +879,10 @@ validation_rule_21 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(21L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 21L, .before = 1)
 
   return(r)
 }
@@ -914,26 +894,22 @@ validation_rule_22 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   if (nrow(x$surgeryData) < 1)
-    return(dplyr::bind_cols(
-      rule_id = c(22L),
-      x$enrollments |>
+    return(x$enrollments |>
         dplyr::select("enrollment_key") |>
-        dplyr::filter(.data$enrollment_key == -1)))
+        dplyr::filter(.data$enrollment_key == -1) |>
+        dplyr::mutate(rule_id = 22L, .before = 1))
   if (!file.exists("../ICHE-Health-Intervention-Codes.csv")) {
     warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
-    return(dplyr::bind_cols(
-      rule_id = c(22L),
-      x$enrollments |>
+    return(x$enrollments |>
         dplyr::select("enrollment_key") |>
-        dplyr::filter(.data$enrollment_key == -1)))
+        dplyr::filter(.data$enrollment_key == -1) |>
+        dplyr::mutate(rule_id = 22L, .before = 1))
   }
 
   valid_iche_codes <- readr::read_csv("../ICHE-Health-Intervention-Codes.csv", col_names = FALSE, col_types = "c") |>
     dplyr::pull(1)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(22L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -951,7 +927,8 @@ validation_rule_22 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","procedure_description","main_procedure_code")) |>
+            "patient_key")),"enrollment_key","event_key","procedure_description","main_procedure_code") |>
+    dplyr::mutate(rule_id = 22L, .before = 1) |>
     dplyr::group_by(dplyr::across(!c("procedure_description","main_procedure_code"))) |>
     dplyr::summarise(
       context = list(
@@ -975,26 +952,22 @@ validation_rule_23 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   if (nrow(x$surgeryData) < 1)
-    return(dplyr::bind_cols(
-      rule_id = c(23L),
-      x$enrollments |>
+    return(x$enrollments |>
         dplyr::select("enrollment_key") |>
-        dplyr::filter(.data$enrollment_key == -1)))
+        dplyr::filter(.data$enrollment_key == -1) |>
+        dplyr::mutate(rule_id = 23L, .before = 1))
   if (!file.exists("../ICHE-Health-Intervention-Codes.csv")) {
     warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
-    return(dplyr::bind_cols(
-      rule_id = c(23L),
-      x$enrollments |>
+    return(x$enrollments |>
         dplyr::select("enrollment_key") |>
-        dplyr::filter(.data$enrollment_key == -1)))
+        dplyr::filter(.data$enrollment_key == -1) |>
+        dplyr::mutate(rule_id = 23L, .before = 1))
   }
 
   valid_iche_codes <- readr::read_csv("../ICHE-Health-Intervention-Codes.csv", col_names = FALSE, col_types = "c") |>
     dplyr::pull(1)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(23L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -1013,7 +986,8 @@ validation_rule_23 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","procedure_description","side_procedure_code_1")) |>
+            "patient_key")),"enrollment_key","event_key","procedure_description","side_procedure_code_1") |>
+    dplyr::mutate(rule_id = 23L, .before = 1) |>
     dplyr::group_by(dplyr::across(!c("procedure_description","side_procedure_code_1"))) |>
     dplyr::summarise(
       context = list(
@@ -1041,26 +1015,22 @@ validation_rule_24 <- function(x, exceptions)
   }
 
   if (nrow(x$surgeryData) < 1)
-    return(dplyr::bind_cols(
-      rule_id = c(24L),
-      x$enrollments |>
+    return(x$enrollments |>
         dplyr::select("enrollment_key") |>
-        dplyr::filter(.data$enrollment_key == -1)))
+        dplyr::filter(.data$enrollment_key == -1) |>
+        dplyr::mutate(rule_id = 24L, .before = 1))
   if (!file.exists("../ICHE-Health-Intervention-Codes.csv")) {
     warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
-    return(dplyr::bind_cols(
-      rule_id = c(24L),
-      x$enrollments |>
+    return(x$enrollments |>
         dplyr::select("enrollment_key") |>
-        dplyr::filter(.data$enrollment_key == -1)))
+        dplyr::filter(.data$enrollment_key == -1) |>
+        dplyr::mutate(rule_id = 24L, .before = 1))
   }
 
   valid_iche_codes <- readr::read_csv("../ICHE-Health-Intervention-Codes.csv", col_names = FALSE, col_types = "c") |>
     dplyr::pull(1)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(24L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -1079,7 +1049,8 @@ validation_rule_24 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","procedure_description","side_procedure_code_2")) |>
+            "patient_key")),"enrollment_key","event_key","procedure_description","side_procedure_code_2") |>
+    dplyr::mutate(rule_id = 24L, .before = 1) |>
     dplyr::group_by(dplyr::across(!c("procedure_description","side_procedure_code_2"))) |>
     dplyr::summarise(
       context = list(
@@ -1101,9 +1072,7 @@ validation_rule_25 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(25L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::filter(
         dplyr::if_all(
           tidyselect::any_of("status"),
@@ -1116,7 +1085,8 @@ validation_rule_25 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key"))
+            "patient_key")),"enrollment_key") |>
+    dplyr::mutate(rule_id = 25L, .before = 1)
 
   if(!is.null(exceptions))
     r <- r |>
@@ -1132,9 +1102,7 @@ validation_rule_26 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(26L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::filter(
         dplyr::if_all(
           tidyselect::any_of("status"),
@@ -1147,7 +1115,8 @@ validation_rule_26 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key"))
+            "patient_key")),"enrollment_key") |>
+    dplyr::mutate(rule_id = 26L, .before = 1)
 
   if(!is.null(exceptions))
     r <- r |>
@@ -1165,11 +1134,10 @@ validation_rule_27 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(27L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 27L, .before = 1)
 
   return(r)
 }
@@ -1181,11 +1149,10 @@ validation_rule_28 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(28L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 28L, .before = 1)
 
   return(r)
 }
@@ -1195,9 +1162,7 @@ validation_rule_29 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(29L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -1214,7 +1179,8 @@ validation_rule_29 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","dol")) |>
+            "patient_key")),"enrollment_key","event_key","dol") |>
+    dplyr::mutate(rule_id = 29L, .before = 1) |>
     dplyr::group_by(dplyr::across(!c("dol"))) |>
     dplyr::summarise(
       context = list(
@@ -1236,11 +1202,10 @@ validation_rule_30 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(30L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 30L, .before = 1)
 
   return(r)
 }
@@ -1252,11 +1217,10 @@ validation_rule_31 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(31L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 31L, .before = 1)
 
   return(r)
 }
@@ -1268,11 +1232,10 @@ validation_rule_32 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(32L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 32L, .before = 1)
 
   return(r)
 }
@@ -1283,11 +1246,10 @@ validation_rule_33 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(33L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 33L, .before = 1)
 
   return(r)
 }
@@ -1299,11 +1261,10 @@ validation_rule_34 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(34L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 34L, .before = 1)
 
   return(r)
 }
@@ -1315,11 +1276,10 @@ validation_rule_35 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(35L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 35L, .before = 1)
 
   return(r)
 }
@@ -1331,11 +1291,10 @@ validation_rule_36 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(36L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 36L, .before = 1)
 
   return(r)
 }
@@ -1346,11 +1305,10 @@ validation_rule_37 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(37L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 37L, .before = 1)
 
   return(r)
 }
@@ -1399,15 +1357,14 @@ validation_rule_38 <- function(x, exceptions)
         dos = as.integer(.data$occurredAt.nec - .data$occurredAt.adm) + 1L,
         .keep = "unused")
 
-  r <- dplyr::bind_cols(
-    rule_id = c(38L),
-    r |>
+  r <- r |>
       dplyr::filter(.data$dos < 3) |>
       dplyr::select(
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key"="event_key.nec","dos")) |>
+            "patient_key")),"enrollment_key","event_key"="event_key.nec","dos") |>
+    dplyr::mutate(rule_id = 38L, .before = 1) |>
     dplyr::group_by(dplyr::across(!c("dos"))) |>
     dplyr::summarise(
       context = list(
@@ -1429,11 +1386,10 @@ validation_rule_39 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(39L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 39L, .before = 1)
 
   return(r)
 }
@@ -1445,11 +1401,10 @@ validation_rule_40 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(40L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 40L, .before = 1)
 
   return(r)
 }
@@ -1461,11 +1416,10 @@ validation_rule_41 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(41L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 41L, .before = 1)
 
   return(r)
 }
@@ -1477,11 +1431,10 @@ validation_rule_42 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(42L),
-    x$enrollments |>
+  r <- x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
+      dplyr::filter(.data$enrollment_key == -1) |>
+    dplyr::mutate(rule_id = 42L, .before = 1)
 
   return(r)
 }

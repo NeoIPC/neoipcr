@@ -38,7 +38,7 @@ neoipc_poisson_ci <- function(events, exposure,
   check_number_whole(events, min = 0)
   check_number_decimal(exposure, min = .Machine$double.eps)
   check_number_decimal(multiplier, min = .Machine$double.eps)
-  check_number_decimal(conf.level, min = 0, max = 1)
+  check_number_decimal(conf.level, min = .Machine$double.eps, max = 1 - .Machine$double.eps)
 
   pt <- stats::poisson.test(events, T = exposure, conf.level = conf.level)
   list(
@@ -55,9 +55,11 @@ neoipc_poisson_ci <- function(events, exposure,
 #' which provides better coverage properties than exact (Clopper-Pearson)
 #' intervals, particularly for small samples.
 #'
-#' Unlike Clopper-Pearson, the Wilson interval does not necessarily include 0
-#' when x = 0 or include 1 when x = n. This is mathematically correct
-#' behaviour and contributes to the method's superior coverage properties.
+#' At the boundaries (`x = 0` or `x = n`) the Wilson interval is degenerate:
+#' `margin == center` so the lower bound is exactly 0 at `x = 0` and the upper
+#' bound is exactly 1 at `x = n`. In the interior the Wilson interval is
+#' narrower than the Clopper-Pearson interval, which gives it superior
+#' coverage properties for typical sample sizes.
 #'
 #' @param x Integer. Number of successes (infections with pathogen, patients
 #'   with antibiotic). Must be non-negative.
@@ -76,10 +78,10 @@ neoipc_poisson_ci <- function(events, exposure,
 #' # Detection rate: 220 infections with pathogen out of 283 total
 #' neoipc_wilson_ci(220, 283)
 #'
-#' # Zero successes: lower is close to but not exactly 0
+#' # Zero successes: lower bound is exactly 0 at the boundary
 #' neoipc_wilson_ci(0, 50)
 #'
-#' # All successes: upper is close to but not exactly 1
+#' # All successes: upper bound is exactly 1 at the boundary
 #' neoipc_wilson_ci(50, 50)
 #'
 #' @export
@@ -87,7 +89,7 @@ neoipc_wilson_ci <- function(x, n, conf.level = 0.95) {
   check_number_whole(x, min = 0)
   check_number_whole(n, min = 1)
   if (x > n) rlang::abort("`x` must be <= `n`.")
-  check_number_decimal(conf.level, min = 0, max = 1)
+  check_number_decimal(conf.level, min = .Machine$double.eps, max = 1 - .Machine$double.eps)
 
   z <- stats::qnorm(1 - (1 - conf.level) / 2)
   p_hat <- x / n
@@ -210,7 +212,7 @@ bootstrap_quantile_ci <- function(events, exposure,
   type <- rlang::arg_match(type)
   check_number_decimal(multiplier, min = .Machine$double.eps)
   check_number_whole(B, min = 1)
-  check_number_decimal(conf.level, min = 0, max = 1)
+  check_number_decimal(conf.level, min = .Machine$double.eps, max = 1 - .Machine$double.eps)
 
   if (length(events) != length(exposure)) {
     rlang::abort("`events` and `exposure` must have the same length.")
@@ -230,6 +232,11 @@ bootstrap_quantile_ci <- function(events, exposure,
   }
   if (type == "binomial" && any(events > exposure)) {
     rlang::abort("`events` must be <= `exposure` for binomial type.")
+  }
+  if (type == "binomial" && any(exposure != as.integer(exposure))) {
+    rlang::abort(c(
+      "`exposure` must be whole numbers for binomial type.",
+      "i" = "`exposure` is the trial count `n`; non-integer values would be coerced by `stats::rbinom()`."))
   }
 
   k <- length(events)

@@ -392,6 +392,14 @@ read_organisationUnits <- function(organisationUnits, dataset_options)
     ret,
     "hospitals" %in% dataset_options$include_dhis2_ids)
 
+  # Apply the include_dhis2_ids redaction to ret$hospitals here, in the
+  # caller — read_organisationUnits_departments() can't mutate ret$hospitals
+  # in place since its `y` parameter is a local copy.
+  if (!is.null(ret$hospitals) &&
+      !("hospitals" %in% dataset_options$include_dhis2_ids))
+    ret$hospitals <- ret$hospitals |>
+      dplyr::select(!tidyselect::any_of("orgUnit"))
+
   ret
 }
 
@@ -424,10 +432,6 @@ read_organisationUnits_departments <- function(x, y, include_hospital_ids) {
           dplyr::select("orgUnit", "hospital_key"),
         dplyr::join_by("orgUnit")) |>
       dplyr::select(!c("orgUnit","parent"))
-
-    if(!include_hospital_ids)
-      y$hospitals <- y$hospitals |>
-        dplyr::select(!"orgUnit")
   }
 
   cols <- names(x)
