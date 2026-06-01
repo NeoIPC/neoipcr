@@ -5,13 +5,17 @@
 \title{Get the table with resistance test rates of the recorded resistance
 mechanisms}
 \usage{
-get_resistance_test_rate_table(ref, use_cache = TRUE)
+get_resistance_test_rate_table(x, use_cache = TRUE, include_quartiles = TRUE)
 }
 \arguments{
-\item{ref}{The reference data set which can be either a neoipcr_ref_ds or a
-neoipcr_ds object}
+\item{x}{The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
+object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
+include_quartiles is TRUE.}
 
-\item{use_cache}{Use the cache. Ignored if ref is a neoipcr_ref_ds object}
+\item{use_cache}{Use the cache. Ignored if x is a neoipcr_rep_ds object}
+
+\item{include_quartiles}{Include quartile columns (q1, q2, q3) in the output.
+Set to FALSE for department-level reports to simplify output.}
 }
 \value{
 A table containing resistance test rates

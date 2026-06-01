@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2025-04-22 23:01+0200\n"
+"POT-Creation-Date: 2025-05-27 16:48+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -15,73 +15,73 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: R/calc.R:524
-msgid "Procedure code"
-msgstr ""
-
-#: R/calc.R:524
-#: R/calc.R:668
+#: R/calc.R:920
+#: R/calc.R:1759
 msgid "Procedure category"
 msgstr ""
 
-#: R/calc.R:628
-msgid "Overall"
+#: R/calc.R:920
+msgid "N"
 msgstr ""
 
-#: R/calc.R:629
-msgid "Abdominal surgery"
+#: R/calc.R:920
+msgid "Pooled"
 msgstr ""
 
-#: R/calc.R:630
-msgid "Neurosurgery"
-msgstr ""
-
-#: R/calc.R:631
-msgid "Inguinal hernia surgery"
-msgstr ""
-
-#: R/calc.R:632
-msgid "Cardiac- / large vessel surgery"
-msgstr ""
-
-#: R/calc.R:633
-msgid "Lung- / pleural space- / thoracic surgery"
-msgstr ""
-
-#: R/calc.R:634
-msgid "Oesophageal surgery"
-msgstr ""
-
-#: R/calc.R:635
-msgid "Other"
-msgstr ""
-
-#: R/calc.R:636
-msgid "Not a surgical procedure"
-msgstr ""
-
-#: R/calc.R:637
-msgid "Not yet categorised"
-msgstr ""
-
-#: R/calc.R:668
-msgid "Number of procedures"
-msgstr ""
-
-#: R/calc.R:668
-msgid "Pooled rate"
-msgstr ""
-
-#: R/calc.R:668
+#: R/calc.R:920
 msgid "Q1"
 msgstr ""
 
-#: R/calc.R:669
+#: R/calc.R:920
 msgid "Q2"
 msgstr ""
 
-#: R/calc.R:669
+#: R/calc.R:920
 msgid "Q3"
+msgstr ""
+
+#: R/calc.R:1759
+msgid "Procedure code"
+msgstr ""
+
+#: R/calc.R:1893
+msgid "Overall"
+msgstr ""
+
+#: R/calc.R:1894
+msgid "Abdominal surgery"
+msgstr ""
+
+#: R/calc.R:1895
+msgid "Neurosurgery"
+msgstr ""
+
+#: R/calc.R:1896
+msgid "Inguinal hernia surgery"
+msgstr ""
+
+#: R/calc.R:1897
+msgid "Cardiac- / large vessel surgery"
+msgstr ""
+
+#: R/calc.R:1898
+msgid "Lung- / pleural space- / thoracic surgery"
+msgstr ""
+
+#: R/calc.R:1899
+msgid "Oesophageal surgery"
+msgstr ""
+
+#: R/calc.R:1900
+msgid "Other"
+msgstr ""
+
+#: R/calc.R:1901
+msgid "Not a surgical procedure"
+msgstr ""
+
+#: R/calc.R:1902
+msgid "Not yet categorised"
 msgstr ""
 
 #: R/dhis2-connect.R:65
@@ -110,17 +110,200 @@ msgid "No username provided"
 msgstr ""
 
 #: R/validation.R:36
+#: R/validation.R:159
+#: R/validation.R:203
 msgid "Validation rule %i failed to execute."
 msgstr ""
 
 #: R/validation.R:37
+#: R/validation.R:204
 msgid "The dataset must contain the enrolment status and the event status to execute this rule."
 msgstr ""
 
-#: R/validation.R:79
+#: R/validation.R:160
+msgid "The dataset must contain the event status to execute this rule."
+msgstr ""
+
+#: R/validation.R:1024
 msgid "The patient record does not have an enrolment."
 msgstr ""
 
-#: R/validation.R:84
+#: R/validation.R:1032
 msgid "The patient record has a completed surveillance end form but the enrolment is still active."
+msgstr ""
+
+#: R/validation.R:1040
+msgid "The admission date in the admission form (%s) differs from the admission date in the enrolment (%s)."
+msgstr ""
+
+#: R/validation.R:1050
+msgid "The date of the end of the surveillance (%s) is earlier than the date of admission on the admission form (%s)."
+msgstr ""
+
+#: R/validation.R:1060
+msgid "The patient record's admission form is not completed (status is '%s')."
+msgstr ""
+
+#: R/validation.R:1069
+msgid "The patient record has a completed enrolment but the surveillance end form is not completed (status is '%s')."
+msgstr ""
+
+#: R/validation.R:1078
+msgid "The patient record has a completed enrolment or surveillance end form but a sepsis form is not completed (enrolment status is '%s', surveillance end form status is '%s', sepsis form status is '%s')."
+msgstr ""
+
+#: R/validation.R:1090
+msgid "The patient record has a completed enrolment or surveillance end form but a necrotizing enterocolitis form is not completed (enrolment status is '%s', surveillance end form status is '%s', necrotizing enterocolitis form status is '%s')."
+msgstr ""
+
+#: R/validation.R:1102
+msgid "The patient record has a completed enrolment or surveillance end form but a pneumonia form is not completed (enrolment status is '%s', surveillance end form status is '%s', pneumonia form status is '%s')."
+msgstr ""
+
+#: R/validation.R:1114
+msgid "The patient record has a completed enrolment or surveillance end form but a surgical procedure form is not completed (enrolment status is '%s', surveillance end form status is '%s', surgical procedure form status is '%s')."
+msgstr ""
+
+#: R/validation.R:1126
+msgid "The patient record has a completed enrolment or surveillance end form but a surgical site infection form is not completed (enrolment status is '%s', surveillance end form status is '%s', surgical site infection form status is '%s')."
+msgstr ""
+
+#: R/validation.R:1138
+msgid "The patient record contains a sepsis form with an infection date that is not within the time frame of a documented enrolment (admission date in the enrolment '%s', admission date in the admission form is '%s', surveillance end date is '%s', sepsis date is '%s')."
+msgstr ""
+
+#: R/validation.R:1151
+msgid "The patient record contains a necrotizing enterocolitis form with an infection date that is not within the time frame of a documented enrolment (admission date in the enrolment '%s', admission date in the admission form is '%s', surveillance end date is '%s', necrotizing enterocolitis date is '%s')."
+msgstr ""
+
+#: R/validation.R:1164
+msgid "The patient record contains a pneumonia form with an infection date that is not within the time frame of a documented enrolment (admission date in the enrolment '%s', admission date in the admission form is '%s', surveillance end date is '%s', pneumonia date is '%s')."
+msgstr ""
+
+#: R/validation.R:1177
+msgid "The patient record contains a surgical procedure form with an infection date that is not within the time frame of a documented enrolment (admission date in the enrolment '%s', admission date in the admission form is '%s', surveillance end date is '%s', surgical procedure date is '%s')."
+msgstr ""
+
+#: R/validation.R:1190
+msgid "The patient record contains a surgical site infection form with an infection date that is not within the time frame of a documented enrolment (admission date in the enrolment '%s', admission date in the admission form is '%s', surveillance end date is '%s', surgical site infection date is '%s')."
+msgstr ""
+
+#: R/validation.R:1203
+msgid "The patient record contains an enrolment with a time interval that overlaps with that of another enrolment (this enrolment has an interval from %s to %s and the other enrolment has an interval from %s to %s)."
+msgstr ""
+
+#: R/validation.R:1216
+msgid "The number of patient days (%s) does not match the calculated value (%s)."
+msgstr ""
+
+#: R/validation.R:1228
+msgid "superficial incisional SSI"
+msgstr ""
+
+#: R/validation.R:1229
+msgid "deep incisional SSI"
+msgstr ""
+
+#: R/validation.R:1230
+msgid "organ/space SSI"
+msgstr ""
+
+#: R/validation.R:1232
+msgid "The surgical site infection (%s) did not occur during the follow-up period of a recorded surgical procedure."
+msgstr ""
+
+#: R/validation.R:1243
+msgid "causing secondary sepsis"
+msgstr ""
+
+#: R/validation.R:1246
+msgid "The pathogen manually entered as pathogen %i%s ('%s') cannot be assigned."
+msgstr ""
+
+#: R/validation.R:1258
+msgid "The sum of all antibiotic substance days (%i) is less than the total number of antibiotic days (%i)."
+msgstr ""
+
+#: R/validation.R:1269
+msgid "The surgical procedure ('%s') has an invalid ICHE code ('%s') as the main procedure code."
+msgstr ""
+
+#: R/validation.R:1280
+msgid "The surgical procedure ('%s') has an invalid ICHE code ('%s') as the first side procedure code."
+msgstr ""
+
+#: R/validation.R:1291
+msgid "The surgical procedure ('%s') has an invalid ICHE code ('%s') as the second side procedure code."
+msgstr ""
+
+#: R/validation.R:1302
+msgid "The patient record has a completed enrolment but no surveillance end form."
+msgstr ""
+
+#: R/validation.R:1311
+msgid "The patient record has a completed enrolment but no admission form."
+msgstr ""
+
+#: R/validation.R:1320
+msgid "The day of life stored in the sepsis form (%i) does not match the calculated value (%i)."
+msgstr ""
+
+#: R/validation.R:1331
+msgid "The day of occurrence after admission stored in the sepsis form (%i) does not match the calculated value (%i)."
+msgstr ""
+
+#: R/validation.R:1342
+msgid "The sepsis occurred within the first 3 days of life (day of life is %i)."
+msgstr ""
+
+#: R/validation.R:1352
+msgid "The sepsis occurred within the first two days of hospitalisation of a referred or (re-)admitted patient (day of hospitalisation is %i)."
+msgstr ""
+
+#: R/validation.R:1362
+msgid "The day of life stored in the pneumonia form (%i) does not match the calculated value (%i)."
+msgstr ""
+
+#: R/validation.R:1373
+msgid "The day of occurrence after admission stored in the pneumonia form (%i) does not match the calculated value (%i)."
+msgstr ""
+
+#: R/validation.R:1384
+msgid "The pneumonia occurred within the first 3 days of life (day of life is %i)."
+msgstr ""
+
+#: R/validation.R:1394
+msgid "The pneumonia occurred within the first two days of hospitalisation of a referred or (re-)admitted patient (day of hospitalisation is %i)."
+msgstr ""
+
+#: R/validation.R:1404
+msgid "The day of life stored in the necrotising enterocolitis form (%i) does not match the calculated value (%i)."
+msgstr ""
+
+#: R/validation.R:1415
+msgid "The day of occurrence after admission stored in the necrotising enterocolitis form (%i) does not match the calculated value (%i)."
+msgstr ""
+
+#: R/validation.R:1426
+msgid "The necrotising enterocolitis occurred within the first 3 days of life (day of life is %i)."
+msgstr ""
+
+#: R/validation.R:1436
+msgid "The necrotising enterocolitis occurred within the first two days of hospitalisation of a referred or (re-)admitted patient (day of hospitalisation is %i)."
+msgstr ""
+
+#: R/validation.R:1446
+msgid "The day of life stored in the surgical procedure form (%i) does not match the calculated value (%i)."
+msgstr ""
+
+#: R/validation.R:1457
+msgid "The day of occurrence after admission stored in the surgical procedure form (%i) does not match the calculated value (%i)."
+msgstr ""
+
+#: R/validation.R:1468
+msgid "The day of life stored in the surgical site infection form (%i) does not match the calculated value (%i)."
+msgstr ""
+
+#: R/validation.R:1479
+msgid "The day of occurrence after admission stored in the surgical site infection form (%i) does not match the calculated value (%i)."
 msgstr ""
