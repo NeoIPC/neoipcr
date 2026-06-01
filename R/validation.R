@@ -68,7 +68,7 @@ validation_rule_2 <- function(x, exceptions)
     r <- r |>
     dplyr::anti_join(
       exceptions,
-      dplyr::join_by("rule_id","enrollment_key"))
+      dplyr::join_by("rule_id","enrollment_key","event_key"))
 
   return(r)
 }

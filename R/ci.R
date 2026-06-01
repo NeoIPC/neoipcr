@@ -217,6 +217,12 @@ bootstrap_quantile_ci <- function(events, exposure,
   if (length(events) != length(exposure)) {
     rlang::abort("`events` and `exposure` must have the same length.")
   }
+  if (!is.numeric(events) || any(na.omit(events) != as.integer(na.omit(events)))) {
+    rlang::abort("`events` must be a vector of whole numbers (NA allowed).")
+  }
+  if (!is.numeric(exposure)) {
+    rlang::abort("`exposure` must be a numeric vector (NA allowed).")
+  }
 
   # Filter out NA pairs — departments without this metric are structurally
   # absent, not zero-event observations

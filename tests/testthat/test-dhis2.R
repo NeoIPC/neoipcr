@@ -94,7 +94,9 @@ generate_trackedEntityAttributes <- function()
       displayShortName = jsonlite::unbox("NeoIPC Pat. Sex"),
       displayFormName = jsonlite::unbox("Sex"),
       displayDescription = jsonlite::unbox("Typically the phenotypic sex of the patient. If sex cannot be determined from the patient\'s phenotype or genotype, or if the genotype is neither XX nor XY, it is considered undetermined for purposes of surveillance."),
-      optionSet = list(id = jsonlite::unbox("R2yCnsqxamL")))
+      optionSet = list(
+        id = jsonlite::unbox("R2yCnsqxamL"),
+        code = jsonlite::unbox("NEOIPC_SEX_VALUES")))
     )
   )
   l
@@ -371,7 +373,9 @@ rmd <- function(add_system = TRUE, add_programId = TRUE,
 
   #browser()
   metadata <- jsonlite::fromJSON(json_text, simplifyVector = FALSE)
-  ret <- read_metadata(metadata, dhis2_dataset_options())
+  ret <- read_metadata(metadata, dhis2_dataset_options(
+    include_country = "yes",
+    include_world_bank_class = "yes"))
   ret
 }
 
@@ -467,7 +471,7 @@ test_that("read_metadata reads data", {
 
   # trackedEntityAttributes (refactored readers rename id -> attribute)
   expect_equal(metadata$trackedEntityAttributes$attribute, c("yQwpowV0o08", "E5OMg8BC8be"))
-  expect_equal(metadata$trackedEntityAttributes$optionSet, c(NA, "R2yCnsqxamL"))
+  expect_equal(metadata$trackedEntityAttributes$optionSet, c(NA, "NEOIPC_SEX_VALUES"))
 
   # countries — add_key_column randomises row order for pseudonymisation,
   # so check set membership rather than a specific sequence.
