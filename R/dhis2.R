@@ -270,10 +270,10 @@ import_dhis2 <- function(
 
   trackedEntities_raw <- parse_resp(resps[[1]])
   if (nrow(trackedEntities_raw) == 0) {
-    filter_summary <- if (!is.null(dataset_options$department_filter))
+    filter_summary <- if (length(dataset_options$department_filter) > 0)
       paste0("department_filter: ",
              paste(dataset_options$department_filter, collapse = ", "))
-    else if (!is.null(dataset_options$country_filter))
+    else if (length(dataset_options$country_filter) > 0)
       paste0("country_filter: ",
              paste(dataset_options$country_filter, collapse = ", "))
     else
