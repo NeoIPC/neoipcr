@@ -117,7 +117,7 @@ filter_countries <- function(
     return(countries)
 
   countries |>
-    dplyr::filter(countries$code %in% included_countries)
+    dplyr::filter(.data$code %in% included_countries)
 }
 
 apply_postfilter <- function(x)

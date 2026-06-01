@@ -157,7 +157,7 @@ update_po <- function(dir = ".", verbose = FALSE) {
     message("Creating pot: .. ", domain = NA)
 
   extract_gettext2pot(pot_file = tmp_file, package = package_name, copyright, encoding,
-                      version, bugs, dir, verbose)
+                      version, bugs, dir = ".", verbose = verbose)
 
   pot_file <- file.path("po", paste0("R-", package_name, ".pot"))
   if (verbose)
