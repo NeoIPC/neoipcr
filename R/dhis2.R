@@ -386,6 +386,9 @@ transform_user_exceptions <- function(ex, ds)
 {
   ex <- ex |>
     dplyr::mutate(
+      RULE_ID = as.integer(.data$RULE_ID),
+      ENROLMENT_DATE = as.Date(.data$ENROLMENT_DATE),
+      EVENT_DATE = as.Date(.data$EVENT_DATE),
       event_type_key = factor(
         tolower(.data$EVENT_TYPE),
         levels = c("adm","pro","bsi","nec","ssi","hap","end")),
