@@ -184,7 +184,7 @@ update_po <- function(dir = ".", verbose = FALSE) {
     if (has_warning)
     {
       message(":\n  ", result, domain = NA)
-      warning("Running ", command, " on ", sQuote(pot_file), " failed",
+      warning("Running ", command, " on ", sQuote(po_file), " failed",
               domain = NA, immediate. = TRUE)
       next
     }
@@ -214,7 +214,7 @@ update_po <- function(dir = ".", verbose = FALSE) {
     if (has_warning)
     {
       message("\n  ", result, domain = NA)
-      warning("Running ", command, " on ", sQuote(pot_file), " failed",
+      warning("Running ", command, " on ", sQuote(po_file), " failed",
               domain = NA, immediate. = TRUE)
       next
     }

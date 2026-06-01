@@ -5,7 +5,7 @@ get_pathogen_list <- function()
     dplyr::mutate(synonym_for = rlang::na_int)
 
   not_listed <- pc |>
-    dplyr::slice_head()
+    dplyr::filter(.data$id == 0)
 
   rest <- pc |>
     dplyr::filter(.data$id != 0) |>
