@@ -899,7 +899,7 @@ validation_rule_22 <- function(x, exceptions)
         dplyr::filter(.data$enrollment_key == -1) |>
         dplyr::mutate(rule_id = 22L, .before = 1))
   if (!file.exists("../ICHE-Health-Intervention-Codes.csv")) {
-    warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
+    rlang::warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
     return(x$enrollments |>
         dplyr::select("enrollment_key") |>
         dplyr::filter(.data$enrollment_key == -1) |>
@@ -957,7 +957,7 @@ validation_rule_23 <- function(x, exceptions)
         dplyr::filter(.data$enrollment_key == -1) |>
         dplyr::mutate(rule_id = 23L, .before = 1))
   if (!file.exists("../ICHE-Health-Intervention-Codes.csv")) {
-    warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
+    rlang::warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
     return(x$enrollments |>
         dplyr::select("enrollment_key") |>
         dplyr::filter(.data$enrollment_key == -1) |>
@@ -1020,7 +1020,7 @@ validation_rule_24 <- function(x, exceptions)
         dplyr::filter(.data$enrollment_key == -1) |>
         dplyr::mutate(rule_id = 24L, .before = 1))
   if (!file.exists("../ICHE-Health-Intervention-Codes.csv")) {
-    warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
+    rlang::warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
     return(x$enrollments |>
         dplyr::select("enrollment_key") |>
         dplyr::filter(.data$enrollment_key == -1) |>

@@ -1168,13 +1168,14 @@ get_usage_density_rate_table <- function(
     cache(x, cache_key)
 }
 
-#' Get the table with rates of surgical procedures
+#' Get the reference table with rates of surgical procedures
 #'
 #' @param ref The reference data set which can be either a neoipcr_ref_ds or a
 #'  neoipcr_ds object
 #' @param use_cache Use the cache. Ignored if ref is a neoipcr_ref_ds object
 #'
-#' @returns A table containing the rates of surgical procedures
+#' @returns A table containing the reference rates of surgical procedures and
+#'  the 25\%, 50\%, and 75\% quantiles
 #' @export
 get_ref_surgery_rate_table <- function(ref, use_cache = TRUE) {
   check_neoipcr_ds_or_ref_ds(ref)

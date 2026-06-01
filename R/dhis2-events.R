@@ -202,17 +202,18 @@ read_event_notes <- function(events, processed_events, metadata, dataset_options
 
   if(dataset_options$include_user != "no") {
     events <- events |>
-    tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
-    dplyr::left_join(
-      metadata$users |>
-        dplyr::select("user", "user_key"),
-      dplyr::join_by("createdBy" == "user")) |>
-    dplyr::mutate(createdBy = .data$user_key, .keep = "unused") |>
-    dplyr::left_join(
-      metadata$users |>
-        dplyr::select("username", "user_key"),
-      dplyr::join_by("storedBy" == "username")) |>
-    dplyr::mutate(storedBy = .data$user_key, .keep = "unused")
+      tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
+      dplyr::left_join(
+        metadata$users |>
+          dplyr::select("user", "user_key"),
+        dplyr::join_by("createdBy" == "user")) |>
+      dplyr::mutate(createdBy = .data$user_key, .keep = "unused") |>
+      dplyr::left_join(
+        metadata$users |>
+          dplyr::select("username", "user_key"),
+        dplyr::join_by("storedBy" == "username")) |>
+      dplyr::mutate(storedBy = .data$user_key, .keep = "unused")
+  }
 
   events <- events |>
     dplyr::mutate(storedAt = readr::parse_datetime(.data$storedAt))

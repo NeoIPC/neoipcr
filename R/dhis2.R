@@ -534,14 +534,8 @@ add_key_column <- function(table, key_name = "key")
   table |>
     dplyr::mutate(random = ids::random_id(nrow(table))) |>
     dplyr::arrange(.data$random) |>
-    dplyr::select(!"random")
-
-  if (as_factor) tmp <- tmp |>
-      dplyr::mutate(!!key_name := as.factor(dplyr::row_number()))
-  else tmp <- tmp |>
-      dplyr::mutate(!!key_name := dplyr::row_number())
-
-  tmp |>
+    dplyr::select(!"random") |>
+    dplyr::mutate(!!key_name := dplyr::row_number()) |>
     dplyr::relocate(dplyr::all_of(key_name))
 }
 

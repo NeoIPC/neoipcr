@@ -426,12 +426,15 @@ read_organisationUnits_departments <- function(x, y, include_hospital_ids) {
 
   if("hospitals" %in% names(y)){
     x <- x |>
-      tidyr::hoist("parent", orgUnit = "id") |>
+      tidyr::hoist("parent", hospital_orgUnit = "id") |>
       dplyr::left_join(
         y$hospitals |>
           dplyr::select("orgUnit", "hospital_key"),
-        dplyr::join_by("orgUnit")) |>
-      dplyr::select(!c("orgUnit","parent"))
+        dplyr::join_by("hospital_orgUnit" == "orgUnit")) |>
+      dplyr::select(!"parent")
+    if (!include_hospital_ids)
+      x <- x |>
+        dplyr::select(!tidyselect::any_of("hospital_orgUnit"))
   }
 
   cols <- names(x)

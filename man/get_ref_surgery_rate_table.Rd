@@ -2,7 +2,7 @@
 % Please edit documentation in R/calc.R
 \name{get_ref_surgery_rate_table}
 \alias{get_ref_surgery_rate_table}
-\title{Get the reference table with rates of surgical procedues}
+\title{Get the reference table with rates of surgical procedures}
 \usage{
 get_ref_surgery_rate_table(ref, use_cache = TRUE)
 }
@@ -13,9 +13,9 @@ neoipcr_ds object}
 \item{use_cache}{Use the cache. Ignored if ref is a neoipcr_ref_ds object}
 }
 \value{
-A table containing the reference rates of surgical procedues and the
-25\%, 50\%, and 75\% quantiles
+A table containing the reference rates of surgical procedures and
+the 25\%, 50\%, and 75\% quantiles
 }
 \description{
-Get the reference table with rates of surgical procedues
+Get the reference table with rates of surgical procedures
 }

@@ -30,18 +30,20 @@ which provides better coverage properties than exact (Clopper-Pearson)
 intervals, particularly for small samples.
 }
 \details{
-Unlike Clopper-Pearson, the Wilson interval does not necessarily include 0
-when x = 0 or include 1 when x = n. This is mathematically correct
-behaviour and contributes to the method's superior coverage properties.
+At the boundaries (\code{x = 0} or \code{x = n}) the Wilson interval is degenerate:
+\code{margin == center} so the lower bound is exactly 0 at \code{x = 0} and the upper
+bound is exactly 1 at \code{x = n}. In the interior the Wilson interval is
+narrower than the Clopper-Pearson interval, which gives it superior
+coverage properties for typical sample sizes.
 }
 \examples{
 # Detection rate: 220 infections with pathogen out of 283 total
 neoipc_wilson_ci(220, 283)
 
-# Zero successes: lower is close to but not exactly 0
+# Zero successes: lower bound is exactly 0 at the boundary
 neoipc_wilson_ci(0, 50)
 
-# All successes: upper is close to but not exactly 1
+# All successes: upper bound is exactly 1 at the boundary
 neoipc_wilson_ci(50, 50)
 
 }
