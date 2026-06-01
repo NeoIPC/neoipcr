@@ -9,7 +9,7 @@ update_po <- function(dir = ".", verbose = FALSE) {
     {
       find_gettext_strings <- function(f)
       {
-        e <- parse(file = f, keep.source = T)
+        e <- parse(file = f, keep.source = TRUE)
         x <- getParseData(e)
         x |> dplyr::filter(
           token == "SYMBOL_FUNCTION_CALL" &

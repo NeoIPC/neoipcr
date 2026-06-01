@@ -911,8 +911,9 @@ get_infectious_agent_detection_rates_with_department_quartiles <- function(x, gr
 
   if(nrow(r1) < 1)
   {
-    gc <- list(rep(NA_character_, length(group_cols)))
-    names(gc) <- group_cols
+    gc <- stats::setNames(
+      as.list(rep(NA_character_, length(group_cols))),
+      group_cols)
     return(
       tibble::tibble(
         n = 0,
@@ -922,7 +923,7 @@ get_infectious_agent_detection_rates_with_department_quartiles <- function(x, gr
         q2 = NA,
         q3 = NA
         ) |>
-        dplyr::bind_rows(gc)
+        dplyr::bind_cols(gc)
       )
   }
 
