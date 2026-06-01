@@ -102,19 +102,18 @@ get_auth_data <- function(url)
   if(!is.na(env_user) && nzchar(env_user))
     return(list(username = env_user, password = get_password(url)))
 
-  if(!interactive()) rlang::abort(
-    message = gettext("No authentication credentials found"),
-    body = c(
-      gettext("Set the NEOIPC_DHIS2_TOKEN, NEOIPC_DHIS2_SESSION_ID, or NEOIPC_DHIS2_USER environment variable."),
-      gettext("Interactive username/password prompting is only available in interactive R sessions.")))
+  if(!interactive()) rlang::abort(c(
+    gettext("No authentication credentials found"),
+    "i" = gettext("Set the NEOIPC_DHIS2_TOKEN, NEOIPC_DHIS2_SESSION_ID, or NEOIPC_DHIS2_USER environment variable."),
+    "i" = gettext("Interactive username/password prompting is only available in interactive R sessions.")))
 
   user <- readline(
     prompt = gettextf(
       "Please enter your username for %s: ", url))
 
-  if(!nzchar(user)) rlang::abort(
-    message = gettext("No username provided"),
-    body = gettext("Please provide username and password, a personal access token or a session id to authenticate to DHIS2"))
+  if(!nzchar(user)) rlang::abort(c(
+    gettext("No username provided"),
+    "i" = gettext("Please provide username and password, a personal access token or a session id to authenticate to DHIS2")))
 
   list(username = user, password = get_password(url))
 }
