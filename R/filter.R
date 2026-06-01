@@ -263,6 +263,12 @@ apply_data_removal <- function(x, dataset_options)
       dplyr::select(!tidyselect::any_of("enrollment"))
   }
 
+  if(!("events" %in% dataset_options$include_dhis2_ids))
+  {
+    x$events <- x$events |>
+      dplyr::select(!tidyselect::any_of("event"))
+  }
+
   if(!("departments" %in% dataset_options$include_dhis2_ids))
   {
     x$metadata$departments <- x$metadata$departments |>
