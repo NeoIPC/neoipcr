@@ -1,146 +1,3 @@
-#' Configure the DHIS2 dataset
-#'
-#' @param surveillance_end_from The earliest surveillance end date of patient
-#'  records to include into the dataset.
-#' @param surveillance_end_to The latest surveillance end date of patient
-#'  records to include into the dataset.
-#' @param birth_weight_from The lowest birth weight (in grams) of patient
-#'  records to include into the dataset.
-#' @param birth_weight_to The highest birth weight (in grams) of patient
-#'  records to include into the dataset.
-#' @param gestational_age_from The lowest gestational age (in completed weeks)
-#'  of patient records to include into the dataset.
-#' @param gestational_age_to The highest gestational age (in completed weeks) of
-#'  patient records to include into the dataset
-#' @param country_filter ISO 3166 country codes	of the countries the enrolling
-#'  departments are located in to include into the dataset.
-#' @param department_filter NeoIPC department codes of the departments to
-#'  include into the dataset.
-#' @param include_world_bank_class Include the World Bank class into the
-#'  dataset. Possible values are "no", "pseudonymised" and "yes"
-#' @param include_country Include the country into the dataset. Possible values
-#'  are "no", "pseudonymised" and "yes"
-#' @param include_hospital Include the hospital into the dataset. Possible
-#'  values are "no", "pseudonymised" and "yes"
-#' @param include_department Include the department into the dataset.
-#'  Possible values are "no", "pseudonymised" and "yes"
-#' @param include_user Include the user metadata into the dataset. Possible
-#'  values are "no", "pseudonymised" and "yes"
-#' @param include_patient_id Include the NeoIPC Patient ID into the dataset.
-#' @param include_dhis2_ids Include the DHIS2 ids into the dataset.
-#' @param include_timestamps Include the createdAt and modifiedAt timestamps
-#'  into the dataset.
-#' @param include_ineligible_patients Include data from patients that don't meet
-#'  the NeoIPC core case eligibility criteria into the dataset.
-#' @param include_unenrolled_patients Include data from unenrolled NeoIPC
-#'  patient records into the dataset.
-#' @param include_test_data Include data from test departments into the dataset.
-#' @param include_invalid_patients Include data from patient records that
-#'  could have validation errors
-#' @param include_incomplete Include incomplete records into the dataset.
-#'  Possible values are "enrollments" and "events"
-#' @param include_notes Include notes into the dataset. Possible values are
-#'  "enrollments" and "events"
-#' @param include_deleted Include deleted records into the dataset.
-#' @param trial_keys Only include date for the trials listed in this variable.
-#' @param translate Translate DHIS2 metadata
-#' @param locale The locale to translate DHIS2 metadata to
-#'
-#' @export
-dhis2_dataset_options <- function(
-    surveillance_end_from = NULL,
-    surveillance_end_to = NULL,
-    birth_weight_from = NULL,
-    birth_weight_to = NULL,
-    gestational_age_from = NULL,
-    gestational_age_to = NULL,
-    country_filter = NULL,
-    department_filter = NULL,
-    include_world_bank_class = c("no","pseudonymised","yes"),
-    include_country = c("no","pseudonymised","yes"),
-    include_hospital = c("no","pseudonymised","yes"),
-    include_department = c("no","pseudonymised","yes"),
-    include_user = c("no","pseudonymised","yes"),
-    include_patient_id = FALSE,
-    include_dhis2_ids = rlang::chr(),
-    include_timestamps = FALSE,
-    include_test_data = FALSE,
-    include_ineligible_patients = FALSE,
-    include_unenrolled_patients = FALSE,
-    include_invalid_patients = FALSE,
-    include_incomplete = rlang::chr(),
-    include_notes = rlang::chr(),
-    include_deleted = FALSE,
-    trial_keys = NULL,
-    translate = TRUE,
-    locale = NULL)
-{
-  if(is.character(birth_weight_from)) birth_weight_from <- as.integer(birth_weight_from)
-  if(is.character(birth_weight_to)) birth_weight_to <- as.integer(birth_weight_to)
-  if(is.character(gestational_age_from)) gestational_age_from <- as.integer(gestational_age_from)
-  if(is.character(gestational_age_to)) gestational_age_to <- as.integer(gestational_age_to)
-
-  check_number_whole(birth_weight_from, allow_null = TRUE)
-  check_number_whole(birth_weight_to, allow_null = TRUE)
-  check_number_whole(gestational_age_from, allow_null = TRUE)
-  check_number_whole(gestational_age_to, allow_null = TRUE)
-  check_character(country_filter, allow_null = TRUE)
-  check_character(department_filter, allow_null = TRUE)
-  check_bool(include_patient_id)
-  check_bool(include_timestamps)
-  check_bool(include_test_data)
-  check_bool(include_ineligible_patients)
-  check_bool(include_unenrolled_patients)
-  #check_bool(include_invalid_patients) # ToDo: validate
-  check_bool(include_deleted)
-  check_bool(translate)
-
-  if(!is.null(surveillance_end_from))
-    surveillance_end_from <- as.Date(surveillance_end_from)
-
-  if(!is.null(surveillance_end_to))
-    surveillance_end_to <- as.Date(surveillance_end_to)
-
-  structure(list(
-    surveillance_end_from = surveillance_end_from,
-    surveillance_end_to = surveillance_end_to,
-    birth_weight_from = birth_weight_from,
-    birth_weight_to = birth_weight_to,
-    gestational_age_from = gestational_age_from,
-    gestational_age_to = gestational_age_to,
-    country_filter = country_filter,
-    department_filter = department_filter,
-    include_world_bank_class = rlang::arg_match(include_world_bank_class),
-    include_country = rlang::arg_match(include_country),
-    include_hospital = rlang::arg_match(include_hospital),
-    include_department = rlang::arg_match(include_department),
-    include_user = rlang::arg_match(include_user),
-    include_patient_id = include_patient_id,
-    include_dhis2_ids = rlang::arg_match(
-      include_dhis2_ids,
-      c("countries","hospitals","departments","patients","enrollments",
-        "events","notes","event_types","users"),
-      multiple = TRUE),
-    include_timestamps = include_timestamps,
-    include_test_data = include_test_data,
-    include_ineligible_patients = include_ineligible_patients,
-    include_unenrolled_patients = include_unenrolled_patients,
-    include_invalid_patients = include_invalid_patients,
-    include_incomplete = rlang::arg_match(
-      include_incomplete,
-      c("enrollments","events"),
-      multiple = TRUE),
-    include_notes = rlang::arg_match(
-      include_notes,
-      c("enrollments","events"),
-      multiple = TRUE),
-    include_deleted = include_deleted,
-    trial_keys = trial_keys,
-    translate = translate,
-    locale = locale
-  ), class = "neoipcr_dhis2_dsopt")
-}
-
 #' Import data from a NeoIPC DHIS2 server
 #'
 #' @param connection_options The options to use for connecting to the DHIS2
@@ -317,6 +174,20 @@ import_dhis2 <- function(
 
   infectiousAgentFindings <- read_infectious_agent_findings(events_raw, events, metadata, dataset_options)
   # read_infectious_agent_findings_details
+
+  # Split the sparse free-text `name` column off into its own tibble so the
+  # main findings table doesn't carry a mostly-NA column. Only rows where the
+  # user manually typed a pathogen name (typically when pathogen_key == 0
+  # "unknown") end up in unknownPathogenNames.
+  unknownPathogenNames <- if ("name" %in% names(infectiousAgentFindings))
+      infectiousAgentFindings |>
+        dplyr::filter(!is.na(.data$name) & nzchar(.data$name)) |>
+        dplyr::select("agent_finding_key", "name")
+    else
+      tibble::tibble(agent_finding_key = integer(), name = character())
+  if ("name" %in% names(infectiousAgentFindings))
+    infectiousAgentFindings <- infectiousAgentFindings |> dplyr::select(!"name")
+
   substanceDays <- read_substance_days(events_raw, events, metadata, dataset_options)
   # read_substance_days_details
 
@@ -353,6 +224,7 @@ import_dhis2 <- function(
       ssiData = ssiData,
       substanceDays = substanceDays,
       infectiousAgentFindings = infectiousAgentFindings,
+      unknownPathogenNames = unknownPathogenNames,
       metadata = metadata,
       `.cache` = new.env(parent = emptyenv())),
     class = c("neoipcr_ds", "list"))
@@ -376,6 +248,24 @@ import_dhis2 <- function(
 
   r |>
     apply_data_removal(dataset_options)
+}
+
+dhis2_request <- function(connection_options)
+{
+  req <- httr2::request(connection_options$base_url)
+  if(!is.null(connection_options$token))
+    req |>
+    httr2::req_headers(
+      Authorization = sprintf("ApiToken %s", connection_options$token),
+      .redact = "Authorization")
+  else if(!is.null(connection_options$session_id))
+    req |>
+    httr2::req_cookies_set(JSESSIONID = connection_options$session_id)
+  else
+    req |>
+    httr2::req_auth_basic(
+      username = connection_options$username,
+      password = connection_options$password)
 }
 
 is_single_department <- function(ds) ds$metadata$departments |>
@@ -427,111 +317,6 @@ transform_user_exceptions <- function(ex, ds)
     dplyr::select("rule_id"="RULE_ID",tidyselect::any_of("department_key"),"patient_key","enrollment_key","event_key")
 }
 
-dhis2_request <- function(connection_options)
-{
-  req <- httr2::request(connection_options$base_url)
-  if(!is.null(connection_options$token))
-    req |>
-    httr2::req_headers(
-      Authorization = sprintf("ApiToken %s", connection_options$token),
-      .redact = "Authorization")
-  else if(!is.null(connection_options$session_id))
-    req |>
-    httr2::req_cookies_set(JSESSIONID = connection_options$session_id)
-  else
-    req |>
-    httr2::req_auth_basic(
-      username = connection_options$username,
-      password = connection_options$password)
-}
-
-get_user_info <- function(req)
-{
-  # Two-level tryCatch: inner level translates specific HTTP errors into
-
-  # user-friendly messages; outer level catches everything else (DNS failure,
-  # timeout, etc.) and wraps with a generic connection message.  The outer
-
-  # handler passes through errors already translated by the inner level.
-  resp <- tryCatch(
-    tryCatch(
-      req |>
-        httr2::req_url_path_append("me") |>
-        httr2::req_url_query(
-          fields = "id,username,firstName,surname,email,created,userCredentials[lastLogin],organisationUnits[id],dataViewOrganisationUnits[id],teiSearchOrganisationUnits[id],userRoles[name,authorities],userGroups[name]") |>
-        httr2::req_perform(),
-      httr2_http_401 = function(cnd) {
-        rlang::abort(c(
-          sprintf("DHIS2 authentication failed (HTTP 401) at %s.", req$url),
-          i = "Check that your token or username/password is correct.",
-          i = "Token auth: set the NEOIPC_DHIS2_TOKEN environment variable.",
-          i = "Basic auth: set NEOIPC_DHIS2_USER and NEOIPC_DHIS2_PASSWORD environment variables."
-        ), class = "neoipcr_dhis2_error", call = NULL)
-      },
-      httr2_http_403 = function(cnd) {
-        rlang::abort(c(
-          sprintf("DHIS2 access denied (HTTP 403) at %s.", req$url),
-          i = "Your credentials were accepted but you lack permission to access /api/me.",
-          i = "Contact a DHIS2 administrator to check your user role."
-        ), class = "neoipcr_dhis2_error", call = NULL)
-      }
-    ),
-    error = function(cnd) {
-      if (inherits(cnd, "neoipcr_dhis2_error")) stop(cnd)
-      rlang::abort(c(
-        sprintf("Failed to connect to DHIS2 at %s.", req$url),
-        i = "Check your network connection and DHIS2 server URL.",
-        i = conditionMessage(cnd)
-      ), class = "neoipcr_dhis2_error", call = NULL)
-    }
-  )
-
-  raw_info <- tryCatch(
-    resp |>
-      httr2::resp_check_status() |>
-      httr2::resp_body_json(simplifyVector = TRUE),
-    error = function(cnd) {
-      ct <- httr2::resp_content_type(resp)
-      sc <- httr2::resp_status(resp)
-      url <- resp$url
-      if (grepl("text/html", ct, fixed = TRUE)) {
-        rlang::abort(c(
-          sprintf("DHIS2 returned an HTML page instead of JSON (HTTP %d, URL: %s).", sc, url),
-          i = "This usually means the server redirected to a login page.",
-          i = "Your credentials may be missing, expired, or incorrect.",
-          i = "Token auth: set the NEOIPC_DHIS2_TOKEN environment variable.",
-          i = "Basic auth: set NEOIPC_DHIS2_USER and NEOIPC_DHIS2_PASSWORD environment variables."
-        ), call = NULL)
-      }
-      rlang::abort(c(
-        sprintf("Unexpected DHIS2 response content type: %s", ct),
-        i = conditionMessage(cnd)
-      ), parent = cnd)
-    }
-  )
-
-  structure(list(
-    id = raw_info$id,
-    username = raw_info$username,
-    firstName = raw_info$firstName,
-    surname = raw_info$surname,
-    email = raw_info$email,
-    lastLogin = readr::parse_datetime(raw_info$userCredentials$lastLogin),
-    created = readr::parse_datetime(raw_info$created),
-    organisationUnits = raw_info$organisationUnits$id,
-    dataViewOrganisationUnits = raw_info$dataViewOrganisationUnits$id,
-    teiSearchOrganisationUnits = raw_info$teiSearchOrganisationUnits$id,
-    groups = raw_info$userGroups$name |>
-      sort(),
-    roles = raw_info$userRoles$name |>
-      sort(),
-    authorities = raw_info$userRoles$authorities |>
-      unlist() |>
-      unique() |>
-      sort()
-  ), class = c("neoipc_dhis2_usrinfo", "list"))
-}
-
 add_key_column <- function(table, key_name = "key")
 {
   table |>
@@ -539,7 +324,7 @@ add_key_column <- function(table, key_name = "key")
     dplyr::arrange(.data$random) |>
     dplyr::select(!"random") |>
     dplyr::mutate(!!key_name := dplyr::row_number()) |>
-    dplyr::relocate(dplyr::all_of(key_name))
+    dplyr::relocate(tidyselect::all_of(key_name))
 }
 
 convert_value <- function(values, valueTypes, levelsLists)

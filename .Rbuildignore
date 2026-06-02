@@ -5,3 +5,8 @@
 ^README\.Rmd$
 ^data-raw$
 ^tools$
+^\.covrignore$
+^CLAUDE\.md$
+^coverage\.html$
+^lib$
+^scripts$

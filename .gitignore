@@ -53,3 +53,7 @@ rsconnect/
 
 # Quarto project-specific file storeage folders
 .quarto
+
+# Local coverage report
+coverage.html
+lib/

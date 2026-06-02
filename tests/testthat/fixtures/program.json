@@ -1,0 +1,99 @@
+{
+  "programs": [
+    {
+      "id": "D8mSSpOpsKj",
+      "programStages": [
+        {
+          "id": "YGowWPumDia",
+          "name": "Admission",
+          "displayName": "Aufnahme",
+          "displayFormName": "Aufnahme",
+          "programStageDataElements": [
+            {
+              "dataElement": {
+                "id": "Lwa9Jp5xSnR",
+                "code": "NEOIPC_ADMISSION_LOS",
+                "valueType": "INTEGER_ZERO_OR_POSITIVE",
+                "displayName": "NeoIPC Admission Length of Stay",
+                "displayShortName": "NeoIPC Adm. LOS",
+                "displayFormName": "Day of occurrence after admission",
+                "displayDescription": "Length of Stay (should always be 0). For Reporting purpose only"
+              }
+            },
+            {
+              "dataElement": {
+                "id": "rvq4L9wWbwW",
+                "code": "NEOIPC_ADMISSION_DOL",
+                "valueType": "INTEGER_POSITIVE",
+                "displayName": "NeoIPC Admission on day of life",
+                "displayShortName": "NeoIPC Adm. DOL",
+                "displayFormName": "Admission on day of life",
+                "displayDescription": "For infants that have not been delivered in your own hospital, record the infant's day of life on the day of admission (day of birth = day of life 1. The next day, starting at 00:00, is the second day of life.)"
+              }
+            },
+            {
+              "dataElement": {
+                "id": "AgBqfnnsUzd",
+                "code": "NEOIPC_ADMISSION_TYPE",
+                "valueType": "INTEGER_POSITIVE",
+                "displayName": "NeoIPC Admission type",
+                "displayShortName": "NeoIPC Adm. type",
+                "displayFormName": "Admission type",
+                "displayDescription": "Describes if the infant was born in your hospital or if it was admitted after birth and if so, how long after birth.",
+                "optionSet": {
+                  "code": "NEOIPC_ADMISSION_TYPES"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "BHWwaviIFvy",
+          "name": "Surgical Procedure",
+          "displayName": "Operativer Eingriff",
+          "displayFormName": "Operativer Eingriff",
+          "programStageDataElements": [
+            {
+              "dataElement": {
+                "id": "DTZ9HfILgnX",
+                "code": "NEOIPC_SURGERY_EMERGENCY_PROCEDURE",
+                "valueType": "BOOLEAN",
+                "displayName": "NeoIPC Surgery Emergency procedure",
+                "displayShortName": "NeoIPC Surg. Emergency",
+                "displayFormName": "Emergency procedure",
+                "displayDescription": "Yes: A procedure that is documented per the facility's protocol to be an emergency or urgent procedure. No: The intervention is initiated and performed in a planned manner Unknown: No information available."
+              }
+            }
+          ]
+        }
+      ],
+      "programTrackedEntityAttributes": [
+        {
+          "trackedEntityAttribute": {
+            "id": "yQwpowV0o08",
+            "code": "NEOIPC_PATIENT_ID",
+            "valueType": "TEXT",
+            "displayName": "NeoIPC Patient Identifier",
+            "displayShortName": "NeoIPC Pat. Id",
+            "displayFormName": "NeoIPC Patient Identifier",
+            "displayDescription": "Use this identifier to uniquely identify a patient in the system. Ideally use an unique random string of characters. If have a requirement to identify a patient you have entered here, you can use this identifier as the NeoIPC key for pseudonymization. NEVER use an identifier that is used anywhere else and that you do not fully control (e.g. do NOT use the patient id from your hospital information system)."
+          }
+        },
+        {
+          "trackedEntityAttribute": {
+            "id": "E5OMg8BC8be",
+            "code": "NEOIPC_TEA_SEX",
+            "valueType": "LETTER",
+            "displayName": "NeoIPC Patient Sex",
+            "displayShortName": "NeoIPC Pat. Sex",
+            "displayFormName": "Sex",
+            "displayDescription": "Typically the phenotypic sex of the patient. If sex cannot be determined from the patient's phenotype or genotype, or if the genotype is neither XX nor XY, it is considered undetermined for purposes of surveillance.",
+            "optionSet": {
+              "id": "R2yCnsqxamL"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
