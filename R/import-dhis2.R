@@ -50,7 +50,7 @@ import_dhis2 <- function(
   ou_key   <- if (v41) "orgUnits" else "orgUnit"
 
   ou_query <- function(mode, ou_value)
-    setNames(list(mode, ou_value), c(mode_key, ou_key))
+    stats::setNames(list(mode, ou_value), c(mode_key, ou_key))
 
   multi_uid <- function(ids)
     if (v41) paste0(ids, collapse = ",")
@@ -76,7 +76,7 @@ import_dhis2 <- function(
 
   } else {
     te_enrl_req <- tracker_req |>
-      httr2::req_url_query(!!!setNames(list("ACCESSIBLE"), mode_key))
+      httr2::req_url_query(!!!stats::setNames(list("ACCESSIBLE"), mode_key))
     event_reqs <- list(te_enrl_req)
   }
 

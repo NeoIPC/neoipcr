@@ -21,7 +21,7 @@ calculate_reference_data <- function(x, use_cache = TRUE, redact = TRUE) {
     group_cols = "department_key",
     use_cache = use_cache)$patient_days
   pd_q <- pd_dept |>
-    quantile(probs = quartile_probs) |>
+    stats::quantile(probs = quartile_probs) |>
     as.integer()
 
   rp <- x |>
@@ -29,10 +29,10 @@ calculate_reference_data <- function(x, use_cache = TRUE, redact = TRUE) {
   rp_dept <- x |>
     get_risk_population(group_cols = "department_key", use_cache = use_cache)
   pat_q <- rp_dept$n_patients |>
-    quantile(probs = quartile_probs) |>
+    stats::quantile(probs = quartile_probs) |>
     as.integer()
   enr_q <- rp_dept$n_enrollments |>
-    quantile(probs = quartile_probs) |>
+    stats::quantile(probs = quartile_probs) |>
     as.integer()
 
   sr <- x |>
@@ -51,10 +51,10 @@ calculate_reference_data <- function(x, use_cache = TRUE, redact = TRUE) {
       n_patients = tidyr::replace_na(.data$n_patients, 0L),
       n_procedures = tidyr::replace_na(.data$n_procedures, 0L))
   sur_pat_q <- sr_dept$n_patients |>
-    quantile(probs = quartile_probs) |>
+    stats::quantile(probs = quartile_probs) |>
     as.integer()
   sur_proc_q <- sr_dept$n_procedures |>
-    quantile(probs = quartile_probs) |>
+    stats::quantile(probs = quartile_probs) |>
     as.integer()
 
   ds_opts <- x$metadata$dataset_options
@@ -72,7 +72,7 @@ calculate_reference_data <- function(x, use_cache = TRUE, redact = TRUE) {
             dplyr::summarise(
               pooled_mean = as.integer(round(mean(.data$n))),
               q = list(
-                quantile(.data$n, quartile_probs, names = FALSE))) |>
+                stats::quantile(.data$n, quartile_probs, names = FALSE))) |>
             tidyr::unnest_wider(q, names_sep = "", transform = as.integer) |>
             ensure_quartile_cols())),
     x |>
@@ -85,7 +85,7 @@ calculate_reference_data <- function(x, use_cache = TRUE, redact = TRUE) {
           dplyr::summarise(
             pooled_mean = as.integer(round(mean(.data$n))),
             q = list(
-              quantile(.data$n, quartile_probs, names = FALSE))) |>
+              stats::quantile(.data$n, quartile_probs, names = FALSE))) |>
           tidyr::unnest_wider(q, names_sep = "", transform = as.integer) |>
           ensure_quartile_cols(),
         dplyr::join_by("event_type_key"))) |>
@@ -817,7 +817,7 @@ pretty_names.default <- function(x, ...) x
 
 #' @export
 pretty_names.neoipcr_tbl_sr_ref <- function(x, ...) {
-  col_names <- setNames(
+  col_names <- stats::setNames(
     gettext("Procedure category","N","Pooled","Q1","Q2","Q3"),
     c("pro_cat","n","pooled","q1","q2","q3"))
 
@@ -826,7 +826,7 @@ pretty_names.neoipcr_tbl_sr_ref <- function(x, ...) {
     dplyr::mutate(
       pretty_name = get_procedure_category_pretty(.data$pro_cat))
 
-  row_names <- setNames(pairs$pretty_name, pairs$pro_cat)
+  row_names <- stats::setNames(pairs$pretty_name, pairs$pro_cat)
 
   attr(x, "names.pretty") <- col_names
   attr(x, "row.names.pretty") <- row_names
