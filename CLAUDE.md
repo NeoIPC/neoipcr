@@ -18,7 +18,6 @@ These guardrails are **universal** — mirrored in every NeoIPC repository's ins
 - **Always** keep `CLAUDE.md` and `.github/copilot-instructions.md` in sync within this repository. When you modify one, apply the same change to the other.
 - **Always** push back when evidence contradicts the user's suggestion or implied assumption. Do not defer to the user's position when authoritative sources (AMA Manual of Style, protocol definitions, language specifications, etc.) say otherwise. Present the evidence clearly and let the user decide.
 - **Always** consider both personal data protection (GDPR) and organizational/reputational concerns when making decisions about data shared between partners, published in reports, or exposed through APIs. Small cell counts in shared reports can expose which departments had specific rare pathogens or resistance patterns.
-- **Never** namespace-qualify base R recommended-package functions with `stats::`, `utils::`, `methods::`, `grDevices::`, `graphics::`, or `datasets::`. These packages are auto-attached at R startup; unqualified calls resolve at runtime. Existing qualifications in the codebase are the legacy pattern, not the model — drop them on sight. Documentation links and in-message references inside backticks (e.g. `[stats::poisson.test()]` in a roxygen `@seealso`, or a `stats::rbinom()` reference inside an error message) are documentation, not calls, and stay qualified. <!-- SYNC: propagate to all repos -->
 
 ### R/ file structure
 
