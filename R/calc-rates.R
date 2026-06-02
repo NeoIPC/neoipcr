@@ -148,7 +148,7 @@ get_infectious_agent_detection_rates_with_department_quartiles <- function(
 
   if(nrow(r1) < 1)
   {
-    gc <- setNames(
+    gc <- stats::setNames(
       as.list(rep(NA_character_, length(group_cols))),
       group_cols)
     return(

@@ -178,7 +178,10 @@ import_dhis2 <- function(
   # Split the sparse free-text `name` column off into its own tibble so the
   # main findings table doesn't carry a mostly-NA column. Only rows where the
   # user manually typed a pathogen name (typically when pathogen_key == 0
-  # "unknown") end up in unknownPathogenNames.
+  # "unknown") end up in unknownPathogenNames. The `name` value is a
+  # clinical/scientific pathogen identifier (genus + species or a typo
+  # thereof), not patient-identifying information, so apply_data_removal()
+  # does not gate it via include_* options.
   unknownPathogenNames <- if ("name" %in% names(infectiousAgentFindings))
       infectiousAgentFindings |>
         dplyr::filter(!is.na(.data$name) & nzchar(.data$name)) |>
