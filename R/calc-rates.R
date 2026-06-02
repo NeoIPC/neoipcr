@@ -136,7 +136,7 @@ get_infectious_agent_detection_rates_with_department_quartiles <- function(
     dplyr::pull("n")
 
   n_deps <- length(inf_with_pathogen)
-  median_inf_with_pathogen <- stats::median(inf_with_pathogen)
+  median_inf_with_pathogen <- median(inf_with_pathogen)
 
   r1 <- x |>
     get_infectious_agent_detection_rates(
@@ -148,7 +148,7 @@ get_infectious_agent_detection_rates_with_department_quartiles <- function(
 
   if(nrow(r1) < 1)
   {
-    gc <- stats::setNames(
+    gc <- setNames(
       as.list(rep(NA_character_, length(group_cols))),
       group_cols)
     return(
@@ -195,7 +195,7 @@ get_infectious_agent_detection_rates_with_department_quartiles <- function(
     dplyr::reframe(
       dplyr::across(
         tidyselect::everything(),
-        ~stats::quantile(.x, prob = c(.25,.5,.75), na.rm = TRUE))) |>
+        ~quantile(.x, prob = c(.25,.5,.75), na.rm = TRUE))) |>
     dplyr::bind_cols(tibble::tibble(name = c("q1","q2","q3"))) |>
     tidyr::pivot_wider(values_from = !"name", names_glue = glue_spec) |>
     tidyr::pivot_longer(
@@ -408,12 +408,12 @@ get_resistance_test_rate_with_department_quartiles <- function(
   dep_stats <- deps |>
     dplyr::summarise(
       n_deps = dplyr::n(),
-      median = stats::median(.data$total),
+      median = median(.data$total),
       .groups = "drop")
 
   quartiles <- deps |>
     dplyr::reframe(
-      value = stats::quantile(
+      value = quantile(
         .data$rate,
         prob = c(.25,.5,.75),
         na.rm = TRUE)) |>
@@ -590,12 +590,12 @@ get_resistance_rate_with_department_quartiles <- function(
     dep_stats <- deps |>
       dplyr::summarise(
         n_deps = dplyr::n(),
-        median = stats::median(.data$inf_w_ia),
+        median = median(.data$inf_w_ia),
         .groups = "drop")
 
     quartiles <- deps |>
       dplyr::reframe(
-        value = stats::quantile(
+        value = quantile(
           .data$inf_rs_rate,
           prob = c(.25,.5,.75),
           na.rm = TRUE)) |>
@@ -702,12 +702,12 @@ get_organism_resistance_rate_with_department_quartiles <- function(
     dep_stats <- deps |>
       dplyr::summarise(
         n_deps = dplyr::n(),
-        median = stats::median(.data$ia_tst_tot),
+        median = median(.data$ia_tst_tot),
         .groups = "drop")
 
     quartiles <- deps |>
       dplyr::reframe(
-        value = stats::quantile(
+        value = quantile(
           .data$ia_rs_rate,
           prob = c(.25,.5,.75),
           na.rm = TRUE)) |>

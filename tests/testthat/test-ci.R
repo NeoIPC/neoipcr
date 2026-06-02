@@ -11,7 +11,7 @@ test_that("neoipc_poisson_ci returns correct structure", {
 
 test_that("neoipc_poisson_ci matches known poisson.test result", {
   # Verify against direct poisson.test() call
-  pt <- stats::poisson.test(47, T = 28904, conf.level = 0.95)
+  pt <- poisson.test(47, T = 28904, conf.level = 0.95)
   result <- neoipc_poisson_ci(47, 28904, multiplier = 1000)
   expect_equal(result$rate, 47 / 28904 * 1000)
   expect_equal(result$lower, pt$conf.int[1] * 1000)
@@ -81,7 +81,7 @@ test_that("neoipc_wilson_ci returns correct structure", {
 
 test_that("neoipc_wilson_ci matches known Wilson formula result", {
   # x = 220, n = 283 — verify against hand-computed Wilson score
-  z <- stats::qnorm(0.975)
+  z <- qnorm(0.975)
   p_hat <- 220 / 283
   denom <- 1 + z^2 / 283
   center <- (p_hat + z^2 / (2 * 283)) / denom
@@ -259,7 +259,7 @@ test_that("bootstrap_quantile_ci contains observed quartiles for large counts", 
   events <- c(50, 40, 80, 60, 35, 70, 55, 45)
   exposure <- rep(1000, 8)
   rates <- events / exposure * 1000
-  observed_q <- stats::quantile(rates, probs = c(0.25, 0.5, 0.75), names = FALSE)
+  observed_q <- quantile(rates, probs = c(0.25, 0.5, 0.75), names = FALSE)
   result <- bootstrap_quantile_ci(events, exposure, type = "poisson",
                                    multiplier = 1000, B = 5000)
   expect_true(result$q1_ci_lower <= observed_q[1])
@@ -315,9 +315,9 @@ test_that("bootstrap_quantile_ci validates inputs", {
 
 test_that("bootstrap_quantile_ci does not corrupt global RNG state", {
   set.seed(999)
-  expected <- stats::runif(1)
+  expected <- runif(1)
   set.seed(999)
   bootstrap_quantile_ci(c(5, 10), c(100, 100), type = "poisson", seed = 42)
-  actual <- stats::runif(1)
+  actual <- runif(1)
   expect_equal(actual, expected)
 })

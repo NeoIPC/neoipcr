@@ -40,7 +40,7 @@ neoipc_poisson_ci <- function(events, exposure,
   check_number_decimal(multiplier, min = .Machine$double.eps)
   check_number_decimal(conf.level, min = .Machine$double.eps, max = 1 - .Machine$double.eps)
 
-  pt <- stats::poisson.test(events, T = exposure, conf.level = conf.level)
+  pt <- poisson.test(events, T = exposure, conf.level = conf.level)
   list(
     rate  = events / exposure * multiplier,
     lower = pt$conf.int[1] * multiplier,
@@ -91,7 +91,7 @@ neoipc_wilson_ci <- function(x, n, conf.level = 0.95) {
   if (x > n) rlang::abort("`x` must be <= `n`.")
   check_number_decimal(conf.level, min = .Machine$double.eps, max = 1 - .Machine$double.eps)
 
-  z <- stats::qnorm(1 - (1 - conf.level) / 2)
+  z <- qnorm(1 - (1 - conf.level) / 2)
   p_hat <- x / n
   denom <- 1 + z^2 / n
   center <- (p_hat + z^2 / (2 * n)) / denom
@@ -271,27 +271,27 @@ bootstrap_quantile_ci <- function(events, exposure,
   for (b in seq_len(B)) {
     if (type == "poisson") {
       # Jeffreys posterior: λ ~ Gamma(events + 0.5, exposure)
-      lambda <- stats::rgamma(k, shape = events + 0.5, rate = exposure)
-      boot_events <- stats::rpois(k, lambda = lambda * exposure)
+      lambda <- rgamma(k, shape = events + 0.5, rate = exposure)
+      boot_events <- rpois(k, lambda = lambda * exposure)
       boot_rates <- boot_events / exposure * multiplier
     } else {
       # Jeffreys posterior: p ~ Beta(events + 0.5, exposure - events + 0.5)
-      p <- stats::rbeta(k,
+      p <- rbeta(k,
                         shape1 = events + 0.5,
                         shape2 = exposure - events + 0.5)
-      boot_events <- stats::rbinom(k, size = exposure, prob = p)
+      boot_events <- rbinom(k, size = exposure, prob = p)
       boot_rates <- boot_events / exposure * multiplier
     }
-    boot_q[b, ] <- stats::quantile(boot_rates, probs = c(0.25, 0.5, 0.75),
+    boot_q[b, ] <- quantile(boot_rates, probs = c(0.25, 0.5, 0.75),
                                     names = FALSE)
   }
 
   tibble::tibble(
-    q1_ci_lower = stats::quantile(boot_q[, 1], probs = alpha / 2, names = FALSE),
-    q1_ci_upper = stats::quantile(boot_q[, 1], probs = 1 - alpha / 2, names = FALSE),
-    q2_ci_lower = stats::quantile(boot_q[, 2], probs = alpha / 2, names = FALSE),
-    q2_ci_upper = stats::quantile(boot_q[, 2], probs = 1 - alpha / 2, names = FALSE),
-    q3_ci_lower = stats::quantile(boot_q[, 3], probs = alpha / 2, names = FALSE),
-    q3_ci_upper = stats::quantile(boot_q[, 3], probs = 1 - alpha / 2, names = FALSE)
+    q1_ci_lower = quantile(boot_q[, 1], probs = alpha / 2, names = FALSE),
+    q1_ci_upper = quantile(boot_q[, 1], probs = 1 - alpha / 2, names = FALSE),
+    q2_ci_lower = quantile(boot_q[, 2], probs = alpha / 2, names = FALSE),
+    q2_ci_upper = quantile(boot_q[, 2], probs = 1 - alpha / 2, names = FALSE),
+    q3_ci_lower = quantile(boot_q[, 3], probs = alpha / 2, names = FALSE),
+    q3_ci_upper = quantile(boot_q[, 3], probs = 1 - alpha / 2, names = FALSE)
   )
 }

@@ -1,6 +1,6 @@
 get_birthweight_figure_data <- function(x) {
   bw_quartiles <- x$patients$birth_weight |>
-    stats::quantile(names = FALSE) |>
+    quantile(names = FALSE) |>
     as.integer()
 
   bw_mean = x$patients$birth_weight |>
@@ -13,7 +13,7 @@ get_birthweight_figure_data <- function(x) {
   # density.default needs at least two points
   if (length(x$patients$birth_weight) > 1) {
     bw_density <- x$patients$birth_weight |>
-      stats::density(from = bw_scale_min, to = bw_scale_max)
+      density(from = bw_scale_min, to = bw_scale_max)
 
     density_bw <- bw_density$x
     density_val <-  bw_density$y / sum(bw_density$y)
@@ -47,7 +47,7 @@ get_birthweight_figure_data <- function(x) {
 
 get_gestational_age_figure_data <- function(x) {
   ga_quartiles <- x$patients$total_gestation_days |>
-    stats::quantile(names = FALSE) |>
+    quantile(names = FALSE) |>
     as.integer()
 
   ga_mean = x$patients$total_gestation_days |>
@@ -60,7 +60,7 @@ get_gestational_age_figure_data <- function(x) {
   # density.default needs at least two points
   if (length(x$patients$total_gestation_days) > 1) {
     ga_density <- x$patients$total_gestation_days |>
-      stats::density(from = ga_scale_min, to = ga_scale_max)
+      density(from = ga_scale_min, to = ga_scale_max)
 
     density_ga <- ga_density$x
     density_val <-  ga_density$y / sum(ga_density$y)
@@ -192,7 +192,7 @@ get_usage_density_rate_table <- function(
       use_cache = use_cache)
 
     n_deps <- length(dept_risk_time$patient_days)
-    median_patient_days <- stats::median(dept_risk_time$patient_days)
+    median_patient_days <- median(dept_risk_time$patient_days)
 
     # Pivot dept-level data to long format for bootstrap
     dept_rates <- dept_risk_time |>
@@ -212,7 +212,7 @@ get_usage_density_rate_table <- function(
           dplyr::reframe(
             dplyr::across(
               tidyselect::everything(),
-              ~list(stats::quantile(.x, probs = quartile_probs, names = FALSE)))) |>
+              ~list(quantile(.x, probs = quartile_probs, names = FALSE)))) |>
           tidyr::pivot_longer(
             cols = tidyselect::ends_with("_rate"),
             names_to = "factor",
@@ -360,13 +360,13 @@ get_antibiotic_utilisation_table <- function(
       dplyr::mutate(rate = .data$n / .data$patient_days * 100)
 
     n_deps <- nrow(dept_patient_days)
-    median_patient_days <- stats::median(dept_patient_days$patient_days)
+    median_patient_days <- median(dept_patient_days$patient_days)
 
     # Compute quartiles per row_id
     quartiles <- dept_rates |>
       dplyr::group_by(.data$row_id) |>
       dplyr::reframe(
-        q = list(stats::quantile(.data$rate, probs = quartile_probs,
+        q = list(quantile(.data$rate, probs = quartile_probs,
                                  names = FALSE))) |>
       tidyr::unnest_wider("q", names_sep = "") |>
       ensure_quartile_cols()
@@ -479,7 +479,7 @@ get_ref_surgery_rate_table <- function(ref, use_cache = TRUE) {
     dplyr::select("department_key", "n_patients")
 
   n_deps <- nrow(pats_per_dept)
-  median_patients <- stats::median(dplyr::pull(pats_per_dept, "n_patients"))
+  median_patients <- median(dplyr::pull(pats_per_dept, "n_patients"))
 
   r <- ref |>
     get_surgery_rate_table(use_cache = use_cache)
@@ -520,7 +520,7 @@ get_ref_surgery_rate_table <- function(ref, use_cache = TRUE) {
     dplyr::reframe(
       dplyr::across(
         tidyselect::everything(),
-        ~stats::quantile(.x, prob = c(.25,.5,.75), na.rm = TRUE))) |>
+        ~quantile(.x, prob = c(.25,.5,.75), na.rm = TRUE))) |>
     dplyr::bind_cols(tibble::tibble(name = c("q1","q2","q3"))) |>
     tidyr::pivot_wider(values_from = !"name") |>
     tidyr::pivot_longer(
@@ -607,7 +607,7 @@ get_incidence_density_rate_table <- function(
       dplyr::pull("patient_days")
 
     n_deps <- length(pat_days)
-    median_patient_days <- stats::median(pat_days)
+    median_patient_days <- median(pat_days)
 
     dept_rates <- x |>
       get_incidence_density_rates(
@@ -622,7 +622,7 @@ get_incidence_density_rate_table <- function(
           dplyr::group_by(.data$inf) |>
           dplyr::summarise(
             q = list(
-              stats::quantile(
+              quantile(
                 .data$rate,
                 probs = quartile_probs,
                 names = FALSE))) |>
@@ -729,7 +729,7 @@ get_dev_ass_incidence_density_rate_table <- function(
       dplyr::inner_join(
         dev_days |>
           dplyr::select(!"department_key") |>
-          dplyr::summarise(dplyr::across(tidyselect::everything(), stats::median)) |>
+          dplyr::summarise(dplyr::across(tidyselect::everything(), median)) |>
           tidyr::pivot_longer(
             cols = tidyselect::everything(),
             names_to = "dev",
@@ -750,7 +750,7 @@ get_dev_ass_incidence_density_rate_table <- function(
           dplyr::group_by(.data$dev) |>
           dplyr::summarise(
             q = list(
-              stats::quantile(
+              quantile(
                 .data$rate,
                 probs = quartile_probs,
                 names = FALSE))) |>
@@ -870,7 +870,7 @@ get_infectious_agent_detection_rate_per_inf_type_table <- function(
       ) |>
       dplyr::group_by(.data$event_type_key) |>
       dplyr::summarise(
-        median = stats::median(.data$n),
+        median = median(.data$n),
         n = dplyr::n())
 
     dept_rates <- x |>
@@ -890,7 +890,7 @@ get_infectious_agent_detection_rate_per_inf_type_table <- function(
           dplyr::group_by(.data$event_type_key) |>
           dplyr::summarise(
             q = list(
-              stats::quantile(
+              quantile(
                 .data$iwp_per_t,
                 probs = quartile_probs,
                 # In this case NaN indicates that the department has not even
@@ -1664,7 +1664,7 @@ get_secondary_bsi_rate_table <- function(
       dplyr::group_by(.data$department_key) |>
       dplyr::summarise(total_n = sum(.data$n), .groups = "drop") |>
       dplyr::pull("total_n") |>
-      stats::median()
+      median()
 
     if (nrow(dept_rates) < 1) {
       r <- r |>

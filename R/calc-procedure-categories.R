@@ -41,10 +41,10 @@ get_procedure_categories <- function(
 
     pairs <- with_pretty |> dplyr::distinct()
 
-    col_names <- stats::setNames(
+    col_names <- setNames(
       gettext("Procedure code","Procedure category"),
       c("procedure_code","pro_cat"))
-    row_names <- stats::setNames(pairs$pretty_name, pairs$pro_cat)
+    row_names <- setNames(pairs$pretty_name, pairs$pro_cat)
 
     attr(r, "names.pretty") <- col_names
     attr(r, "row.names.pretty") <- row_names
