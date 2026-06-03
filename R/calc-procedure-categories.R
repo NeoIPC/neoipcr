@@ -210,7 +210,7 @@ get_procedure_category <- function(x, not_surgery_na = FALSE) {
 }
 
 get_procedure_category_pretty <- function(x) {
-  dplyr::case_match(
+  dplyr::recode_values(
     as.character(x),
     "overall" ~ gettext("Overall"),
     "abdominal_surgery" ~ gettext("Abdominal surgery"),
@@ -222,6 +222,6 @@ get_procedure_category_pretty <- function(x) {
     "other" ~ gettext("Other"),
     "not_surgery" ~ gettext("Not a surgical procedure"),
     "to_be_categorised" ~ gettext("Not yet categorised"),
-    .default = x
+    default = x
   )
 }

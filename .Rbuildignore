@@ -5,10 +5,12 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^README\.Rmd$
+^data$
 ^data-raw$
 ^tools$
 ^\.covrignore$
 ^CLAUDE\.md$
+^API-DESIGN\.md$
 ^coverage\.html$
 ^lib$
 ^scripts$

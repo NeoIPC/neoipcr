@@ -1044,7 +1044,8 @@ make_calc_test_ds <- function() {
       dol = c(8L, 9L), los = c(7L, 8L),
       dev_ass = factor(c("1", "0"))),
     surgeryData         = make_test_surgery_data(6L),
-    infectiousAgentFindings = make_test_iaf(c(3L, 9L)),
+    infectiousAgentFindings = make_test_iaf(c(3L, 9L),
+      pathogen_key = c(1L, 503L)),
     substanceDays       = make_test_substance_days(c(2L, 5L, 8L)))
 }
 

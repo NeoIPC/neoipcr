@@ -178,11 +178,10 @@ import_dhis2 <- function(
   ssiData <- read_event_data(
     events_raw, metadata$.events_internal_map, metadata, dataset_options, "ssi")
 
-  infectiousAgentFindings <- read_infectious_agent_findings(
+  findings_pair <- read_infectious_agent_findings(
     events_raw, metadata$.events_internal_map, metadata, dataset_options)
-
-  unknownPathogenNames <- read_unknown_pathogen_names(
-    infectiousAgentFindings, dataset_options)
+  infectiousAgentFindings <- findings_pair$infectiousAgentFindings
+  unknownPathogenNames    <- findings_pair$unknownPathogenNames
 
   substanceDays <- read_substance_days(
     events_raw, metadata$.events_internal_map, metadata, dataset_options)

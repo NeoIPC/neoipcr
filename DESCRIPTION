@@ -17,11 +17,12 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 Depends:
     R (>= 4.4)
-Imports: 
+Imports:
     askpass (>= 1.2.1),
     dplyr (>= 1.1.4),
     httr2 (>= 1.1.1),
     ids (>= 1.0.1),
+    jsonlite (>= 1.9.1),
     lubridate (>= 1.9.4),
     purrr (>= 1.0.4),
     readr (>= 2.1.5),
@@ -33,7 +34,6 @@ Imports:
     uuid (>= 1.2-1)
 Suggests:
     covr (>= 3.6.0),
-    jsonlite (>= 1.9.1),
     roxygen2 (>= 8.0.0),
     testthat (>= 3.0.0),
     withr (>= 2.5.0),
@@ -67,6 +67,7 @@ Collate:
     'import-dhis2.R'
     'import-standalone-obj-type.R'
     'import-standalone-types-check.R'
+    'json.R'
     'neoipcr-package.R'
     'pathogens.R'
     'scales.R'

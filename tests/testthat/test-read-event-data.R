@@ -644,8 +644,9 @@ test_that("findings: sparse pathogens still produce full schema", {
     pathogen_rows   = list(list("1" = list(pathogen = "42"))))
   processed <- build_processed_events(1L, "bsi")
 
-  result <- neoipcr:::read_infectious_agent_findings(
+  pair   <- neoipcr:::read_infectious_agent_findings(
     events_raw, processed, metadata, opts)
+  result <- pair$infectiousAgentFindings
 
   expect_identical(names(result), names(expected))
   expect_equal(nrow(result), 1L)
@@ -657,11 +658,15 @@ test_that("findings: sparse pathogens still produce full schema", {
   expect_true(is.factor(result$source))
   # Multiple should be NA.
   expect_true(is.na(result$multiple[[1L]]))
+  # Sibling unknownPathogenNames is empty here (no free-text name).
+  expect_equal(nrow(pair$unknownPathogenNames), 0L)
 })
 
 test_that("findings: no matching events produce empty schema", {
   opts     <- .test_opts()
   expected <- neoipcr:::compile_schema(neoipcr:::findings_cols, opts)
+  upn_expected <- neoipcr:::compile_schema(
+    neoipcr:::unknownPathogenNames_cols, opts)
   metadata <- build_reader_metadata("bsi")
 
   # Event IDs don't match processed_events, so inner_join produces
@@ -672,9 +677,53 @@ test_that("findings: no matching events produce empty schema", {
     pathogen_rows   = list(list("1" = list(pathogen = "42"))))
   processed <- build_processed_events(1L, "bsi")
 
-  result <- neoipcr:::read_infectious_agent_findings(
+  pair   <- neoipcr:::read_infectious_agent_findings(
     events_raw, processed, metadata, opts)
+  result <- pair$infectiousAgentFindings
 
   expect_identical(names(result), names(expected))
   expect_equal(nrow(result), 0L)
+  expect_identical(
+    names(pair$unknownPathogenNames), names(upn_expected))
+  expect_equal(nrow(pair$unknownPathogenNames), 0L)
+})
+
+test_that("findings: free-text pathogen names land in unknownPathogenNames", {
+  # Regression test for `tasks/fix-unknown-pathogen-names-split.md`:
+  # the pre-fix split ran on the already-finalized findings (where
+  # `name` had been stripped by `finalize_to_schema`'s scratch
+  # handling), producing an always-empty unknownPathogenNames and an
+  # `'NA'` in Validation Rule 20. The split now runs on the
+  # pre-finalize intermediate while `name` is still attached.
+  opts     <- .test_opts()
+  metadata <- build_reader_metadata("bsi")
+
+  events_raw <- build_raw_pathogen_events(
+    event_keys      = c(1L, 2L),
+    event_type_keys = c("bsi", "bsi"),
+    pathogen_rows   = list(
+      list("1" = list(pathogen = "0", name = "Bizarre bacterium A")),
+      list("1" = list(pathogen = "42"),
+           "2" = list(pathogen = "0", name = "Bizarre bacterium B"))))
+  processed <- build_processed_events(c(1L, 2L), "bsi")
+
+  pair <- neoipcr:::read_infectious_agent_findings(
+    events_raw, processed, metadata, opts)
+
+  # Findings carries all three rows; `name` is stripped (not declared).
+  expect_equal(nrow(pair$infectiousAgentFindings), 3L)
+  expect_false("name" %in% names(pair$infectiousAgentFindings))
+
+  # unknownPathogenNames carries the two free-text rows, linked by
+  # agent_finding_key.
+  upn <- pair$unknownPathogenNames
+  expect_identical(names(upn), c("agent_finding_key", "name"))
+  expect_equal(nrow(upn), 2L)
+  expect_setequal(
+    upn$name, c("Bizarre bacterium A", "Bizarre bacterium B"))
+  # Each name's key must resolve to a `pathogen_key == 0` row on findings.
+  iaf <- pair$infectiousAgentFindings
+  for (k in upn$agent_finding_key)
+    expect_equal(
+      iaf$pathogen_key[iaf$agent_finding_key == k], 0L)
 })

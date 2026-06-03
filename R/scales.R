@@ -1,13 +1,10 @@
 ga7 <- function(x) {
-  7 * dplyr::case_match(
-  as.integer(x %% 7),
-  0L ~ as.integer(x / 7),
-  1L ~ as.integer(x / 7),
-  2L ~ as.integer(x / 7),
-  3L ~ as.integer(x / 7),
-  4L ~ as.integer(x / 7) + 1,
-  5L ~ as.integer(x / 7) + 1,
-  6L ~ as.integer(x / 7) + 1)
+  remainder <- as.integer(x %% 7)
+  base <- as.integer(x / 7)
+  7 * dplyr::case_when(
+    remainder <= 3L ~ base,
+    .default = base + 1L
+  )
 }
 
 bw50 <- function(x, as_factor = TRUE) {

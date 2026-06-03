@@ -854,7 +854,7 @@ pretty_names.neoipcr_tbl_sr_ref <- function(x, ...) {
     dplyr::inner_join(pairs, dplyr::join_by("pro_cat")) |>
     dplyr::mutate(pro_cat = .data$pretty_name, .keep = "unused") |>
     dplyr::rename_with(
-      ~ dplyr::case_match(
+      ~ dplyr::recode_values(
         .x,
         "pro_cat"~col_names[["pro_cat"]],
         "n"~col_names[["n"]],
@@ -862,7 +862,7 @@ pretty_names.neoipcr_tbl_sr_ref <- function(x, ...) {
         "q1"~col_names[["q1"]],
         "q2"~col_names[["q2"]],
         "q3"~col_names[["q3"]],
-        .default = .x))
+        default = .x))
 }
 
 quartile_probs <- c(0.25,0.5,0.75)
