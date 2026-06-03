@@ -24,7 +24,10 @@ make_test_unit_ds <- function() {
   md$eventTypes       <- make_test_metadata_event_types()
   md$dataset_options  <- dhis2_dataset_options(
     include_department = "full",
-    include_country    = "full")
+    include_country    = "full",
+    include_patient    = "full",
+    include_enrollment = "full",
+    include_event      = "full")
 
   patients <- make_test_patients(2,
     department_key       = c(1L, 1L),

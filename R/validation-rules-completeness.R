@@ -11,7 +11,9 @@ validation_rule_5 <- function(x, exceptions)
     return()
   }
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(5L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -25,14 +27,12 @@ validation_rule_5 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status") |>
-    dplyr::mutate(rule_id = 5L, .before = 1) |>
+            "patient_key")),"enrollment_key","status")) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)),
-      .groups = "drop")
+          status = .data$status)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -56,7 +56,9 @@ validation_rule_6 <- function(x, exceptions)
     return()
   }
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(6L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrollment_status" = "status") |>
@@ -71,14 +73,12 @@ validation_rule_6 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status") |>
-    dplyr::mutate(rule_id = 6L, .before = 1) |>
+            "patient_key")),"enrollment_key","status")) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)),
-      .groups = "drop")
+          status = .data$status)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -102,7 +102,9 @@ validation_rule_7 <- function(x, exceptions)
     return()
   }
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(7L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrollment_status" = "status") |>
@@ -117,14 +119,12 @@ validation_rule_7 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status") |>
-    dplyr::mutate(rule_id = 7L, .before = 1) |>
+            "patient_key")),"enrollment_key","status")) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)),
-      .groups = "drop")
+          status = .data$status)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -148,7 +148,9 @@ validation_rule_8 <- function(x, exceptions)
     return()
   }
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(8L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrollment_status" = "status") |>
@@ -163,14 +165,12 @@ validation_rule_8 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status") |>
-    dplyr::mutate(rule_id = 8L, .before = 1) |>
+            "patient_key")),"enrollment_key","status")) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)),
-      .groups = "drop")
+          status = .data$status)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -194,7 +194,9 @@ validation_rule_9 <- function(x, exceptions)
     return()
   }
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(9L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrollment_status" = "status") |>
@@ -209,14 +211,12 @@ validation_rule_9 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status") |>
-    dplyr::mutate(rule_id = 9L, .before = 1) |>
+            "patient_key")),"enrollment_key","status")) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)),
-      .groups = "drop")
+          status = .data$status)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -240,7 +240,9 @@ validation_rule_10 <- function(x, exceptions)
     return()
   }
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(10L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrollment_status" = "status") |>
@@ -255,14 +257,12 @@ validation_rule_10 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status") |>
-    dplyr::mutate(rule_id = 10L, .before = 1) |>
+            "patient_key")),"enrollment_key","status")) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)),
-      .groups = "drop")
+          status = .data$status)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -286,7 +286,9 @@ validation_rule_11 <- function(x, exceptions)
     return()
   }
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(11L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrollment_status" = "status") |>
@@ -301,14 +303,12 @@ validation_rule_11 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","status") |>
-    dplyr::mutate(rule_id = 11L, .before = 1) |>
+            "patient_key")),"enrollment_key","status")) |>
     dplyr::group_by(dplyr::across(!"status")) |>
     dplyr::summarise(
       context = list(
         list(
-          status = .data$status)),
-      .groups = "drop")
+          status = .data$status)))
 
   if(!is.null(exceptions))
     r <- r |>

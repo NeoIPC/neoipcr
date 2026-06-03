@@ -213,6 +213,20 @@ test_that("wilson_ci_cols returns NA for NA/zero-n inputs", {
   expect_true(is.na(result$ci_lower[3]))
 })
 
+test_that("poisson_ci_cols returns 0x2 tibble for empty input", {
+  result <- neoipcr:::poisson_ci_cols(integer(), numeric(), 1000)
+  expect_s3_class(result, "tbl_df")
+  expect_named(result, c("ci_lower", "ci_upper"))
+  expect_equal(nrow(result), 0L)
+})
+
+test_that("wilson_ci_cols returns 0x2 tibble for empty input", {
+  result <- neoipcr:::wilson_ci_cols(integer(), integer())
+  expect_s3_class(result, "tbl_df")
+  expect_named(result, c("ci_lower", "ci_upper"))
+  expect_equal(nrow(result), 0L)
+})
+
 test_that("poisson_ci_cols CI ordering is consistent", {
   events <- c(0, 1, 5, 50, 200)
   exposure <- c(1000, 1000, 1000, 1000, 1000)

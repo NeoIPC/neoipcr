@@ -3,19 +3,20 @@ validation_rule_1 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- x$patients |>
-    dplyr::select(
-      tidyselect::any_of(c("hospital_key", "department_key")),
-      "patient_key") |>
-    dplyr::anti_join(
-      x$enrollments,
-      dplyr::join_by("patient_key")) |>
-    dplyr::select(
-      tidyselect::any_of(
-        c("hospital_key",
-          "department_key",
-          "patient_key"))) |>
-    dplyr::mutate(rule_id = 1L, .before = 1)
+  r <- dplyr::bind_cols(
+    rule_id = c(1L),
+    .with_hierarchy_context(x$patients, x$metadata$departments) |>
+      dplyr::select(
+        tidyselect::any_of(c("hospital_key", "department_key")),
+        "patient_key") |>
+      dplyr::anti_join(
+        x$enrollments,
+        dplyr::join_by("patient_key")) |>
+      dplyr::select(
+        tidyselect::any_of(
+          c("hospital_key",
+            "department_key",
+            "patient_key"))))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -35,40 +36,39 @@ validation_rule_2 <- function(x, exceptions)
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
     rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 2),
+      gettextf("Validation rule %i failed to execute.", 2L),
       gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
     return()
   }
 
-  r <- x$enrollments |>
-    dplyr::select(
-      tidyselect::any_of(c("hospital_key", "department_key")),
-      "patient_key",
-      "enrollment_key",
-      "enrollment_status" = "status") |>
-    dplyr::inner_join(
-      x$events |>
-        dplyr::filter(.data$event_type_key == "end") |>
-        dplyr::select(
-          "enrollment_key",
-          "event_key",
-          "event_status" = "status"),
-      dplyr::join_by("enrollment_key")) |>
-    dplyr::filter(.data$enrollment_status == "ACTIVE" & .data$event_status == "COMPLETED") |>
-    dplyr::select(
-      tidyselect::any_of(
-        c("hospital_key",
-          "department_key",
-          "patient_key",
-          "enrollment_key",
-          "event_key"))) |>
-    dplyr::mutate(rule_id = 2L, .before = 1)
+  r <- dplyr::bind_cols(
+    rule_id = c(2L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
+      dplyr::select(
+        tidyselect::any_of(c("hospital_key", "department_key")),
+        "patient_key",
+        "enrollment_key",
+        "enrollment_status" = "status") |>
+      dplyr::inner_join(
+        x$events |>
+          dplyr::filter(.data$event_type_key == "end") |>
+          dplyr::select(
+            "enrollment_key",
+            "event_status" = "status"),
+        dplyr::join_by("enrollment_key")) |>
+      dplyr::filter(.data$enrollment_status == "ACTIVE" & .data$event_status == "COMPLETED") |>
+      dplyr::select(
+        tidyselect::any_of(
+          c("hospital_key",
+            "department_key",
+            "patient_key",
+            "enrollment_key"))))
 
   if(!is.null(exceptions))
     r <- r |>
     dplyr::anti_join(
       exceptions,
-      dplyr::join_by("rule_id","enrollment_key","event_key"))
+      dplyr::join_by("rule_id","enrollment_key"))
 
   return(r)
 }
@@ -80,7 +80,7 @@ validation_rule_17 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  intervals <- x$enrollments |>
+  intervals <- .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
     dplyr::select(
       tidyselect::any_of(
         c("hospital_key","department_key")),
@@ -96,7 +96,9 @@ validation_rule_17 <- function(x, exceptions)
         .data$occurredAt),
       .keep = "unused")
 
-  r <- intervals |>
+  r <- dplyr::bind_cols(
+    rule_id = c(17L),
+    intervals |>
       dplyr::inner_join(
         intervals,
         dplyr::join_by("patient_key"),
@@ -114,8 +116,7 @@ validation_rule_17 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key.x",
             "department_key.x"
-            )),"patient_key","enrollment_key.x","enrollment_key.y","surveillanceInterval.x","surveillanceInterval.y") |>
-    dplyr::mutate(rule_id = 17L, .before = 1) |>
+            )),"patient_key","enrollment_key.x","enrollment_key.y","surveillanceInterval.x","surveillanceInterval.y")) |>
     dplyr::rename_with(
       ~ stringr::str_extract(.x,"^[^\\.]*"),
       !tidyselect::any_of(
@@ -143,7 +144,9 @@ validation_rule_25 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(25L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::filter(
         dplyr::if_all(
           tidyselect::any_of("status"),
@@ -156,8 +159,7 @@ validation_rule_25 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key") |>
-    dplyr::mutate(rule_id = 25L, .before = 1)
+            "patient_key")),"enrollment_key"))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -173,7 +175,9 @@ validation_rule_26 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(26L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::filter(
         dplyr::if_all(
           tidyselect::any_of("status"),
@@ -186,8 +190,7 @@ validation_rule_26 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key") |>
-    dplyr::mutate(rule_id = 26L, .before = 1)
+            "patient_key")),"enrollment_key"))
 
   if(!is.null(exceptions))
     r <- r |>

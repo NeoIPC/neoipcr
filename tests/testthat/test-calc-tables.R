@@ -252,25 +252,78 @@ test_that("get_gestational_age_figure_data location parameters match fixture", {
   expect_equal(lp$q3, as.integer(q[4]))
 })
 
-# --- get_infectious_agent_detection_rates: cross_join branch ---
-#
-# The cross_join branch fires when group_cols is non-NULL but every column in
-# group_cols is itself a column of infectiousAgentFindings or the pathogen
-# taxonomy (so inf_groups is empty after the setdiff). In that case there is
-# no shared key between the pathogen-grouped `r` and infection-count
-# `inf_counts`, and cross_join is the right operation.
+# --- Empty-data resilience ---
 
-test_that("get_infectious_agent_detection_rates cross_joins when group_cols are all in findings/taxonomy", {
-  # `pathogen_key` is a column of infectiousAgentFindings; `domain` is a
-  # column of the pathogen taxonomy. Both → inf_groups is empty.
-  r <- neoipcr:::get_infectious_agent_detection_rates(
-    calc_ds, group_cols = c("pathogen_key", "domain"))
-  expect_s3_class(r, "tbl_df")
-  expect_true(nrow(r) > 0L)
-  expect_true(all(c("pathogen_key", "domain", "n",
-                    "inf_with_pathogen", "total_inf",
-                    "n_per_iwp", "n_per_t", "iwp_per_t") %in% names(r)))
-  # Every row has the same (inf_with_pathogen, total_inf) pair because the
-  # cross_join replicates a single-row inf_counts across pathogen groups.
-  expect_equal(length(unique(r$total_inf)), 1L)
+empty_ds <- make_empty_calc_test_ds()
+
+# Without quartiles
+
+for (entry in table_fns) {
+  local({
+    nm <- entry$name
+    fn <- entry$fn
+    hq <- entry$has_q
+
+    test_that(paste0(nm, " survives empty data (no quartiles)"), {
+      if (hq)
+        result <- fn(empty_ds, use_cache = FALSE, include_quartiles = FALSE)
+      else
+        result <- fn(empty_ds, use_cache = FALSE)
+      expect_s3_class(result, "tbl_df")
+      expect_true("ci_lower" %in% names(result))
+      expect_true("ci_upper" %in% names(result))
+    })
+  })
+}
+
+# With quartiles
+
+for (entry in table_fns) {
+  local({
+    nm <- entry$name
+    fn <- entry$fn
+    hq <- entry$has_q
+
+    if (!hq) return()
+
+    test_that(paste0(nm, " survives empty data (with quartiles)"), {
+      result <- fn(empty_ds, use_cache = FALSE, include_quartiles = TRUE)
+      expect_s3_class(result, "tbl_df")
+      expect_true("q1" %in% names(result))
+    })
+  })
+}
+
+# Ref surgery (always with quartiles)
+
+test_that("get_ref_surgery_rate_table survives empty data", {
+  result <- get_ref_surgery_rate_table(empty_ds, use_cache = FALSE)
+  expect_s3_class(result, "tbl_df")
+  expect_true("q1" %in% names(result))
+})
+
+# Figure data
+
+test_that("get_birthweight_figure_data survives empty data", {
+  result <- neoipcr:::get_birthweight_figure_data(empty_ds)
+  expect_type(result, "list")
+  expect_named(result, c("density", "frequency", "location_parameters", "scale"))
+})
+
+test_that("get_gestational_age_figure_data survives empty data", {
+  result <- neoipcr:::get_gestational_age_figure_data(empty_ds)
+  expect_type(result, "list")
+  expect_named(result, c("density", "frequency", "location_parameters", "scale"))
+})
+
+# Orchestrators
+
+test_that("calculate_department_data survives empty data", {
+  result <- calculate_department_data(empty_ds, use_cache = FALSE)
+  expect_s3_class(result, "neoipcr_rep_ds")
+})
+
+test_that("calculate_reference_data survives empty data", {
+  result <- calculate_reference_data(empty_ds, use_cache = FALSE)
+  expect_s3_class(result, "neoipcr_ref_ds")
 })

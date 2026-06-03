@@ -3,7 +3,9 @@ validation_rule_3 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(3L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -17,15 +19,13 @@ validation_rule_3 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","enrolledAt","occurredAt") |>
-    dplyr::mutate(rule_id = 3L, .before = 1) |>
+            "patient_key")),"enrollment_key","enrolledAt","occurredAt")) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt"))) |>
     dplyr::summarise(
       context = list(
         list(
           enrolledAt = .data$enrolledAt,
-          occurredAt = .data$occurredAt)),
-      .groups = "drop")
+          occurredAt = .data$occurredAt)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -42,7 +42,9 @@ validation_rule_4 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(4L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key") |>
@@ -61,15 +63,13 @@ validation_rule_4 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","admOccurredAt","endOccurredAt") |>
-    dplyr::mutate(rule_id = 4L, .before = 1) |>
+            "patient_key")),"enrollment_key","admOccurredAt","endOccurredAt")) |>
     dplyr::group_by(dplyr::across(!c("admOccurredAt","endOccurredAt"))) |>
     dplyr::summarise(
       context = list(
         list(
           admOccurredAt = .data$admOccurredAt,
-          endOccurredAt = .data$endOccurredAt)),
-      .groups = "drop")
+          endOccurredAt = .data$endOccurredAt)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -86,7 +86,9 @@ validation_rule_12 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(12L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -113,8 +115,7 @@ validation_rule_12 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.bsi") |>
-    dplyr::mutate(rule_id = 12L, .before = 1) |>
+            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.bsi")) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.bsi"))) |>
     dplyr::summarise(
       context = list(
@@ -122,8 +123,7 @@ validation_rule_12 <- function(x, exceptions)
           enrolledAt = .data$enrolledAt,
           occurredAt.adm = .data$occurredAt.adm,
           occurredAt.end = .data$occurredAt.end,
-          occurredAt.bsi = .data$occurredAt.bsi)),
-      .groups = "drop")
+          occurredAt.bsi = .data$occurredAt.bsi)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -140,7 +140,9 @@ validation_rule_13 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(13L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -167,8 +169,7 @@ validation_rule_13 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.nec") |>
-    dplyr::mutate(rule_id = 13L, .before = 1) |>
+            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.nec")) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.nec"))) |>
     dplyr::summarise(
       context = list(
@@ -176,8 +177,7 @@ validation_rule_13 <- function(x, exceptions)
           enrolledAt = .data$enrolledAt,
           occurredAt.adm = .data$occurredAt.adm,
           occurredAt.end = .data$occurredAt.end,
-          occurredAt.nec = .data$occurredAt.nec)),
-      .groups = "drop")
+          occurredAt.nec = .data$occurredAt.nec)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -194,7 +194,9 @@ validation_rule_14 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(14L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -221,8 +223,7 @@ validation_rule_14 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.hap") |>
-    dplyr::mutate(rule_id = 14L, .before = 1) |>
+            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.hap")) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.hap"))) |>
     dplyr::summarise(
       context = list(
@@ -230,8 +231,7 @@ validation_rule_14 <- function(x, exceptions)
           enrolledAt = .data$enrolledAt,
           occurredAt.adm = .data$occurredAt.adm,
           occurredAt.end = .data$occurredAt.end,
-          occurredAt.hap = .data$occurredAt.hap)),
-      .groups = "drop")
+          occurredAt.hap = .data$occurredAt.hap)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -248,7 +248,9 @@ validation_rule_15 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(15L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -275,8 +277,7 @@ validation_rule_15 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.pro") |>
-    dplyr::mutate(rule_id = 15L, .before = 1) |>
+            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.pro")) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.pro"))) |>
     dplyr::summarise(
       context = list(
@@ -284,8 +285,7 @@ validation_rule_15 <- function(x, exceptions)
           enrolledAt = .data$enrolledAt,
           occurredAt.adm = .data$occurredAt.adm,
           occurredAt.end = .data$occurredAt.end,
-          occurredAt.pro = .data$occurredAt.pro)),
-      .groups = "drop")
+          occurredAt.pro = .data$occurredAt.pro)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -302,7 +302,9 @@ validation_rule_16 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(16L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -329,8 +331,7 @@ validation_rule_16 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.ssi") |>
-    dplyr::mutate(rule_id = 16L, .before = 1) |>
+            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.ssi")) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.ssi"))) |>
     dplyr::summarise(
       context = list(
@@ -338,8 +339,7 @@ validation_rule_16 <- function(x, exceptions)
           enrolledAt = .data$enrolledAt,
           occurredAt.adm = .data$occurredAt.adm,
           occurredAt.end = .data$occurredAt.end,
-          occurredAt.ssi = .data$occurredAt.ssi)),
-      .groups = "drop")
+          occurredAt.ssi = .data$occurredAt.ssi)))
 
   if(!is.null(exceptions))
     r <- r |>

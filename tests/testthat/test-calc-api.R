@@ -59,3 +59,51 @@ test_that("calculate_department_data incidence_density_rate_table has structure"
   # Table has rate and count columns
   expect_true("rate" %in% names(idr) || "n" %in% names(idr))
 })
+
+
+# --- Precondition checks (C6) --------------------------------------------
+#
+# The three-valued link-privacy gates default to "no". If a caller
+# doesn't set them when importing, calculate_department_data() and
+# calculate_reference_data() must abort early with an actionable
+# message rather than crashing deep in the pipeline.
+
+test_that("calculate_department_data aborts when include_patient = 'no'", {
+  ds <- make_calc_test_ds()
+  ds$metadata$dataset_options$include_patient <- "no"
+  expect_error(
+    calculate_department_data(ds),
+    "include_patient")
+})
+
+test_that("calculate_department_data aborts when include_enrollment = 'no'", {
+  ds <- make_calc_test_ds()
+  ds$metadata$dataset_options$include_enrollment <- "no"
+  expect_error(
+    calculate_department_data(ds),
+    "include_enrollment")
+})
+
+test_that("calculate_department_data aborts when include_event = 'no'", {
+  ds <- make_calc_test_ds()
+  ds$metadata$dataset_options$include_event <- "no"
+  expect_error(
+    calculate_department_data(ds),
+    "include_event")
+})
+
+test_that("calculate_department_data aborts when include_department = 'no'", {
+  ds <- make_calc_test_ds()
+  ds$metadata$dataset_options$include_department <- "no"
+  expect_error(
+    calculate_department_data(ds),
+    "include_department")
+})
+
+test_that("calculate_department_data aborts when dataset_options is NULL", {
+  ds <- make_calc_test_ds()
+  ds$metadata$dataset_options <- NULL
+  expect_error(
+    calculate_department_data(ds),
+    "import options")
+})

@@ -5,15 +5,19 @@
       "organisationUnits": [
         {
           "id": "P3M2xL6Gtbs",
+          "name": "Switzerland",
           "code": "CH",
           "displayName": "Switzerland",
-          "displayShortName": "Switzerland"
+          "displayShortName": "Switzerland",
+          "displayDescription": "Swiss Confederation"
         },
         {
           "id": "TS5pOUJsdoa",
+          "name": "Germany",
           "code": "DE",
           "displayName": "Germany",
-          "displayShortName": "Germany"
+          "displayShortName": "Germany",
+          "displayDescription": "Federal Republic of Germany"
         }
       ]
     },

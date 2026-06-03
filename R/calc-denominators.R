@@ -186,28 +186,31 @@ get_substance_days <- function(
 
   r <- switch(level,
     substance = base |>
-      dplyr::transmute(
-        .data$event_key,
+      dplyr::mutate(
+        event_key = .data$event_key,
         code = .data$substance_code,
         display_name = as.character(.data$displayName),
-        .data$days),
+        days = .data$days,
+        .keep = "none"),
 
     atc5 = {
       atc5_names <- x$metadata$atc5Categories |>
-        dplyr::transmute(
+        dplyr::mutate(
           atc5_code = as.character(.data$code),
-          atc5_name = as.character(.data$displayName))
+          atc5_name = as.character(.data$displayName),
+          .keep = "none")
 
       base |>
         dplyr::mutate(atc5_code = as.character(.data$ATC5)) |>
         dplyr::left_join(atc5_names, dplyr::join_by("atc5_code")) |>
         dplyr::group_by(.data$event_key, .data$atc5_code, .data$atc5_name) |>
         dplyr::summarise(days = sum(.data$days), .groups = "drop") |>
-        dplyr::transmute(
-          .data$event_key,
+        dplyr::mutate(
+          event_key = .data$event_key,
           code = .data$atc5_code,
           display_name = .data$atc5_name,
-          .data$days)
+          days = .data$days,
+          .keep = "none")
     },
 
     aware = base |>
@@ -221,11 +224,12 @@ get_substance_days <- function(
           levels = c("a", "w", "r"))) |>
       dplyr::group_by(.data$event_key, .data$AWaRe) |>
       dplyr::summarise(days = sum(.data$days), .groups = "drop") |>
-      dplyr::transmute(
-        .data$event_key,
+      dplyr::mutate(
+        event_key = .data$event_key,
         code = .data$AWaRe,
         display_name = NA_character_,
-        .data$days)
+        days = .data$days,
+        .keep = "none")
   )
 
   cache(r, x, cache_key)
@@ -270,9 +274,10 @@ summarise_substance_days <- function(
 
     atc5 = {
       atc5_names <- x$metadata$atc5Categories |>
-        dplyr::transmute(
+        dplyr::mutate(
           atc5_code = as.character(.data$code),
-          atc5_name = as.character(.data$displayName))
+          atc5_name = as.character(.data$displayName),
+          .keep = "none")
 
       base |>
         dplyr::mutate(atc5_code = as.character(.data$ATC5)) |>

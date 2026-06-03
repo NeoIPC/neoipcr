@@ -5,10 +5,11 @@ validation_rule_19 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(19L),
+    x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1) |>
-    dplyr::mutate(rule_id = 19L, .before = 1)
+      dplyr::filter(.data$enrollment_key == -1))
 
   return(r)
 }
@@ -20,22 +21,26 @@ validation_rule_22 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   if (nrow(x$surgeryData) < 1)
-    return(x$enrollments |>
+    return(dplyr::bind_cols(
+      rule_id = c(22L),
+      x$enrollments |>
         dplyr::select("enrollment_key") |>
-        dplyr::filter(.data$enrollment_key == -1) |>
-        dplyr::mutate(rule_id = 22L, .before = 1))
+        dplyr::filter(.data$enrollment_key == -1)))
   if (!file.exists("../ICHE-Health-Intervention-Codes.csv")) {
-    rlang::warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
-    return(x$enrollments |>
+    warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
+    return(dplyr::bind_cols(
+      rule_id = c(22L),
+      x$enrollments |>
         dplyr::select("enrollment_key") |>
-        dplyr::filter(.data$enrollment_key == -1) |>
-        dplyr::mutate(rule_id = 22L, .before = 1))
+        dplyr::filter(.data$enrollment_key == -1)))
   }
 
   valid_iche_codes <- readr::read_csv("../ICHE-Health-Intervention-Codes.csv", col_names = FALSE, col_types = "c") |>
     dplyr::pull(1)
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(22L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -53,15 +58,13 @@ validation_rule_22 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","procedure_description","main_procedure_code") |>
-    dplyr::mutate(rule_id = 22L, .before = 1) |>
+            "patient_key")),"enrollment_key","event_key","procedure_description","main_procedure_code")) |>
     dplyr::group_by(dplyr::across(!c("procedure_description","main_procedure_code"))) |>
     dplyr::summarise(
       context = list(
         list(
           procedure_description = .data$procedure_description,
-          procedure_code = .data$main_procedure_code)),
-      .groups = "drop")
+          procedure_code = .data$main_procedure_code)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -79,22 +82,26 @@ validation_rule_23 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   if (nrow(x$surgeryData) < 1)
-    return(x$enrollments |>
+    return(dplyr::bind_cols(
+      rule_id = c(23L),
+      x$enrollments |>
         dplyr::select("enrollment_key") |>
-        dplyr::filter(.data$enrollment_key == -1) |>
-        dplyr::mutate(rule_id = 23L, .before = 1))
+        dplyr::filter(.data$enrollment_key == -1)))
   if (!file.exists("../ICHE-Health-Intervention-Codes.csv")) {
-    rlang::warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
-    return(x$enrollments |>
+    warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
+    return(dplyr::bind_cols(
+      rule_id = c(23L),
+      x$enrollments |>
         dplyr::select("enrollment_key") |>
-        dplyr::filter(.data$enrollment_key == -1) |>
-        dplyr::mutate(rule_id = 23L, .before = 1))
+        dplyr::filter(.data$enrollment_key == -1)))
   }
 
   valid_iche_codes <- readr::read_csv("../ICHE-Health-Intervention-Codes.csv", col_names = FALSE, col_types = "c") |>
     dplyr::pull(1)
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(23L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -113,15 +120,13 @@ validation_rule_23 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","procedure_description","side_procedure_code_1") |>
-    dplyr::mutate(rule_id = 23L, .before = 1) |>
+            "patient_key")),"enrollment_key","event_key","procedure_description","side_procedure_code_1")) |>
     dplyr::group_by(dplyr::across(!c("procedure_description","side_procedure_code_1"))) |>
     dplyr::summarise(
       context = list(
         list(
           procedure_description = .data$procedure_description,
-          procedure_code = .data$side_procedure_code_1)),
-      .groups = "drop")
+          procedure_code = .data$side_procedure_code_1)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -143,22 +148,26 @@ validation_rule_24 <- function(x, exceptions)
   }
 
   if (nrow(x$surgeryData) < 1)
-    return(x$enrollments |>
+    return(dplyr::bind_cols(
+      rule_id = c(24L),
+      x$enrollments |>
         dplyr::select("enrollment_key") |>
-        dplyr::filter(.data$enrollment_key == -1) |>
-        dplyr::mutate(rule_id = 24L, .before = 1))
+        dplyr::filter(.data$enrollment_key == -1)))
   if (!file.exists("../ICHE-Health-Intervention-Codes.csv")) {
-    rlang::warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
-    return(x$enrollments |>
+    warn("Skipping validation of ICHE codes due to missing ICHE Health Intervention Code information.")
+    return(dplyr::bind_cols(
+      rule_id = c(24L),
+      x$enrollments |>
         dplyr::select("enrollment_key") |>
-        dplyr::filter(.data$enrollment_key == -1) |>
-        dplyr::mutate(rule_id = 24L, .before = 1))
+        dplyr::filter(.data$enrollment_key == -1)))
   }
 
   valid_iche_codes <- readr::read_csv("../ICHE-Health-Intervention-Codes.csv", col_names = FALSE, col_types = "c") |>
     dplyr::pull(1)
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(24L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -177,15 +186,13 @@ validation_rule_24 <- function(x, exceptions)
         tidyselect::any_of(
           c("hospital_key",
             "department_key",
-            "patient_key")),"enrollment_key","event_key","procedure_description","side_procedure_code_2") |>
-    dplyr::mutate(rule_id = 24L, .before = 1) |>
+            "patient_key")),"enrollment_key","event_key","procedure_description","side_procedure_code_2")) |>
     dplyr::group_by(dplyr::across(!c("procedure_description","side_procedure_code_2"))) |>
     dplyr::summarise(
       context = list(
         list(
           procedure_description = .data$procedure_description,
-          procedure_code = .data$side_procedure_code_2)),
-      .groups = "drop")
+          procedure_code = .data$side_procedure_code_2)))
 
   if(!is.null(exceptions))
     r <- r |>

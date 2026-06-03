@@ -36,7 +36,7 @@
 #' @param patient_columns Character vector selecting which patient-specific
 #'  columns beyond `patient_key` are included when `include_patient = "full"`.
 #'  Choices: "id", "birth_weight", "sex", "delivery_mode", "siblings",
-#'  "gest_age", "inactive", "potentialDuplicate". Empty (the default) means
+#'  "gestational_age", "inactive", "potentialDuplicate". Empty (the default) means
 #'  all columns allowed by the gate. Ignored when `include_patient` is
 #'  "no" or "pseudo".
 #' @param include_enrollment Include the enrollment tibble into the dataset
@@ -141,7 +141,7 @@ dhis2_dataset_options <- function(
     include_patient = rlang::arg_match(include_patient),
     patient_columns = rlang::arg_match(
       patient_columns,
-      c("id","birth_weight","sex","delivery_mode","siblings","gest_age",
+      c("id","birth_weight","sex","delivery_mode","siblings","gestational_age",
         "inactive","potentialDuplicate"),
       multiple = TRUE),
     include_enrollment = rlang::arg_match(include_enrollment),
