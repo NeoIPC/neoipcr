@@ -1,4 +1,6 @@
 ^\.github$
+^\.git$
+^\.gitignore$
 ^neoipcr\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
