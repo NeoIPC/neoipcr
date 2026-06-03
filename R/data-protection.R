@@ -1,18 +1,34 @@
 #' Assert data-protection invariants on a neoipcr dataset.
 #'
 #' @description
-#' This is the authoritative data-protection guardian. It runs last in
-#' the `import_dhis2()` pipeline. Under the schema contract the readers
-#' own every tibble's shape, so this function's job is to **assert
-#' invariants** -- not to scrub columns. A schema regression that leaks
-#' a column reserved for another option value surfaces here with an
-#' actionable `rlang::abort()`.
+#' Runs last in the `import_dhis2()` pipeline. Under the schema contract
+#' the readers own every tibble's shape, so this function's job is to
+#' **assert invariants** -- not to scrub columns.
 #'
-#' Under the schema contract every branch is an assertion -- no scrubs.
-#' The name change from `apply_data_removal()` (which scrubbed) reflects
-#' this semantic shift: this is a guardian, not a remover. Adding a new
-#' scrub here should not be necessary -- push the narrowing into the
-#' relevant `R/schema-*.R` instead.
+#' Scope is currently narrow: two invariant families are asserted here
+#' as a final net.
+#'
+#' 1. **Hierarchy keys** under `include_<level> == "no"` -- the key
+#'    (`department_key`, `hospital_key`, `country_key`,
+#'    `world_bank_class_key`) must be absent from every fact tibble and
+#'    from adjacent metadata tibbles that pre-join it.
+#' 2. **Companion columns** on metadata tibbles -- `createdBy`,
+#'    `updatedBy`, `createdAt`, `updatedAt` are reserved for
+#'    partner-site-entered entities and must never appear on metadata
+#'    tibbles curated by NeoIPC.
+#'
+#' Everything else (per-entity id / link / patient narrowing, factor
+#' levels, metadata-tibble nulling) is owned by the schemas + readers
+#' + `finalize_to_schema()`. A regression in any of those surfaces in
+#' the per-schema tests, not here. Tightening this guardian to assert
+#' the broader id / link / patient invariants as a final net (and to
+#' make the metadata data-protection contract explicit around the
+#' `users` PII surface) is tracked as follow-up work.
+#'
+#' The name change from `apply_data_removal()` (which scrubbed)
+#' reflects the semantic shift: this is a guardian, not a remover.
+#' Adding a new scrub here should not be necessary -- push the
+#' narrowing into the relevant `R/schema-*.R` instead.
 #'
 #' @param x A `neoipcr_ds` object.
 #' @param dataset_options A `dhis2_dataset_options` object.
