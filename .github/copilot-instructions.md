@@ -18,6 +18,32 @@ These guardrails are **universal** — mirrored in every NeoIPC repository's ins
 - **Always** keep `CLAUDE.md` and `.github/copilot-instructions.md` in sync within this repository. When you modify one, apply the same change to the other.
 - **Always** push back when evidence contradicts the user's suggestion or implied assumption. Do not defer to the user's position when authoritative sources (AMA Manual of Style, protocol definitions, language specifications, etc.) say otherwise. Present the evidence clearly and let the user decide.
 - **Always** consider both personal data protection (GDPR) and organizational/reputational concerns when making decisions about data shared between partners, published in reports, or exposed through APIs. Small cell counts in shared reports can expose which departments had specific rare pathogens or resistance patterns.
+- **Always** namespace-qualify calls to functions from non-`base` packages with `pkg::fn(...)`, even when `pkg` is a recommended package auto-attached at R startup (`stats`, `utils`, `methods`, `grDevices`, `graphics`, `datasets`). The alternative is an explicit `#' @importFrom pkg fn` in roxygen plus a corresponding entry in `DESCRIPTION` `Imports`. Auto-attachment populates the interactive search path, but `R CMD check` codetools resolves package code against `base` + declared imports only — unqualified non-`base` calls produce *"no visible global function definition"* NOTEs. Documentation links (`[pkg::fn()]` in roxygen) and in-message references inside backticks (e.g. `` `stats::rbinom()` `` in an error message) stay as-is — they're documentation, not calls. Authoritative source: *Writing R Extensions* §1.1.3 / §1.6. <!-- SYNC: propagate to all repos -->
+
+### R/ file structure
+
+The `R/` directory follows a deliberate structure established by the neoipcr file restructure. Maintaining it requires discipline — every new function and file must land in the right place, or the structure decays silently.
+
+#### File naming
+
+- **`import-*.R`** — user-facing import orchestrators. One per data source (currently only `import-dhis2.R`; a future Excel source would be `import-excel.R`).
+- **`dhis2-*.R`** — DHIS2-specific internals (connection, metadata, readers). These have no non-DHIS2 equivalent.
+- **`calc-api.R`** — exported pipeline entry points. **`calc-tables.R`** — exported table/figure builders. **`calc-rates.R`** — internal rate/count computers. **`calc-denominators.R`** — internal risk-time/population denominators. Each is a layer in the epidemiological analysis pipeline; new functions go in the layer they belong to.
+- **`validation-rules-*.R`** — one file per validation domain. The `validation_rules` registry list and `validate()` orchestrator stay in `validation.R`.
+- **`data-removal.R`** — single-purpose file for the data-protection guardian. Do not add unrelated functions here.
+
+#### Function placement
+
+- **Exported functions first**, internal helpers below. Within a group of peers, follow the domain's logical progression (e.g. epidemiological: usage → incidence → detection → resistance).
+- A new **table builder** goes in `calc-tables.R`. A new **rate computer** goes in `calc-rates.R`. A new **denominator** goes in `calc-denominators.R`. Do not add internal rate helpers to `calc-tables.R` or vice versa — the layers exist for a reason.
+- A new **validation rule** goes in the `validation-rules-*.R` file matching its domain. If no existing domain fits, create a new `validation-rules-<domain>.R` file rather than forcing a rule into the wrong group.
+- A new **metadata reader** goes in `dhis2-metadata-options.R` (option-set readers), `dhis2-metadata-reference.R` (reference data), or `dhis2-metadata-orgunits.R` (org unit structure) — whichever matches. Keep the orchestration file (`dhis2-metadata.R`) thin.
+- **If in doubt** where a new function belongs, ask the user rather than guessing. A function in the wrong file is worse than a brief conversation.
+
+#### Maintenance
+
+- When adding or renaming an `R/*.R` file, update the **Key R Files** table below (and mirror to `CLAUDE.md`).
+- When touching `R/` in any neoipcr task, scan for functions that have drifted into the wrong file (e.g. a helper added to a table-builder file during a rushed fix). Flag them to the user rather than silently moving them — the user may have context about why.
 
 ---
 
@@ -27,21 +53,44 @@ These guardrails are **universal** — mirrored in every NeoIPC repository's ins
 
 ### Key R Files
 
-> **This table describes the current layout.** A pending task — `tasks/neoipcr-file-restructure.md` in the `neoipc-workspace` — will split `R/calc.R`, `R/validation.R`, `R/dhis2.R`, and `R/dhis2-metadata.R` into smaller domain-coherent files, extract `apply_data_removal()` from `R/filter.R` into its own `R/data-removal.R`, and merge `R/obj-type.R` into `R/types-check.R`. If you are reading this in a workspace checkout, re-survey `R/` before relying on the file paths below — whichever neoipcr-touching task lands first publishes a fait accompli, and the table here may be ahead of or behind the actual state.
-
 | File | Purpose |
 |------|---------|
+| **Import pipeline** | |
+| `R/import-dhis2.R` | `import_dhis2()` orchestrator + cross-cutting utilities (`add_key_column`, `convert_value`) |
 | `R/dhis2-connect.R` | Connection options, authentication (token/basic/session/interactive) |
-| `R/dhis2.R` | `import_dhis2()` pipeline, `dhis2_dataset_options()` |
-| `R/dhis2-metadata.R` | Org unit hierarchy, departments, hospitals, countries |
+| `R/dhis2-options.R` | `dhis2_dataset_options()` constructor |
+| `R/dhis2-users.R` | `get_user_info()` API call, `read_user_info_table()`, `read_metadata_users()` |
+| `R/dhis2-metadata.R` | Metadata orchestration (`get_metadata`, request builders, response readers) |
+| `R/dhis2-metadata-orgunits.R` | Org unit request builder + `read_organisationUnits*` response readers |
+| `R/dhis2-metadata-options.R` | Option-set readers (12 `read_metadata_<optionset>` functions) + filter/convert helpers |
+| `R/dhis2-metadata-reference.R` | Program structure + reference data (substances, AWaRe, ATC5, TEAs, trials, WB classes, countries) |
 | `R/dhis2-trackedEntities.R` | Patient (tracked entity) import |
 | `R/dhis2-enrollments.R` | Enrollment import |
 | `R/dhis2-events.R` | Event import and processing |
-| `R/calc.R` | Epidemiological calculations (`calculate_department_data()`, `get_benchmark_data()`) |
+| **Calculations** | |
+| `R/calc-api.R` | Pipeline entry points (`calculate_reference_data`, `calculate_department_data`, `get_benchmark_data`, `pretty_names`) |
+| `R/calc-tables.R` | 15 public table/figure builders (epidemiological progression: usage → incidence → detection → resistance) |
+| `R/calc-rates.R` | 11 internal rate/count computers |
+| `R/calc-denominators.R` | Risk-time, population, substance-day, AWaRe denominators |
+| `R/calc-procedure-categories.R` | ICHI procedure category mapping |
+| `R/scales.R` | Birth-weight / gestational-age binning helpers (`ga7`, `bw50`, `bw125`, `bw250`, `bw500`) |
+| `R/cache.R` | Cache primitives (`cache`, `get_cached`, `new_cache`, `clean_cache`) + `add_class` |
 | `R/ci.R` | Confidence interval functions (`neoipc_poisson_ci()`, `neoipc_wilson_ci()`) |
-| `R/filter.R` | Data filtering and subsetting (also currently hosts `apply_data_removal()` — the data-protection guardian — until the restructure extracts it) |
+| **Data protection** | |
+| `R/data-removal.R` | `apply_data_removal()` — the authoritative data-protection guardian |
+| `R/filter.R` | `filter_*` family + `apply_postfilter` |
+| **Validation** | |
+| `R/validation.R` | `validation_rules` registry list + `validate()` orchestrator |
+| `R/validation-rules-enrollment.R` | Rules 1, 2, 17, 25, 26 — enrollment lifecycle |
+| `R/validation-rules-dates.R` | Rules 3, 4, 12–16 — date consistency |
+| `R/validation-rules-completeness.R` | Rules 5–11 — form completion |
+| `R/validation-rules-surgical.R` | Rules 19, 22–24 — surgical procedure validation |
+| `R/validation-rules-surveillance-end.R` | Rules 18, 21 — surveillance-end consistency |
+| `R/validation-rules-pathogens.R` | Rule 20 — pathogen resolution |
+| `R/validation-rules-event-timing.R` | Rules 27–42 — DOL/LOS verification + early-onset flags |
+| **Other** | |
 | `R/pathogens.R` | Pathogen taxonomy and resistance markers |
-| `R/validation.R` | Data validation rules |
+| `R/types-check.R` | `is_*` predicates + `check_*` assertions for neoipcr S3 classes |
 
 ---
 
@@ -123,3 +172,77 @@ Two tracked entity attributes store gestational age -- both **must** be set cons
 **Note the inconsistent casing** of `NeoIPC_TEA_TOTAL_GESTATION_DAYS` -- this cannot be changed due to downstream dependencies.
 
 Conversion: `total_days = weeks * 7 + days` (e.g. `25+4` -> `25*7 + 4 = 179`).
+
+---
+
+## Testing
+
+### Test layout
+
+Test files mirror source files: `R/foo.R` -> `tests/testthat/test-foo.R`.
+
+| File | Scope |
+|------|-------|
+| `tests/testthat/test-ci.R` | `neoipc_poisson_ci()`, `neoipc_wilson_ci()`, bootstrap CI, vectorized wrappers |
+| `tests/testthat/test-dhis2-metadata.R` | `read_metadata()` validation and data-reading tests |
+| `tests/testthat/test-dhis2-connect.R` | `dhis2_connection_options()`, `get_auth_data()`, `read_token()`, `get_password()` |
+| `tests/testthat/test-data-removal.R` | `apply_data_removal()` — every `include_*` option, cascading removal |
+| `tests/testthat/test-validation.R` | `validate()` orchestrator, rule registry |
+| `tests/testthat/test-validation-rules-*.R` | Per-domain rule tests (42 rules; 34 skip-wrapped stubs for unmigrated rules) |
+| `tests/testthat/test-calc-api.R` | `calculate_department_data()` integration: structure, counts, table presence |
+| `tests/testthat/test-calc-tables.R` | All 16 `get_*_table()` + figure data builders, with numerical spot-checks |
+| `tests/testthat/test-pathogens.R` | `get_pathogen_taxonomy()`, `get_pathogen_list()`, synonym resolution |
+| `tests/testthat/test-filter.R` | `filter_*` family, `apply_postfilter()` cascade, `filter_dataset()` bug coverage |
+| `tests/testthat/test-test-units.R` | Test org unit tolerance — NA hierarchy keys through calc pipeline |
+| `tests/testthat/helper-fixtures.R` | `read_test_metadata()`, `make_test_ds()`, `make_populated_test_ds()`, `make_calc_test_ds()`, per-table builders |
+
+Planned (not yet created):
+
+| File | Scope |
+|------|-------|
+| `test-import-dhis2.R` | `import_dhis2()` pipeline |
+| `test-dhis2-options.R` | `dhis2_dataset_options()` constructor |
+| `test-dhis2-users.R` | `get_user_info()`, `read_user_info_table()`, `read_metadata_users()` |
+| `test-dhis2-enrollments.R` | Enrollment import |
+| `test-dhis2-events.R` | Event import and processing |
+| `test-dhis2-trackedEntities.R` | Patient (tracked entity) import |
+| `test-dhis2-metadata-orgunits.R` | Org unit reading |
+| `test-dhis2-metadata-options.R` | Option-set readers |
+| `test-dhis2-metadata-reference.R` | Program structure + reference data readers |
+| `test-calc-rates.R` | Rate/count computers |
+| `test-calc-denominators.R` | Denominators |
+| `test-calc-procedure-categories.R` | Procedure category mapping |
+| `test-scales.R` | Binning helpers |
+| `test-cache.R` | Cache primitives |
+
+### Fixture files
+
+Static JSON fixtures live under `tests/testthat/fixtures/`. They represent minimal valid DHIS2 `/api/metadata` responses shaped as `read_metadata()` expects them.
+
+| File | Keys it provides |
+|------|-----------------|
+| `system.json` | `system` |
+| `program.json` | `programs`, `trackedEntityTypes` |
+| `org-units.json` | `organisationUnitGroups` |
+| `antimicrobials.json` | `options` (antimicrobials), `optionGroupSets` |
+
+### Running tests locally
+
+```r
+# From an R session in the package root:
+devtools::test()                                            # all tests
+devtools::test_file("tests/testthat/test-dhis2-connect.R")  # one file
+
+# Coverage report:
+Rscript scripts/coverage.R       # opens browser
+Rscript scripts/coverage.R quiet  # no browser
+```
+
+### Rules
+
+- Tests must **never** make real HTTP calls to DHIS2. All DHIS2 data comes from the static fixture files.
+- Never read from `data/local/` or `secrets/` in tests.
+- Use `withr::with_envvar()` to set environment variables in tests. Never use `Sys.setenv()` directly -- it leaks state between tests.
+- Use `withr::local_tempfile()` for temporary files. Never use `tempfile()` directly -- `local_tempfile()` ensures cleanup.
+- Internal (non-exported) functions are accessed via `neoipcr:::fn_name()` in tests.
+- **Test failure scenarios, not implementation details.** When a function can fail for multiple reasons (e.g. missing key vs. malformed value), test each failure path independently. Do not assume two failure modes produce the same result just because they happen to share an internal code path today.

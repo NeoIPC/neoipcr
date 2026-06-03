@@ -1,0 +1,38 @@
+{
+  "organisationUnitGroups": [
+    {
+      "code": "COUNTRY",
+      "organisationUnits": [
+        {
+          "id": "P3M2xL6Gtbs",
+          "code": "CH",
+          "displayName": "Switzerland",
+          "displayShortName": "Switzerland"
+        },
+        {
+          "id": "TS5pOUJsdoa",
+          "code": "DE",
+          "displayName": "Germany",
+          "displayShortName": "Germany"
+        }
+      ]
+    },
+    {
+      "code": "TEST_UNITS",
+      "organisationUnits": [
+        {
+          "id": "VUNdfvqcGI7",
+          "code": "TEST_01",
+          "displayName": "Test unit 01",
+          "displayShortName": "Test 01"
+        },
+        {
+          "id": "hzte6b3Z8Zd",
+          "code": "TEST_02",
+          "displayName": "Test unit 02",
+          "displayShortName": "Test 02"
+        }
+      ]
+    }
+  ]
+}

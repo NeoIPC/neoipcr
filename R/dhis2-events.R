@@ -419,7 +419,8 @@ read_infectious_agent_findings <- function(events_raw, processed_events, metadat
     dplyr::select(
       tidyselect::any_of(
         c("event_key","secondary_bsi","pathogen_key","index","source",
-          "multiple","3gcr","car","cor","mrsa","vre")))
+          "multiple","3gcr","car","cor","mrsa","vre","name"))) |>
+    add_key_column("agent_finding_key")
 }
 
 read_substance_days <- function(events_raw, processed_events, metadata, dataset_options)

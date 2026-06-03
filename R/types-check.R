@@ -1,3 +1,16 @@
+is_neoipcr_ds <- function(x) inherits(x, "neoipcr_ds")
+is_scalar_neoipcr_ds <- function(x) inherits(x, "neoipcr_ds") && rlang::is_scalar_list(x)
+is_neoipcr_dhis2_conopt <- function(x) inherits(x, "neoipcr_dhis2_conopt")
+is_scalar_neoipcr_dhis2_conopt <- function(x) inherits(x, "neoipcr_dhis2_conopt") && rlang::is_scalar_list(x)
+is_neoipcr_dhis2_dsopt <- function(x) inherits(x, "neoipcr_dhis2_dsopt")
+is_scalar_neoipcr_dhis2_dsopt <- function(x) inherits(x, "neoipcr_dhis2_dsopt") && rlang::is_scalar_list(x)
+is_neoipcr_rep_ds <- function(x) inherits(x, "neoipcr_rep_ds")
+is_scalar_neoipcr_rep_ds <- function(x) inherits(x, "neoipcr_rep_ds") && rlang::is_scalar_list(x)
+is_neoipcr_ref_ds <- function(x) inherits(x, "neoipcr_ref_ds")
+is_scalar_neoipcr_ref_ds <- function(x) inherits(x, "neoipcr_ref_ds") && rlang::is_scalar_list(x)
+is_neoipcr_bnch_ds <- function(x) inherits(x, "neoipcr_bnch_ds")
+is_scalar_neoipcr_bnch_ds <- function(x) inherits(x, "neoipcr_bnch_ds") && rlang::is_scalar_list(x)
+
 check_neoipcr_ds <- function(x, require_scalar = TRUE, allow_null = FALSE) {
   if (!missing(x)) {
     if (require_scalar && is_scalar_neoipcr_ds(x)) return(invisible(NULL))

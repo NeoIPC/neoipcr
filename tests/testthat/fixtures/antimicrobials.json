@@ -1,0 +1,165 @@
+{
+  "optionGroupSets": [
+    {
+      "code": "WHO_AWARE",
+      "optionGroups": [
+        {
+          "code": "WHO_AWARE_ACCESS",
+          "displayName": "AWaRe Access",
+          "displayShortName": "AWaRe A",
+          "displayDescription": "Access antibiotics that have a narrow spectrum of activity and a good safety profile in terms of side-effects.",
+          "options": [
+            { "code": "J01CA04" },
+            { "code": "J01CA15" }
+          ]
+        },
+        {
+          "code": "WHO_AWARE_RESERVE",
+          "displayName": "AWaRe Reserve",
+          "displayShortName": "AWaRe R",
+          "displayDescription": "Reserve antibiotics that are last-choice antibiotics used to treat multidrug-resistant infections.",
+          "options": [
+            { "code": "J01DI03" },
+            { "code": "J01XA03" }
+          ]
+        },
+        {
+          "code": "WHO_AWARE_WATCH",
+          "displayName": "AWaRe Watch",
+          "displayShortName": "AWaRe W",
+          "displayDescription": "Watch antibiotics that are broader-spectrum antibiotics and are recommended as first-choice options for patients with more severe clinical presentations or for infections where the causative pathogens are more likely to be resistant to Access antibiotics.",
+          "options": [
+            { "code": "J01XA02" },
+            { "code": "J01MA09" }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "ATC5",
+      "optionGroups": [
+        {
+          "code": "J01CF",
+          "displayName": "Beta-lactamase resistant penicillins",
+          "displayShortName": "Beta-lactamase resistant penicillins",
+          "options": [
+            { "code": "J01CF04" },
+            { "code": "J01CF01" }
+          ]
+        },
+        {
+          "code": "J01DH",
+          "displayName": "Carbapenems",
+          "displayShortName": "Carbapenems",
+          "options": [
+            { "code": "J01DH02" },
+            { "code": "J01DH56" }
+          ]
+        },
+        {
+          "code": "J01CR",
+          "displayName": "Combinations of penicillins, incl. beta-lactamase inhibitors",
+          "displayShortName": "Penicillins + beta-lactamase inhibitors",
+          "displayDescription": "This group comprises combinations of penicillins and/or beta-lactamase inhibitors. Combinations containing one penicillin and enzyme inhibitor are classified at different 5th levels according to the penicillin.",
+          "options": [
+            { "code": "J01CR02" },
+            { "code": "J01CR05" }
+          ]
+        }
+      ]
+    }
+  ],
+  "options": [
+    {
+      "code": "J01CA04",
+      "displayName": "Amoxicillin",
+      "displayFormName": "Amoxicillin",
+      "sortOrder": 2,
+      "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+    },
+    {
+      "code": "J01CA15",
+      "displayName": "Talampicillin",
+      "displayFormName": "Talampicillin",
+      "sortOrder": 222,
+      "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+    },
+    {
+      "code": "J01DI03",
+      "displayName": "Faropenem",
+      "displayFormName": "Faropenem",
+      "sortOrder": 97,
+      "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+    },
+    {
+      "code": "J01XA03",
+      "displayName": "Telavancin",
+      "displayFormName": "Telavancin",
+      "sortOrder": 227,
+      "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+    },
+    {
+      "code": "J01XA02",
+      "displayName": "Teicoplanin",
+      "displayFormName": "Teicoplanin",
+      "sortOrder": 226,
+      "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+    },
+    {
+      "code": "J01MA09",
+      "displayName": "Sparfloxacin",
+      "displayFormName": "Sparfloxacin",
+      "sortOrder": 187,
+      "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+    },
+    {
+      "code": "J01CF04",
+      "displayName": "Oxacillin",
+      "displayFormName": "Oxacillin",
+      "sortOrder": 153,
+      "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+    },
+    {
+      "code": "J01CF01",
+      "displayName": "Dicloxacillin",
+      "displayFormName": "Dicloxacillin",
+      "sortOrder": 88,
+      "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+    },
+    {
+      "code": "J01DH02",
+      "displayName": "Meropenem",
+      "displayFormName": "Meropenem",
+      "sortOrder": 129,
+      "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+    },
+    {
+      "code": "J01DH56",
+      "displayName": "Imipenem/Cilastatin/Relebactam",
+      "displayFormName": "Imipenem/Cilastatin/Relebactam",
+      "sortOrder": 114,
+      "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+    },
+    {
+      "code": "J01CR02",
+      "displayName": "Amoxicillin/Clavulanic-acid",
+      "displayFormName": "Amoxicillin/Clavulanic-acid",
+      "sortOrder": 3,
+      "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+    },
+    {
+      "code": "J01CR05",
+      "displayName": "Piperacillin/Tazobactam",
+      "displayFormName": "Piperacillin/Tazobactam",
+      "sortOrder": 165,
+      "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+    },
+    {
+      "code": "J01MA17",
+      "displayName": "Prulifloxacin",
+      "displayFormName": "Prulifloxacin",
+      "sortOrder": 174,
+      "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+    }
+  ]
+}

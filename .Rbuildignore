@@ -1,7 +1,14 @@
 ^\.github$
+^\.git$
+^\.gitignore$
 ^neoipcr\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^README\.Rmd$
 ^data-raw$
 ^tools$
+^\.covrignore$
+^CLAUDE\.md$
+^coverage\.html$
+^lib$
+^scripts$

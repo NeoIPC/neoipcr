@@ -217,7 +217,7 @@ bootstrap_quantile_ci <- function(events, exposure,
   if (length(events) != length(exposure)) {
     rlang::abort("`events` and `exposure` must have the same length.")
   }
-  if (!is.numeric(events) || any(na.omit(events) != as.integer(na.omit(events)))) {
+  if (!is.numeric(events) || any(stats::na.omit(events) != as.integer(stats::na.omit(events)))) {
     rlang::abort("`events` must be a vector of whole numbers (NA allowed).")
   }
   if (!is.numeric(exposure)) {
