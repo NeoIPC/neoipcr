@@ -13,20 +13,23 @@ dhis2_dataset_options(
   gestational_age_to = NULL,
   country_filter = NULL,
   department_filter = NULL,
-  include_world_bank_class = c("no", "pseudonymised", "yes"),
-  include_country = c("no", "pseudonymised", "yes"),
-  include_hospital = c("no", "pseudonymised", "yes"),
-  include_department = c("no", "pseudonymised", "yes"),
-  include_user = c("no", "pseudonymised", "yes"),
-  include_patient_id = FALSE,
-  include_dhis2_ids = rlang::chr(),
+  include_world_bank_class = c("no", "pseudo", "full"),
+  include_country = c("no", "pseudo", "full"),
+  include_hospital = c("no", "pseudo", "full"),
+  include_department = c("no", "pseudo", "full"),
+  include_user = c("no", "pseudo", "full"),
+  include_patient = c("no", "pseudo", "full"),
+  patient_columns = character(),
+  include_enrollment = c("no", "pseudo", "full"),
+  include_event = c("no", "pseudo", "full"),
+  include_dhis2_ids = character(),
   include_timestamps = FALSE,
   include_test_data = FALSE,
   include_ineligible_patients = FALSE,
   include_unenrolled_patients = FALSE,
   include_invalid_patients = FALSE,
-  include_incomplete = rlang::chr(),
-  include_notes = rlang::chr(),
+  include_incomplete = character(),
+  include_notes = character(),
   include_deleted = FALSE,
   trial_keys = NULL,
   translate = TRUE,
@@ -59,21 +62,44 @@ departments are located in to include into the dataset.}
 include into the dataset.}
 
 \item{include_world_bank_class}{Include the World Bank class into the
-dataset. Possible values are "no", "pseudonymised" and "yes"}
+dataset. Possible values are "no", "pseudo" and "full"}
 
 \item{include_country}{Include the country into the dataset. Possible values
-are "no", "pseudonymised" and "yes"}
+are "no", "pseudo" and "full"}
 
 \item{include_hospital}{Include the hospital into the dataset. Possible
-values are "no", "pseudonymised" and "yes"}
+values are "no", "pseudo" and "full"}
 
-\item{include_department}{Include the department into the dataset.
-Possible values are "no", "pseudonymised" and "yes"}
+\item{include_department}{Include the department into the dataset. Possible
+values are "no", "pseudo" and "full"}
 
 \item{include_user}{Include the user metadata into the dataset. Possible
-values are "no", "pseudonymised" and "yes"}
+values are "no", "pseudo" and "full"}
 
-\item{include_patient_id}{Include the NeoIPC Patient ID into the dataset.}
+\item{include_patient}{Include the patient tibble into the dataset and
+expose the \code{patient_key} link column on downstream tibbles. Possible values
+are "no", "pseudo" and "full". Under "no" the patient tibble is an empty
+(0-col, 0-row) tibble and \code{patient_key} is absent from every downstream
+tibble. Under "pseudo" the patient tibble carries only \code{patient_key} and
+\code{patient_key} is present on downstream tibbles. Under "full" the patient
+tibble also carries the columns selected by \code{patient_columns}.}
+
+\item{patient_columns}{Character vector selecting which patient-specific
+columns beyond \code{patient_key} are included when \code{include_patient = "full"}.
+Choices: "id", "birth_weight", "sex", "delivery_mode", "siblings",
+"gestational_age", "inactive", "potentialDuplicate". Empty (the default) means
+all columns allowed by the gate. Ignored when \code{include_patient} is
+"no" or "pseudo".}
+
+\item{include_enrollment}{Include the enrollment tibble into the dataset
+and expose the \code{enrollment_key} link column on downstream tibbles. Same
+three-mode semantics as \code{include_patient}.}
+
+\item{include_event}{Include the event tibble into the dataset and expose
+the \code{event_key} link column on every downstream per-event table
+(event details, per-event-type data, findings, substance days, event
+notes, unknown pathogen names). Same three-mode semantics as
+\code{include_patient}.}
 
 \item{include_dhis2_ids}{Include the DHIS2 ids into the dataset.}
 

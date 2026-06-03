@@ -4,7 +4,9 @@ validation_rule_18 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(18L),
+    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
       dplyr::select(
         tidyselect::any_of(c("hospital_key","department_key","patient_key")),
         "enrollment_key","enrolledAt") |>
@@ -25,8 +27,7 @@ validation_rule_18 <- function(x, exceptions)
           c("hospital_key",
             "department_key",
             "patient_key")),"enrollment_key","enrolledAt","occurredAt",
-        "patient_days","patient_days_calculated") |>
-    dplyr::mutate(rule_id = 18L, .before = 1) |>
+        "patient_days","patient_days_calculated")) |>
     dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt","patient_days","patient_days_calculated"))) |>
     dplyr::summarise(
       context = list(
@@ -34,8 +35,7 @@ validation_rule_18 <- function(x, exceptions)
           enrolledAt = .data$enrolledAt,
           occurredAt = .data$occurredAt,
           patient_days = .data$patient_days,
-          patient_days_calculated = .data$patient_days_calculated)),
-      .groups = "drop")
+          patient_days_calculated = .data$patient_days_calculated)))
 
   if(!is.null(exceptions))
     r <- r |>
@@ -53,10 +53,11 @@ validation_rule_21 <- function(x, exceptions)
   check_neoipcr_ds(x)
 
   # TODO: Implement
-  r <- x$enrollments |>
+  r <- dplyr::bind_cols(
+    rule_id = c(21L),
+    x$enrollments |>
       dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1) |>
-    dplyr::mutate(rule_id = 21L, .before = 1)
+      dplyr::filter(.data$enrollment_key == -1))
 
   return(r)
 }

@@ -119,7 +119,9 @@ neoipc_wilson_ci <- function(x, n, conf.level = 0.95) {
 #' @returns A tibble with columns `ci_lower` and `ci_upper`.
 #' @noRd
 poisson_ci_cols <- function(events, exposure, multiplier) {
-  purrr::pmap_dfr(
+  if (length(events) == 0L)
+    return(tibble::tibble(ci_lower = numeric(), ci_upper = numeric()))
+  purrr::pmap(
     list(events = events, exposure = exposure),
     function(events, exposure) {
       if (is.na(events) || is.na(exposure) || exposure == 0) {
@@ -127,7 +129,8 @@ poisson_ci_cols <- function(events, exposure, multiplier) {
       }
       ci <- neoipc_poisson_ci(events, exposure, multiplier = multiplier)
       tibble::tibble(ci_lower = ci$lower, ci_upper = ci$upper)
-    })
+    }) |>
+    purrr::list_rbind()
 }
 
 #' Compute Wilson CI columns for a vector of x/n pairs
@@ -143,7 +146,9 @@ poisson_ci_cols <- function(events, exposure, multiplier) {
 #' @returns A tibble with columns `ci_lower` and `ci_upper`.
 #' @noRd
 wilson_ci_cols <- function(x, n, scale = 1) {
-  purrr::pmap_dfr(
+  if (length(x) == 0L)
+    return(tibble::tibble(ci_lower = numeric(), ci_upper = numeric()))
+  purrr::pmap(
     list(x = x, n = n),
     function(x, n) {
       if (is.na(x) || is.na(n) || n == 0) {
@@ -151,7 +156,8 @@ wilson_ci_cols <- function(x, n, scale = 1) {
       }
       ci <- neoipc_wilson_ci(x, n)
       tibble::tibble(ci_lower = ci$lower * scale, ci_upper = ci$upper * scale)
-    })
+    }) |>
+    purrr::list_rbind()
 }
 
 #' Two-level parametric bootstrap CI for benchmark quartiles

@@ -8,11 +8,21 @@
 #' @export
 calculate_reference_data <- function(x, use_cache = TRUE, redact = TRUE) {
   check_neoipcr_ds(x)
+  # Three-valued gates all need to be non-"no" for the reference
+  # pipeline: department grouping, per-patient / per-enrollment / per-
+  # event denominators, and hierarchy metadata for the country-level
+  # joins all feed into the computed reference data.
+  assert_options_for(x, required = list(
+    include_department = c("pseudo", "full"),
+    include_patient    = c("pseudo", "full"),
+    include_enrollment = c("pseudo", "full"),
+    include_event      = c("pseudo", "full")
+  ), fn_name = "calculate_reference_data")
 
-  if(is.null(x$enrollments$department_key))
-    rlang::abort("Cannot calculate reference data without department information. You need to include at least pseudonymised department information.")
-
-  if(is.null(x$metadata$countries))
+  # `metadata$countries` is always a tibble under the three-mode schema
+  # contract; gate on the key column instead of null-ness. Under "no" the
+  # tibble is 0×0 so `country_key` is absent.
+  if(!("country_key" %in% names(x$metadata$countries)))
     rlang::warn("The data is missing country metadata. The resulting dataset connot be used to create reference reports")
 
   pd <- get_risk_time(x, use_cache = use_cache)$patient_days
@@ -185,6 +195,15 @@ calculate_reference_data <- function(x, use_cache = TRUE, redact = TRUE) {
 #' @export
 calculate_department_data <- function(x, use_cache = TRUE) {
   check_neoipcr_ds(x)
+  # Three-valued gates all need to be non-"no" for the department
+  # pipeline: department grouping, per-patient / per-enrollment / per-
+  # event denominators.
+  assert_options_for(x, required = list(
+    include_department = c("pseudo", "full"),
+    include_patient    = c("pseudo", "full"),
+    include_enrollment = c("pseudo", "full"),
+    include_event      = c("pseudo", "full")
+  ), fn_name = "calculate_department_data")
 
   rt <- x |>
     get_risk_time(use_cache = use_cache)
@@ -883,7 +902,11 @@ fix_zero_event_ci <- function(tbl, suffixes, denominator_tbl,
 }
 
 get_countries_with_wb_class <- function(x) {
-  if (!is.null(x$metadata$countries)) {
+  # `metadata$countries` is always a tibble under the three-mode schema
+  # contract. Gate on `displayName` presence — it only appears under
+  # `include_country == "full"`. The helper's name-based output only
+  # makes sense under "full" where labels exist.
+  if ("displayName" %in% names(x$metadata$countries)) {
     countries_data <- x$enrollments |>
       dplyr::inner_join(
         x$metadata$countries |>
@@ -892,8 +915,12 @@ get_countries_with_wb_class <- function(x) {
         dplyr::select(name = "displayName", tidyselect::any_of("world_bank_class_key")) |>
         dplyr::distinct()
 
-    # Join with worldBankClasses to get stable class and displayName
-    if (!is.null(x$metadata$worldBankClasses) && "world_bank_class_key" %in% names(countries_data)) {
+    # Join with worldBankClasses to get stable `class` label. Gate on
+    # column presence rather than null-ness: under the three-mode schema
+    # contract `worldBankClasses` is always a tibble, but `class` only
+    # appears under `include_world_bank_class == "full"`.
+    if ("class" %in% names(x$metadata$worldBankClasses) &&
+        "world_bank_class_key" %in% names(countries_data)) {
       countries_data |>
         dplyr::left_join(
           x$metadata$worldBankClasses |>

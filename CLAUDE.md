@@ -18,7 +18,13 @@ These guardrails are **universal** — mirrored in every NeoIPC repository's ins
 - **Always** keep `CLAUDE.md` and `.github/copilot-instructions.md` in sync within this repository. When you modify one, apply the same change to the other.
 - **Always** push back when evidence contradicts the user's suggestion or implied assumption. Do not defer to the user's position when authoritative sources (AMA Manual of Style, protocol definitions, language specifications, etc.) say otherwise. Present the evidence clearly and let the user decide.
 - **Always** consider both personal data protection (GDPR) and organizational/reputational concerns when making decisions about data shared between partners, published in reports, or exposed through APIs. Small cell counts in shared reports can expose which departments had specific rare pathogens or resistance patterns.
-- **Always** namespace-qualify calls to functions from non-`base` packages with `pkg::fn(...)`, even when `pkg` is a recommended package auto-attached at R startup (`stats`, `utils`, `methods`, `grDevices`, `graphics`, `datasets`). The alternative is an explicit `#' @importFrom pkg fn` in roxygen plus a corresponding entry in `DESCRIPTION` `Imports`. Auto-attachment populates the interactive search path, but `R CMD check` codetools resolves package code against `base` + declared imports only — unqualified non-`base` calls produce *"no visible global function definition"* NOTEs. Documentation links (`[pkg::fn()]` in roxygen) and in-message references inside backticks (e.g. `` `stats::rbinom()` `` in an error message) stay as-is — they're documentation, not calls. Authoritative source: *Writing R Extensions* §1.1.3 / §1.6. <!-- SYNC: propagate to all repos -->
+- **Never** use deprecated or outdated APIs. Before introducing a function from a third-party package or a base library, verify it is current. When a replacement exists, use the replacement. When unsure, check the package's `NEWS.md` / release notes rather than assuming.
+- **Always** read the upstream source directly when you need a definitive answer about a third-party system's behaviour (DHIS2 in particular, but also R / tidyverse packages, Quarto, Pandoc, .NET runtime, etc.). Docs, release notes, and changelogs are known to be unreliable for some of these projects — the source is the ultimate authority, the written reference is a convenience shortcut. When working via the neoipc-workspace, see its `CLAUDE.md` → Reference checkouts for the `refs/` submodules that support this workflow.
+- **Always** namespace-qualify calls to functions from non-`base` packages with `pkg::fn(...)`, even when `pkg` is a recommended package auto-attached at R startup (`stats`, `utils`, `methods`, `grDevices`, `graphics`, `datasets`). The alternative is an explicit `#' @importFrom pkg fn` in roxygen plus a corresponding entry in `DESCRIPTION` `Imports`. Auto-attachment populates the interactive search path, but `R CMD check` codetools resolves package code against `base` + declared imports only — unqualified non-`base` calls produce *"no visible global function definition"* NOTEs. Documentation links (`[pkg::fn()]` in roxygen) and in-message references inside backticks (e.g. `` `stats::rbinom()` `` in an error message) stay as-is — they're documentation, not calls. Authoritative source: *Writing R Extensions* §1.1.3 / §1.6.
+
+### Joining tibbles
+
+- **Never** join tibbles on DHIS2 UIDs (`trackedEntity`, `enrollment`, `event`, `orgUnit`, `country`, `programStage`, `dataElement`, etc.) when both sides already carry synthesized integer keys (`patient_key`, `enrollment_key`, `event_key`, `department_key`, `hospital_key`, `country_key`, etc.). Always join on the integer keys. The only exception is during import when at least one side of the join doesn't have an integer key yet (raw API response → keyed tibble bridge via an internal map like `.patients_internal_map`). DHIS2 UIDs are opaque artefacts for linking back to DHIS2; integer keys are the relational backbone.
 
 ### R/ file structure
 
@@ -30,7 +36,7 @@ The `R/` directory follows a deliberate structure established by the neoipcr fil
 - **`dhis2-*.R`** — DHIS2-specific internals (connection, metadata, readers). These have no non-DHIS2 equivalent.
 - **`calc-api.R`** — exported pipeline entry points. **`calc-tables.R`** — exported table/figure builders. **`calc-rates.R`** — internal rate/count computers. **`calc-denominators.R`** — internal risk-time/population denominators. Each is a layer in the epidemiological analysis pipeline; new functions go in the layer they belong to.
 - **`validation-rules-*.R`** — one file per validation domain. The `validation_rules` registry list and `validate()` orchestrator stay in `validation.R`.
-- **`data-removal.R`** — single-purpose file for the data-protection guardian. Do not add unrelated functions here.
+- **`data-protection.R`** — single-purpose file for the data-protection guardian (`assert_data_protection()`). Do not add unrelated functions here.
 
 #### Function placement
 
@@ -76,8 +82,17 @@ The `R/` directory follows a deliberate structure established by the neoipcr fil
 | `R/scales.R` | Birth-weight / gestational-age binning helpers (`ga7`, `bw50`, `bw125`, `bw250`, `bw500`) |
 | `R/cache.R` | Cache primitives (`cache`, `get_cached`, `new_cache`, `clean_cache`) + `add_class` |
 | `R/ci.R` | Confidence interval functions (`neoipc_poisson_ci()`, `neoipc_wilson_ci()`) |
+| **Schema engine** | |
+| `R/schema-tools.R` | `schema_col()`, `compile_schema()`, `schema_codes()`, `assert_schema()`, `finalize_to_schema()` — column-as-declaration engine. `with_entity_gate(cols, gate)` + `entity_gate()` + `entity_exists()` attach a containing-entity-gate predicate so `compile_schema`/`assert_schema`/`finalize_to_schema` short-circuit to 0×0 when the gate rejects `opts`. Internal, no `@export`. |
+| `R/schema-cols-shared.R` | Cross-entity column declarations: `col_patient_key`, `col_enrollment_key`, `col_event_key`, `col_department_key`, `col_hospital_key`, `col_country_key`, `col_wb_class_key`, `col_isTest`, plus `col_inherited_from()` (hierarchy-inheritance helper) and `attribute_cols()` / `tea_attribute_cols()` (companion-column helpers for partner-site-entered attributes). Loads before every `schema-<domain>.R` via `@include`. |
+| `R/schema-orgunits.R` | Column declarations + `get_<entity>_schema(opts)` wrappers for the org-unit-derived metadata entities: WB classes, countries, hospitals, departments, users, event types. Loads after `schema-cols-shared.R`. Internal. |
+| `R/schema-patients.R` | `patient_attribute_cols()` wrapper + `patients_cols` + `get_patients_schema()`. First fact-layer schema. Loads after `schema-orgunits.R`. Internal. |
+| `R/schema-enrollments.R` | `enrollment_inherited_from()` helper + `enrollments_cols` + `get_enrollments_schema()`. Second fact-layer schema; atoms declared directly (no per-attribute wrapper — every user/timestamp field on enrollments is entity-level). Loads after `schema-patients.R`. Internal. |
+| `R/schema-events.R` | `event_hierarchy_col()` helper + `events_cols` + `get_events_schema()`. Third fact-layer schema; introduces the `include_event` gate; carries PK + id-opt-in + occurredAt + status + event_type_key + link FKs + hierarchy keys via direct materialization + entity-level user fields (`createdBy` / `updatedBy` / `storedBy` / `completedBy`) + six entity-level timestamps + `followup` + `deleted`. The former `eventDetails` sidecar tibble was merged in here in phase-b-event-details. Loads after `schema-enrollments.R`. Internal. |
+| `R/schema-event-data.R` | Per-event-type data schemas for all seven event types (`admissionData_cols`, `surveillanceEndData_cols`, `sepsisData_cols`, `necData_cols`, `pneumoniaData_cols`, `surgeryData_cols`, `ssiData_cols`) + `event_data_col()` wrapper (payload + three DE-level companion columns via `event_data_attribute_cols()`) + `event_data_cols_for(event_type_key)` dispatcher. Pre-pivot factor pinning via `schema_codes()` + `pivot_wider(names_expand = TRUE)` closes the pivot-volatility hazard in `read_event_data()`. `vs_days` on surveillance-end is declared on the schema and computed post-pivot from the guaranteed `inv_days + niv_days`. Also hosts the three findings-family schemas — `findings_cols` (`infectiousAgentFindings` — `source` + resistance markers + `multiple` all unconditionally declared under full mode, fixing failure pattern #6), `substanceDays_cols`, and `unknownPathogenNames_cols` — all consumed by `read_infectious_agent_findings()`, `read_substance_days()`, and `read_unknown_pathogen_names()` with pre-pivot factor pinning on the pathogen-subfield `type` and `names_expand = TRUE`. Loads after `schema-events.R`. Internal. |
+| `R/schema-notes.R` | `event_notes_cols` and `enrollment_notes_cols` with a shared `.notes_payload_cols(parent_full)` factory (same payload shape: `note`, `value`, `storedBy`, `storedAt`, `createdBy`). Entity gate compounds `include_<parent> != "no"` with `"<parent>" %in% include_notes`. Hierarchy-key inheritance via `col_inherited_from(..., <parent>_cols)` — lean children under fat parents, direct materialization under pseudo parents. Loads after `schema-enrollments.R` + `schema-events.R`. Internal. |
 | **Data protection** | |
-| `R/data-removal.R` | `apply_data_removal()` — the authoritative data-protection guardian |
+| `R/data-protection.R` | `assert_data_protection()` — the authoritative data-protection guardian. Asserts invariants under the schema contract (reader-owned tibble shapes); no scrubs remain after phase-b-event-details. |
 | `R/filter.R` | `filter_*` family + `apply_postfilter` |
 | **Validation** | |
 | `R/validation.R` | `validation_rules` registry list + `validate()` orchestrator |
@@ -105,17 +120,17 @@ Every stage of the `import_dhis2()` pipeline should shed data it no longer needs
 1. **API request** -- fetch only the org units the user asked for (`ouMode` + `orgUnit`)
 2. **Metadata processing** -- filter countries/departments/hospitals early; only build hierarchy columns downstream steps will use
 3. **`read_patients/enrollments/events`** -- only join and keep columns needed for remaining processing and the final output
-4. **`apply_data_removal()`** -- final redundant safety net; ideally a near-no-op because earlier stages already removed everything unnecessary
+4. **`assert_data_protection()`** -- final guardian that asserts every reader has honored the user's `include_*` options; aborts loudly on a reader regression. Named scrubber in earlier revisions (`apply_data_removal()`), but under the schema contract the readers own every tibble's shape, so this function now asserts rather than scrubs.
 
 ### Redundant foreign keys
 
 Hierarchy keys (`department_key`, `hospital_key`, `country_key`, `world_bank_class_key`) appear *directly* in patients, enrollments, and events -- not only via the relational chain. This allows breaking the chain without losing the ability to classify records by higher-level categories (e.g., events can carry `world_bank_class_key` without exposing the country or patient).
 
-### `apply_data_removal()` as authoritative guardian
+### `assert_data_protection()` as authoritative guardian
 
-`apply_data_removal()` is intended to be the **authoritative guardian** that ensures no unauthorized data leaks into the final dataset. It runs last and strips columns/tables based on `include_*` options. Earlier pipeline stages should already have removed most data, making `apply_data_removal()` a redundant safety net in the best case.
+`assert_data_protection()` is the **authoritative guardian** that verifies no unauthorized data leaks into the final dataset. It runs last in the `import_dhis2()` pipeline. Under the schema contract every reader owns its tibble's shape, so this function's job is to **assert invariants** — not to scrub columns. A schema regression that leaks a column reserved for another option value surfaces here with an actionable `rlang::abort()` naming the leaking tibble and the column.
 
-> **Note:** `apply_data_removal()` has not yet been thoroughly vetted. A future task should audit it against every `include_*` option.
+Post phase-b-event-details every branch is an assertion — no scrubs remain. The former `eventDetails` sidecar tibble was merged into `events` and the `event` id gate moved into `events_cols`.
 
 ---
 
@@ -186,7 +201,8 @@ Test files mirror source files: `R/foo.R` -> `tests/testthat/test-foo.R`.
 | `tests/testthat/test-ci.R` | `neoipc_poisson_ci()`, `neoipc_wilson_ci()`, bootstrap CI, vectorized wrappers |
 | `tests/testthat/test-dhis2-metadata.R` | `read_metadata()` validation and data-reading tests |
 | `tests/testthat/test-dhis2-connect.R` | `dhis2_connection_options()`, `get_auth_data()`, `read_token()`, `get_password()` |
-| `tests/testthat/test-data-removal.R` | `apply_data_removal()` — every `include_*` option, cascading removal |
+| `tests/testthat/test-data-protection.R` | `assert_data_protection()` �� happy-path (schema-compliant ds passes) and failure-path (reader regression leaks a forbidden column → abort) coverage; pure-assertion guardian post phase-b-event-details |
+| `tests/testthat/test-data-protection-complete.R` | Option-matrix coverage: iterates every `include_*` gate (hierarchy, link-privacy, user, timestamps, deleted) under every value against a schema-compliant ds, verifying the guardian passes. Maximally-restrictive smoke test. |
 | `tests/testthat/test-validation.R` | `validate()` orchestrator, rule registry |
 | `tests/testthat/test-validation-rules-*.R` | Per-domain rule tests (42 rules; 34 skip-wrapped stubs for unmigrated rules) |
 | `tests/testthat/test-calc-api.R` | `calculate_department_data()` integration: structure, counts, table presence |
@@ -194,7 +210,18 @@ Test files mirror source files: `R/foo.R` -> `tests/testthat/test-foo.R`.
 | `tests/testthat/test-pathogens.R` | `get_pathogen_taxonomy()`, `get_pathogen_list()`, synonym resolution |
 | `tests/testthat/test-filter.R` | `filter_*` family, `apply_postfilter()` cascade, `filter_dataset()` bug coverage |
 | `tests/testthat/test-test-units.R` | Test org unit tolerance — NA hierarchy keys through calc pipeline |
+| `tests/testthat/test-schema-tools.R` | `schema_col()`, `compile_schema()`, `schema_codes()`, `assert_schema()`, `finalize_to_schema()` |
+| `tests/testthat/test-schema-cols-shared.R` | Shared column declarations, `col_inherited_from()`, `attribute_cols()` / `tea_attribute_cols()`, plus `expect_schema_matches()` / `iter_dataset_options()` helpers |
+| `tests/testthat/test-schema-orgunits.R` | Per-domain schema assembly for org-unit-derived metadata entities: WB classes / countries / hospitals / departments / users / event types. |
+| `tests/testthat/test-schema-patients.R` | `patient_attribute_cols()` wrapper behaviour + `patients_cols` three-mode shape, hierarchy-key inheritance, companion-column semantics. |
+| `tests/testthat/test-schema-enrollments.R` | `enrollments_cols` three-mode shape, entity-level user/timestamp gating, hierarchy-key inheritance anchored on patients. |
+| `tests/testthat/test-schema-events.R` | `events_cols` three-mode shape, compound link-FK gating on enrollment/patient, hierarchy-key direct materialization, status/event_type_key factor levels, `isTest` direct materialization. |
+| `tests/testthat/test-schema-event-data.R` | Per-event-type data schemas (all 7) + the three findings-family schemas (`findings_cols`, `substanceDays_cols`, `unknownPathogenNames_cols`): three-mode shape, inheritance-driven link/hierarchy key absence, per-type payload coverage + fixed factor levels, companion-column gating (3 per DE), `source` / resistance / `multiple` unconditional declaration under full mode, `read_unknown_pathogen_names()` split behaviour, fixture round-trip, dispatcher. |
+| `tests/testthat/test-schema-notes.R` | `event_notes_cols` + `enrollment_notes_cols`: compound entity-gate (include_event/include_enrollment AND include_notes), pseudo-parent inheritance-driven direct materialization, payload gating on include_dhis2_ids / include_user / include_timestamps, hierarchy-key inheritance absence under full parent, fixture round-trip. |
+| `tests/testthat/test-read-event-data.R` | Reader-level integration tests: sparse-data resilience for `read_event_data` (all 7 types), `read_substance_days`, `read_infectious_agent_findings`, `read_events`; pivot-volatility, absent-column materialization, type-drift, hierarchy-key inheritance, enrollment-chain patient_key derivation, companion columns. |
 | `tests/testthat/helper-fixtures.R` | `read_test_metadata()`, `make_test_ds()`, `make_populated_test_ds()`, `make_calc_test_ds()`, per-table builders |
+| `tests/testthat/helper-schema.R` | `expect_schema_matches(x, expected)`, `iter_dataset_options(fields)` |
+| `tests/testthat/helper-event-data.R` | Raw DHIS2-shaped fixture builders for reader integration tests: `build_raw_events()`, `build_processed_events()`, `build_reader_metadata()`, `build_raw_substance_events()`, `build_raw_pathogen_events()` |
 
 Planned (not yet created):
 

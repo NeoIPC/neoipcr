@@ -57,7 +57,8 @@ import_dhis2 <- function(
     else I(paste0(ids, collapse = "%3B"))
 
   if (length(dataset_options$department_filter) > 0) {
-    dept_ids <- metadata$departments |> dplyr::pull(.data$orgUnit)
+    dept_ids <- metadata$.departments_internal_map |>
+      dplyr::pull(.data$orgUnit)
 
     te_enrl_req <- tracker_req |>
       httr2::req_url_query(!!!ou_query("SELECTED", multi_uid(dept_ids)))
@@ -66,7 +67,11 @@ import_dhis2 <- function(
       httr2::req_url_query(!!!ou_query("SELECTED", id)))
 
   } else if (length(dataset_options$country_filter) > 0) {
-    country_ids <- metadata$countries |> dplyr::pull(.data$country)
+    # The raw DHIS2 `country` id lives on the orchestrator-internal
+    # countries map (not on `metadata$countries`, which is the
+    # schema-conformant public tibble under the three-mode contract).
+    country_ids <- metadata$.countries_internal_map |>
+      dplyr::pull(.data$country)
 
     te_enrl_req <- tracker_req |>
       httr2::req_url_query(!!!ou_query("DESCENDANTS", multi_uid(country_ids)))
@@ -126,30 +131,25 @@ import_dhis2 <- function(
   }
 
   trackedEntities_raw <- parse_resp(resps[[1]])
-  if (nrow(trackedEntities_raw) == 0) {
-    filter_summary <- if (length(dataset_options$department_filter) > 0)
-      paste0("department_filter: ",
-             paste(dataset_options$department_filter, collapse = ", "))
-    else if (length(dataset_options$country_filter) > 0)
-      paste0("country_filter: ",
-             paste(dataset_options$country_filter, collapse = ", "))
-    else
-      "active organisation units: <accessible>"
-    rlang::abort(c(
-      "No tracked entities returned by DHIS2.",
-      "i" = "The selected organisation unit(s) may have no enrolled patients.",
-      "i" = filter_summary))
-  }
   enrollments_raw <- parse_resp(resps[[2]])
   events_raw <- resps[seq(3, length(resps))] |>
     purrr::map(parse_resp) |>
     purrr::list_rbind()
 
-  patients <- read_patients(trackedEntities_raw, metadata, dataset_options)
+  patients_result <- read_patients(trackedEntities_raw, metadata, dataset_options)
+  patients <- patients_result$public
+  metadata$.patients_internal_map <- patients_result$internal_map
 
-  enrollments <- read_enrollments(enrollments_raw, patients, metadata, dataset_options)
-  events <- read_events(events_raw, enrollments, patients, metadata, dataset_options)
-  admissionData <- read_event_data(events_raw, events, metadata, dataset_options, "adm")
+  enrollments_result <- read_enrollments(enrollments_raw, patients, metadata, dataset_options)
+  enrollments <- enrollments_result$public
+  metadata$.enrollments_internal_map <- enrollments_result$internal_map
+
+  events_result <- read_events(events_raw, enrollments, metadata, dataset_options)
+  events <- events_result$public
+  metadata$.events_internal_map <- events_result$internal_map
+
+  admissionData <- read_event_data(
+    events_raw, metadata$.events_internal_map, metadata, dataset_options, "adm")
 
   events <- events |>
     filter_surveillance_ends(
@@ -161,45 +161,41 @@ import_dhis2 <- function(
 
   metadata$dataset_options <- dataset_options
 
-  # read_enrollment_details
-  # read_enrollment_notes
-  eventDetails <- read_event_details(events_raw, events, metadata, dataset_options)
-  eventNotes <- read_event_notes(events_raw, events, metadata, dataset_options)
-  surveillanceEndData <- read_event_data(events_raw, events, metadata, dataset_options, "end")
-  sepsisData <- read_event_data(events_raw, events, metadata, dataset_options, "bsi")
-  necData <- read_event_data(events_raw, events, metadata, dataset_options, "nec")
-  pneumoniaData <- read_event_data(events_raw, events, metadata, dataset_options, "hap")
-  surgeryData <- read_event_data(events_raw, events, metadata, dataset_options, "pro")
-  ssiData <- read_event_data(events_raw, events, metadata, dataset_options, "ssi")
+  enrollment_notes <- read_enrollment_notes(
+    enrollments_raw, enrollments, metadata, dataset_options)
+  eventNotes <- read_event_notes(
+    events_raw, metadata$.events_internal_map, metadata, dataset_options)
+  surveillanceEndData <- read_event_data(
+    events_raw, metadata$.events_internal_map, metadata, dataset_options, "end")
+  sepsisData <- read_event_data(
+    events_raw, metadata$.events_internal_map, metadata, dataset_options, "bsi")
+  necData <- read_event_data(
+    events_raw, metadata$.events_internal_map, metadata, dataset_options, "nec")
+  pneumoniaData <- read_event_data(
+    events_raw, metadata$.events_internal_map, metadata, dataset_options, "hap")
+  surgeryData <- read_event_data(
+    events_raw, metadata$.events_internal_map, metadata, dataset_options, "pro")
+  ssiData <- read_event_data(
+    events_raw, metadata$.events_internal_map, metadata, dataset_options, "ssi")
 
-  infectiousAgentFindings <- read_infectious_agent_findings(events_raw, events, metadata, dataset_options)
-  # read_infectious_agent_findings_details
+  infectiousAgentFindings <- read_infectious_agent_findings(
+    events_raw, metadata$.events_internal_map, metadata, dataset_options)
 
-  # Split the sparse free-text `name` column off into its own tibble so the
-  # main findings table doesn't carry a mostly-NA column. Only rows where the
-  # user manually typed a pathogen name (typically when pathogen_key == 0
-  # "unknown") end up in unknownPathogenNames. The `name` value is a
-  # clinical/scientific pathogen identifier (genus + species or a typo
-  # thereof), not patient-identifying information, so apply_data_removal()
-  # does not gate it via include_* options.
-  unknownPathogenNames <- if ("name" %in% names(infectiousAgentFindings))
-      infectiousAgentFindings |>
-        dplyr::filter(!is.na(.data$name) & nzchar(.data$name)) |>
-        dplyr::select("agent_finding_key", "name")
-    else
-      tibble::tibble(agent_finding_key = integer(), name = character())
-  if ("name" %in% names(infectiousAgentFindings))
-    infectiousAgentFindings <- infectiousAgentFindings |> dplyr::select(!"name")
+  unknownPathogenNames <- read_unknown_pathogen_names(
+    infectiousAgentFindings, dataset_options)
 
-  substanceDays <- read_substance_days(events_raw, events, metadata, dataset_options)
+  substanceDays <- read_substance_days(
+    events_raw, metadata$.events_internal_map, metadata, dataset_options)
   # read_substance_days_details
 
   class(patients) <- c("neoipcr_pat", class(patients))
   class(enrollments) <- c("neoipcr_enr", class(enrollments))
   class(events) <- c("neoipcr_evt", class(events))
-  class(eventDetails) <- c("neoipcr_evd", class(eventDetails))
-  if(!is.null(eventNotes))
-    class(eventNotes) <- c("neoipcr_evn", class(eventNotes))
+  # eventNotes / enrollment_notes are always tibbles under the schema
+  # contract (never NULL — gate → 0×0 instead). Slug `_eln` aligned
+  # with the `_evn` precedent pending the class-slug-rename task.
+  class(eventNotes) <- c("neoipcr_evn", class(eventNotes))
+  class(enrollment_notes) <- c("neoipcr_eln", class(enrollment_notes))
   class(admissionData) <- c("neoipcr_adm", class(admissionData))
   class(surveillanceEndData) <- c("neoipcr_end", class(surveillanceEndData))
   class(surgeryData) <- c("neoipcr_pro", class(surgeryData))
@@ -209,14 +205,15 @@ import_dhis2 <- function(
   class(pneumoniaData) <- c("neoipcr_hap", class(pneumoniaData))
   class(substanceDays) <- c("neoipcr_sbd", class(substanceDays))
   class(infectiousAgentFindings) <- c("neoipcr_iaf", class(infectiousAgentFindings))
+
   class(metadata) <- c("neoipcr_metadata", class(metadata))
 
   r <- structure(
     list(
       patients = patients,
       enrollments = enrollments,
+      enrollment_notes = enrollment_notes,
       events = events,
-      eventDetails = eventDetails,
       eventNotes = eventNotes,
       admissionData = admissionData,
       surveillanceEndData = surveillanceEndData,
@@ -249,19 +246,34 @@ import_dhis2 <- function(
   r <- r |>
     apply_postfilter()
 
+  # Strip orchestrator-internal lookups — they are not part of the
+  # public `neoipcr_metadata` shape. Must happen after
+  # transform_user_exceptions (uses .departments_internal_map) and
+  # apply_postfilter.
+  # Hierarchy order: metadata → fact entities
+  r$metadata$.wb_country_map           <- NULL
+  r$metadata$.countries_internal_map   <- NULL
+  r$metadata$.hospitals_internal_map   <- NULL
+  r$metadata$.departments_internal_map <- NULL
+  r$metadata$.users_internal_map       <- NULL
+  r$metadata$.eventTypes_internal_map  <- NULL
+  r$metadata$.patients_internal_map    <- NULL
+  r$metadata$.enrollments_internal_map <- NULL
+  r$metadata$.events_internal_map      <- NULL
+
   r |>
-    apply_data_removal(dataset_options)
+    assert_data_protection(dataset_options)
 }
 
 dhis2_request <- function(connection_options)
 {
   req <- httr2::request(connection_options$base_url)
-  if(!is.null(connection_options$token))
+  if(exists('token', where = connection_options))
     req |>
     httr2::req_headers(
       Authorization = sprintf("ApiToken %s", connection_options$token),
       .redact = "Authorization")
-  else if(!is.null(connection_options$session_id))
+  else if(exists('session_id', where = connection_options))
     req |>
     httr2::req_cookies_set(JSESSIONID = connection_options$session_id)
   else
@@ -271,17 +283,13 @@ dhis2_request <- function(connection_options)
       password = connection_options$password)
 }
 
-is_single_department <- function(ds) ds$metadata$departments |>
-  dplyr::pull("code") |>
-  length() == 1
+is_single_department <- function(ds)
+  nrow(ds$metadata$departments) == 1L
 
 transform_user_exceptions <- function(ex, ds)
 {
   ex <- ex |>
     dplyr::mutate(
-      RULE_ID = as.integer(.data$RULE_ID),
-      ENROLMENT_DATE = as.Date(.data$ENROLMENT_DATE),
-      EVENT_DATE = as.Date(.data$EVENT_DATE),
       event_type_key = factor(
         tolower(.data$EVENT_TYPE),
         levels = c("adm","pro","bsi","nec","ssi","hap","end")),
@@ -300,8 +308,8 @@ transform_user_exceptions <- function(ex, ds)
   else
     ex <- ex |>
       dplyr::inner_join(
-        ds$metadata$departments |>
-          dplyr::select("department_key","code"),
+        ds$metadata$.departments_internal_map |>
+          dplyr::select("department_key", "code"),
         dplyr::join_by("DEPARTMENT_CODE" == "code")) |>
       dplyr::left_join(
         ds$patients |>
@@ -332,8 +340,9 @@ add_key_column <- function(table, key_name = "key")
 
 convert_value <- function(values, valueTypes, levelsLists)
 {
-  convertedValues <- vector(mode = "list", length = length(values))
-  for (i in seq_along(values)) {
+  len <- length(values)
+  convertedValues <- vector(mode = "list", length = len)
+  for (i in 1:len) {
     value <- values[i]
     valueType <- valueTypes[i]
     levels <- unlist(levelsLists[i])

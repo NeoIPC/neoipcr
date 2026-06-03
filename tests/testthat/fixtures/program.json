@@ -8,6 +8,7 @@
           "name": "Admission",
           "displayName": "Aufnahme",
           "displayFormName": "Aufnahme",
+          "displayDescription": "Admission stage description",
           "programStageDataElements": [
             {
               "dataElement": {
@@ -52,6 +53,7 @@
           "name": "Surgical Procedure",
           "displayName": "Operativer Eingriff",
           "displayFormName": "Operativer Eingriff",
+          "displayDescription": "Surgical procedure stage description",
           "programStageDataElements": [
             {
               "dataElement": {

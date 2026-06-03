@@ -15,16 +15,19 @@
 make_test_unit_ds <- function() {
   md <- read_test_metadata(
     dataset_options = dhis2_dataset_options(
-      include_department = "yes",
-      include_country    = "yes"))
+      include_department = "full",
+      include_country    = "full"))
   md$departments     <- make_test_metadata_departments(1)
   md$hospitals        <- make_test_metadata_hospitals(1)
   md$countries        <- make_test_metadata_countries(1)
   md$worldBankClasses <- make_test_metadata_wb_classes(1)
   md$eventTypes       <- make_test_metadata_event_types()
   md$dataset_options  <- dhis2_dataset_options(
-    include_department = "yes",
-    include_country    = "yes")
+    include_department = "full",
+    include_country    = "full",
+    include_patient    = "full",
+    include_enrollment = "full",
+    include_event      = "full")
 
   patients <- make_test_patients(2,
     department_key       = c(1L, 1L),

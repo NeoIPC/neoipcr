@@ -85,64 +85,107 @@ get_user_info <- function(req)
   ), class = c("neoipc_dhis2_usrinfo", "list"))
 }
 
-read_user_info_table <- function(user_info, include_user)
+# Read the currently-authenticated user into a `users` tibble.
+#
+# Used as a fallback by `read_metadata_reponses()` when the caller lacks
+# the `F_USER_VIEW` / `F_METADATA_EXPORT` / `ALL` authorities required to
+# fetch the full user list through the metadata endpoint.
+#
+# Returns a named list with two components:
+#   * `public`       — schema-conformant tibble matching
+#                      `compile_schema(users_cols, dataset_options)`.
+#                      Always returned (never NULL); under `include_user
+#                      = "no"` the entity gate short-circuits to 0×0.
+#   * `internal_map` — orchestrator-internal tibble with columns
+#                      `user_key`, `username`, `user` — consumed by fact
+#                      readers for `createdBy` / `updatedBy` / `storedBy`
+#                      / `completedBy` username→user_key (and DHIS2
+#                      id→user_key) substitution. NULL under
+#                      `include_user = "no"`.
+read_user_info_table <- function(user_info, dataset_options)
 {
-  if(include_user == "no")
-    return(NULL)
+  opts <- dataset_options
+  empty_result <- list(
+    public       = compile_schema(users_cols, opts),
+    internal_map = NULL
+  )
 
-  if(include_user == "yes")
-    return(
-      user_info |>
-        list() |>
-        tibble::tibble() |>
-        tidyr::unnest_wider(1) |>
-        dplyr::select(!c(
-          "organisationUnits",
-          "dataViewOrganisationUnits",
-          "teiSearchOrganisationUnits",
-          "groups",
-          "roles",
-          "authorities")) |>
-        add_key_column("user_key"))
+  if (opts$include_user == "no")
+    return(empty_result)
 
-  user_info <- tibble::tibble(
-    user_key = 1L,
-    user = user_info$id,
-    username = user_info$username)
+  raw <- user_info |>
+    list() |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1) |>
+    dplyr::select(!c(
+      "organisationUnits",
+      "dataViewOrganisationUnits",
+      "teiSearchOrganisationUnits",
+      "groups",
+      "roles",
+      "authorities")) |>
+    dplyr::rename("user" = "id") |>
+    add_key_column("user_key")
+
+  internal_map <- raw |>
+    dplyr::select(tidyselect::all_of(c("user_key", "username", "user")))
+
+  public <- raw |>
+    finalize_to_schema(users_cols, opts)
+  assert_schema(public, users_cols, opts)
+
+  list(public = public, internal_map = internal_map)
 }
 
-read_metadata_users <- function(metadata, include_user)
+# Read the metadata `users` collection into a `users` tibble.
+#
+# Same contract as `read_user_info_table()`: returns `list(public,
+# internal_map)`. Called when the caller's authorities include
+# `F_USER_VIEW` / `F_METADATA_EXPORT` / `ALL` and the metadata endpoint
+# returns a full `users` payload. When `include_user = "no"` or the
+# payload is absent, falls back to the empty shape so the orchestrator
+# can distinguish "users not fetched yet" from "users fetched but
+# empty" via the returned list's nullability of `internal_map`.
+read_metadata_users <- function(metadata, dataset_options)
 {
-  if(include_user == "no")
-    return(invisible(NULL))
+  opts <- dataset_options
+  empty_result <- list(
+    public       = compile_schema(users_cols, opts),
+    internal_map = NULL
+  )
+
+  if (opts$include_user == "no")
+    return(empty_result)
 
   users <- metadata |>
     purrr::pluck("users")
 
-  if(rlang::is_null(users))
-    return(invisible(NULL))
+  if (rlang::is_null(users))
+    return(empty_result)
 
-  users <- users |>
+  raw <- users |>
     tibble::tibble() |>
-    tidyr::unnest_wider(1)
+    tidyr::unnest_wider(1) |>
+    dplyr::rename("user" = "id") |>
+    add_key_column("user_key")
 
-  if(include_user == "yes")
-    users <- users |>
-    dplyr::select(
-      !c(
+  if (opts$include_user == "full")
+    raw <- raw |>
+      dplyr::select(!tidyselect::any_of(c(
         "organisationUnits",
         "dataViewOrganisationUnits",
         "teiSearchOrganisationUnits",
-        "userRoles")) |>
-    dplyr::mutate(
-      created = readr::parse_datetime(.data$created),
-      lastLogin = readr::parse_datetime(.data$lastLogin)) |>
-    dplyr::relocate("user" = "id","username","firstName","surname","email",
-                    "lastLogin","created")
-  else
-    users <- users |>
-    dplyr::rename("user" = "id")
+        "userRoles"))) |>
+      dplyr::mutate(
+        created   = readr::parse_datetime(.data$created),
+        lastLogin = readr::parse_datetime(.data$lastLogin))
 
-  users |>
-    add_key_column("user_key")
+  internal_map <- raw |>
+    dplyr::select(tidyselect::any_of(c("user_key", "username", "user")))
+
+  public <- raw |>
+    finalize_to_schema(users_cols, opts)
+  assert_schema(public, users_cols, opts)
+
+  list(public = public, internal_map = internal_map)
 }

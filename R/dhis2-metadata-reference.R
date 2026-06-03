@@ -23,8 +23,25 @@ read_metadata_program_id <- function(metadata)
   program_id
 }
 
-read_metadata_programStages <- function(metadata)
+# Read the program-stages metadata into an `eventTypes` tibble.
+#
+# Returns a named list with two components:
+#   * `public`       — schema-conformant tibble matching
+#                      `compile_schema(eventTypes_cols, dataset_options)`.
+#                      Always returned (never NULL); rows = all program
+#                      stages present in the DHIS2 payload, mapped to
+#                      the protocol's `event_type_key` factor.
+#   * `internal_map` — orchestrator-internal tibble with two columns,
+#                      `event_type_key + programStage`. Consumed by
+#                      `read_events()` for the raw `programStage` →
+#                      `event_type_key` substitution, regardless of
+#                      whether `"event_types" %in% include_dhis2_ids`
+#                      (that option controls only public exposure of
+#                      `programStage`, not internal FK resolution).
+read_metadata_programStages <- function(metadata, dataset_options)
 {
+  opts <- dataset_options
+
   programStages <- metadata |>
     purrr::pluck("programs", 1, "programStages")
 
@@ -32,7 +49,7 @@ read_metadata_programStages <- function(metadata)
     rlang::abort("Invalid DHIS2 metadata. The programStages list is missing.",
                  "neoipcr_metadata_programStages_missing")
 
-  programStages |>
+  raw <- programStages |>
     tibble::tibble() |>
     tidyr::unnest_wider(1) |>
     dplyr::select(!tidyselect::any_of("programStageDataElements")) |>
@@ -64,7 +81,20 @@ read_metadata_programStages <- function(metadata)
         .data$displayFormName,
         levels = unique(.data$displayFormName))
     ) |>
-    dplyr::relocate("event_type_key", "programStage" = "id")
+    dplyr::rename("programStage" = "id")
+
+  internal_map <- raw |>
+    dplyr::select(tidyselect::all_of(c("event_type_key", "programStage")))
+
+  # `raw` already has exactly the columns declared in `eventTypes_cols`
+  # (after the `programStageDataElements` select-out above). No scratch
+  # needed — finalize is a pure selection / relocation under the
+  # `include_dhis2_ids == "event_types"` gate.
+  public <- raw |>
+    finalize_to_schema(eventTypes_cols, opts)
+  assert_schema(public, eventTypes_cols, opts)
+
+  list(public = public, internal_map = internal_map)
 }
 
 read_metadata_dataElements <- function(metadata)
@@ -177,24 +207,16 @@ read_metadata_test_unit_ids <- function(metadata, include_test_data)
 
 read_metadata_trials <- function(metadata, trial_keys)
 {
-  if(length(trial_keys) < 1)
+  if(is.null(trial_keys))
     return(NULL)
 
-  groupSets <- purrr::pluck(metadata, "organisationUnitGroupSets")
-  if(rlang::is_null(groupSets))
-    return(NULL)
-
-  trialsIdx <- NULL
-  for (i in seq_along(groupSets)) {
-    if (identical(purrr::pluck(groupSets, i, "code"), "NEOIPC_TRIALS")) {
-      trialsIdx <- i
-      break
-    }
+  for (i in 1:2) {
+    if ('NEOIPC_TRIALS' ==
+        (purrr::pluck(metadata,"organisationUnitGroupSets", i, "code"))) break
   }
-  if(is.null(trialsIdx))
-    return(NULL)
+  organisationUnitGroups <- metadata |>
+    purrr::pluck("organisationUnitGroupSets", i, "organisationUnitGroups")
 
-  organisationUnitGroups <- purrr::pluck(groupSets, trialsIdx, "organisationUnitGroups")
   if(rlang::is_null(organisationUnitGroups))
     return(NULL)
 
@@ -208,112 +230,197 @@ read_metadata_trials <- function(metadata, trial_keys)
                        ignore_case = TRUE)))
 }
 
-read_metadata_wb_classes <- function(metadata, include_world_bank_class)
+#' @include schema-orgunits.R
+NULL
+
+# Read the World Bank income classes from the DHIS2 metadata.
+#
+# Returns a named list with two components:
+#   * `public`      — schema-conformant tibble matching
+#                     `compile_schema(worldBankClasses_cols, dataset_options)`.
+#                     Always returned (never NULL); shape follows the
+#                     three-mode contract on `include_world_bank_class`.
+#   * `country_map` — internal lookup tibble with columns
+#                     `world_bank_class_key` + `organisationUnits` (the
+#                     nested list of country group members). Consumed by
+#                     `read_metadata_countries()` to enrich each country
+#                     with its WB-class membership. NULL when there is no
+#                     WB-class metadata to map against (e.g.
+#                     `include_world_bank_class == "no"`, or the WB-classes
+#                     group set is absent from the response).
+read_metadata_wb_classes <- function(metadata, dataset_options)
 {
-  if(include_world_bank_class == "no")
-    return(NULL)
+  opts <- dataset_options
+  empty_result <- list(
+    public      = compile_schema(worldBankClasses_cols, opts),
+    country_map = NULL
+  )
 
-  groupSets <- purrr::pluck(metadata, "organisationUnitGroupSets")
-  if(rlang::is_null(groupSets))
-    return(NULL)
+  if (opts$include_world_bank_class == "no")
+    return(empty_result)
 
-  wbIdx <- NULL
-  for (i in seq_along(groupSets)) {
-    if (identical(purrr::pluck(groupSets, i, "code"), "WORLD_BANK_CLASSES")) {
-      wbIdx <- i
-      break
-    }
-  }
-  if(is.null(wbIdx))
-    return(NULL)
+  group_sets <- purrr::pluck(metadata, "organisationUnitGroupSets")
+  if (rlang::is_null(group_sets) || length(group_sets) < 1L)
+    return(empty_result)
 
-  organisationUnitGroups <- purrr::pluck(groupSets, wbIdx, "organisationUnitGroups")
-  if(rlang::is_null(organisationUnitGroups))
-    return(NULL)
+  wb_set <- purrr::detect(
+    group_sets,
+    \(gs) identical(purrr::pluck(gs, "code"), "WORLD_BANK_CLASSES"))
+  if (rlang::is_null(wb_set))
+    return(empty_result)
 
-  pseudonymise <- include_world_bank_class != "yes"
+  organisationUnitGroups <- purrr::pluck(wb_set, "organisationUnitGroups")
+  if (rlang::is_null(organisationUnitGroups) ||
+      length(organisationUnitGroups) < 1L)
+    return(empty_result)
 
   organisationUnitGroups <- organisationUnitGroups |>
     tibble::tibble() |>
-    tidyr::unnest_wider(1)
-
-  if(pseudonymise)
-    organisationUnitGroups <- organisationUnitGroups |>
-    dplyr::mutate(
-      fiscal_year = as.integer(
-        stringr::str_extract(
-          .data$code, "^WORLD_BANK_CLASS_(H|L|LM|UM)_FY_(\\d{4})$", group = 2)),
-      .keep = "unused",
-      .before = 1) |>
-    dplyr::arrange(dplyr::desc(.data$fiscal_year))
-  else
-    organisationUnitGroups <- organisationUnitGroups |>
+    tidyr::unnest_wider(1) |>
     dplyr::mutate(
       class = factor(
         stringr::str_extract(
           .data$code,
           "^WORLD_BANK_CLASS_(H|L|LM|UM)_FY_(\\d{4})$",
           group = 1),
-        levels = c('L','LM','UM','H')),
+        levels = c("L", "LM", "UM", "H")),
       fiscal_year = as.integer(
         stringr::str_extract(
           .data$code,
           "^WORLD_BANK_CLASS_(H|L|LM|UM)_FY_(\\d{4})$",
           group = 2)),
-      .keep = "unused",
+      .keep  = "unused",
       .before = 1) |>
     dplyr::arrange(dplyr::desc(.data$fiscal_year), .data$class)
 
-  if (nrow(organisationUnitGroups) == 0L) {
-    filtered <- organisationUnitGroups
-  } else {
-    current_year <- as.POSIXlt(Sys.Date())$year + 1900
-    candidates <- organisationUnitGroups$fiscal_year[organisationUnitGroups$fiscal_year <= current_year]
-    target_year <- if (length(candidates) > 0L) max(candidates) else max(organisationUnitGroups$fiscal_year, na.rm = TRUE)
-    filtered <- organisationUnitGroups |>
-      dplyr::filter(.data$fiscal_year == target_year)
+  # Narrow to the most recent fiscal year that has WB-class rows. Current
+  # year downward, stop at first non-empty year. If no row remains (e.g.
+  # a metadata snapshot predating any fiscal year we know about), fall
+  # back to the empty shape.
+  current_year <- as.POSIXlt(Sys.Date())$year + 1900L
+  filtered <- NULL
+  for (year in current_year:2025L) {
+    candidate <- organisationUnitGroups |>
+      dplyr::filter(.data$fiscal_year == year)
+
+    if (nrow(candidate) > 0L) {
+      filtered <- candidate
+      break
+    }
   }
+  if (is.null(filtered))
+    return(empty_result)
 
   filtered <- filtered |>
-    add_key_column('world_bank_class_key')
+    add_key_column("world_bank_class_key")
 
-  if(pseudonymise)
-    return(filtered |> dplyr::select(!"fiscal_year"))
+  country_map <- filtered |>
+    dplyr::select(tidyselect::all_of(
+      c("world_bank_class_key", "organisationUnits")))
 
-  filtered
+  # `id`, `name`, `displayName`, `organisationUnits` are raw DHIS2 fields
+  # unnest_wider'd from the WB-class group response. The orchestrator
+  # consumes `organisationUnits` (via `country_map`) for the WB-class
+  # inheritance path on hospitals under `include_country = "no"`; the
+  # rest are unused public-side. Listed as `scratch` so the new loud
+  # finalize doesn't flag them as unintended mismatches.
+  public <- filtered |>
+    finalize_to_schema(
+      worldBankClasses_cols, opts,
+      scratch = c("id", "name", "displayName", "displayShortName",
+                   "displayDescription", "organisationUnits"))
+  assert_schema(public, worldBankClasses_cols, opts)
+
+  list(public = public, country_map = country_map)
 }
 
-read_metadata_countries <- function(
-    metadata, include_country, has_country_filter, world_bank_classes)
+# Read the country metadata from the DHIS2 metadata response.
+#
+# Returns a named list with two components:
+#   * `public`       — schema-conformant tibble matching
+#                      `compile_schema(countries_cols, dataset_options)`.
+#                      Always returned (never NULL); shape follows the
+#                      three-mode contract on `include_country` (0×0 / 1-col
+#                      / full) plus the direct WB-class link-FK when
+#                      `include_world_bank_class != "no"`.
+#   * `internal_map` — orchestrator-internal lookup tibble with columns
+#                      `country` (raw DHIS2 id), `code`, and
+#                      `country_key`. Consumed by the orchestrator's
+#                      post-read joins (country_filter narrowing,
+#                      hospitals country_key lookup). NULL when there is
+#                      no country metadata to map against (e.g. no
+#                      COUNTRY organisationUnitGroup, or the user opted
+#                      out of everything country-related).
+read_metadata_countries <- function(metadata, dataset_options, wb_country_map)
 {
-  if(!has_country_filter && include_country == "no" && is.null(world_bank_classes))
-    return(NULL)
+  opts <- dataset_options
+  empty_result <- list(
+    public       = compile_schema(countries_cols, opts),
+    internal_map = NULL
+  )
+
+  has_country_filter <- length(opts$country_filter) > 0L
+
+  # Early-exit when the user wants nothing country-related and no WB
+  # join is needed. Retains legacy behaviour of returning the empty
+  # shape without attempting to read the COUNTRY group.
+  if (!has_country_filter &&
+      opts$include_country == "no" &&
+      opts$include_world_bank_class == "no")
+    return(empty_result)
 
   organisationUnitGroups <- read_metadata_organisationUnitGroups(
     metadata, "COUNTRY")
 
-  if(rlang::is_null(organisationUnitGroups) || nrow(organisationUnitGroups) < 1)
-    return(NULL)
+  if (rlang::is_null(organisationUnitGroups) ||
+      nrow(organisationUnitGroups) < 1L)
+    return(empty_result)
 
-  organisationUnitGroups <- organisationUnitGroups |>
+  countries <- organisationUnitGroups |>
     dplyr::select("organisationUnits") |>
     tidyr::unnest_longer(1) |>
     tidyr::unnest_wider(1) |>
-    dplyr::mutate(dplyr::across(!"id", ordered)) |>
+    dplyr::mutate(dplyr::across(!c("id", "name"), ordered)) |>
     dplyr::relocate("id", .before = 1) |>
     dplyr::rename(country = "id") |>
-    add_key_column('country_key')
+    add_key_column("country_key")
 
-  if(!is.null(world_bank_classes))
-    organisationUnitGroups <- organisationUnitGroups |>
+  if (opts$include_world_bank_class != "no" && !is.null(wb_country_map))
+    countries <- countries |>
     dplyr::left_join(
-      world_bank_classes |>
-        dplyr::select("world_bank_class_key", "organisationUnits") |>
+      wb_country_map |>
         tidyr::unnest_longer("organisationUnits") |>
         tidyr::hoist("organisationUnits", country = list(1L)),
       dplyr::join_by("country"))
 
-  organisationUnitGroups
+  # The schema declares `world_bank_class_key` under any non-"no" WB
+  # option — this is a static schema-level fact, independent of whether
+  # actual WB-class metadata was present in the response. If the WB
+  # metadata was empty (wb_country_map NULL or no matching rows),
+  # materialize the column as NA so finalize_to_schema can select it.
+  if (opts$include_world_bank_class != "no" &&
+      !("world_bank_class_key" %in% names(countries)))
+    countries$world_bank_class_key <- NA_integer_
+
+  # Orchestrator-internal lookup — carries the raw DHIS2 `country` id
+  # and the `code` needed for `country_filter` narrowing plus
+  # `country_key` for joining back to the public tibble. Kept outside
+  # the public schema because DHIS2 id exposure is gated separately
+  # (`include_dhis2_ids == "countries"`), and `code` is internal to
+  # filtering, not to the public output.
+  internal_map <- countries |>
+    dplyr::select(tidyselect::any_of(c("country", "code", "country_key")))
+
+  # `country` is the raw DHIS2 org-unit id; kept only on `internal_map`
+  # for orchestrator-side joins (country_filter narrowing, hospitals
+  # country_key lookup). The schema deliberately doesn't expose it in
+  # the public tibble (that's gated by `include_dhis2_ids == "countries"`
+  # at a future Phase B sub-task), so it's `scratch` for the finalize.
+  public <- countries |>
+    finalize_to_schema(countries_cols, opts, scratch = "country")
+  assert_schema(public, countries_cols, opts)
+
+  list(public = public, internal_map = internal_map)
 }
 
 read_metadata_optionGroupSets <- function(
@@ -353,7 +460,7 @@ read_metadata_optionGroupSets <- function(
         .data$displayName,
         levels = unique(.data$displayName),
         ordered = ordered),
-      displayShortName = factor(
+      displayFormName = factor(
         .data$displayShortName,
         levels = unique(.data$displayShortName),
         ordered = ordered))
