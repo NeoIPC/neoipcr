@@ -282,6 +282,25 @@ test_that("finalize_to_schema applies declared factor levels", {
   expect_identical(levels(out$sex), c("f", "m", "u"))
 })
 
+test_that("finalize_to_schema leaves data-derived factor columns untouched", {
+  # Data-derived factors (`factor_levels = character()`,
+  # `levels_source = "data"`) carry their levels from the reader.
+  # Re-running `factor(act, levels = character())` would coerce every
+  # value to NA — this test pins the values-survive contract.
+  cols <- list(
+    neoipcr:::schema_col("id", integer()),
+    neoipcr:::schema_col("sex", factor(),
+      factor_levels = character(), levels_source = "data"))
+  x <- tibble::tibble(
+    id  = 1:3,
+    sex = factor(c("male", "female", "male"),
+                 levels = c("female", "male")))
+  out <- neoipcr:::finalize_to_schema(x, cols, dhis2_dataset_options())
+  expect_true(is.factor(out$sex))
+  expect_identical(as.character(out$sex), c("male", "female", "male"))
+  expect_identical(levels(out$sex), c("female", "male"))
+})
+
 test_that("finalize_to_schema respects include_when() filtering", {
   cols <- list(
     neoipcr:::schema_col("always",    integer()),

@@ -87,7 +87,7 @@ tibble also carries the columns selected by \code{patient_columns}.}
 \item{patient_columns}{Character vector selecting which patient-specific
 columns beyond \code{patient_key} are included when \code{include_patient = "full"}.
 Choices: "id", "birth_weight", "sex", "delivery_mode", "siblings",
-"gest_age", "inactive", "potentialDuplicate". Empty (the default) means
+"gestational_age", "inactive", "potentialDuplicate". Empty (the default) means
 all columns allowed by the gate. Ignored when \code{include_patient} is
 "no" or "pseudo".}
 
@@ -108,10 +108,11 @@ into the dataset.}
 
 \item{include_test_data}{Include data from test departments into the dataset.}
 
-\item{include_ineligible_patients}{Include data from patients that do not
-meet the NeoIPC Core patient case eligibility criteria.}
+\item{include_ineligible_patients}{Include data from patients that don't meet
+the NeoIPC core case eligibility criteria into the dataset.}
 
-\item{include_unenrolled_patients}{Include patients without enrollments.}
+\item{include_unenrolled_patients}{Include data from unenrolled NeoIPC
+patient records into the dataset.}
 
 \item{include_invalid_patients}{Include data from patient records that
 could have validation errors}

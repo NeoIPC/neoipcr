@@ -248,8 +248,12 @@ finalize_to_schema <- function(x, cols, opts, scratch = character())
     nm  <- c$name
     act <- x[[nm]]
     exp <- expected[[nm]]
-    # Factor levels (existing behaviour).
-    if (!is.null(c$factor_levels)) {
+    # Factor levels (fixed allow-list only). For data-derived factors
+    # (`factor_levels = character()`, `levels_source = "data"`) the
+    # column already carries its levels from the reader; re-running
+    # `factor(act, levels = character())` would coerce every value to
+    # NA. The post-filter cascade applies `droplevels()` later.
+    if (!is.null(c$factor_levels) && c$levels_source == "fixed") {
       x[[nm]] <- factor(act, levels = c$factor_levels)
     # Base-type coercion: when actual class differs from expected and
     # all values are NA, coerce to the expected type.

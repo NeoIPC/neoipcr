@@ -72,7 +72,7 @@ get_metadata_request <- function(req_base, user_info, dataset_options)
       req <- req |>
         httr2::req_url_query(
           `organisationUnitGroups:fields` = "code,organisationUnits[id,code]")
-    else # pseudonymised, or include_world_bank_class != "no"
+    else # include_country == "pseudo", or include_world_bank_class != "no"
       req <- req |>
         httr2::req_url_query(
           `organisationUnitGroups:fields` = "code,organisationUnits[id]")
