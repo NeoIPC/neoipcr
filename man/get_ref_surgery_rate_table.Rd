@@ -14,7 +14,7 @@ neoipcr_ds object}
 }
 \value{
 A table containing the reference rates of surgical procedures and
-the 25\\%, 50\\%, and 75\\% quantiles
+the 25\%, 50\%, and 75\% quantiles
 }
 \description{
 Get the reference table with rates of surgical procedures

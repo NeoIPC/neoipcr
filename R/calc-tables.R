@@ -461,7 +461,7 @@ get_surgery_rate_table <- function(x, use_cache = TRUE) {
 #' @param use_cache Use the cache. Ignored if ref is a neoipcr_ref_ds object
 #'
 #' @returns A table containing the reference rates of surgical procedures and
-#'  the 25\%, 50\%, and 75\% quantiles
+#'  the 25%, 50%, and 75% quantiles
 #' @export
 get_ref_surgery_rate_table <- function(ref, use_cache = TRUE) {
   check_neoipcr_ds_or_ref_ds(ref)

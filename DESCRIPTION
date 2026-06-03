@@ -34,6 +34,7 @@ Imports:
 Suggests:
     covr (>= 3.6.0),
     jsonlite (>= 1.9.1),
+    roxygen2 (>= 8.0.0),
     testthat (>= 3.0.0),
     withr (>= 2.5.0),
     yaml (>= 2.3.10)
