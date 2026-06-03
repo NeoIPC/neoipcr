@@ -20,7 +20,7 @@ The JSON string. Returned invisibly when \code{file} is non-NULL.
 Writes plain, non-R-specific JSON suitable for consumers in other
 languages (e.g. the NeoIPC.Reporting .NET service, JS tooling). Unlike
 \code{\link[jsonlite:serializeJSON]{jsonlite::serializeJSON()}} — which wraps every value in an R type
-descriptor and only round-trips through \code{\link[jsonlite:serializeJSON]{jsonlite::unserializeJSON()}} —
+descriptor and only round-trips through \code{\link[jsonlite:unserializeJSON]{jsonlite::unserializeJSON()}} —
 the output is a normal JSON document.
 }
 \details{
@@ -32,4 +32,10 @@ covers the \code{metadata} block produced by \code{\link[=calculate_reference_da
 Round-tripping the full output of \code{\link[=calculate_reference_data]{calculate_reference_data()}} (with
 tibbles, factors, and class metadata) is tracked separately. A
 \code{read_json()} companion will land alongside that work.
+
+This is a low-level serialiser: it performs no redaction. Callers are
+responsible for passing only data they intend to expose to the
+consumer. For partner-facing reports, use the \verb{include_*} options on
+\code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}} upstream of the calc pipeline rather than
+relying on this layer to filter sensitive columns.
 }

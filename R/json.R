@@ -15,6 +15,12 @@
 #' tibbles, factors, and class metadata) is tracked separately. A
 #' `read_json()` companion will land alongside that work.
 #'
+#' This is a low-level serialiser: it performs no redaction. Callers are
+#' responsible for passing only data they intend to expose to the
+#' consumer. For partner-facing reports, use the `include_*` options on
+#' [dhis2_dataset_options()] upstream of the calc pipeline rather than
+#' relying on this layer to filter sensitive columns.
+#'
 #' @param x The object to serialise.
 #' @param file Output file path. If `NULL`, returns the JSON string.
 #' @param pretty Whether to pretty-print the output.

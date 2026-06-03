@@ -5,6 +5,7 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^README\.Rmd$
+^data$
 ^data-raw$
 ^tools$
 ^\.covrignore$

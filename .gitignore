@@ -57,3 +57,6 @@ rsconnect/
 # Local coverage report
 coverage.html
 lib/
+
+# Local-only sensitive data (the protected-dir convention)
+data/
