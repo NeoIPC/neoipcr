@@ -1681,7 +1681,7 @@ get_secondary_bsi_rate_table <- function(
         dplyr::reframe(
           dplyr::across(
             tidyselect::everything(),
-            ~quantile(.x, prob = c(.25, .5, .75), na.rm = TRUE))) |>
+            ~stats::quantile(.x, prob = c(.25, .5, .75), na.rm = TRUE))) |>
         dplyr::bind_cols(tibble::tibble(Q = c("q1", "q2", "q3"))) |>
         tidyr::pivot_longer(!"Q", names_to = "event_type_key") |>
         tidyr::pivot_wider(names_from = "Q", values_from = "value")
