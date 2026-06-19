@@ -12,15 +12,16 @@ bw50 <- function(x, as_factor = TRUE) {
   if(!as_factor)
     return(m)
 
-  if(length(x) < 1)
-    return(factor())
+  # No finite midpoints (empty or all-NA input) — seq() below needs a finite range.
+  if(!any(is.finite(m)))
+    return(ordered(m))
 
   lb <- m-25
   ub <- m+24
   ordered(
     m,
-    levels = seq(min(m), max(m), 50),
-    labels = paste0(format(seq(min(lb), max(lb), 50))," g - ",format(seq(min(ub), max(ub), 50))," g"))
+    levels = seq(min(m, na.rm = TRUE), max(m, na.rm = TRUE), 50),
+    labels = paste0(format(seq(min(lb, na.rm = TRUE), max(lb, na.rm = TRUE), 50))," g - ",format(seq(min(ub, na.rm = TRUE), max(ub, na.rm = TRUE), 50))," g"))
 }
 
 bw125 <- function(x, as_factor = TRUE) {
@@ -28,15 +29,16 @@ bw125 <- function(x, as_factor = TRUE) {
   if(!as_factor)
     return(m)
 
-  if(length(x) < 1)
-    return(factor())
+  # No finite midpoints (empty or all-NA input) — seq() below needs a finite range.
+  if(!any(is.finite(m)))
+    return(ordered(m))
 
   lb <- m-62
   ub <- m+62
   ordered(
     m,
-    levels = seq(min(m), max(m), 125),
-    labels = paste0(format(seq(min(lb), max(lb), 125))," g - ",format(seq(min(ub), max(ub), 125))," g"))
+    levels = seq(min(m, na.rm = TRUE), max(m, na.rm = TRUE), 125),
+    labels = paste0(format(seq(min(lb, na.rm = TRUE), max(lb, na.rm = TRUE), 125))," g - ",format(seq(min(ub, na.rm = TRUE), max(ub, na.rm = TRUE), 125))," g"))
 }
 
 bw250 <- function(x, as_factor = TRUE) {
@@ -44,15 +46,16 @@ bw250 <- function(x, as_factor = TRUE) {
   if(!as_factor)
     return(m)
 
-  if(length(x) < 1)
-    return(factor())
+  # No finite midpoints (empty or all-NA input) — seq() below needs a finite range.
+  if(!any(is.finite(m)))
+    return(ordered(m))
 
   lb <- m-125
   ub <- m+124
   ordered(
     m,
-    levels = seq(min(m), max(m), 250),
-    labels = paste0(format(seq(min(lb), max(lb), 250))," g - ",format(seq(min(ub), max(ub), 250))," g"))
+    levels = seq(min(m, na.rm = TRUE), max(m, na.rm = TRUE), 250),
+    labels = paste0(format(seq(min(lb, na.rm = TRUE), max(lb, na.rm = TRUE), 250))," g - ",format(seq(min(ub, na.rm = TRUE), max(ub, na.rm = TRUE), 250))," g"))
 }
 
 bw500 <- function(x, as_factor = TRUE) {
@@ -60,13 +63,14 @@ bw500 <- function(x, as_factor = TRUE) {
   if(!as_factor)
     return(m)
 
-  if(length(x) < 1)
-    return(factor())
+  # No finite midpoints (empty or all-NA input) — seq() below needs a finite range.
+  if(!any(is.finite(m)))
+    return(ordered(m))
 
   lb <- m-250
   ub <- m+249
   ordered(
     m,
-    levels = seq(min(m), max(m), 500),
-    labels = paste0(format(seq(min(lb), max(lb), 500))," g - ",format(seq(min(ub), max(ub), 500))," g"))
+    levels = seq(min(m, na.rm = TRUE), max(m, na.rm = TRUE), 500),
+    labels = paste0(format(seq(min(lb, na.rm = TRUE), max(lb, na.rm = TRUE), 500))," g - ",format(seq(min(ub, na.rm = TRUE), max(ub, na.rm = TRUE), 500))," g"))
 }
