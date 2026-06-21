@@ -224,10 +224,13 @@ build_processed_events <- function(event_keys, event_type_key) {
 #' read_infectious_agent_findings.
 #'
 #' @param event_type_key Character scalar (or vector for multi-type).
+#' @param substance_count Integer scalar — number of antibiotic-substance slots to
+#'   materialise (DEs `NEOIPC_SURVEILLANCE_END_AB_SUBST_01..NN` + `_DAYS`). Defaults to 5L.
 #' @return A list with `$dataElements`, `$options`, `$.users_internal_map`.
 build_reader_metadata <- function(event_type_key = c("adm", "end", "bsi",
                                                       "nec", "hap", "pro",
-                                                      "ssi")) {
+                                                      "ssi"),
+                                  substance_count = 5L) {
   opts <- neoipcr::dhis2_dataset_options(
     include_event     = "full",
     include_user      = "no",
@@ -262,8 +265,8 @@ build_reader_metadata <- function(event_type_key = c("adm", "end", "bsi",
 
   # Add substance-days DEs (always associated with surveillance-end).
   if ("end" %in% event_type_key) {
-    for (i in 1:5) {
-      subst_code <- sprintf("NEOIPC_SURVEILLANCE_END_AB_SUBST_0%d", i)
+    for (i in seq_len(substance_count)) {
+      subst_code <- sprintf("NEOIPC_SURVEILLANCE_END_AB_SUBST_%02d", i)
       days_code  <- paste0(subst_code, "_DAYS")
       de_rows[[length(de_rows) + 1L]] <- list(
         dataElement = .de_uid(subst_code),
@@ -356,8 +359,9 @@ build_reader_metadata <- function(event_type_key = c("adm", "end", "bsi",
 #' Build raw events containing substance-day dataValues.
 #'
 #' @param event_keys Integer vector — one per surveillance-end event.
-#' @param substance_rows A list of lists. Each inner list maps index
-#'   (1-5) to a list with `substance_code` and optionally `days`.
+#' @param substance_rows A list of lists. Each inner list maps a 1-based slot
+#'   index (1-99, zero-padded to two digits in the emitted DE code) to a list
+#'   with `substance_code` and optionally `days`.
 #'   E.g. `list(list("1" = list(substance_code = "J01CA04", days = "3")))`.
 #'   Use `list()` for an event with no substance DEs.
 build_raw_substance_events <- function(event_keys, substance_rows) {
@@ -367,7 +371,7 @@ build_raw_substance_events <- function(event_keys, substance_rows) {
     dvs <- list()
     for (idx_str in names(row)) {
       entry <- row[[idx_str]]
-      subst_code <- sprintf("NEOIPC_SURVEILLANCE_END_AB_SUBST_0%s", idx_str)
+      subst_code <- sprintf("NEOIPC_SURVEILLANCE_END_AB_SUBST_%02d", as.integer(idx_str))
       if (!is.null(entry$substance_code)) {
         dvs[[length(dvs) + 1L]] <- list(
           dataElement = .de_uid(subst_code),

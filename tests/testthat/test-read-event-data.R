@@ -301,6 +301,25 @@ test_that("gap 8: substance-days with both codes and days", {
   expect_equal(result$index[[1L]], 1L)
 })
 
+test_that("substance-days: a two-digit slot index parses to the full number, not the last digit", {
+  # Regression for the index regex AB_SUBST_\d(\d) -> AB_SUBST_(\d\d): slot 15 must read as 15, not 5.
+  opts     <- .test_opts()
+  metadata <- build_reader_metadata("end", substance_count = 15L)
+
+  events_raw <- build_raw_substance_events(
+    event_keys     = 1L,
+    substance_rows = list(list(
+      "9"  = list(substance_code = "J01CA04", days = "3"),
+      "15" = list(substance_code = "J01CR02", days = "5"))))
+  processed <- build_processed_events(1L, "end")
+
+  result <- neoipcr:::read_substance_days(events_raw, processed, metadata, opts)
+
+  expect_setequal(result$index, c(9L, 15L))
+  expect_equal(result$substance_code[result$index == 15L], "J01CR02")
+  expect_equal(result$days[result$index == 15L], 5L)
+})
+
 test_that("gap 8: substance-days zero matching events produce schema shape", {
   opts     <- .test_opts()
   expected <- neoipcr:::compile_schema(neoipcr:::substanceDays_cols, opts)

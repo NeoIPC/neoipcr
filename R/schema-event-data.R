@@ -506,8 +506,8 @@ findings_cols <- with_entity_gate(
 # ---- substanceDays -------------------------------------------------------
 #
 # AB substance-days pivot from the surveillance-end DEs. Row per
-# (event_key × index), with index ∈ 1..9 extracted from
-# `NEOIPC_SURVEILLANCE_END_AB_SUBST_0<N>` and its paired `_DAYS`
+# (event_key × index), with index ∈ 1..99 extracted from
+# `NEOIPC_SURVEILLANCE_END_AB_SUBST_<NN>` and its paired `_DAYS`
 # companion.
 #
 # No separate PK — `(event_key, index)` is unique per row. Composite
