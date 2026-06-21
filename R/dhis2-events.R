@@ -661,9 +661,10 @@ read_substance_days <- function(events_raw, processed_events, metadata, dataset_
       dplyr::join_by("dataElement")) |>
     dplyr::select(!"dataElement") |>
     dplyr::mutate(
+      # Substance slots are 2-digit zero-padded (AB_SUBST_01..AB_SUBST_99); capture both digits.
       index = as.integer(stringr::str_extract(
         .data$code,
-        "^NEOIPC_SURVEILLANCE_END_AB_SUBST_\\d(\\d)(_DAYS)?$", 1)),
+        "^NEOIPC_SURVEILLANCE_END_AB_SUBST_(\\d\\d)(_DAYS)?$", 1)),
       name = factor(
         dplyr::if_else(
           stringr::str_ends(.data$code, "_DAYS"),
