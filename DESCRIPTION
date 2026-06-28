@@ -23,6 +23,7 @@ Imports:
     httr2 (>= 1.1.1),
     ids (>= 1.0.1),
     jsonlite (>= 1.9.1),
+    logger (>= 0.4.2),
     lubridate (>= 1.9.4),
     purrr (>= 1.0.4),
     readr (>= 2.1.5),
@@ -68,6 +69,7 @@ Collate:
     'import-standalone-obj-type.R'
     'import-standalone-types-check.R'
     'json.R'
+    'log.R'
     'neoipcr-package.R'
     'pathogens.R'
     'scales.R'

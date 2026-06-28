@@ -11,11 +11,15 @@ get_metadata <- function(d2_req_base, user_info, dataset_options)
       httr2::req_url_query(
         locale = dataset_options$locale)
 
-  requests <- list(
+  resps <- list(
     get_metadata_request(md_req_base, user_info, dataset_options),
     get_organisationUnit_request(md_req_base, user_info, dataset_options)) |>
-    httr2::req_perform_parallel(on_error = "continue") |>
-    read_metadata_reponses(user_info, dataset_options)
+    httr2::req_perform_parallel(on_error = "continue")
+
+  endpoints <- c("metadata", "organisationUnits")
+  purrr::iwalk(resps, \(resp, i) log_dhis2_request(resp, endpoints[[i]]))
+
+  read_metadata_reponses(resps, user_info, dataset_options)
 }
 
 # Creates the overall query to get most of the NeoIPC-related metadata that

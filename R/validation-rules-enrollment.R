@@ -35,9 +35,9 @@ validation_rule_2 <- function(x, exceptions)
 
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
-    rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 2L),
-      gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
+    logger::log_debug(
+      "Validation rule 2 skipped: dataset lacks the enrolment status and the event status.",
+      namespace = "neoipcr")
     return()
   }
 
