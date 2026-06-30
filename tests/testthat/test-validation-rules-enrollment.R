@@ -68,13 +68,14 @@ test_that("rule 2 returns no rows on consistent data", {
   expect_equal(nrow(result), 0L)
 })
 
-test_that("rule 2 warns when status columns are absent", {
+test_that("rule 2 skips without a warning when status columns are absent", {
   ds <- make_populated_test_ds()
-  # Default enrollments have status but remove it
+  # Default enrollments have status; remove it so the rule cannot run. A rule
+  # that cannot run logs a warn-level diagnostic via logger and returns — it
+  # must not raise an R warning().
   ds$enrollments$status <- NULL
-  expect_warning(
-    neoipcr:::validation_rule_2(ds, NULL),
-    "Validation rule 2")
+  expect_no_warning(result <- neoipcr:::validation_rule_2(ds, NULL))
+  expect_null(result)
 })
 
 test_that("rule 2 honours exceptions", {

@@ -97,14 +97,23 @@ import_dhis2 <- function(
     lapply(event_reqs, \(req)
       get_events_request(req, dataset_options, metadata$programId)))
 
+  logger::log_debug(
+    "DHIS2 tracker: issuing {length(reqs)} requests ({length(event_reqs)} event org-unit splits)",
+    namespace = "neoipcr")
+
   resps <- reqs |>
     httr2::req_perform_parallel(progress = FALSE, on_error = "continue")
+
+  endpoints <- c("trackedEntities", "enrollments",
+    rep("events", length(event_reqs)))
+
+  # Trace each response (URL + status only) before the error check, so a
+  # failed sibling request is still logged.
+  for (i in seq_along(resps)) log_dhis2_request(resps[[i]], endpoints[[i]])
 
   # Check for HTTP errors and surface the response body.
   # With on_error="continue", failed requests are stored as error objects
   # (class httr2_error), not response objects.
-  endpoints <- c("trackedEntities", "enrollments",
-    rep("events", length(event_reqs)))
   for (i in seq_along(resps)) {
     if (rlang::is_error(resps[[i]])) {
       err <- resps[[i]]
@@ -135,6 +144,10 @@ import_dhis2 <- function(
   events_raw <- resps[seq(3, length(resps))] |>
     purrr::map(parse_resp) |>
     purrr::list_rbind()
+
+  logger::log_info(
+    "DHIS2 imported: trackedEntities={nrow(trackedEntities_raw)} enrollments={nrow(enrollments_raw)} events={nrow(events_raw)}",
+    namespace = "neoipcr")
 
   patients_result <- read_patients(trackedEntities_raw, metadata, dataset_options)
   patients <- patients_result$public

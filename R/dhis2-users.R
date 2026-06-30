@@ -39,6 +39,8 @@ get_user_info <- function(req)
     }
   )
 
+  log_dhis2_request(resp, "me")
+
   raw_info <- tryCatch(
     resp |>
       httr2::resp_check_status() |>

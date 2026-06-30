@@ -5,9 +5,9 @@ validation_rule_5 <- function(x, exceptions)
 
   if(!"status" %in% names(x$events))
   {
-    rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 5L),
-      gettext("The dataset must contain the event status to execute this rule.")))
+    logger::log_warn(
+      "Validation rule 5 skipped: dataset lacks the event status.",
+      namespace = "neoipcr")
     return()
   }
 
@@ -50,9 +50,9 @@ validation_rule_6 <- function(x, exceptions)
 
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
-    rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 6L),
-      gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
+    logger::log_warn(
+      "Validation rule 6 skipped: dataset lacks the enrolment status and the event status.",
+      namespace = "neoipcr")
     return()
   }
 
@@ -96,9 +96,9 @@ validation_rule_7 <- function(x, exceptions)
 
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
-    rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 7L),
-      gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
+    logger::log_warn(
+      "Validation rule 7 skipped: dataset lacks the enrolment status and the event status.",
+      namespace = "neoipcr")
     return()
   }
 
@@ -142,9 +142,9 @@ validation_rule_8 <- function(x, exceptions)
 
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
-    rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 8L),
-      gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
+    logger::log_warn(
+      "Validation rule 8 skipped: dataset lacks the enrolment status and the event status.",
+      namespace = "neoipcr")
     return()
   }
 
@@ -188,9 +188,9 @@ validation_rule_9 <- function(x, exceptions)
 
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
-    rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 9L),
-      gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
+    logger::log_warn(
+      "Validation rule 9 skipped: dataset lacks the enrolment status and the event status.",
+      namespace = "neoipcr")
     return()
   }
 
@@ -234,9 +234,9 @@ validation_rule_10 <- function(x, exceptions)
 
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
-    rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 10L),
-      gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
+    logger::log_warn(
+      "Validation rule 10 skipped: dataset lacks the enrolment status and the event status.",
+      namespace = "neoipcr")
     return()
   }
 
@@ -280,9 +280,9 @@ validation_rule_11 <- function(x, exceptions)
 
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
-    rlang::warn(paste(
-      gettextf("Validation rule %i failed to execute.", 11L),
-      gettext("The dataset must contain the enrolment status and the event status to execute this rule.")))
+    logger::log_warn(
+      "Validation rule 11 skipped: dataset lacks the enrolment status and the event status.",
+      namespace = "neoipcr")
     return()
   }
 

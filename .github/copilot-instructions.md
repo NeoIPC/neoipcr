@@ -119,6 +119,7 @@ The `R/` directory follows a deliberate structure established by the neoipcr fil
 | **Other** | |
 | `R/pathogens.R` | Pathogen taxonomy and resistance markers |
 | `R/types-check.R` | `is_*` predicates + `check_*` assertions for neoipcr S3 classes |
+| `R/log.R` | Logging infrastructure (via the `logger` package, namespace `"neoipcr"`): `log_dhis2_request()` — the data-protection-safe DHIS2 query trace logging **URL + HTTP status + row count only**, never a response body; exported `neoipcr_log_config()` (verbosity → namespace threshold); `.onLoad` sets the namespace formatter and reads `NEOIPC_LOG_LEVEL`. |
 
 ---
 
@@ -221,6 +222,7 @@ Test files mirror source files: `R/foo.R` -> `tests/testthat/test-foo.R`.
 | `tests/testthat/test-calc-api.R` | `calculate_department_data()` integration: structure, counts, table presence |
 | `tests/testthat/test-calc-tables.R` | All 16 `get_*_table()` + figure data builders, with numerical spot-checks |
 | `tests/testthat/test-pathogens.R` | `get_pathogen_taxonomy()`, `get_pathogen_list()`, synonym resolution |
+| `tests/testthat/test-log.R` | `log_dhis2_request()` records URL+status+count and **never** the response body (data-protection guard), httr2-error handling, threshold gating; `neoipcr_log_config()` verbosity mapping + `NEOIPC_LOG_LEVEL` default |
 | `tests/testthat/test-filter.R` | `filter_*` family, `apply_postfilter()` cascade, `filter_dataset()` bug coverage |
 | `tests/testthat/test-test-units.R` | Test org unit tolerance — NA hierarchy keys through calc pipeline |
 | `tests/testthat/test-schema-tools.R` | `schema_col()`, `compile_schema()`, `schema_codes()`, `assert_schema()`, `finalize_to_schema()` |

@@ -41,6 +41,16 @@ test_that("rule 5 honours exceptions", {
   expect_equal(nrow(result), 0L)
 })
 
+test_that("rule 5 skips without a warning when events lack status", {
+  # A rule that cannot run (the dataset was imported without the event status)
+  # logs a warn-level diagnostic via logger and returns; it must not raise an
+  # R warning(). Guards the warning-free-by-default contract.
+  ds <- completeness_ds("adm", "ACTIVE")
+  ds$events$status <- NULL
+  expect_no_warning(result <- neoipcr:::validation_rule_5(ds, NULL))
+  expect_null(result)
+})
+
 # --- Rules 6-11: completed enrollment with incomplete event ---
 # Rule 6 = end, 7 = bsi, 8 = nec, 9 = hap, 10 = pro, 11 = ssi
 
@@ -77,6 +87,13 @@ for (entry in rule_event_type_map) {
       exc <- tibble::tibble(rule_id = r, enrollment_key = 1L)
       result <- f(ds, exc)
       expect_equal(nrow(result), 0L)
+    })
+
+    test_that(paste0("rule ", r, " skips without a warning when status is absent"), {
+      ds <- completeness_ds(t, "ACTIVE", "COMPLETED")
+      ds$events$status <- NULL
+      expect_no_warning(result <- f(ds, NULL))
+      expect_null(result)
     })
   })
 }
