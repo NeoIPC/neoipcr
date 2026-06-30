@@ -23,7 +23,7 @@ calculate_reference_data <- function(x, use_cache = TRUE, redact = TRUE) {
   # contract; gate on the key column instead of null-ness. Under "no" the
   # tibble is 0×0 so `country_key` is absent.
   if(!("country_key" %in% names(x$metadata$countries)))
-    logger::log_info(
+    logger::log_warn(
       "Data is missing country metadata; the resulting dataset cannot be used to create reference reports.",
       namespace = "neoipcr")
 

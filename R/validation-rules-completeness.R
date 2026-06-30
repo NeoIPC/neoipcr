@@ -5,7 +5,7 @@ validation_rule_5 <- function(x, exceptions)
 
   if(!"status" %in% names(x$events))
   {
-    logger::log_debug(
+    logger::log_warn(
       "Validation rule 5 skipped: dataset lacks the event status.",
       namespace = "neoipcr")
     return()
@@ -50,7 +50,7 @@ validation_rule_6 <- function(x, exceptions)
 
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
-    logger::log_debug(
+    logger::log_warn(
       "Validation rule 6 skipped: dataset lacks the enrolment status and the event status.",
       namespace = "neoipcr")
     return()
@@ -96,7 +96,7 @@ validation_rule_7 <- function(x, exceptions)
 
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
-    logger::log_debug(
+    logger::log_warn(
       "Validation rule 7 skipped: dataset lacks the enrolment status and the event status.",
       namespace = "neoipcr")
     return()
@@ -142,7 +142,7 @@ validation_rule_8 <- function(x, exceptions)
 
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
-    logger::log_debug(
+    logger::log_warn(
       "Validation rule 8 skipped: dataset lacks the enrolment status and the event status.",
       namespace = "neoipcr")
     return()
@@ -188,7 +188,7 @@ validation_rule_9 <- function(x, exceptions)
 
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
-    logger::log_debug(
+    logger::log_warn(
       "Validation rule 9 skipped: dataset lacks the enrolment status and the event status.",
       namespace = "neoipcr")
     return()
@@ -234,7 +234,7 @@ validation_rule_10 <- function(x, exceptions)
 
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
-    logger::log_debug(
+    logger::log_warn(
       "Validation rule 10 skipped: dataset lacks the enrolment status and the event status.",
       namespace = "neoipcr")
     return()
@@ -280,7 +280,7 @@ validation_rule_11 <- function(x, exceptions)
 
   if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
   {
-    logger::log_debug(
+    logger::log_warn(
       "Validation rule 11 skipped: dataset lacks the enrolment status and the event status.",
       namespace = "neoipcr")
     return()

@@ -25,10 +25,14 @@ verbosity vocabulary.
 }
 \details{
 neoipcr is silent by default: it logs only at \code{DEBUG}/\code{TRACE}, and the
-global logger threshold defaults to \code{INFO}. The effective level is resolved
-in this order of precedence: an explicit \code{neoipcr_log_config()} call, then
-the \code{NEOIPC_LOG_LEVEL} environment variable (also read in \code{.onLoad}, so a
-bare \code{\link[=import_dhis2]{import_dhis2()}} honours it), then the inherited global threshold.
+global logger threshold defaults to \code{INFO}. neoipcr's \code{"neoipcr"} namespace
+threshold is set from \code{NEOIPC_LOG_LEVEL} in two places: once at package load
+(\code{.onLoad}) and whenever \code{neoipcr_log_config()} is called with no argument. A
+bare \code{\link[=import_dhis2]{import_dhis2()}} therefore honours \code{NEOIPC_LOG_LEVEL} only when the
+variable was set \emph{before} the package was loaded; to pick up a change made in
+an already-loaded session, call \code{neoipcr_log_config()}. An explicit
+\code{neoipcr_log_config(verbosity=)} call sets the namespace threshold; otherwise
+the namespace inherits the global logger threshold.
 }
 \examples{
 neoipcr_log_config("debug")  # reveal the DHIS2 query trace

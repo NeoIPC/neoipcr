@@ -14,10 +14,14 @@
 #'
 #' @details
 #' neoipcr is silent by default: it logs only at `DEBUG`/`TRACE`, and the
-#' global logger threshold defaults to `INFO`. The effective level is resolved
-#' in this order of precedence: an explicit `neoipcr_log_config()` call, then
-#' the `NEOIPC_LOG_LEVEL` environment variable (also read in `.onLoad`, so a
-#' bare [import_dhis2()] honours it), then the inherited global threshold.
+#' global logger threshold defaults to `INFO`. neoipcr's `"neoipcr"` namespace
+#' threshold is set from `NEOIPC_LOG_LEVEL` in two places: once at package load
+#' (`.onLoad`) and whenever `neoipcr_log_config()` is called with no argument. A
+#' bare [import_dhis2()] therefore honours `NEOIPC_LOG_LEVEL` only when the
+#' variable was set *before* the package was loaded; to pick up a change made in
+#' an already-loaded session, call `neoipcr_log_config()`. An explicit
+#' `neoipcr_log_config(verbosity=)` call sets the namespace threshold; otherwise
+#' the namespace inherits the global logger threshold.
 #'
 #' @returns The applied logger threshold, invisibly.
 #' @examples
@@ -72,8 +76,10 @@ log_dhis2_request <- function(x, endpoint, n_rows = NULL)
 # interpolate regardless of the application's global formatter) and leaves the
 # appender/layout to the application. It sets its own namespace threshold only
 # when the pipeline's NEOIPC_LOG_LEVEL is present, so that env var governs
-# neoipcr automatically (even a bare import_dhis2()); when it is absent the
-# namespace inherits the global threshold (INFO) — silent by default.
+# neoipcr automatically (even a bare import_dhis2() honours a level set before
+# the package is loaded); when it is absent the namespace inherits the global
+# threshold (INFO) — silent by default. import_dhis2() never re-reads the env
+# var, so a change made in an already-loaded session needs neoipcr_log_config().
 .onLoad <- function(libname, pkgname)
 {
   logger::log_formatter(logger::formatter_glue, namespace = "neoipcr")

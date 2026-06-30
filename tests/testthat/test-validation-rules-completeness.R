@@ -43,8 +43,8 @@ test_that("rule 5 honours exceptions", {
 
 test_that("rule 5 skips without a warning when events lack status", {
   # A rule that cannot run (the dataset was imported without the event status)
-  # logs a debug diagnostic and returns; it must not raise a warning. Guards
-  # the warning-free-by-default contract.
+  # logs a warn-level diagnostic via logger and returns; it must not raise an
+  # R warning(). Guards the warning-free-by-default contract.
   ds <- completeness_ds("adm", "ACTIVE")
   ds$events$status <- NULL
   expect_no_warning(result <- neoipcr:::validation_rule_5(ds, NULL))
