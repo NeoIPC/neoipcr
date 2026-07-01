@@ -750,7 +750,7 @@ PI flagged that result-table names diverge across six surfaces — function name
 | S | `neoipcr_rep_ds` / `neoipcr_ref_ds` slot | `<...>_table` (snake_case) | neoipcr |
 | R | Conceptual rate name (the metric the table is about) | varies | shared concept |
 | Q | Quarto YAML param in report `*.qmd` | `include<...>Table` (camelCase) | Surveillance-Toolkit reports |
-| P | `EnableElements` / `DisableElements` switch token in `New-*Report.ps1` | `<...>Rates` (PascalCase) | Surveillance-Toolkit scripts |
+| P | `EnableElements` / `DisableElements` switch token in the report-wrapper scripts | `<...>Rates` (PascalCase) | Surveillance-Toolkit scripts |
 | Z | `.qmd` filename under `reports/<Report>/{tables,figures}/` | `_tbl-<...>.qmd` / `_fig-<...>.qmd` (kebab-case) | Surveillance-Toolkit reports |
 | H | Heading key in `sR$headings$<key>` (English source in `_sR.yaml` / `common.yaml`) | snake_case | Surveillance-Toolkit reports |
 | D | Display heading string (per-locale, in `_sR.yaml` / `common.yaml` / glossary.yaml) | English source per AMA Manual; translations via po4a/Weblate | Surveillance-Toolkit reports + Weblate translators |
@@ -764,7 +764,7 @@ Nested snippet filenames (`_tbl-intro-<...>.Rmd`, `_methods-<...>.Rmd` per [repo
 
 #### §9.5.2. Current state — full inventory
 
-Confirmed end-to-end via grep across `repos/neoipcr/R/*.R`, `repos/Surveillance-Toolkit/reports/Partner-Report/Partner-Report.qmd` + `tables/_tbl-*.qmd` + `figures/_fig-*.qmd`, `Reference-Report/Reference-Report.qmd`, `Partner-Report/content/_sR.yaml`, `reports/common.yaml`, and `repos/Surveillance-Toolkit/scripts/New-PartnerReports.ps1`.
+Confirmed end-to-end via grep across `repos/neoipcr/R/*.R`, `repos/Surveillance-Toolkit/reports/Partner-Report/Partner-Report.qmd` + `tables/_tbl-*.qmd` + `figures/_fig-*.qmd`, `Reference-Report/Reference-Report.qmd`, `Partner-Report/content/_sR.yaml`, `reports/common.yaml`, and the Partner Report wrapper script.
 
 **Code-identifier surfaces (F / C / S / Q / P / Z / H):**
 
@@ -903,7 +903,7 @@ Phase 2 of task 1.1 promotes helpers but does not rename existing exports. **Pha
 3. **Surveillance-Toolkit reports — `.qmd` filenames (Z)** — `git mv` each `_tbl-*.qmd` and `_fig-*.qmd` under `reports/<Report>/{tables,figures}/`. Update the `{{< include ... >}}` calls in `_content.qmd` (and any other includer). Rename nested snippet files (`_tbl-intro-*.Rmd`, `_methods-*.Rmd`) and their `include_localised(...)` callers.
 4. **Surveillance-Toolkit reports — heading keys (H)** — rename keys in `reports/common.yaml` and per-report `content/_sR.yaml`. Update `sR$headings$<key>` references in every `.qmd` file.
 5. **Surveillance-Toolkit reports — display strings (D)** — change the English source values in `common.yaml` / `content/_sR.yaml` per AMA Manual. **Run [`scripts/Invoke-Localization.ps1 -Update`](../Surveillance-Toolkit/scripts/Invoke-Localization.ps1)** to regenerate `.pot` files; the existing translations get marked fuzzy in `.po` files; translators (or the PI) re-confirm via Weblate. Per Surveillance-Toolkit's [po4a guardrails](../Surveillance-Toolkit/CLAUDE.md), do not manually edit generated `common.<lang>.yaml` / `content.<lang>/_sR.yaml` files.
-6. **Surveillance-Toolkit scripts** (P) — `EnableElements`/`DisableElements` mapping tables in every `New-*.ps1` wrapper (`New-PartnerReports.ps1`, `New-ReferenceReport.ps1`, etc.). Per Surveillance-Toolkit's PowerShell-alignment guardrail: the mapping tables must stay in sync across all wrapper scripts.
+6. **Surveillance-Toolkit scripts** (P) — `EnableElements`/`DisableElements` mapping tables in every report-wrapper script. Per Surveillance-Toolkit's PowerShell-alignment guardrail: the mapping tables must stay in sync across all wrapper scripts.
 7. **.NET reporting service** ([repos/NeoIPC-Reporting/](../NeoIPC-Reporting/)) — verify whether it consumes the PS switch tokens or the Quarto params or both; update accordingly.
 8. **Documentation** — README.md, vignettes (Phase 5), CLAUDE.md "Key R Files" table, NEWS.md entry per-rename.
 
