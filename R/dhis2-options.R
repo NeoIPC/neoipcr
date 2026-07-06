@@ -168,5 +168,9 @@ dhis2_dataset_options <- function(
     trial_keys = trial_keys,
     translate = translate,
     locale = locale
-  ), class = "neoipcr_dhis2_dsopt")
+    # Inherit "list" so jsonlite (and other serialisers) handle it as its
+    # underlying list — it is a structure(list(...)) — without needing a bespoke
+    # asJSON method; every type check uses inherits(), so the extra class is
+    # transparent to them.
+  ), class = c("neoipcr_dhis2_dsopt", "list"))
 }

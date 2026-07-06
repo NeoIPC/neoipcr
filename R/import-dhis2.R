@@ -60,6 +60,19 @@ import_dhis2 <- function(
     dept_ids <- metadata$.departments_internal_map |>
       dplyr::pull(.data$orgUnit)
 
+    logger::log_debug(
+      "department_filter: {length(dataset_options$department_filter)} requested code(s) resolved to {length(dept_ids)} accessible org unit(s)",
+      namespace = "neoipcr")
+    # An empty resolution here sends `orgUnit=` blank, which DHIS2 rejects with a
+    # cryptic 409 ("At least one organisation unit must be specified"). Surface
+    # the actual cause: the most common one is selecting a test department while
+    # include_test_data is FALSE, since test units are dropped (dhis2-metadata.R)
+    # before the department filter is applied.
+    if (length(dept_ids) == 0L)
+      rlang::abort(
+        sprintf("department_filter matched no accessible NEO_DEPARTMENT org unit after metadata filtering (include_test_data = %s); a tracker query with no org unit would be rejected by DHIS2. If a test department was selected, set include_test_data = TRUE.", dataset_options$include_test_data),
+        class = "neoipcr_empty_department_filter")
+
     te_enrl_req <- tracker_req |>
       httr2::req_url_query(!!!ou_query("SELECTED", multi_uid(dept_ids)))
 
