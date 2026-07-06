@@ -86,4 +86,6 @@ jobs:
           tag="$GITHUB_REF_NAME"
           pre=""
           if [ "$(IFS=.; set -- ${tag#v}; echo $#)" -ge 4 ]; then pre="--prerelease"; fi
-          gh release create "$tag" --generate-notes $pre
+          # Idempotent: an Actions re-run reuses the original push payload, so skip if the Release already
+          # exists (a prior run may have created it). No asset is attached, so nothing to re-do on the skip.
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --generate-notes $pre
