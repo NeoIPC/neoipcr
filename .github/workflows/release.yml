@@ -1,0 +1,81 @@
+name: Release
+
+# Tag-triggered release for neoipcr dev-snapshot tags (e.g. v0.0.0.9000). neoipcr ships no built asset —
+# the bare, verified tag is what downstream consumes (Surveillance-Toolkit's reports- release check via
+# `git ls-remote`; the NeoIPC-Reporting image installs it via pak). Two cheap gates fail fast, then the FULL
+# R-CMD-check matrix runs (reused, not copied), then a GitHub Release is created (dev snapshots are
+# pre-releases; a future 3-component X.Y.Z CRAN tag would be a full release).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write            # the publish job creates the GitHub Release
+
+jobs:
+  verify:
+    name: Verify tag + monotonic version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # full tag history for the monotonic check
+      - name: Verify tag matches DESCRIPTION Version
+        shell: bash
+        run: |
+          tag="$GITHUB_REF_NAME"; want="${tag#v}"
+          # R package versions are numeric-only (e.g. 0.0.0.9000 dev / 0.1.0 release); v0.1.0 is reserved for
+          # the first CRAN release. A '-alpha'-style suffix is invalid in R and would just fail this check.
+          desc="$(sed -n 's/^Version:[[:space:]]*//p' DESCRIPTION | tr -d '[:space:]')"
+          if [ "$want" != "$desc" ]; then
+            echo "::error::Tag '$tag' (version '$want') does not match DESCRIPTION Version '$desc'. Bump DESCRIPTION or retag."
+            exit 1
+          fi
+          echo "Release version matches DESCRIPTION ($desc)."
+      - name: Enforce monotonic version (per-line, semver-correct)
+        shell: bash
+        run: |
+          tag="$GITHUB_REF_NAME"; ver="${tag#v}"
+          line="$(cut -d. -f1-2 <<<"$ver")."                       # major.minor + '.'  (trailing dot: 1.1. != 1.10.)
+          mapfile -t vers < <(git tag -l 'v*' | sed 's/^v//')
+          if printf '%s\n' "${vers[@]}" | grep -qxF "$ver"; then
+            echo "::error::Release tag '$tag' already exists."; exit 1
+          fi
+          # Semver precedence: map the pre-release '-' -> '~' before `sort -V` (its tilde rule sorts a
+          # pre-release BEFORE its release), then restore. neoipcr versions are numeric-only, so this is a
+          # no-op here, but keeps one implementation shared across all repos' release guards.
+          same="$(printf '%s\n' "${vers[@]}" | grep -E "^${line//./\\.}" | sed 's/-/~/' | sort -V | sed 's/~/-/' | tail -1 || true)"
+          if [ -n "$same" ]; then
+            hi="$(printf '%s\n%s\n' "$same" "$ver" | sed 's/-/~/' | sort -V | sed 's/~/-/' | tail -1)"
+            if [ "$hi" != "$ver" ]; then
+              echo "::error::Release '$ver' is not greater than the last released '$same' on the ${line%.} line."
+              exit 1
+            fi
+            echo "Monotonic OK: $ver > $same (line ${line%.})."
+          else
+            echo "Monotonic OK: new ${line%.} line."
+          fi
+
+  check:
+    name: R CMD check
+    needs: verify
+    # Reuse the exact matrix the push/PR CI runs (ubuntu release+devel, windows, macos) so a released tag is
+    # verified identically. R-CMD-check.yaml declares `on: workflow_call`.
+    uses: ./.github/workflows/R-CMD-check.yaml
+
+  publish:
+    name: Create GitHub Release
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # A 4-component dev snapshot (X.Y.Z.NNNN) is a pre-release; a 3-component X.Y.Z (future CRAN) is final.
+        shell: bash
+        run: |
+          tag="$GITHUB_REF_NAME"
+          pre=""
+          if [ "$(IFS=.; set -- ${tag#v}; echo $#)" -ge 4 ]; then pre="--prerelease"; fi
+          gh release create "$tag" --generate-notes $pre

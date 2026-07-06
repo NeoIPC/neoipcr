@@ -1,7 +1,7 @@
 Package: neoipcr
 Type: Package
 Title: Facilitates Working With Data From the NeoIPC Project
-Version: 0.1.0.9000
+Version: 0.0.0.9000
 Authors@R: c(
     person(given = c("Brar", "Christian"), family = "Piening", email = "brar.piening@charite.de", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-4478-5597")),
