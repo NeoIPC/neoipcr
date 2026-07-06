@@ -1,7 +1,7 @@
 name: Release
 
 # Tag-triggered release for neoipcr dev-snapshot tags (e.g. v0.0.0.9000). neoipcr ships no built asset —
-# the bare, verified tag is what downstream consumes (Surveillance-Toolkit's reports- release check via
+# the bare, verified tag is what downstream consumes (Surveillance-Toolkit's `reports-v*` release check via
 # `git ls-remote`; the NeoIPC-Reporting image installs it via pak). Two cheap gates fail fast, then the FULL
 # R-CMD-check matrix runs (reused, not copied), then a GitHub Release is created (dev snapshots are
 # pre-releases; a future 3-component X.Y.Z CRAN tag would be a full release).
@@ -32,15 +32,23 @@ jobs:
             exit 1
           fi
           echo "Release version matches DESCRIPTION ($desc)."
+      - name: Reject a moved / retagged release tag
+        # A tag push with created=false means an existing tag was force-moved. Releases are immutable --
+        # cut a new version rather than re-pointing a tag. This replaces a duplicate-name check: a newly
+        # created tag can never already exist, and `checkout` (fetch-depth: 0) includes the triggering tag.
+        if: github.event.created != true
+        shell: bash
+        run: |
+          echo "::error::Tag '$GITHUB_REF_NAME' already existed and was moved; releases are immutable. Cut a new version instead."
+          exit 1
       - name: Enforce monotonic version (per-line, semver-correct)
         shell: bash
         run: |
           tag="$GITHUB_REF_NAME"; ver="${tag#v}"
           line="$(cut -d. -f1-2 <<<"$ver")."                       # major.minor + '.'  (trailing dot: 1.1. != 1.10.)
-          mapfile -t vers < <(git tag -l 'v*' | sed 's/^v//')
-          if printf '%s\n' "${vers[@]}" | grep -qxF "$ver"; then
-            echo "::error::Release tag '$tag' already exists."; exit 1
-          fi
+          # fetch-depth: 0 includes the triggering tag; exclude it so the comparison uses the genuinely
+          # previous tag on this line, not this release itself.
+          mapfile -t vers < <(git tag -l 'v*' | sed 's/^v//' | grep -vxF "$ver" || true)
           # Semver precedence: map the pre-release '-' -> '~' before `sort -V` (its tilde rule sorts a
           # pre-release BEFORE its release), then restore. neoipcr versions are numeric-only, so this is a
           # no-op here, but keeps one implementation shared across all repos' release guards.
