@@ -232,10 +232,12 @@ test_that("2.41+ tracker requests use orgUnitMode/orgUnits with comma-joined ids
     expect_setequal(
       strsplit(r$te$orgUnits, ",", fixed = TRUE)[[1]],
       c("OU_DEPT_1", "OU_DEPT_2"))
-    # The id value is comma-joined (httr2 percent-encodes it to %2C); no
-    # semicolon encoding anywhere in the value.
+    # The decoded value above already proves comma-joining; the raw URL must carry
+    # NO semicolon encoding (the 2.40 dialect). Accept the comma in whatever form
+    # httr2 emits it -- a literal "," or the percent-encoded "%2C" -- so the test is
+    # not coupled to httr2's encoding choice (both are valid for a query value).
     raw <- raw_query_param(r$te_url, "orgUnits")
-    expect_true(grepl("%2C", raw, fixed = TRUE), info = v)
+    expect_true(grepl("%2C", raw, fixed = TRUE) || grepl(",", raw, fixed = TRUE), info = v)
     expect_false(grepl("%3B", raw, fixed = TRUE), info = v)
     expect_false(grepl(";", raw, fixed = TRUE), info = v)
 

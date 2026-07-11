@@ -345,7 +345,9 @@ warn_if_unsupported_dhis2 <- function(version)
 # `;` as a parameter delimiter while httr2 leaves it unencoded (valid per RFC
 # 3986), so without pre-encoding + I() the ids would be split or double-encoded.
 # On 2.41+ the parameters are `orgUnitMode` / `orgUnits` and ids are joined
-# with a plain comma (httr2 percent-encodes it to `%2C` on the wire).
+# with a plain comma (httr2 currently percent-encodes it to `%2C` on the wire,
+# but a literal comma is equally valid for a query value; only the comma-join
+# matters, not its encoding).
 #
 # All releases from 2.41 onward use the new parameter names, so the >= 2.41
 # branch is deliberately shared across 2.41/2.42/2.43 as one dialect; it is
