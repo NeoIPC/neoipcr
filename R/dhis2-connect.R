@@ -4,8 +4,12 @@
 #' @param username The username to use for authentication
 #' @param session_id The session id to use for authentication
 #' @param scheme The url scheme to use. The default is "https"
-#' @param hostname The hostname to connect to. The default is
-#'  "neoipc.charite.de".
+#' @param hostname The hostname of the DHIS2 server to connect to (e.g.
+#'  "dhis2.example.org"). When omitted (`NULL`), it is taken from the
+#'  `NEOIPC_DHIS2_HOST` environment variable — which is what lets
+#'  [import_dhis2()] run with no arguments. `neoipcr` does not default to any
+#'  deployment's host: with neither the argument nor the environment variable
+#'  set, this errors.
 #' @param port The TCP port to connect to. The default NULL does not set a port
 #'  explicitly.
 #' @param path The URL path to connect to. The default is "/api"
@@ -13,8 +17,19 @@
 #' @export
 dhis2_connection_options <- function(
     token, username, session_id, scheme = "https",
-    hostname = "neoipc.charite.de", port = NULL, path = "/api")
+    hostname = NULL, port = NULL, path = "/api")
 {
+  if(is.null(hostname) || !nzchar(hostname)) {
+    env_host <- Sys.getenv("NEOIPC_DHIS2_HOST", unset = "")
+    hostname <- if(nzchar(env_host)) env_host else NULL
+  }
+  if(is.null(hostname))
+    rlang::abort(c(
+      "No DHIS2 hostname provided.",
+      "i" = "Pass a `hostname` (e.g. dhis2_connection_options(hostname = \"dhis2.example.org\")), or set the NEOIPC_DHIS2_HOST environment variable.",
+      "i" = "neoipcr does not default to any deployment's host; the caller supplies it."),
+      class = "neoipcr_missing_hostname")
+
   if(is.character(port)) port <- as.integer(port)
 
   ret <- list(

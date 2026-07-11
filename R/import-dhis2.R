@@ -30,31 +30,30 @@ import_dhis2 <- function(
   # metadata$departments and metadata$countries are already filtered during
   # metadata processing (read_metadata_reponses), so we can use them directly.
   #
-  # The /tracker/events endpoint only accepts a single orgUnit UID (through
-  # DHIS2 2.42), so event requests are made per org unit while trackedEntities
-  # and enrollments use multi-UID parameters. All requests run in parallel.
+  # trackedEntities and enrollments accept a multi-UID org-unit parameter; the
+  # /tracker/events endpoint accepts only a single org unit, so event requests
+  # are fanned out one org unit per request. All requests run in parallel.
   #
-  # DHIS2 2.41 renames ouMode -> orgUnitMode and orgUnit (singular, semicolon-
-  # separated) -> orgUnits (plural, comma-separated). The old parameters are
-  # scheduled for removal in 2.42.
-  # See: https://docs.dhis2.org/en/implement/software-release-information/
-  #   dhis2-core-releases/dhis-core-version-241/upgrade-notes.html
-  #   #semicolon-as-separator-for-identifiers-uid
-  #
-  # On 2.40, semicolons in multi-UID orgUnit values must be URL-encoded (%3B)
-  # — literal semicolons are parsed as parameter delimiters by the servlet
-  # container. httr2 does not encode semicolons (valid per RFC 3986), so we
-  # pre-encode them and wrap in I() to prevent double-encoding.
-  v41 <- metadata$system$version >= "2.41"
-  mode_key <- if (v41) "orgUnitMode" else "ouMode"
-  ou_key   <- if (v41) "orgUnits" else "orgUnit"
+  # The org-unit query differs across DHIS2 lines AND between endpoints, so it
+  # is built from `dhis2_ou_dialect()`:
+  #   * `mode_key` (ouMode -> orgUnitMode in 2.41) applies to every endpoint.
+  #   * `ou_key` (orgUnit -> orgUnits in 2.41) + the multi-UID separator apply
+  #     ONLY to trackedEntities/enrollments. The events endpoint keeps the
+  #     SINGULAR `orgUnit` parameter on every line — it never gained `orgUnits`
+  #     — so `event_ou_query()` hardcodes it. (Sending `orgUnits` to
+  #     /tracker/events on 2.41+ makes the server drop the unknown param and
+  #     reject the request with HTTP 400.)
+  dialect  <- dhis2_ou_dialect(metadata$system$version)
+  mode_key <- dialect$mode_key
+  ou_key   <- dialect$ou_key
 
   ou_query <- function(mode, ou_value)
     stats::setNames(list(mode, ou_value), c(mode_key, ou_key))
 
-  multi_uid <- function(ids)
-    if (v41) paste0(ids, collapse = ",")
-    else I(paste0(ids, collapse = "%3B"))
+  event_ou_query <- function(mode, id)
+    stats::setNames(list(mode, id), c(mode_key, "orgUnit"))
+
+  multi_uid <- dialect$multi_uid
 
   if (length(dataset_options$department_filter) > 0) {
     dept_ids <- metadata$.departments_internal_map |>
@@ -77,7 +76,7 @@ import_dhis2 <- function(
       httr2::req_url_query(!!!ou_query("SELECTED", multi_uid(dept_ids)))
 
     event_reqs <- lapply(dept_ids, \(id) tracker_req |>
-      httr2::req_url_query(!!!ou_query("SELECTED", id)))
+      httr2::req_url_query(!!!event_ou_query("SELECTED", id)))
 
   } else if (length(dataset_options$country_filter) > 0) {
     # The raw DHIS2 `country` id lives on the orchestrator-internal
@@ -90,7 +89,7 @@ import_dhis2 <- function(
       httr2::req_url_query(!!!ou_query("DESCENDANTS", multi_uid(country_ids)))
 
     event_reqs <- lapply(country_ids, \(id) tracker_req |>
-      httr2::req_url_query(!!!ou_query("DESCENDANTS", id)))
+      httr2::req_url_query(!!!event_ou_query("DESCENDANTS", id)))
 
   } else {
     te_enrl_req <- tracker_req |>
@@ -288,6 +287,86 @@ import_dhis2 <- function(
 
   r |>
     assert_data_protection(dataset_options)
+}
+
+#' Supported DHIS2 and metadata-package versions
+#'
+#' The version combinations `neoipcr` is tested against and declares support
+#' for. The DHIS2 list is the currently deployed NeoIPC version plus the tip of
+#' each released DHIS2 line at or above it — the versions a deployment would
+#' realistically upgrade to. The offline compatibility matrix
+#' (`tests/testthat/test-import-dhis2.R`) iterates exactly this list, and
+#' [import_dhis2()] warns when it reads a server whose line is not among them.
+#'
+#' The DHIS2 tips advance as new patches ship; refresh this list (and the
+#' matrix fixtures) when moving the supported range. The metadata-package axis
+#' currently has a single released line, so its supported range is expressed as
+#' a lower bound.
+#'
+#' @returns A list with two elements: `dhis2`, a character vector of supported
+#'   DHIS2 versions (each parseable by [base::numeric_version()]), and
+#'   `metadata_package`, the supported NeoIPC metadata-package version range.
+#' @export
+neoipcr_supported_versions <- function()
+  list(
+    dhis2 = c("2.40.3.2", "2.40.12.0", "2.41.9.0", "2.42.5.1", "2.43.0.1"),
+    metadata_package = ">= 0.0.1-alpha")
+
+# The major.minor line of a version, e.g. "2.40" for 2.40.3.2.
+version_line <- function(version)
+  paste(unclass(numeric_version(version))[[1]][1:2], collapse = ".")
+
+# The set of supported DHIS2 minor lines (major.minor), derived from the
+# declared version list.
+supported_dhis2_lines <- function()
+  unique(vapply(neoipcr_supported_versions()$dhis2, version_line, character(1)))
+
+# Warn (not error) when a server's DHIS2 line is outside the supported set:
+# neoipcr may still read it correctly, but it is unverified against the
+# compatibility matrix (tests/testthat/test-import-dhis2.R).
+warn_if_unsupported_dhis2 <- function(version)
+{
+  if(!version_line(version) %in% supported_dhis2_lines())
+    rlang::warn(c(
+      sprintf("DHIS2 version %s is outside neoipcr's tested range.", version),
+      "i" = sprintf(
+        "Tested DHIS2 lines: %s.",
+        paste(supported_dhis2_lines(), collapse = ", ")),
+      "i" = "neoipcr may still read this server correctly, but it is unverified."),
+      class = "neoipcr_unsupported_dhis2_version")
+}
+
+# Resolve the DHIS2 tracker org-unit request dialect for a server version.
+#
+# DHIS2 2.41 renamed the tracker org-unit query parameters and changed the
+# multi-UID separator. On 2.40 the parameters are `ouMode` / `orgUnit` and
+# multiple ids are semicolon-separated; the semicolons must be pre-encoded as
+# `%3B` and wrapped in `I()` because the servlet container parses a literal
+# `;` as a parameter delimiter while httr2 leaves it unencoded (valid per RFC
+# 3986), so without pre-encoding + I() the ids would be split or double-encoded.
+# On 2.41+ the parameters are `orgUnitMode` / `orgUnits` and ids are joined
+# with a plain comma (httr2 percent-encodes it to `%2C` on the wire).
+#
+# All releases from 2.41 onward use the new parameter names, so the >= 2.41
+# branch is deliberately shared across 2.41/2.42/2.43 as one dialect; it is
+# split only if a future version diverges again.
+#
+# `ou_key` (and `multi_uid`) apply to the trackedEntities/enrollments endpoints
+# only. The `/tracker/events` endpoint keeps the singular `orgUnit` parameter on
+# every line (it never gained `orgUnits`); `mode_key` still applies there. See
+# `event_ou_query()` in `import_dhis2()`.
+#
+# `version` is a `numeric_version`. Returns a list of `mode_key`, `ou_key`, and
+# `multi_uid(ids)` (which joins ids into the version's on-the-wire shape).
+dhis2_ou_dialect <- function(version)
+{
+  v41 <- version >= "2.41"
+  list(
+    mode_key = if (v41) "orgUnitMode" else "ouMode",
+    ou_key   = if (v41) "orgUnits" else "orgUnit",
+    multi_uid =
+      if (v41) function(ids) paste0(ids, collapse = ",")
+      else     function(ids) I(paste0(ids, collapse = "%3B")))
 }
 
 dhis2_request <- function(connection_options)

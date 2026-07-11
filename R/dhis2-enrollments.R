@@ -1,6 +1,9 @@
 get_enrollments_request <- function(req_base, dataset_options, programId)
 {
-  fields <- "enrollment,trackedEntity,enrolledAt,followUp"
+  # `orgUnit` is a base field: read_enrollments() always needs it — to mark
+  # isTest (include_test_data = TRUE) or to filter out test units (FALSE), which
+  # are exhaustive, plus hierarchy keys — and drops it after the joins.
+  fields <- "enrollment,trackedEntity,enrolledAt,followUp,orgUnit"
 
   if("enrollments" %in% dataset_options$include_notes)
     fields <- paste0(fields, ",notes")
@@ -15,17 +18,6 @@ get_enrollments_request <- function(req_base, dataset_options, programId)
     fields <- paste0(
       fields,
       ",occurredAt,createdAt,createdAtClient,updatedAt,updatedAtClient,completedAt")
-
-  if(!dataset_options$include_test_data ||
-     length(dataset_options$country_filter) > 0 ||
-     length(dataset_options$department_filter) > 0 ||
-     length(dataset_options$trial_keys) > 0 ||
-     dataset_options$include_department != "no" ||
-     dataset_options$include_hospital != "no" ||
-     dataset_options$include_country != "no" ||
-     dataset_options$include_world_bank_class != "no" ||
-     length(dataset_options$include_invalid_patients) > 1)
-    fields <- paste0(fields,",orgUnit")
 
   if(dataset_options$include_deleted)
     fields <- paste0(fields,",deleted")

@@ -1,0 +1,6 @@
+{
+  "organisationUnits": [
+    { "id": "OU_DEPT_1", "code": "DEPT_01" },
+    { "id": "OU_DEPT_2", "code": "DEPT_02" }
+  ]
+}

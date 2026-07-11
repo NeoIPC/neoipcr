@@ -151,7 +151,8 @@ make_test_patients <- function(
     department_key       = keys,
     hospital_key         = keys,
     country_key          = keys,
-    world_bank_class_key = keys)
+    world_bank_class_key = keys,
+    isTest               = rep(FALSE, n))
 
   # Per-TEA companion columns — exist only when the corresponding base
   # attribute AND the relevant include_user/include_timestamps gates

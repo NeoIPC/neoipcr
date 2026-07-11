@@ -1,6 +1,9 @@
 get_events_request <- function(req_base, dataset_options, programId)
 {
-  fields <- "event,programStage,enrollment,trackedEntity,occurredAt,followup"
+  # `orgUnit` is a base field: read_events() always needs it — to mark isTest
+  # (include_test_data = TRUE) or to filter out test units (FALSE), which are
+  # exhaustive, plus hierarchy keys — and drops it after the joins.
+  fields <- "event,programStage,enrollment,trackedEntity,occurredAt,followup,orgUnit"
   dataValueFields <- "dataElement,value"
 
   if("events" %in% dataset_options$include_incomplete)
@@ -21,15 +24,6 @@ get_events_request <- function(req_base, dataset_options, programId)
 
     dataValueFields <- paste0(dataValueFields,",createdAt,updatedAt")
   }
-
-  if(!dataset_options$include_test_data ||
-     length(dataset_options$country_filter) > 0 ||
-     !is.null(dataset_options$trial_keys) ||
-     dataset_options$include_department != "no" ||
-     dataset_options$include_hospital != "no" ||
-     dataset_options$include_country != "no" ||
-     dataset_options$include_world_bank_class != "no")
-    fields <- paste0(fields,",orgUnit")
 
   if(dataset_options$include_deleted)
     fields <- paste0(fields,",deleted")

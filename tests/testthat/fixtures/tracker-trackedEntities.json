@@ -1,0 +1,22 @@
+{
+  "trackedEntities": [
+    {
+      "trackedEntity": "TE_1",
+      "orgUnit": "OU_DEPT_1",
+      "inactive": false,
+      "potentialDuplicate": false,
+      "attributes": [
+        { "attribute": "yQwpowV0o08", "value": "PAT_1" }
+      ]
+    },
+    {
+      "trackedEntity": "TE_2",
+      "orgUnit": "OU_DEPT_1",
+      "inactive": false,
+      "potentialDuplicate": false,
+      "attributes": [
+        { "attribute": "yQwpowV0o08", "value": "PAT_2" }
+      ]
+    }
+  ]
+}

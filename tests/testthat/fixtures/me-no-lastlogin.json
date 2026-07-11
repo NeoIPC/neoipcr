@@ -1,0 +1,26 @@
+{
+  "id": "meUser0001",
+  "username": "neoipc_user",
+  "firstName": "Test",
+  "surname": "User",
+  "email": "neoipc_user@example.org",
+  "created": "2023-01-15T09:30:00.000+0000",
+  "organisationUnits": [
+    { "id": "OU_DEPT_1" }
+  ],
+  "dataViewOrganisationUnits": [
+    { "id": "OU_DEPT_1" }
+  ],
+  "teiSearchOrganisationUnits": [
+    { "id": "OU_DEPT_1" }
+  ],
+  "userRoles": [
+    {
+      "name": "NeoIPC Data Entry",
+      "authorities": ["F_TRACKED_ENTITY_INSTANCE_SEARCH", "F_ENROLLMENT_CASCADE_DELETE"]
+    }
+  ],
+  "userGroups": [
+    { "name": "NeoIPC Users" }
+  ]
+}
