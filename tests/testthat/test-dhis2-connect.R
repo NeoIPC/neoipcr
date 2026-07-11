@@ -21,6 +21,11 @@ test_that("dhis2_connection_options errors without a host or NEOIPC_DHIS2_HOST",
   expect_error(
     dhis2_connection_options(test_token, hostname = ""),
     class = "neoipcr_missing_hostname")
+  # An explicit NA is treated as unset (nzchar(NA) is TRUE, so it would otherwise slip past the guard and
+  # reach httr2::url_build() as an unbranded error).
+  expect_error(
+    dhis2_connection_options(test_token, hostname = NA_character_),
+    class = "neoipcr_missing_hostname")
 })
 
 test_that("dhis2_connection_options builds a base URL from an explicit host", {

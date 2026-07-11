@@ -19,7 +19,10 @@ dhis2_connection_options <- function(
     token, username, session_id, scheme = "https",
     hostname = NULL, port = NULL, path = "/api")
 {
-  if(is.null(hostname) || !nzchar(hostname)) {
+  # Treat an explicit NA hostname as unset: nzchar(NA) is TRUE (keepNA = FALSE), so without the is.na() term an
+  # NA would slip past this guard and reach httr2::url_build() as an unbranded "No host part in the URL" error
+  # instead of the actionable neoipcr abort below.
+  if(is.null(hostname) || is.na(hostname) || !nzchar(hostname)) {
     env_host <- Sys.getenv("NEOIPC_DHIS2_HOST", unset = "")
     hostname <- if(nzchar(env_host)) env_host else NULL
   }

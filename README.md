@@ -28,13 +28,13 @@ pak::pak("NeoIPC/neoipcr")
 To import data from a NeoIPC DHIS2 server use `import_dhis2()`. neoipcr
 is a public library for *any* DHIS2 instance running the NeoIPC metadata
 package, so it does not default to a specific host — pass your
-instance’s `hostname` (or a full `base_url`) to
-`dhis2_connection_options()`. Credentials can be passed directly (a
-personal access token, username/password, or session id), or left to be
-resolved from environment variables (`NEOIPC_DHIS2_TOKEN`,
-`NEOIPC_DHIS2_USER` + `NEOIPC_DHIS2_PASSWORD`, or
-`NEOIPC_DHIS2_SESSION_ID`), falling back to an interactive prompt; see
-`?dhis2_connection_options`.
+instance’s `hostname` to `dhis2_connection_options()` (with
+`scheme`/`port`/`path` if they differ from the `https` / 443 / `/api`
+defaults). Credentials can be passed directly (a personal access token,
+username/password, or session id), or left to be resolved from
+environment variables (`NEOIPC_DHIS2_TOKEN`, `NEOIPC_DHIS2_USER` +
+`NEOIPC_DHIS2_PASSWORD`, or `NEOIPC_DHIS2_SESSION_ID`), falling back to
+an interactive prompt; see `?dhis2_connection_options`.
 
 ``` r
 library(neoipcr)
