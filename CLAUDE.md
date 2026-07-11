@@ -75,7 +75,7 @@ The `R/` directory follows a deliberate structure established by the neoipcr fil
 | File | Purpose |
 |------|---------|
 | **Import pipeline** | |
-| `R/import-dhis2.R` | `import_dhis2()` orchestrator + cross-cutting utilities (`add_key_column`, `convert_value`) |
+| `R/import-dhis2.R` | `import_dhis2()` orchestrator + cross-cutting utilities (`add_key_column`, `convert_value`, `dhis2_ou_dialect()` version→org-unit-request dialect, `neoipcr_supported_versions()` + the unsupported-version warning helpers) |
 | `R/dhis2-connect.R` | Connection options, authentication (token/basic/session/interactive) |
 | `R/dhis2-options.R` | `dhis2_dataset_options()` constructor |
 | `R/dhis2-users.R` | `get_user_info()` API call, `read_user_info_table()`, `read_metadata_users()` |
@@ -162,13 +162,15 @@ When no explicit `token`, `username`, or `session_id` parameter is provided, `ge
 4. `interactive()` -> prompt for username/password via `readline()` + `askpass::askpass()`
 5. `!interactive()` -> `rlang::abort()` with actionable error message
 
+The **host** resolves separately from auth: an explicit `hostname` argument, else the `NEOIPC_DHIS2_HOST` environment variable, else `rlang::abort()`. `neoipcr` is a public library with **no baked-in deployment host** — the Charité default lives in the report tooling (`reports/common/helpers.R::get_connection_options()`), not here. With `NEOIPC_DHIS2_HOST` and credentials both in the environment, `import_dhis2()` runs argument-free.
+
 ### `get_password()` interactive guard
 
 If `NEOIPC_DHIS2_USER` is set but `NEOIPC_DHIS2_PASSWORD` is not, `get_password()` checks `interactive()` before calling `askpass::askpass()`. In non-interactive sessions (e.g., Quarto renders), it aborts with a clear error instead of hanging.
 
 ### Token format
 
-DHIS2 personal access tokens match `d2pat_` prefix + 42 characters (48 total). `read_token()` accepts either a raw token string or a file path containing the token.
+DHIS2 personal access tokens match `d2pat_` prefix + 42 characters (48 total). `read_token()` accepts either a raw token string or a file path containing the token, and validates **only** the prefix and the 48-char length. DHIS2 itself generates the body as a 32-char Base64 random part + a 10-digit CRC32 checksum (`ApiTokenServiceImpl.initToken`); the first body char can be a digit (it is **not** the letter-first UID form), and neither the leading char nor the checksum is verified on the 2.40 auth path (`ApiTokenAuthManager` hashes + looks up the key). So a fixture token only needs the prefix + length — no valid checksum.
 
 ---
 
@@ -215,7 +217,7 @@ Test files mirror source files: `R/foo.R` -> `tests/testthat/test-foo.R`.
 | `tests/testthat/test-ci.R` | `neoipc_poisson_ci()`, `neoipc_wilson_ci()`, bootstrap CI, vectorized wrappers |
 | `tests/testthat/test-dhis2-metadata.R` | `read_metadata()` validation and data-reading tests |
 | `tests/testthat/test-dhis2-connect.R` | `dhis2_connection_options()`, `get_auth_data()`, `read_token()`, `get_password()` |
-| `tests/testthat/test-data-protection.R` | `assert_data_protection()` �� happy-path (schema-compliant ds passes) and failure-path (reader regression leaks a forbidden column → abort) coverage; pure-assertion guardian post phase-b-event-details |
+| `tests/testthat/test-data-protection.R` | `assert_data_protection()` — happy-path (schema-compliant ds passes) and failure-path (reader regression leaks a forbidden column → abort) coverage; pure-assertion guardian post phase-b-event-details |
 | `tests/testthat/test-data-protection-complete.R` | Option-matrix coverage: iterates every `include_*` gate (hierarchy, link-privacy, user, timestamps, deleted) under every value against a schema-compliant ds, verifying the guardian passes. Maximally-restrictive smoke test. |
 | `tests/testthat/test-validation.R` | `validate()` orchestrator, rule registry |
 | `tests/testthat/test-validation-rules-*.R` | Per-domain rule tests (42 rules; 34 skip-wrapped stubs for unmigrated rules) |
@@ -228,23 +230,24 @@ Test files mirror source files: `R/foo.R` -> `tests/testthat/test-foo.R`.
 | `tests/testthat/test-schema-tools.R` | `schema_col()`, `compile_schema()`, `schema_codes()`, `assert_schema()`, `finalize_to_schema()` |
 | `tests/testthat/test-schema-cols-shared.R` | Shared column declarations, `col_inherited_from()`, `attribute_cols()` / `tea_attribute_cols()`, plus `expect_schema_matches()` / `iter_dataset_options()` helpers |
 | `tests/testthat/test-schema-orgunits.R` | Per-domain schema assembly for org-unit-derived metadata entities: WB classes / countries / hospitals / departments / users / event types. |
-| `tests/testthat/test-schema-patients.R` | `patient_attribute_cols()` wrapper behaviour + `patients_cols` three-mode shape, hierarchy-key inheritance, companion-column semantics. |
+| `tests/testthat/test-schema-patients.R` | `patient_attribute_cols()` wrapper behaviour + `patients_cols` three-mode shape, hierarchy-key inheritance, `isTest` gating (full mode + `include_test_data`), companion-column semantics. |
 | `tests/testthat/test-schema-enrollments.R` | `enrollments_cols` three-mode shape, entity-level user/timestamp gating, hierarchy-key inheritance anchored on patients. |
 | `tests/testthat/test-schema-events.R` | `events_cols` three-mode shape, compound link-FK gating on enrollment/patient, hierarchy-key direct materialization, status/event_type_key factor levels, `isTest` direct materialization. |
 | `tests/testthat/test-schema-event-data.R` | Per-event-type data schemas (all 7) + the three findings-family schemas (`findings_cols`, `substanceDays_cols`, `unknownPathogenNames_cols`): three-mode shape, inheritance-driven link/hierarchy key absence, per-type payload coverage + fixed factor levels, companion-column gating (3 per DE), `source` / resistance / `multiple` unconditional declaration under full mode, `split_unknown_pathogen_names()` behaviour (the internal split helper invoked by `read_infectious_agent_findings()`), fixture round-trip, dispatcher. |
 | `tests/testthat/test-schema-notes.R` | `event_notes_cols` + `enrollment_notes_cols`: compound entity-gate (include_event/include_enrollment AND include_notes), pseudo-parent inheritance-driven direct materialization, payload gating on include_dhis2_ids / include_user / include_timestamps, hierarchy-key inheritance absence under full parent, fixture round-trip. |
 | `tests/testthat/test-read-event-data.R` | Reader-level integration tests: sparse-data resilience for `read_event_data` (all 7 types), `read_substance_days`, `read_infectious_agent_findings`, `read_events`; pivot-volatility, absent-column materialization, type-drift, hierarchy-key inheritance, enrollment-chain patient_key derivation, companion columns. |
+| `tests/testthat/test-import-dhis2.R` | `import_dhis2()` pipeline: `dhis2_ou_dialect()` version→dialect unit tests; the full offline pipeline via the `helper-dhis2-mock.R` dispatcher; the compatibility matrix across the declared DHIS2 versions (identical read-out + per-version request shapes); error-surfacing + the no-real-HTTP invariant; the unsupported-version warning; parameterless import from `NEOIPC_DHIS2_HOST` + env auth |
+| `tests/testthat/test-dhis2-users.R` | `get_user_info()` — `/me` `lastLogin` read nested under `userCredentials` (2.40/2.41), and the no-`lastLogin` case (2.42+ drop it / never-logged-in → NA, no crash) |
 | `tests/testthat/helper-fixtures.R` | `read_test_metadata()`, `make_test_ds()`, `make_populated_test_ds()`, `make_calc_test_ds()`, per-table builders |
 | `tests/testthat/helper-schema.R` | `expect_schema_matches(x, expected)`, `iter_dataset_options(fields)` |
 | `tests/testthat/helper-event-data.R` | Raw DHIS2-shaped fixture builders for reader integration tests: `build_raw_events()`, `build_processed_events()`, `build_reader_metadata()`, `build_raw_substance_events()`, `build_raw_pathogen_events()` |
+| `tests/testthat/helper-dhis2-mock.R` | Offline HTTP interception for the import pipeline: `mock_json_response()`, `read_fixture_text()`, `build_metadata_response(version)`, and `new_dhis2_mock(fixtures)` — a URL-dispatching `httr2::local_mocked_responses` mock that serves per-endpoint fixtures, records request URLs, and **aborts on any unmocked request** (no silent real HTTP) |
 
 Planned (not yet created):
 
 | File | Scope |
 |------|-------|
-| `test-import-dhis2.R` | `import_dhis2()` pipeline |
 | `test-dhis2-options.R` | `dhis2_dataset_options()` constructor |
-| `test-dhis2-users.R` | `get_user_info()`, `read_user_info_table()`, `read_metadata_users()` |
 | `test-dhis2-enrollments.R` | Enrollment import |
 | `test-dhis2-events.R` | Event import and processing |
 | `test-dhis2-trackedEntities.R` | Patient (tracked entity) import |
@@ -259,7 +262,7 @@ Planned (not yet created):
 
 ### Fixture files
 
-Static JSON fixtures live under `tests/testthat/fixtures/`. They represent minimal valid DHIS2 `/api/metadata` responses shaped as `read_metadata()` expects them.
+Static JSON fixtures live under `tests/testthat/fixtures/`. The `system`/`program`/`org-units`/`antimicrobials` files are minimal DHIS2 `/api/metadata` fragments shaped as `read_metadata()` expects (merged by `read_test_metadata()`, and reused as the `/metadata` body by `build_metadata_response()`). The `me-*`, `orgunits-*`, and `tracker-*` files are the recorded per-endpoint responses the offline import matrix (`test-import-dhis2.R`, via `helper-dhis2-mock.R`) replays. All are hand-authored synthetic data — never captured API responses.
 
 | File | Keys it provides |
 |------|-----------------|
@@ -267,6 +270,9 @@ Static JSON fixtures live under `tests/testthat/fixtures/`. They represent minim
 | `program.json` | `programs`, `trackedEntityTypes` |
 | `org-units.json` | `organisationUnitGroups` |
 | `antimicrobials.json` | `options` (antimicrobials), `optionGroupSets` |
+| `me-nested.json` / `me-no-lastlogin.json` | `/me` responses: `lastLogin` nested under `userCredentials` (2.40/2.41), and absent (2.42+ drop it / never-logged-in) |
+| `orgunits-departments.json` / `orgunits-departments-2.json` | `/organisationUnits` — one department (ACCESSIBLE path) and two coded departments (the `department_filter` request-shape path) |
+| `tracker-trackedEntities.json` / `tracker-enrollments.json` / `tracker-events.json` | `/tracker/*` responses: 2 patients, 2 enrollments, 2 admission events (referentially consistent with the `program.json` UIDs) |
 
 ### Running tests locally
 

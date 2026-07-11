@@ -1,7 +1,10 @@
 get_trackedEntities_request <- function(
     req_base, dataset_options, programId, trackedEntityTypeId)
 {
-  fields <- "trackedEntity,inactive,potentialDuplicate"
+  # `orgUnit` is a base field: read_patients() always needs it — to mark
+  # isTest (include_test_data = TRUE) or to filter out test units (FALSE),
+  # which are exhaustive, plus hierarchy keys — and drops it after the joins.
+  fields <- "trackedEntity,inactive,potentialDuplicate,orgUnit"
   attributeFields <- "attribute,value"
 
   if(dataset_options$include_unenrolled_patients)
@@ -22,16 +25,6 @@ get_trackedEntities_request <- function(
     fields <- paste0(fields,",createdAt,createdAtClient,updatedAt,updatedAtClient")
     attributeFields <- paste0(attributeFields,",createdAt,updatedAt")
   }
-
-  if(!dataset_options$include_test_data ||
-     length(dataset_options$country_filter) > 0 ||
-     length(dataset_options$trial_keys) > 0 ||
-     dataset_options$include_department != "no" ||
-     dataset_options$include_hospital != "no" ||
-     dataset_options$include_country != "no" ||
-     dataset_options$include_world_bank_class != "no" ||
-     length(dataset_options$include_invalid_patients) > 1)
-    fields <- paste0(fields,",orgUnit")
 
   if(dataset_options$include_deleted)
     fields <- paste0(fields,",deleted")
@@ -216,10 +209,14 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
      dataset_options$include_hospital != "no" ||
      dataset_options$include_country != "no" ||
      dataset_options$include_world_bank_class != "no" ||
+     dataset_options$include_test_data ||
      length(dataset_options$include_invalid_patients) > 1)
   {
     # Select only the hierarchy columns the schema declares under
-    # the current opts, plus orgUnit for the join key.
+    # the current opts, plus orgUnit for the join key. `include_test_data`
+    # opens this block so `isTest` — which the schema declares on patients
+    # under that option — is picked up from the departments map even when
+    # no hierarchy include is set.
     hierarchy_cols <- intersect(
       c("department_key", "hospital_key", "country_key",
         "world_bank_class_key", "isTest"),
@@ -228,9 +225,15 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
       dplyr::left_join(
         metadata$.departments_internal_map |>
           dplyr::select(tidyselect::all_of(c("orgUnit", hierarchy_cols))),
-        dplyr::join_by("orgUnit")) |>
-      dplyr::select(!"orgUnit")
+        dplyr::join_by("orgUnit"))
   }
+
+  # `orgUnit` is reader-internal scratch: fetched as a base field, consumed
+  # by the departments join above and/or the test-unit `semi_join` — which
+  # are exhaustive over `include_test_data` — and dropped here before the
+  # schema finalize. `any_of` tolerates the (never-reached) empty-body path.
+  patients <- patients |>
+    dplyr::select(!tidyselect::any_of("orgUnit"))
 
   # Apply eligibility and range filters early so downstream joins operate on
   # fewer rows
@@ -242,11 +245,9 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
       dataset_options$gestational_age_to,
       dataset_options$include_ineligible_patients)
 
-  # Narrow to the public schema + loud-assert. `finalize_to_schema`
-  # drops columns that the reader intentionally carries as scratch
-  # (e.g. the raw `orgUnit` id consumed by the departments-join
-  # block above is already `select(!"orgUnit")`-dropped, so no
-  # scratch declaration is needed here).
+  # Narrow to the public schema + loud-assert. `orgUnit` — the only
+  # reader-internal column not declared on `patients_cols` — was dropped
+  # above, so no `scratch` declaration is needed here.
   # Internal map: carries `patient_key + trackedEntity` for
   # downstream readers (read_enrollments) that need to substitute
   # the raw DHIS2 TE uid with the integer key. Built before finalize

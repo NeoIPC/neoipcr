@@ -1,0 +1,18 @@
+{
+  "enrollments": [
+    {
+      "enrollment": "ENR_1",
+      "trackedEntity": "TE_1",
+      "enrolledAt": "2024-01-01T12:00:00.000",
+      "followUp": false,
+      "orgUnit": "OU_DEPT_1"
+    },
+    {
+      "enrollment": "ENR_2",
+      "trackedEntity": "TE_2",
+      "enrolledAt": "2024-01-05T12:00:00.000",
+      "followUp": false,
+      "orgUnit": "OU_DEPT_1"
+    }
+  ]
+}

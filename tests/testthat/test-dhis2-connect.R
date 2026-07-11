@@ -1,14 +1,49 @@
 # Tests for R/dhis2-connect.R — connection options, authentication, token
 # handling, and password resolution.
 
-# A syntactically valid test token (d2pat_ + 42 chars = 48 total)
-test_token <- "d2pat_789012345678901234567890123456789012345678"
+# A syntactically valid test token for neoipcr's read_token(), which checks
+# only the `d2pat_` prefix and the 48-char total. Shaped to resemble a real
+# DHIS2 PAT (a mixed Base64-alphabet body rather than all digits; DHIS2's real
+# generator appends a 10-digit CRC32 to a 32-char random part). It is not a
+# checksum-valid token and never reaches a server — the tests are offline, and
+# DHIS2 does not verify the checksum on the auth path regardless.
+test_token <- "d2pat_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789012345"
+test_host  <- "dhis2.example.org"
 
 # --- dhis2_connection_options() ---
 
-test_that("dhis2_connection_options builds default base URL", {
+test_that("dhis2_connection_options errors without a host or NEOIPC_DHIS2_HOST", {
+  # neoipcr is a public library: it does not default to any deployment's host.
+  withr::local_envvar(NEOIPC_DHIS2_HOST = NA)
+  expect_error(
+    dhis2_connection_options(test_token),
+    class = "neoipcr_missing_hostname")
+  expect_error(
+    dhis2_connection_options(test_token, hostname = ""),
+    class = "neoipcr_missing_hostname")
+  # An explicit NA is treated as unset (nzchar(NA) is TRUE, so it would otherwise slip past the guard and
+  # reach httr2::url_build() as an unbranded error).
+  expect_error(
+    dhis2_connection_options(test_token, hostname = NA_character_),
+    class = "neoipcr_missing_hostname")
+})
+
+test_that("dhis2_connection_options builds a base URL from an explicit host", {
+  withr::local_envvar(NEOIPC_DHIS2_HOST = NA)
+  result <- dhis2_connection_options(test_token, hostname = test_host)
+  expect_equal(result$base_url, "https://dhis2.example.org/api")
+})
+
+test_that("dhis2_connection_options resolves the host from NEOIPC_DHIS2_HOST", {
+  withr::local_envvar(NEOIPC_DHIS2_HOST = "env.example.org")
   result <- dhis2_connection_options(test_token)
-  expect_equal(result$base_url, "https://neoipc.charite.de/api")
+  expect_equal(result$base_url, "https://env.example.org/api")
+})
+
+test_that("an explicit hostname overrides NEOIPC_DHIS2_HOST", {
+  withr::local_envvar(NEOIPC_DHIS2_HOST = "env.example.org")
+  result <- dhis2_connection_options(test_token, hostname = test_host)
+  expect_equal(result$base_url, "https://dhis2.example.org/api")
 })
 
 test_that("dhis2_connection_options builds custom base URL", {
@@ -31,27 +66,28 @@ test_that("dhis2_connection_options coerces string port", {
 
 test_that("dhis2_connection_options rejects token and username together", {
   expect_error(
-    dhis2_connection_options(token = test_token, username = "admin"),
+    dhis2_connection_options(
+      token = test_token, username = "admin", hostname = test_host),
     "Exactly one of")
 })
 
 test_that("dhis2_connection_options returns neoipcr_dhis2_conopt class", {
-  result <- dhis2_connection_options(test_token)
+  result <- dhis2_connection_options(test_token, hostname = test_host)
   expect_s3_class(result, "neoipcr_dhis2_conopt")
 })
 
 # --- print.neoipcr_dhis2_conopt() ---
 
 test_that("print method shows token authentication", {
-  result <- dhis2_connection_options(test_token)
+  result <- dhis2_connection_options(test_token, hostname = test_host)
   output <- capture.output(print(result))
   expect_true(any(grepl("Token", output)))
 })
 
 test_that("print method shows base URL", {
-  result <- dhis2_connection_options(test_token)
+  result <- dhis2_connection_options(test_token, hostname = test_host)
   output <- capture.output(print(result))
-  expect_true(any(grepl("neoipc.charite.de", output)))
+  expect_true(any(grepl(test_host, output)))
 })
 
 # --- read_token() ---

@@ -5,8 +5,11 @@ read_metadata_system <- function(metadata)
     rlang::abort("Invalid DHIS2 metadata. The system element is missing.",
                  "neoipcr_metadata_system_missing")
 
+  version <- as.numeric_version(system$version)
+  warn_if_unsupported_dhis2(version)
+
   list(id = uuid::as.UUID(system$id),
-       version = as.numeric_version(system$version),
+       version = version,
        rev = system$rev,
        date = readr::parse_datetime(system$date))
 }

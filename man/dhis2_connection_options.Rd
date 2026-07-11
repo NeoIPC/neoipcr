@@ -9,7 +9,7 @@ dhis2_connection_options(
   username,
   session_id,
   scheme = "https",
-  hostname = "neoipc.charite.de",
+  hostname = NULL,
   port = NULL,
   path = "/api"
 )
@@ -23,8 +23,12 @@ dhis2_connection_options(
 
 \item{scheme}{The url scheme to use. The default is "https"}
 
-\item{hostname}{The hostname to connect to. The default is
-"neoipc.charite.de".}
+\item{hostname}{The hostname of the DHIS2 server to connect to (e.g.
+"dhis2.example.org"). When omitted (\code{NULL}), it is taken from the
+\code{NEOIPC_DHIS2_HOST} environment variable — which is what lets
+\code{\link[=import_dhis2]{import_dhis2()}} run with no arguments. \code{neoipcr} does not default to any
+deployment's host: with neither the argument nor the environment variable
+set, this errors.}
 
 \item{port}{The TCP port to connect to. The default NULL does not set a port
 explicitly.}

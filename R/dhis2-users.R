@@ -10,6 +10,11 @@ get_user_info <- function(req)
     tryCatch(
       req |>
         httr2::req_url_path_append("me") |>
+        # `lastLogin` lives under the `userCredentials` back-compat shim on the
+        # /me response for 2.40 and 2.41. Newer lines (2.42+) drop
+        # `userCredentials` from /me and expose `lastLogin` nowhere, so it reads
+        # as NA there (below). Requesting a field the server does not have is
+        # silently omitted by the field filter, not rejected.
         httr2::req_url_query(
           fields = "id,username,firstName,surname,email,created,userCredentials[lastLogin],organisationUnits[id],dataViewOrganisationUnits[id],teiSearchOrganisationUnits[id],userRoles[name,authorities],userGroups[name]") |>
         httr2::req_perform(),
@@ -71,7 +76,11 @@ get_user_info <- function(req)
     firstName = raw_info$firstName,
     surname = raw_info$surname,
     email = raw_info$email,
-    lastLogin = readr::parse_datetime(raw_info$userCredentials$lastLogin),
+    # Nested under the `userCredentials` shim (2.40/2.41), or NA when absent
+    # (2.42+ drop it from /me, and a user may never have logged in).
+    # `parse_datetime()` errors on NULL, so the NA guard prevents a crash.
+    lastLogin = readr::parse_datetime(
+      raw_info$userCredentials$lastLogin %||% NA_character_),
     created = readr::parse_datetime(raw_info$created),
     organisationUnits = raw_info$organisationUnits$id,
     dataViewOrganisationUnits = raw_info$dataViewOrganisationUnits$id,

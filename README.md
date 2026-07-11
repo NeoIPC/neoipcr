@@ -25,11 +25,43 @@ pak::pak("NeoIPC/neoipcr")
 
 ## Importing Data From DHIS2
 
-To import data from the NeoIPC surveillance DHIS2 server use
-import_dhis2().
+To import data from a NeoIPC DHIS2 server use `import_dhis2()`. neoipcr
+is a public library for *any* DHIS2 instance running the NeoIPC metadata
+package, so it does not default to a specific host — pass your
+instance’s `hostname` to `dhis2_connection_options()` (with
+`scheme`/`port`/`path` if they differ from the `https` / 443 / `/api`
+defaults). Credentials can be passed directly (a personal access token,
+username/password, or session id), or left to be resolved from
+environment variables (`NEOIPC_DHIS2_TOKEN`, `NEOIPC_DHIS2_USER` +
+`NEOIPC_DHIS2_PASSWORD`, or `NEOIPC_DHIS2_SESSION_ID`), falling back to
+an interactive prompt; see `?dhis2_connection_options`.
 
 ``` r
 library(neoipcr)
 
+connection <- dhis2_connection_options(hostname = "dhis2.example.org")
+data <- import_dhis2(connection)
+```
+
+Alternatively, set the host in the `NEOIPC_DHIS2_HOST` environment
+variable (alongside the credential variables above) and call
+`import_dhis2()` with no arguments:
+
+``` r
+# NEOIPC_DHIS2_HOST and, e.g., NEOIPC_DHIS2_TOKEN set in the environment
 data <- import_dhis2()
+```
+
+## Supported Versions
+
+neoipcr is tested against the currently deployed DHIS2 version plus the
+tip of each newer released line; `neoipcr_supported_versions()` returns
+the exact list. Reading a server on an untested line is allowed but
+emits a warning. The vocabulary neoipcr binds to — the `NEOIPC_CORE`
+program, the stage/option-set codes, and the org-unit-group codes
+(`COUNTRY`, `HOSPITAL`, `NEO_DEPARTMENT`) — is defined by the NeoIPC
+metadata package, not by any particular deployment.
+
+``` r
+neoipcr_supported_versions()
 ```

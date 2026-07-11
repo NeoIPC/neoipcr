@@ -19,11 +19,12 @@ NULL
 #              `createdAt` / `createdAtClient` / `updatedAt` /
 #              `updatedAtClient` (gated by `include_timestamps`),
 #              `deleted` (gated by `include_deleted`), `department_key`
-#              link FK (gated by `include_department != "no"`), and
+#              link FK (gated by `include_department != "no"`),
 #              the hierarchy keys (`hospital_key`, `country_key`,
 #              `world_bank_class_key`) via `col_inherited_from()` —
 #              materialized only when `departments_cols` doesn't
-#              carry them under the current opts.
+#              carry them under the current opts — and the `isTest`
+#              flag (gated by `include_test_data`).
 #
 # Every non-PK atom predicate ANDs against `include_patient == "full"`
 # so pseudo mode narrows strictly to `patient_key`. The entity gate
@@ -207,7 +208,20 @@ patients_cols <- with_entity_gate(
     list(patient_inherited_from("hospital_key",          "include_hospital")),
     list(patient_inherited_from("country_key",           "include_country")),
     list(patient_inherited_from("world_bank_class_key",
-                                "include_world_bank_class"))
+                                "include_world_bank_class")),
+
+    # `isTest` — test-unit marker, populated by the reader from the
+    # departments fat-lookup under `include_test_data = TRUE`, same as on
+    # enrollments and events. Patients previously omitted it — an
+    # asymmetry with the other fact tibbles rather than a deliberate
+    # design — so downstream code had to detour through
+    # `metadata$departments` to test a patient's unit. Declared directly
+    # here to close that gap.
+    list(schema_col(
+      "isTest", logical(),
+      include_when = \(opts) opts$include_patient == "full" &&
+                             isTRUE(opts$include_test_data)
+    ))
   ),
   gate = \(opts) opts$include_patient != "no"
 )

@@ -297,6 +297,32 @@ test_that("inheritance: country_key / world_bank_class_key follow the same rule"
   expect_true("world_bank_class_key" %in% names(schema))
 })
 
+# ---- isTest ----------------------------------------------------------------
+
+test_that("patients_cols: isTest gated on include_test_data (full mode only)", {
+  # Present only under include_patient = "full" + include_test_data = TRUE,
+  # populated by the reader from the departments fat-lookup — same pattern
+  # as enrollments/events.
+  opts_on <- dhis2_dataset_options(
+    include_patient   = "full",
+    include_test_data = TRUE)
+  expect_true("isTest" %in% names(
+    neoipcr:::compile_schema(neoipcr:::patients_cols, opts_on)))
+
+  opts_off <- dhis2_dataset_options(
+    include_patient   = "full",
+    include_test_data = FALSE)
+  expect_false("isTest" %in% names(
+    neoipcr:::compile_schema(neoipcr:::patients_cols, opts_off)))
+
+  # Pseudo mode stays strictly patient_key even with test data on.
+  opts_pseudo <- dhis2_dataset_options(
+    include_patient   = "pseudo",
+    include_test_data = TRUE)
+  expect_false("isTest" %in% names(
+    neoipcr:::compile_schema(neoipcr:::patients_cols, opts_pseudo)))
+})
+
 # ---- Per-TEA companion columns (DHIS2 Attribute.java semantics) ------------
 
 test_that("patients_cols emits no _createdBy / _updatedBy on TEA attributes", {
@@ -369,4 +395,32 @@ test_that("make_test_patients output matches patients_cols schema (pseudo mode)"
   fixture <- make_test_patients(n = 2, include_patient = "pseudo")
   expect_schema_matches(fixture, schema)
   expect_identical(names(fixture), "patient_key")
+})
+
+test_that("make_test_patients carries isTest under include_test_data (round-trip)", {
+  # Pin every hierarchy mode to make_test_patients' defaults ("pseudo") so
+  # the compiled schema and the fixture agree on the inherited keys, and the
+  # test isolates the isTest addition.
+  opts <- dhis2_dataset_options(
+    include_patient          = "full",
+    patient_columns          = "id",
+    include_dhis2_ids        = "patients",
+    include_test_data        = TRUE,
+    include_department       = "pseudo",
+    include_hospital         = "pseudo",
+    include_country          = "pseudo",
+    include_world_bank_class = "pseudo")
+  schema <- neoipcr:::compile_schema(neoipcr:::patients_cols, opts)
+  expect_true("isTest" %in% names(schema))
+  fixture <- make_test_patients(
+    n                        = 2,
+    include_patient          = "full",
+    patient_columns          = "id",
+    include_dhis2_ids        = "patients",
+    include_test_data        = TRUE,
+    include_department       = "pseudo",
+    include_hospital         = "pseudo",
+    include_country          = "pseudo",
+    include_world_bank_class = "pseudo")
+  expect_schema_matches(fixture, schema)
 })
