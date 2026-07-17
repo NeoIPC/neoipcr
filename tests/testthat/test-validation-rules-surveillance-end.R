@@ -42,6 +42,29 @@ test_that("rule 18 returns no rows when patient_days is correct", {
   expect_equal(nrow(result), 0L)
 })
 
+test_that("rule 18 detects missing (NA) patient_days", {
+  # patient_days is compulsory + auto-calculated in DHIS2; a missing value
+  # bypassed that calculation and must be flagged. Without the is.na() guard
+  # the `NA != calculated` comparison is NA and filter() would drop it.
+  ds <- make_test_ds(
+    patients    = make_test_patients(1),
+    enrollments = make_test_enrollments(1,
+      patient_keys = 1L,
+      enrolledAt = as.Date("2024-01-01")),
+    events = make_test_events(2,
+      enrollment_keys = c(1L, 1L),
+      patient_keys    = c(1L, 1L),
+      event_type_keys = c("adm", "end"),
+      occurredAt = as.Date(c("2024-01-01", "2024-01-11"))),
+    surveillanceEndData = make_test_surveillance_end_data(
+      event_keys = 2L,
+      patient_days = NA_integer_))
+  result <- neoipcr:::validation_rule_18(ds, NULL)
+  expect_equal(nrow(result), 1L)
+  expect_equal(unique(result$rule_id), 18L)
+  expect_true(1L %in% result$patient_key)
+})
+
 test_that("rule 18 honours exceptions", {
   ds <- make_test_ds(
     patients    = make_test_patients(1),

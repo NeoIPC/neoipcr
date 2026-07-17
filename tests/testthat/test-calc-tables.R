@@ -249,6 +249,26 @@ test_that("get_gestational_age_figure_data location parameters match fixture", {
   expect_equal(lp$q3, as.integer(q[4]))
 })
 
+test_that("figure builders drop NA optional attributes", {
+  # birth_weight and gestational age are optional TEAs (mandatory = false);
+  # a patient can be missing either one. The distribution figures cover only
+  # recorded values, so an NA must be excluded, not crash the quantile.
+  ds <- make_calc_test_ds()
+  ds$patients$birth_weight[1]         <- NA_integer_
+  ds$patients$total_gestation_days[2] <- NA_integer_
+
+  present_bw <- ds$patients$birth_weight[!is.na(ds$patients$birth_weight)]
+  bw <- neoipcr:::get_birthweight_figure_data(ds)$location_parameters
+  expect_equal(bw$mean, as.integer(mean(present_bw)))
+  expect_equal(bw$q2, as.integer(quantile(present_bw, names = FALSE)[3]))
+
+  present_ga <- ds$patients$total_gestation_days[
+    !is.na(ds$patients$total_gestation_days)]
+  ga <- neoipcr:::get_gestational_age_figure_data(ds)$location_parameters
+  expect_equal(ga$mean, as.integer(mean(present_ga)))
+  expect_equal(ga$q2, as.integer(quantile(present_ga, names = FALSE)[3]))
+})
+
 # --- Empty-data resilience ---
 
 empty_ds <- make_empty_calc_test_ds()
