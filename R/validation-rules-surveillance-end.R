@@ -1,5 +1,9 @@
-# Find surveillance end events where the stored number of patient days does not
-# match the value calculated from the enrolment date and the event date.
+# Find surveillance end events where the stored number of patient days is
+# missing, or does not match the value calculated from the enrolment date and
+# the event date. patient_days is compulsory in DHIS2 and calculated from those
+# dates, so a missing value is a data-quality failure and is flagged like a
+# mismatch. The `is.na()` guard is required because `NA != x` is NA, which
+# `filter()` drops — so without it a missing value would slip past validation.
 validation_rule_18 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
@@ -21,7 +25,9 @@ validation_rule_18 <- function(x, exceptions)
       dplyr::mutate(
         patient_days_calculated = 1L + as.integer(.data$occurredAt - .data$enrolledAt)
       ) |>
-      dplyr::filter(.data$patient_days_calculated != .data$patient_days) |>
+      dplyr::filter(
+        is.na(.data$patient_days) |
+          .data$patient_days_calculated != .data$patient_days) |>
       dplyr::select(
         tidyselect::any_of(
           c("hospital_key",

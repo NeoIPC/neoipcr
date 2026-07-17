@@ -1,9 +1,14 @@
 get_birthweight_figure_data <- function(x) {
-  bw_quartiles <- x$patients$birth_weight |>
+  # Birth weight is an optional attribute (mandatory = false); the
+  # distribution figure covers only patients with a recorded value.
+  birth_weight <- x$patients$birth_weight
+  birth_weight <- birth_weight[!is.na(birth_weight)]
+
+  bw_quartiles <- birth_weight |>
     stats::quantile(names = FALSE) |>
     as.integer()
 
-  bw_mean = x$patients$birth_weight |>
+  bw_mean = birth_weight |>
     mean() |>
     as.integer()
 
@@ -11,8 +16,8 @@ get_birthweight_figure_data <- function(x) {
   bw_scale_max <- as.integer(bw_quartiles[5] / 50L) * 50L + 100L
 
   # density.default needs at least two points
-  if (length(x$patients$birth_weight) > 1) {
-    bw_density <- x$patients$birth_weight |>
+  if (length(birth_weight) > 1) {
+    bw_density <- birth_weight |>
       stats::density(from = bw_scale_min, to = bw_scale_max)
 
     density_bw <- bw_density$x
@@ -28,7 +33,7 @@ get_birthweight_figure_data <- function(x) {
       density = density_val
     ),
     frequency = tibble::tibble(
-      birth_weight_cat = x$patients$birth_weight |>
+      birth_weight_cat = birth_weight |>
         bw50(as_factor = F)
     ) |>
       dplyr::group_by(.data$birth_weight_cat) |>
@@ -46,11 +51,18 @@ get_birthweight_figure_data <- function(x) {
 }
 
 get_gestational_age_figure_data <- function(x) {
-  ga_quartiles <- x$patients$total_gestation_days |>
+  # Gestational age is an optional attribute (mandatory = false); the
+  # distribution figure covers only patients with a recorded value. A
+  # program rule guarantees birth weight or gestational age is present,
+  # but either one alone can be missing.
+  total_gestation_days <- x$patients$total_gestation_days
+  total_gestation_days <- total_gestation_days[!is.na(total_gestation_days)]
+
+  ga_quartiles <- total_gestation_days |>
     stats::quantile(names = FALSE) |>
     as.integer()
 
-  ga_mean = x$patients$total_gestation_days |>
+  ga_mean = total_gestation_days |>
     mean() |>
     as.integer()
 
@@ -58,8 +70,8 @@ get_gestational_age_figure_data <- function(x) {
   ga_scale_max = as.integer(ga_quartiles[5] / 7L) * 7L + 14L
 
   # density.default needs at least two points
-  if (length(x$patients$total_gestation_days) > 1) {
-    ga_density <- x$patients$total_gestation_days |>
+  if (length(total_gestation_days) > 1) {
+    ga_density <- total_gestation_days |>
       stats::density(from = ga_scale_min, to = ga_scale_max)
 
     density_ga <- ga_density$x
@@ -75,7 +87,7 @@ get_gestational_age_figure_data <- function(x) {
       density = density_val
     ),
     frequency = tibble::tibble(
-      gestational_age_cat = x$patients$total_gestation_days |>
+      gestational_age_cat = total_gestation_days |>
         ga7()
     ) |>
       dplyr::group_by(.data$gestational_age_cat) |>
