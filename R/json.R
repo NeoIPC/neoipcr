@@ -44,6 +44,17 @@ write_json <- function(x, file = NULL, pretty = FALSE) {
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
   }
-  writeLines(json, file, useBytes = TRUE)
+  # A binary connection, because R translates LF to CRLF in text mode on Windows and
+  # `writeLines(json, file)` would open the path as `file(file, "w")` — i.e. "wt". R's own
+  # writeLines documentation says so: "the default separator is converted to the normal
+  # separator for that platform (LF on Unix/Linux, CRLF on Windows). For more control, open a
+  # binary connection and specify the precise value you want written to the file in sep."
+  # `useBytes = TRUE` does not help — it governs re-encoding of marked strings, not newlines.
+  # The output is consumed by other languages (the .NET service, JS tooling), so the bytes must
+  # not depend on which platform serialised them. In binary mode `sep` is written literally,
+  # which makes it the one thing deciding line endings; hence stating it explicitly.
+  con <- file(file, open = "wb")
+  on.exit(close(con), add = TRUE)
+  writeLines(json, con, sep = "\n", useBytes = TRUE)
   invisible(json)
 }

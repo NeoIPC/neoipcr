@@ -12,6 +12,73 @@ permissions:
   contents: read
 
 jobs:
+  text-hygiene:
+    # LF line endings and UTF-8 without a BOM on every committed text file.
+    #
+    # Its own job rather than a step in the matrix below, which would run this four times over identical
+    # content. Worth an explicit check because the defect is invisible locally: with `* text=auto`
+    # declared, a tool writing CRLF into the working tree still produces an LF blob and a clean
+    # `git status`. R is a live example — a text-mode connection translates LF to CRLF on Windows, which
+    # is why this package's file writers open binary connections explicitly.
+    name: Text-file hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check line endings and encoding
+        shell: pwsh
+        run: |
+          $failures = @()
+          # git ls-files --eol emits: i/<idx>  w/<worktree>  attr/<attrs><TAB><path>. Split the path off the
+          # TAB first so an attribute containing a space cannot shift the column indices.
+          $rows = foreach ($line in (git ls-files --eol)) {
+            $parts = $line -split "`t", 2
+            if ($parts.Count -lt 2) { continue }
+            $cols = @($parts[0] -split '\s+' | Where-Object { $_ })
+            if ($cols.Count -lt 2) { continue }
+            $attr = if ($cols.Count -gt 2) { ($cols[2..($cols.Count - 1)] -join ' ') -replace '^attr/', '' } else { '' }
+            # Only the ATTRIBUTE exempts a path. The i/ and w/ columns report what git DETECTED, and folding
+            # them in here would let one stray byte skip the line-ending, BOM and UTF-8 checks at once — a
+            # single NUL or even a lone CR makes git report -text — so a CRLF UTF-16 catalogue would commit
+            # silently, which is the corruption this job exists to catch.
+            [pscustomobject]@{
+              Index = $cols[0]; Worktree = $cols[1]; File = $parts[1]
+              IsBinary = ($attr -match '(^|\s)(-text|binary)(\s|$)')
+              LooksBinary = ($cols[0] -eq 'i/-text' -or $cols[1] -eq 'w/-text')
+            }
+          }
+          foreach ($row in $rows) {
+            if ($row.IsBinary) { continue }
+            # Declared text but detected binary: report it, because nothing else can see this defect — git
+            # prints -text rather than crlf, a NUL is valid UTF-8, and UTF-16 carries no UTF-8 BOM.
+            if ($row.LooksBinary) {
+              $failures += "$($row.File): declared text but git detects binary content (a NUL byte or stray CR) - probably mis-encoded; declare it '-text' if it really is binary"
+              continue
+            }
+            if ($row.Worktree -in @('w/crlf', 'w/mixed')) {
+              $failures += "$($row.File): $($row.Worktree.Substring(2)) line endings in the working tree"
+            } elseif ($row.Index -in @('i/crlf', 'i/mixed')) {
+              $failures += "$($row.File): $($row.Index.Substring(2)) line endings in the index"
+            }
+          }
+          $strict = [System.Text.UTF8Encoding]::new($false, $true)
+          foreach ($row in ($rows | Where-Object { -not $_.IsBinary })) {
+            $full = Join-Path (Get-Location) $row.File
+            if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { continue }
+            # Absolute path: .NET resolves a relative one against the process working directory, not
+            # PowerShell's location, so a relative path here reads the wrong file or nothing at all.
+            $bytes = [System.IO.File]::ReadAllBytes($full)
+            if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+              $failures += "$($row.File): starts with a UTF-8 BOM"; continue
+            }
+            try { [void]$strict.GetString($bytes) } catch { $failures += "$($row.File): not valid UTF-8" }
+          }
+          if ($failures.Count) {
+            $failures | Sort-Object | ForEach-Object { Write-Output "::error file=$($_.Split(':')[0])::$_" }
+            Write-Output "Expected LF line endings and UTF-8 without a BOM. See .gitattributes and .editorconfig."
+            exit 1
+          }
+          Write-Output "Text-file hygiene OK: $(@($rows | Where-Object { -not $_.IsBinary }).Count) file(s)."
+
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
 

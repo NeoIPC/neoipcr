@@ -63,7 +63,13 @@ update_po <- function(dir = ".", verbose = FALSE) {
     msgids_plural <- tools::xngettext(dir)
     msgids_plural_uniqe <- unique(unlist(msgids_plural))
     # ToDo: Read plurals with references
-    pot_con <- file(pot_file, "wt")
+    # Binary, not "wt". A text-mode connection translates LF to CRLF on Windows, and every
+    # writeLines() below goes through this one connection — so "wt" would emit a CRLF .pot on
+    # Windows and an LF one elsewhere. A gettext catalogue is rewritten in turn by msgmerge,
+    # po4a and Weblate, all of which write LF; a partial rewrite by a tool that disagrees is
+    # what produces a mixed file no parser accepts. writeLines' default sep = "\n" is written
+    # literally in binary mode, which is what makes the output platform-independent.
+    pot_con <- file(pot_file, "wb")
     on.exit(close(pot_con))
     now <- Sys.time()
     writeLines(
