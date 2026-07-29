@@ -60,7 +60,7 @@ import_test_opts <- function(...)
     ...)
 
 # Fixture set for the default no-filter (ACCESSIBLE) path at a given version.
-import_test_fixtures <- function(version = "2.40.3.2", me = "me-nested.json")
+import_test_fixtures <- function(version = "2.40.12.0", me = "me-nested.json")
   list(
     me                = read_fixture_text(me),
     metadata          = build_metadata_response(version),
