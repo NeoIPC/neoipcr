@@ -291,17 +291,35 @@ import_dhis2 <- function(
 
 #' Supported DHIS2 and metadata-package versions
 #'
-#' The version combinations `neoipcr` is tested against and declares support
-#' for. The DHIS2 list is the currently deployed NeoIPC version plus the tip of
-#' each released DHIS2 line at or above it — the versions a deployment would
-#' realistically upgrade to. The offline compatibility matrix
-#' (`tests/testthat/test-import-dhis2.R`) iterates exactly this list, and
-#' [import_dhis2()] warns when it reads a server whose line is not among them.
+#' The version combinations `neoipcr` declares support for: the DHIS2 releases
+#' that are **both** verified against a live server — not on fixtures alone —
+#' **and** still current targets. [import_dhis2()] warns when it reads a server
+#' whose major.minor line is not among them.
 #'
-#' The DHIS2 tips advance as new patches ship; refresh this list (and the
-#' matrix fixtures) when moving the supported range. The metadata-package axis
-#' currently has a single released line, so its supported range is expressed as
-#' a lower bound.
+#' Both halves are load-bearing, because they exclude different things. Live
+#' verification excludes 2.43, which has never been run against a real server.
+#' Being a current target excludes 2.40.3.2, which *was* verified live and
+#' passed — it is dropped because it carries a defect fixed in 2.40.4, not
+#' because neoipcr failed on it.
+#'
+#' This range is deliberately narrower than the set of DHIS2 releases that
+#' exist. A live import against 2.42 is known to fail, and 2.43 has never been
+#' run against a live server, so both lines fall outside it and raise the
+#' warning — even though the offline tests in
+#' `tests/testthat/test-import-dhis2.R` deliberately drive them too, to keep the
+#' version-dependent request-shape logic covered. Those offline runs are not
+#' evidence that a real server of that version works, and the declared range
+#' follows the live verification rather than them.
+#'
+#' Note that the warning is raised per major.minor **line**, so a patch release
+#' of a listed line does not raise it even when that exact release is known to
+#' be broken. 2.40.3.2 is such a release: it is excluded from this list, but a
+#' server reporting it is on the supported 2.40 line and so reads without a
+#' warning.
+#'
+#' Widening the range means verifying a live server of that line first. The
+#' metadata-package axis currently has a single released line, so its supported
+#' range is expressed as a lower bound.
 #'
 #' @returns A list with two elements: `dhis2`, a character vector of supported
 #'   DHIS2 versions (each parseable by [base::numeric_version()]), and
@@ -309,7 +327,7 @@ import_dhis2 <- function(
 #' @export
 neoipcr_supported_versions <- function()
   list(
-    dhis2 = c("2.40.3.2", "2.40.12.0", "2.41.9.0", "2.42.5.1", "2.43.0.1"),
+    dhis2 = c("2.40.12.0", "2.41.9.0"),
     metadata_package = ">= 0.0.1-alpha")
 
 # The major.minor line of a version, e.g. "2.40" for 2.40.3.2.
@@ -321,18 +339,23 @@ version_line <- function(version)
 supported_dhis2_lines <- function()
   unique(vapply(neoipcr_supported_versions()$dhis2, version_line, character(1)))
 
-# Warn (not error) when a server's DHIS2 line is outside the supported set:
-# neoipcr may still read it correctly, but it is unverified against the
-# compatibility matrix (tests/testthat/test-import-dhis2.R).
+# Warn (not error) when a server's DHIS2 line is outside the supported set.
+# Deliberately says "supported", not "tested": the offline matrix in
+# tests/testthat/test-import-dhis2.R drives unsupported lines too, so being
+# outside this set does not mean being untested — it means no live server of
+# that line has been verified. Nor does it promise the read will work: on 2.42
+# a live import is known to fail outright.
 warn_if_unsupported_dhis2 <- function(version)
 {
   if(!version_line(version) %in% supported_dhis2_lines())
     rlang::warn(c(
-      sprintf("DHIS2 version %s is outside neoipcr's tested range.", version),
+      sprintf("DHIS2 version %s is outside neoipcr's supported range.", version),
       "i" = sprintf(
-        "Tested DHIS2 lines: %s.",
+        "Supported DHIS2 lines: %s.",
         paste(supported_dhis2_lines(), collapse = ", ")),
-      "i" = "neoipcr may still read this server correctly, but it is unverified."),
+      "i" = paste(
+        "Reading an unsupported server is unverified: it may fail outright, or",
+        "return incomplete data without reporting an error.")),
       class = "neoipcr_unsupported_dhis2_version")
 }
 

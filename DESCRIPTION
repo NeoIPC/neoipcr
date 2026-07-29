@@ -5,7 +5,7 @@ Version: 0.0.0.9000
 Authors@R: c(
     person(given = c("Brar", "Christian"), family = "Piening", email = "brar.piening@charite.de", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-4478-5597")),
-    person(given = "NeoIPC Surveillance Toolkit development team", email = "NeoIPC-Support@charite.de", role = "cph"),
+    person(given = "The NeoIPC Project Consortium", email = "NeoIPC-Support@charite.de", role = "cph"),
     person(given = "The European Union", role = "fnd",
            comment = c(Funding = "The NeoIPC project has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement No 965328."))
            )

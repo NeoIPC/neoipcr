@@ -25,7 +25,7 @@ Authors:
 
 Other contributors:
 \itemize{
-  \item NeoIPC Surveillance Toolkit development team \email{NeoIPC-Support@charite.de} [copyright holder]
+  \item The NeoIPC Project Consortium \email{NeoIPC-Support@charite.de} [copyright holder]
   \item The European Union (Funding: The NeoIPC project has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement No 965328.) [funder]
 }
 
