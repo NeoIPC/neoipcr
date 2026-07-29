@@ -12,16 +12,34 @@ DHIS2 versions (each parseable by \code{\link[base:numeric_version]{base::numeri
 \code{metadata_package}, the supported NeoIPC metadata-package version range.
 }
 \description{
-The version combinations \code{neoipcr} is tested against and declares support
-for. The DHIS2 list is the currently deployed NeoIPC version plus the tip of
-each released DHIS2 line at or above it — the versions a deployment would
-realistically upgrade to. The offline compatibility matrix
-(\code{tests/testthat/test-import-dhis2.R}) iterates exactly this list, and
-\code{\link[=import_dhis2]{import_dhis2()}} warns when it reads a server whose line is not among them.
+The version combinations \code{neoipcr} declares support for: the DHIS2 releases
+that are \strong{both} verified against a live server — not on fixtures alone —
+\strong{and} still current targets. \code{\link[=import_dhis2]{import_dhis2()}} warns when it reads a server
+whose major.minor line is not among them.
 }
 \details{
-The DHIS2 tips advance as new patches ship; refresh this list (and the
-matrix fixtures) when moving the supported range. The metadata-package axis
-currently has a single released line, so its supported range is expressed as
-a lower bound.
+Both halves are load-bearing, because they exclude different things. Live
+verification excludes 2.43, which has never been run against a real server.
+Being a current target excludes 2.40.3.2, which \emph{was} verified live and
+passed — it is dropped because it carries a defect fixed in 2.40.4, not
+because neoipcr failed on it.
+
+This range is deliberately narrower than the set of DHIS2 releases that
+exist. A live import against 2.42 is known to fail, and 2.43 has never been
+run against a live server, so both lines fall outside it and raise the
+warning — even though the offline tests in
+\code{tests/testthat/test-import-dhis2.R} deliberately drive them too, to keep the
+version-dependent request-shape logic covered. Those offline runs are not
+evidence that a real server of that version works, and the declared range
+follows the live verification rather than them.
+
+Note that the warning is raised per major.minor \strong{line}, so a patch release
+of a listed line does not raise it even when that exact release is known to
+be broken. 2.40.3.2 is such a release: it is excluded from this list, but a
+server reporting it is on the supported 2.40 line and so reads without a
+warning.
+
+Widening the range means verifying a live server of that line first. The
+metadata-package axis currently has a single released line, so its supported
+range is expressed as a lower bound.
 }

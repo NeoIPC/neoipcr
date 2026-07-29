@@ -12,8 +12,9 @@ get_benchmark_data(...)
 neoipcr_rep_ds or a neoipcr_ref_ds (typically it's exactly one
 neoipcr_rep_ds and one neoipcr_ref_ds to benchmark department data against
 reference data but it can also be multiple neoipcr_rep_ds or multiple
-neoipcr_ref_ds to benchmark them against each other). The names are used as
-prefixes in the resulting tables}
+neoipcr_ref_ds to benchmark them against each other). Each name is appended
+to that dataset's column names in the resulting tables, so
+\code{get_benchmark_data(own = x, ref = y)} yields \code{n_own} and \code{n_ref}}
 }
 \value{
 A neoipcr_bnch_ds

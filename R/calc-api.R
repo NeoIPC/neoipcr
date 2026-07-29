@@ -317,8 +317,9 @@ calculate_department_data <- function(x, use_cache = TRUE) {
 #'  neoipcr_rep_ds or a neoipcr_ref_ds (typically it's exactly one
 #'  neoipcr_rep_ds and one neoipcr_ref_ds to benchmark department data against
 #'  reference data but it can also be multiple neoipcr_rep_ds or multiple
-#'  neoipcr_ref_ds to benchmark them against each other). The names are used as
-#'  prefixes in the resulting tables
+#'  neoipcr_ref_ds to benchmark them against each other). Each name is appended
+#'  to that dataset's column names in the resulting tables, so
+#'  `get_benchmark_data(own = x, ref = y)` yields `n_own` and `n_ref`
 #'
 #' @returns A neoipcr_bnch_ds
 #' @export

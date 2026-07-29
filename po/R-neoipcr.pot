@@ -1,5 +1,5 @@
 # neoipcr Translation Template File.
-# Copyright (C) 2025 NeoIPC Surveillance Toolkit development team
+# Copyright (C) The NeoIPC Project Consortium
 # This file is distributed under the same license as the neoipcr package.
 #
 msgid ""

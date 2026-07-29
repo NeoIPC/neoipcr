@@ -116,11 +116,39 @@ test_that("import_dhis2 makes no real HTTP call for an unmocked endpoint", {
 })
 
 # ---------------------------------------------------------------------------
-# Compatibility matrix — the declared DHIS2 versions (our pinned version plus
-# the tip of each released line at or above it). See neoipcr_supported_versions().
+# Compatibility matrix — every DHIS2 version the offline read path is driven
+# against. This set is deliberately WIDER than neoipcr_supported_versions():
+# the declared range follows live verification, while these fixture runs keep
+# the version-dependent request-shape and /me-shape logic covered on lines that
+# are NOT supported. A green run here is not evidence that a real server of that
+# version works, which is precisely why the two lists are kept separate.
 # The read path must produce an identical dataset across every version; the
 # tracker request shape must follow the version's org-unit dialect.
 # ---------------------------------------------------------------------------
+
+# Live-verified: a full import has been run against a real server on these.
+# 2.40.3.2 is deliberately absent — it is a known-broken patch release. Because
+# the runtime gate compares major.minor lines, excluding it here does not make a
+# 2.40.3.2 server warn; it keeps the declaration and this matrix honest.
+matrix_supported_versions <- c("2.40.12.0", "2.41.9.0")
+
+# Not live-verified, and driven here for request-shape coverage only: a live
+# import against 2.42 is known to fail, and 2.43 has never been run against a
+# real server. Both must therefore raise the unsupported-version warning.
+matrix_unsupported_versions <- c("2.42.5.1", "2.43.0.1")
+
+# The declared range is a claim about live verification, so pin it here: a
+# silent widening (adding a line nobody has run a real server on) goes red.
+test_that("neoipcr_supported_versions declares only live-verified DHIS2 lines", {
+  expect_equal(neoipcr_supported_versions()$dhis2, matrix_supported_versions)
+})
+
+# Muffle only the unsupported-version warning, so a test that deliberately
+# drives an unsupported line still surfaces every other warning.
+without_unsupported_warning <- function(expr)
+  withCallingHandlers(
+    expr,
+    neoipcr_unsupported_dhis2_version = function(w) rlang::cnd_muffle(w))
 
 # The /me lastLogin shape follows the DHIS2 line: 2.40 and 2.41 nest it under
 # the `userCredentials` shim; 2.42+ drop it from /me entirely.
@@ -132,15 +160,27 @@ me_fixture_for <- function(version) {
 test_conn <- function()
   dhis2_connection_options(session_id = "test", hostname = "dhis2.example.org")
 
-for (v in neoipcr_supported_versions()$dhis2) {
+for (v in c(matrix_supported_versions, matrix_unsupported_versions)) {
   local({
     version <- v
+    supported <- version %in% matrix_supported_versions
     test_that(sprintf("import_dhis2 reads an identical dataset at DHIS2 %s", version), {
       m <- new_dhis2_mock(
         import_test_fixtures(version, me_fixture_for(version)))
       httr2::local_mocked_responses(m$mock)
 
-      ds <- import_dhis2(test_conn(), import_test_opts())
+      # The gate is asserted in BOTH directions. Only checking that an
+      # unsupported line warns leaves a regression that warns unconditionally
+      # undetected — a stray warning does not fail a testthat test, so the
+      # supported branch has to assert absence explicitly.
+      if (supported)
+        expect_no_warning(
+          ds <- import_dhis2(test_conn(), import_test_opts()),
+          class = "neoipcr_unsupported_dhis2_version")
+      else
+        expect_warning(
+          ds <- import_dhis2(test_conn(), import_test_opts()),
+          class = "neoipcr_unsupported_dhis2_version")
 
       expect_equal(nrow(ds$patients), 2L)
       expect_equal(nrow(ds$enrollments), 2L)
@@ -197,7 +237,7 @@ tracker_requests_for <- function(version) {
 }
 
 test_that("2.40 tracker requests use ouMode/orgUnit with %3B-joined ids", {
-  r <- tracker_requests_for("2.40.3.2")
+  r <- tracker_requests_for("2.40.12.0")
 
   expect_true("ouMode" %in% names(r$te))
   expect_false("orgUnitMode" %in% names(r$te))
@@ -224,7 +264,10 @@ test_that("2.40 tracker requests use ouMode/orgUnit with %3B-joined ids", {
 
 test_that("2.41+ tracker requests use orgUnitMode/orgUnits with comma-joined ids", {
   for (v in c("2.41.9.0", "2.42.5.1", "2.43.0.1")) {
-    r <- tracker_requests_for(v)
+    # 2.42/2.43 are outside the declared range and warn; that is asserted in the
+    # matrix above, so muffle just that warning here and keep this test on the
+    # request shape. Any other warning still surfaces.
+    r <- without_unsupported_warning(tracker_requests_for(v))
 
     expect_true("orgUnitMode" %in% names(r$te), info = v)
     expect_false("ouMode" %in% names(r$te), info = v)
