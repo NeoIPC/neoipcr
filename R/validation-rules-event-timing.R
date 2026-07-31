@@ -70,7 +70,7 @@ validation_rule_29 <- function(x, exceptions)
 }
 
 # Find sepsis events where the event date is within the first two days of
-# hospitalisation of a referred or (re-)admitted patient
+# hospitalization of a referred or (re-)admitted patient
 validation_rule_30 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
@@ -133,7 +133,7 @@ validation_rule_33 <- function(x, exceptions)
 }
 
 # Find pneumonia events where the event date is within the first two days of
-# hospitalisation of a referred or (re-)admitted patient
+# hospitalization of a referred or (re-)admitted patient
 validation_rule_34 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
@@ -196,7 +196,7 @@ validation_rule_37 <- function(x, exceptions)
 }
 
 # Find NEC events where the event date is within the first two days of
-# hospitalisation of a referred or (re-)admitted patient
+# hospitalization of a referred or (re-)admitted patient
 validation_rule_38 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)

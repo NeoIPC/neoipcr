@@ -13,7 +13,7 @@ test_that("calculate_department_data produces neoipcr_rep_ds", {
     "n_departments", "n_patients", "n_enrollments", "n_patient_days",
     "n_infections", "n_surgical_departments",
     "n_surgical_procedures", "n_surgical_patients",
-    "usage_density_rate_table", "antibiotic_utilisation_table",
+    "usage_density_rate_table", "antibiotic_utilization_table",
     "surgery_rate_table", "incidence_density_rate_table",
     "dev_ass_incidence_density_rate_table",
     "infectious_agent_detection_rate_per_agent_table",

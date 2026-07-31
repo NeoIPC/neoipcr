@@ -26,8 +26,8 @@ test_that("get_gestational_age_figure_data returns expected structure", {
 table_fns <- list(
   list(name = "get_usage_density_rate_table",
        fn = get_usage_density_rate_table, has_q = TRUE),
-  list(name = "get_antibiotic_utilisation_table",
-       fn = get_antibiotic_utilisation_table, has_q = TRUE),
+  list(name = "get_antibiotic_utilization_table",
+       fn = get_antibiotic_utilization_table, has_q = TRUE),
   list(name = "get_surgery_rate_table",
        fn = get_surgery_rate_table, has_q = FALSE),
   list(name = "get_incidence_density_rate_table",
@@ -101,8 +101,8 @@ test_that("usage_density_rate_table PVC days match fixture", {
   expect_equal(pvc_row$pooled, 6 / 47 * 100, tolerance = 0.01)
 })
 
-test_that("antibiotic_utilisation_table substance days match fixture", {
-  result <- get_antibiotic_utilisation_table(calc_ds, use_cache = FALSE,
+test_that("antibiotic_utilization_table substance days match fixture", {
+  result <- get_antibiotic_utilization_table(calc_ds, use_cache = FALSE,
     include_quartiles = FALSE)
   # 2 rows: 1 atc5-level + 1 substance-level for J01CA04
   expect_equal(nrow(result), 2L)
@@ -116,7 +116,7 @@ test_that("antibiotic_utilisation_table substance days match fixture", {
 
 test_that("surgery_rate_table counts match fixture", {
   result <- get_surgery_rate_table(calc_ds, use_cache = FALSE)
-  # 2 rows: overall + to_be_categorised (PZX.AA.JA not in ICHI list)
+  # 2 rows: overall + to_be_categorized (PZX.AA.JA not in ICHI list)
   expect_equal(nrow(result), 2L)
   overall <- result[result$pro_cat == "overall", ]
   expect_equal(overall$n, 1L)

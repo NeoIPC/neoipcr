@@ -49,6 +49,34 @@ test_that("read_metadata aborts when programStages are missing", {
     class = "neoipcr_metadata_programStages_missing")
 })
 
+test_that("event_type_key_of resolves a program stage by its code", {
+  expect_equal(
+    neoipcr:::event_type_key_of(
+      c("NEOIPC_STG_ADM", "NEOIPC_STG_NEC", "NEOIPC_STG_SURV_END"),
+      c(NA, NA, NA)),
+    c("adm", "nec", "end"))
+})
+
+test_that("event_type_key_of prefers the code over a disagreeing name", {
+  # The code decides, so a stage whose display name has been re-spelled or
+  # translated still resolves.
+  expect_equal(
+    neoipcr:::event_type_key_of("NEOIPC_STG_NEC", "Nekrotisierende Enterokolitis"),
+    "nec")
+})
+
+# NEOIPC-COMPAT(programstage-code): delete with the name fallback.
+test_that("event_type_key_of falls back to the name for an uncoded stage", {
+  expect_equal(
+    neoipcr:::event_type_key_of(
+      c(NA, NA), c("Admission", "Necrotizing enterocolitis")),
+    c("adm", "nec"))
+})
+
+test_that("event_type_key_of yields NA when neither code nor name is known", {
+  expect_true(is.na(neoipcr:::event_type_key_of("NEOIPC_STG_NOPE", "Whatever")))
+})
+
 test_that("read_metadata aborts when programStageDataElements are missing", {
   expect_error(
     read_test_metadata(exclude = "stage_data_elements"),

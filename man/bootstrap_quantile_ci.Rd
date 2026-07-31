@@ -29,7 +29,7 @@ distribution.}
 
 \item{multiplier}{Numeric. Scaling factor applied to bootstrap rates before
 quantile computation. Default 1. Use 1000 for incidence densities, 100
-for utilisation densities.}
+for utilization densities.}
 
 \item{B}{Integer. Number of bootstrap iterations. Default 2000.}
 

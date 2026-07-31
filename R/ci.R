@@ -1,7 +1,7 @@
 #' Exact Poisson confidence interval
 #'
 #' Computes exact Poisson confidence intervals for count-over-exposure metrics
-#' (incidence densities, utilisation densities, procedure rates, antibiotic
+#' (incidence densities, utilization densities, procedure rates, antibiotic
 #' treatment days, agents per infection). Uses [stats::poisson.test()] which
 #' handles zero events gracefully.
 #'
@@ -10,7 +10,7 @@
 #' @param exposure Numeric. Total exposure time or denominator (patient-days,
 #'   device-days, number of infections, number of patients). Must be positive.
 #' @param multiplier Numeric. Scaling factor for the rate. Default 1000
-#'   (per 1,000 patient-days). Use 100 for utilisation densities and procedure
+#'   (per 1,000 patient-days). Use 100 for utilization densities and procedure
 #'   rates.
 #' @param conf.level Numeric. Confidence level. Default 0.95.
 #'
@@ -185,7 +185,7 @@ wilson_ci_cols <- function(x, n, scale = 1) {
 #'   distribution.
 #' @param multiplier Numeric. Scaling factor applied to bootstrap rates before
 #'   quantile computation. Default 1. Use 1000 for incidence densities, 100
-#'   for utilisation densities.
+#'   for utilization densities.
 #' @param B Integer. Number of bootstrap iterations. Default 2000.
 #' @param conf.level Numeric. Confidence level. Default 0.95.
 #' @param seed Numeric or NULL. RNG seed for reproducibility. Default 42.

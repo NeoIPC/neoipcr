@@ -38,7 +38,7 @@ get_metadata_request <- function(req_base, user_info, dataset_options)
         req <- req |>
           httr2::req_url_query(
             `organisationUnitGroupSets:fields` = "code,organisationUnitGroups[code,displayName,displayShortName,displayDescription,organisationUnits[id]]")
-      else # pseudonymise
+      else # pseudonymize
         req <- req |>
           httr2::req_url_query(
             `organisationUnitGroupSets:fields` = "code,organisationUnitGroups[code,organisationUnits[id]]")
@@ -93,7 +93,7 @@ get_metadata_request <- function(req_base, user_info, dataset_options)
 
   req <- req |>
     httr2::req_url_query(
-      `programs:fields` = "id,programTrackedEntityAttributes[trackedEntityAttribute[id,valueType,code,displayName,displayShortName,displayFormName,displayDescription,optionSet[code]]],programStages[id,name,displayName,displayFormName,displayDescription,programStageDataElements[dataElement[id,valueType,code,displayName,displayShortName,displayFormName,displayDescription,optionSet[code]]]]",
+      `programs:fields` = "id,programTrackedEntityAttributes[trackedEntityAttribute[id,valueType,code,displayName,displayShortName,displayFormName,displayDescription,optionSet[code]]],programStages[id,code,name,displayName,displayFormName,displayDescription,programStageDataElements[dataElement[id,valueType,code,displayName,displayShortName,displayFormName,displayDescription,optionSet[code]]]]",
       `programs:filter` = "code:eq:NEOIPC_CORE",
       `trackedEntityTypes:fields` = "id",
       `trackedEntityTypes:filter` = "name:eq:NeoIPC Patient",
@@ -110,7 +110,7 @@ get_metadata_request <- function(req_base, user_info, dataset_options)
       req <- req |>
         httr2::req_url_query(
           `users:fields` = "id,username,firstName,surname,email,created,lastLogin,organisationUnits[id],dataViewOrganisationUnits[id],teiSearchOrganisationUnits[id],userRoles[id]")
-    else # pseudonymise
+    else # pseudonymize
       req <- req |>
         httr2::req_url_query(
           `users:fields` = "id,username")
@@ -267,7 +267,7 @@ read_metadata_reponses <- function(resps, user_info, dataset_options)
   # reader-internal scratch: consumed by the orchestrator above for the
   # country_key and WB-class inheritance joins, and explicitly not part
   # of the public schema. Declared as `scratch` so the new loud
-  # finalize recognises it as intentional, not an unintended mismatch.
+  # finalize recognizes it as intentional, not an unintended mismatch.
   metadata$hospitals <- metadata$hospitals |>
     finalize_to_schema(hospitals_cols, dataset_options, scratch = "country")
   assert_schema(metadata$hospitals, hospitals_cols, dataset_options)

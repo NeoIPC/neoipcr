@@ -331,7 +331,7 @@ validation_rules <- list(
     fun = validation_rule_30,
     formatter = function(x) {
       gettextf(
-        "The sepsis occurred within the first two days of hospitalisation of a referred or (re-)admitted patient (day of hospitalisation is %i).",
+        "The sepsis occurred within the first two days of hospitalization of a referred or (re-)admitted patient (day of hospitalization is %i).",
         x$dos
       )
     }
@@ -373,7 +373,7 @@ validation_rules <- list(
     fun = validation_rule_34,
     formatter = function(x) {
       gettextf(
-        "The pneumonia occurred within the first two days of hospitalisation of a referred or (re-)admitted patient (day of hospitalisation is %i).",
+        "The pneumonia occurred within the first two days of hospitalization of a referred or (re-)admitted patient (day of hospitalization is %i).",
         x$dos
       )
     }
@@ -383,7 +383,7 @@ validation_rules <- list(
     fun = validation_rule_35,
     formatter = function(x) {
       gettextf(
-        "The day of life stored in the necrotising enterocolitis form (%i) does not match the calculated value (%i).",
+        "The day of life stored in the necrotizing enterocolitis form (%i) does not match the calculated value (%i).",
         x$dol,
         x$dol_calc
       )
@@ -394,7 +394,7 @@ validation_rules <- list(
     fun = validation_rule_36,
     formatter = function(x) {
       gettextf(
-        "The day of occurrence after admission stored in the necrotising enterocolitis form (%i) does not match the calculated value (%i).",
+        "The day of occurrence after admission stored in the necrotizing enterocolitis form (%i) does not match the calculated value (%i).",
         x$los,
         x$los_calc
       )
@@ -405,7 +405,7 @@ validation_rules <- list(
     fun = validation_rule_37,
     formatter = function(x) {
       gettextf(
-        "The necrotising enterocolitis occurred within the first 3 days of life (day of life is %i).",
+        "The necrotizing enterocolitis occurred within the first 3 days of life (day of life is %i).",
         x$dol
       )
     }
@@ -415,7 +415,7 @@ validation_rules <- list(
     fun = validation_rule_38,
     formatter = function(x) {
       gettextf(
-        "The necrotising enterocolitis occurred within the first two days of hospitalisation of a referred or (re-)admitted patient (day of hospitalisation is %i).",
+        "The necrotizing enterocolitis occurred within the first two days of hospitalization of a referred or (re-)admitted patient (day of hospitalization is %i).",
         x$dos
       )
     }

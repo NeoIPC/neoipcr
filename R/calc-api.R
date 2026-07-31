@@ -164,8 +164,8 @@ calculate_reference_data <- function(x, use_cache = TRUE, redact = TRUE) {
       n_infections = n_infections,
       usage_density_rate_table =
         get_usage_density_rate_table(x, use_cache),
-      antibiotic_utilisation_table =
-        get_antibiotic_utilisation_table(x, use_cache),
+      antibiotic_utilization_table =
+        get_antibiotic_utilization_table(x, use_cache),
       surgery_rate_table =
         get_ref_surgery_rate_table(x, use_cache),
       incidence_density_rate_table =
@@ -281,8 +281,8 @@ calculate_department_data <- function(x, use_cache = TRUE) {
       n_surgical_procedures = list(total = sr$n_procedures),
       n_surgical_patients = list(total = sr$n_patients),
       usage_density_rate_table = usage_density_rate_table,
-      antibiotic_utilisation_table =
-        get_antibiotic_utilisation_table(x, use_cache, include_quartiles = FALSE),
+      antibiotic_utilization_table =
+        get_antibiotic_utilization_table(x, use_cache, include_quartiles = FALSE),
       surgery_rate_table =
         get_surgery_rate_table(
           x,
@@ -476,17 +476,17 @@ get_benchmark_data <- function(...) {
           multiplier = 100)
       }
     }
-    if ("antibiotic_utilisation_table" %in% elements) {
+    if ("antibiotic_utilization_table" %in% elements) {
       structural <- c("row_id", "atc5_group", "row_type", "display_name", "aware")
-      tbl <- ds$antibiotic_utilisation_table |>
+      tbl <- ds$antibiotic_utilization_table |>
         dplyr::rename_with(~ paste0(.x, suffix),
                            !tidyselect::any_of(structural))
 
-      if (is.null(output$antibiotic_utilisation_table)) {
-        output$antibiotic_utilisation_table <- tbl
+      if (is.null(output$antibiotic_utilization_table)) {
+        output$antibiotic_utilization_table <- tbl
       } else {
-        output$antibiotic_utilisation_table <-
-          output$antibiotic_utilisation_table |>
+        output$antibiotic_utilization_table <-
+          output$antibiotic_utilization_table |>
           dplyr::full_join(tbl, dplyr::join_by("row_id"),
                            suffix = c("", ".y")) |>
           dplyr::mutate(
@@ -510,14 +510,14 @@ get_benchmark_data <- function(...) {
                 dplyr::starts_with("ci_upper_")),
               ~ tidyr::replace_na(.x, NA_real_)))
 
-        output$antibiotic_utilisation_table <- fix_zero_event_ci(
-          output$antibiotic_utilisation_table, suffixes,
+        output$antibiotic_utilization_table <- fix_zero_event_ci(
+          output$antibiotic_utilization_table, suffixes,
           denominator_tbl = output$n_patient_days,
           multiplier = 100)
 
         # Re-sort after merge: ATC5 group, then header before substances
-        output$antibiotic_utilisation_table <-
-          output$antibiotic_utilisation_table |>
+        output$antibiotic_utilization_table <-
+          output$antibiotic_utilization_table |>
           dplyr::arrange(.data$atc5_group, .data$row_type, .data$row_id)
       }
     }
