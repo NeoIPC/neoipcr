@@ -192,9 +192,9 @@ get_procedure_category <- function(x, not_surgery_na = FALSE) {
       "PZA.BA.BH" # Magnetic resonance imaging of whole body
       ) ~ not_surgery,
 
-    # To be categorised (default)
+    # To be categorized (default)
     ############################################################################
-    .default = "to_be_categorised"
+    .default = "to_be_categorized"
   ) |>
     factor(
       levels = c(
@@ -206,7 +206,7 @@ get_procedure_category <- function(x, not_surgery_na = FALSE) {
         "oesophageal_surgery",
         "other",
         not_surgery,
-        "to_be_categorised"))
+        "to_be_categorized"))
 }
 
 get_procedure_category_pretty <- function(x) {
@@ -221,7 +221,14 @@ get_procedure_category_pretty <- function(x) {
     "oesophageal_surgery" ~ gettext("Oesophageal surgery"),
     "other" ~ gettext("Other"),
     "not_surgery" ~ gettext("Not a surgical procedure"),
-    "to_be_categorised" ~ gettext("Not yet categorised"),
+    "to_be_categorized" ~ gettext("Not yet categorized"),
+    # NEOIPC-PERMANENT(dataset-format): never remove this line. This function
+    # renders whatever category vector it is handed, and such a vector reaches
+    # it inside a dataset that may have been serialized before the code took
+    # its -ize spelling. A file on disk outlives the code that wrote it, so no
+    # condition retires this; without the line those rows render as their bare
+    # code instead of a label.
+    "to_be_categorised" ~ gettext("Not yet categorized"),
     default = x
   )
 }

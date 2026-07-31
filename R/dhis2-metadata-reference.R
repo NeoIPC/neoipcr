@@ -52,10 +52,17 @@ read_metadata_programStages <- function(metadata, dataset_options)
     rlang::abort("Invalid DHIS2 metadata. The programStages list is missing.",
                  "neoipcr_metadata_programStages_missing")
 
-  raw <- programStages |>
+  unnested <- programStages |>
     tibble::tibble() |>
     tidyr::unnest_wider(1) |>
-    dplyr::select(!tidyselect::any_of("programStageDataElements")) |>
+    dplyr::select(!tidyselect::any_of("programStageDataElements"))
+
+  # `code` is absent from the payload entirely when no stage carries one, so
+  # materialize it before reading it.
+  if(!("code" %in% names(unnested)))
+    unnested <- unnested |> dplyr::mutate(code = NA_character_)
+
+  raw <- unnested |>
     dplyr::mutate(
       name = factor(
         .data$name,
@@ -63,16 +70,7 @@ read_metadata_programStages <- function(metadata, dataset_options)
                    "Necrotizing enterocolitis","Surgical Site Infection",
                    "Pneumonia","Surveillance-End")),
       event_type_key = factor(
-        dplyr::recode_values(
-          .data$name,
-          "Admission" ~ "adm",
-          "Surgical Procedure" ~ "pro",
-          "Primary Sepsis/BSI" ~ "bsi",
-          "Necrotizing enterocolitis" ~ "nec",
-          "Surgical Site Infection" ~ "ssi",
-          "Pneumonia" ~ "hap",
-          "Surveillance-End" ~ "end"
-        ),
+        event_type_key_of(.data$code, .data$name),
         levels = c("adm","pro","bsi","nec","ssi","hap","end"))
     ) |>
     dplyr::arrange(.data$name) |>
@@ -89,15 +87,56 @@ read_metadata_programStages <- function(metadata, dataset_options)
   internal_map <- raw |>
     dplyr::select(tidyselect::all_of(c("event_type_key", "programStage")))
 
-  # `raw` already has exactly the columns declared in `eventTypes_cols`
-  # (after the `programStageDataElements` select-out above). No scratch
-  # needed — finalize is a pure selection / relocation under the
-  # `include_dhis2_ids == "event_types"` gate.
+  # Besides the columns declared in `eventTypes_cols`, `raw` carries `code` —
+  # read to resolve `event_type_key` and then dropped, because the key it
+  # produces is the protocol-facing identifier and the DHIS2 code is not part
+  # of this tibble's contract.
   public <- raw |>
-    finalize_to_schema(eventTypes_cols, opts)
+    finalize_to_schema(eventTypes_cols, opts, scratch = "code")
   assert_schema(public, eventTypes_cols, opts)
 
   list(public = public, internal_map = internal_map)
+}
+
+# Resolve each program stage to its protocol `event_type_key`.
+#
+# `code` is the contract the canonical metadata is authored against, so it is
+# what decides. A stage name is editorial display text — it is localized, and
+# its English spelling is a house-style decision that can change — so a name
+# can never safely carry a key on its own.
+#
+# NEOIPC-COMPAT(programstage-code): the NeoIPC deployment predates the
+# `NEOIPC_STG_<token>` codes and reports **no** code on any of its seven
+# stages, so a stage without a resolvable code still falls back to the English
+# name it was created with. Remove `.event_type_key_by_name`, the `dplyr::coalesce`
+# below and the uncoded case in `test-dhis2-metadata.R` once every instance
+# this package reads reports a code on all seven stages; the name levels on
+# `eventTypes$name` are display data and stay either way.
+.event_type_key_by_code <- c(
+  NEOIPC_STG_ADM       = "adm",
+  NEOIPC_STG_SURGERY   = "pro",
+  NEOIPC_STG_BSI       = "bsi",
+  NEOIPC_STG_NEC       = "nec",
+  NEOIPC_STG_SSI       = "ssi",
+  NEOIPC_STG_HAP       = "hap",
+  NEOIPC_STG_SURV_END  = "end")
+
+# NEOIPC-COMPAT(programstage-code): see `.event_type_key_by_code`.
+.event_type_key_by_name <- c(
+  "Admission"                 = "adm",
+  "Surgical Procedure"        = "pro",
+  "Primary Sepsis/BSI"        = "bsi",
+  "Necrotizing enterocolitis" = "nec",
+  "Surgical Site Infection"   = "ssi",
+  "Pneumonia"                 = "hap",
+  "Surveillance-End"          = "end")
+
+event_type_key_of <- function(code, name)
+{
+  by_code <- unname(.event_type_key_by_code[as.character(code)])
+  # NEOIPC-COMPAT(programstage-code): see `.event_type_key_by_code`.
+  by_name <- unname(.event_type_key_by_name[as.character(name)])
+  dplyr::coalesce(by_code, by_name)
 }
 
 read_metadata_dataElements <- function(metadata)

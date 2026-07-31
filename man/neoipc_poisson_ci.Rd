@@ -14,7 +14,7 @@ procedures, etc.). Must be non-negative.}
 device-days, number of infections, number of patients). Must be positive.}
 
 \item{multiplier}{Numeric. Scaling factor for the rate. Default 1000
-(per 1,000 patient-days). Use 100 for utilisation densities and procedure
+(per 1,000 patient-days). Use 100 for utilization densities and procedure
 rates.}
 
 \item{conf.level}{Numeric. Confidence level. Default 0.95.}
@@ -29,7 +29,7 @@ A named list with three elements:
 }
 \description{
 Computes exact Poisson confidence intervals for count-over-exposure metrics
-(incidence densities, utilisation densities, procedure rates, antibiotic
+(incidence densities, utilization densities, procedure rates, antibiotic
 treatment days, agents per infection). Uses \code{\link[stats:poisson.test]{stats::poisson.test()}} which
 handles zero events gracefully.
 }

@@ -310,7 +310,7 @@ get_usage_density_rate_table <- function(
     cache(x, cache_key)
 }
 
-#' Get the antibiotic utilisation table with ATC5/substance-level rates
+#' Get the antibiotic utilization table with ATC5/substance-level rates
 #'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
 #'  object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
@@ -322,9 +322,9 @@ get_usage_density_rate_table <- function(
 #' @returns A table containing antibiotic exposure density rates per substance
 #'  and ATC5 group, with hierarchical row structure
 #' @export
-get_antibiotic_utilisation_table <- function(
+get_antibiotic_utilization_table <- function(
     x, use_cache = TRUE, include_quartiles = TRUE) {
-  cache_key <- "antibiotic_utilisation_table"
+  cache_key <- "antibiotic_utilization_table"
   if (!is.null(r <- x |> check_ds_and_try_get_table(
     cache_key, use_cache, include_quartiles)))
     return(r)
