@@ -222,10 +222,12 @@ get_procedure_category_pretty <- function(x) {
     "other" ~ gettext("Other"),
     "not_surgery" ~ gettext("Not a surgical procedure"),
     "to_be_categorized" ~ gettext("Not yet categorized"),
-    # NEOIPC-COMPAT(category-spelling): a caller holding a category vector
-    # computed before the house spelling settled on -ize still passes the -ise
-    # form; accepting it here keeps such a vector renderable. Remove this line
-    # once no stored or cached procedure-category vector predates the rename.
+    # NEOIPC-PERMANENT(dataset-format): never remove this line. This function
+    # renders whatever category vector it is handed, and such a vector reaches
+    # it inside a dataset that may have been serialized before the code took
+    # its -ize spelling. A file on disk outlives the code that wrote it, so no
+    # condition retires this; without the line those rows render as their bare
+    # code instead of a label.
     "to_be_categorised" ~ gettext("Not yet categorized"),
     default = x
   )
