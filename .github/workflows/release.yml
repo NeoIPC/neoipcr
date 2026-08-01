@@ -17,7 +17,7 @@ jobs:
     name: Verify tag + monotonic version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0     # full tag history for the monotonic check
       - name: Verify tag matches DESCRIPTION Version
@@ -76,7 +76,7 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Create the Release
         env:
           GH_TOKEN: ${{ github.token }}

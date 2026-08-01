@@ -17,7 +17,7 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -39,8 +39,11 @@ jobs:
 
       - name: Show test output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-test-failures
           path: ${{ runner.temp }}/package/tests/testthat.Rout.fail
-          error-on-missing-files: false
+          # testthat writes this file only when a test fails, so its absence is the good case. The
+          # action has no `error-on-missing-files` input and silently ignores unknown ones, so what
+          # stood here did nothing and every green run still logged a warning about a missing path.
+          if-no-files-found: ignore
