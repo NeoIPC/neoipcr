@@ -6,7 +6,7 @@
 #
 # Test units have NA country_key, hospital_key, and world_bank_class_key.
 # Code must tolerate these NAs via left_join (not inner_join).
-# See repos/neoipcr/CLAUDE.md "DHIS2 Test Units" section.
+# See this repository's CLAUDE.md, "DHIS2 Test Units".
 
 # Build a neoipcr_ds where all data has NA hierarchy keys (simulating test
 # units). The department_key itself is valid — only the upstream hierarchy

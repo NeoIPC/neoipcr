@@ -1,6 +1,8 @@
 # neoipcr — API design note (Phase 1 of public-interface refinement)
 
-**Purpose.** This note is the single deliverable of Phase 1 of [tasks/neoipcr-public-interface-refinement.md](../../tasks/neoipcr-public-interface-refinement.md) (see also the CRAN-release coordination plan at [projects/neoipcr-cran-release-plan.md](../../projects/neoipcr-cran-release-plan.md)). It pins the public-surface decisions needed to unblock Phase 2 (helper promotion), Phase 3 (renames), and the sibling [lifecycle-badges task](../../tasks/neoipcr-lifecycle-badges.md). Nothing in this note changes code; the commitments here are executed by later phases.
+**Purpose.** This note is the single deliverable of Phase 1 of the public-interface refinement task. It pins the public-surface decisions needed to unblock Phase 2 (helper promotion), Phase 3 (renames), and the sibling lifecycle-badges task. Nothing in this note changes code; the commitments here are executed by later phases.
+
+**On the task references below.** Numbered tasks and phases (`task 1.1`, `task 1.2`, the CRAN-release coordination plan, the CSV-to-YAML migration) live in NeoIPC's internal planning repository, which is not part of this one. They are named rather than linked: a reader of this repository alone cannot open them, and a path that resolves only inside one particular multi-repository checkout is a dead link dressed as a reference. Everything this note *commits to* is stated here in full; the task names locate the surrounding work for anyone who does have that repository.
 
 **Audiences addressed.** Data scientists at partner departments, external researchers building their own reports/tools, clinicians running ad-hoc queries, and the internal NeoIPC pipeline (Partner-/Reference-/Validation-Report, Patient-Data-Report, the .NET reporting service, the DHIS2 app shell). All four are first-class.
 
@@ -15,14 +17,14 @@
 - [x] All 24 `export()` lines in [NAMESPACE](NAMESPACE) have a row in §3 with eight columns populated.
 - [x] All 3 `S3method()` entries have a row in §3 with dispatch class recorded.
 - [x] Each of the four custom classes (`neoipcr_ds`, `neoipcr_rep_ds`, `neoipcr_ref_ds`, `neoipcr_tbl_sr_ref`) has a §4 subsection with constructor site, columns, invariants, and pointer to the relevant `R/schema-*.R`.
-- [x] The `_iaf` / `_sbd` / `_udr` subclasses each have a §4 row (§4.5) under the post-task-1.2 names with an explicit "depends on [task 1.2](../../tasks/neoipcr-class-slug-rename.md)" callout. Three additional subclasses surfaced and are flagged in §3.2 for task 1.2 expansion.
+- [x] The `_iaf` / `_sbd` / `_udr` subclasses each have a §4 row (§4.5) under the post-task-1.2 names with an explicit "depends on task 1.2" callout. Three additional subclasses surfaced and are flagged in §3.2 for task 1.2 expansion.
 - [x] Every helper from the Phase 2 sketch of the task file appears in §5 (46 rows) with target `R/*.R` file + signature. Rejected promotions listed in §5.2 with rationale.
 - [x] Every `gettext` / `gettextf` call site in `R/` appears in §6's classified call-site table. F-class + B-class (13 sites) individually enumerated in §6.1.1; M-class (~75 sites) aggregated by file in §6.1.2 with explicit counts and a single shared migration action.
 - [x] §6 states the architectural split (messages vs. data) as a decision, not a proposal — §6.5, governed by D-H (§10.8) for PI confirmation.
 - [x] §6 cites 5 established R-ecosystem precedents — §6.4 (countrycode, Writing R Extensions, scales, rlang/cli, potools).
 - [x] The unified locale-resolution chain is stated in §6.7 and referenced from relevant decisions in §10.
 - [x] §6 carries a per-call-site migration plan for Phase 2 — §6.6.
-- [x] Every package-data candidate has a §7 row (7 rows); infectious-agent files are explicitly held for [csv-to-yaml-migration](../../tasks/csv-to-yaml-migration.md) in §7.4.
+- [x] Every package-data candidate has a §7 row (7 rows); infectious-agent files are explicitly held for the CSV-to-YAML migration in §7.4.
 - [x] §8 states the GT-styling boundary decision (S3 `as_gt.*` methods); describes the DESCRIPTION delta (add `gt` to `Suggests`).
 - [x] §9 covers every rename required by Phase 3 of the task file — two function renames (D-C, D-D) plus coordination with task 1.2 for class renames.
 - [x] §10 lists D-A through D-I, each with a recommendation and "PI resolution: _pending_" line.
@@ -48,7 +50,7 @@
 
 ## §2. Scope and non-goals
 
-**In scope (this note).** Inventory and design paperwork only. Produces commitments for later phases of [task 1.1](../../tasks/neoipcr-public-interface-refinement.md) to execute.
+**In scope (this note).** Inventory and design paperwork only. Produces commitments for later phases of task 1.1 to execute.
 
 **Out of scope (this note).** Every code change. Specifically: no new `R/*.R` files, no `NAMESPACE` edits, no roxygen regeneration, no `DESCRIPTION` edits, no rename applied anywhere, no Surveillance-Toolkit `_setup.qmd` / `Generate-*.R` edits, no `data-raw/sysdata.R` extensions, no `po/` catalog regeneration, no `man/*.Rd` edits, no vignettes / README.Rmd / `_pkgdown.yml`, no convenience-layer (`neoipcr_quickstart()`). Those all happen in Phases 2–6 of the task file — governed by the commitments below.
 
@@ -60,7 +62,7 @@
 
 All 24 `export()` entries + 3 `S3method()` entries from [NAMESPACE](NAMESPACE).
 
-Where a row's return-class slug is scheduled for rename by [task 1.2 (neoipcr-class-slug-rename.md)](../../tasks/neoipcr-class-slug-rename.md), the current slug is given first and the candidate post-rename name in a parenthetical. Slug-rename scheme in task 1.2 is labelled "suggestions, not commitments" — this note does not pin the scheme, it cross-references it.
+Where a row's return-class slug is scheduled for rename by task 1.2, the class-slug rename, the current slug is given first and the candidate post-rename name in a parenthetical. Slug-rename scheme in task 1.2 is labelled "suggestions, not commitments" — this note does not pin the scheme, it cross-references it.
 
 | # | Symbol | File | Signature sketch | Returns class | Audience tier | Lifecycle | Rename proposal | Notes |
 |---|--------|------|------------------|---------------|---------------|-----------|-----------------|-------|
@@ -101,7 +103,7 @@ Where a row's return-class slug is scheduled for rename by [task 1.2 (neoipcr-cl
 
 ### §3.2. Classes not covered by task 1.2 (gap report)
 
-Audit A1 discovered three return-class slugs that are **not listed in [task 1.2's rename table](../../tasks/neoipcr-class-slug-rename.md#result-tables)**:
+Audit A1 discovered three return-class slugs that are **not listed in task 1.2's rename table**:
 
 | Current slug | Where returned | Meaning | Suggested addition to task 1.2 |
 |---|---|---|---|
@@ -234,7 +236,7 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 
 ### §4.5. Sub-class reference (task-1.2 coordination)
 
-The four cryptic-slug sub-classes below are all pending rename under [task 1.2](../../tasks/neoipcr-class-slug-rename.md). Entries here preserve construction sites for traceability; post-rename names are the **candidates** listed in task 1.2 (scheme is not yet pinned).
+The four cryptic-slug sub-classes below are all pending rename under task 1.2. Entries here preserve construction sites for traceability; post-rename names are the **candidates** listed in task 1.2 (scheme is not yet pinned).
 
 | Current slug | Post-1.2 candidate | Parent shape | Construction site | Represents |
 |---|---|---|---|---|
@@ -243,7 +245,7 @@ The four cryptic-slug sub-classes below are all pending rename under [task 1.2](
 | `neoipcr_tbl_udr` | `neoipcr_usage_density_rate_table` | result tibble | [R/calc-tables.R:199](R/calc-tables.R#L199) | Usage-density rate table (pooled rates per therapeutic category). |
 | `neoipcr_tbl_udr_ref` | `neoipcr_usage_density_rate_table_ref` | result tibble | [R/calc-tables.R:273](R/calc-tables.R#L273) | Reference variant with quartile statistics. |
 
-All four **depend on [task 1.2](../../tasks/neoipcr-class-slug-rename.md)**. See §3.2 for additional classes (`neoipcr_bnch_ds`, `neoipcr_tbl_rtr(_ref)`, `neoipcr_tbl_sec_bsi(_ref)`) that surfaced during this audit and should be added to task 1.2's rename table.
+All four **depend on task 1.2**. See §3.2 for additional classes (`neoipcr_bnch_ds`, `neoipcr_tbl_rtr(_ref)`, `neoipcr_tbl_sec_bsi(_ref)`) that surfaced during this audit and should be added to task 1.2's rename table.
 
 ---
 
@@ -350,7 +352,7 @@ Already present: `dplyr`, `lubridate`, `rlang`, `readr`, `stringr`, `tidyr`, `ti
 
 ### §6.1. Current-state summary
 
-**Scope of the problem is narrower than feared.** Audit A4a enumerated ~87 `gettext()` / `gettextf()` call sites across `repos/neoipcr/R/`:
+**Scope of the problem is narrower than feared.** Audit A4a enumerated ~87 `gettext()` / `gettextf()` call sites across this package's `R/`:
 
 | Classification | Count | Locations |
 |---|---|---|
@@ -535,7 +537,7 @@ A4c will finalize and §6.5 will restate.
 | 4 | BW/GA breakpoints | [R/scales.R:1–75](R/scales.R) — hardcoded arithmetic in `ga7`, `bw50`, `bw125`, `bw250`, `bw500` | Hardcoded `floor(...)`-arithmetic in five functions | Named-list `scales_parameters` in `sysdata.Rda` (one sublist per binning) | internal | new: `get_scales_parameters()` returning the list; five binning fns consume it | **None.** Pure numeric constants. Promotable immediately (Phase 2 or earlier). |
 | 5 | Event-type vocabulary | [R/dhis2-metadata-reference.R:41–98](R/dhis2-metadata-reference.R#L41) — hardcoded `recode_values` mapping DHIS2 program-stage name → event-type key (`adm`, `end`, `bsi`, `nec`, `hap`, `pro`, `ssi`) | 7-entry `case_match` in reader function + inline factor levels | Tibble `event_type_map` in `sysdata.Rda`: `programStage`, `name`, `event_type_key`, `label_en`, `label_de` | internal | new: `get_event_type_map(locale = NULL)` | **Depends on D-H** *and* on a Surveillance-Toolkit source file (A5b). Also blocks (and is blocked by) the event-type promotion in A3 from [Validation-Report/_setup.qmd:17](../Surveillance-Toolkit/reports/Validation-Report/_setup.qmd#L17). |
 | 6 | Resistance markers | [R/pathogens.R](R/pathogens.R) + columns on `internal_pathogen_concepts` | Already package-data | *(no change)* — already ingested via `data-raw/sysdata.R` | internal | `get_pathogen_taxonomy()` (existing) | **Complete.** |
-| 7 | ICHI code list / validity check | [R/ichi.R:1–69](R/ichi.R) — regex grammar assembled at package load | Compiled regex pattern | **Reject for promotion** — keep as procedural validator. | — | `is_valid_ichi_code()` (existing) | Full ICHI ontology bundling blocked by WHO licensing (see [tasks/ichi-classification-bundling.md](../../tasks/ichi-classification-bundling.md)). Current syntax-only check is intentional. |
+| 7 | ICHI code list / validity check | [R/ichi.R:1–69](R/ichi.R) — regex grammar assembled at package load | Compiled regex pattern | **Reject for promotion** — keep as procedural validator. | — | `is_valid_ichi_code()` (existing) | Full ICHI ontology bundling blocked by WHO licensing (see the ICHI classification-bundling task). Current syntax-only check is intentional. |
 
 ### §7.2. Rejected from package-data promotion
 
@@ -571,7 +573,7 @@ metadata/common/
 
 | # | Candidate | Source path(s) under `metadata/common/` | Status |
 |---|-----------|-----------------------------------------|--------|
-| 1 | Procedure-category map (ICHI → category) | *(file does not yet exist)* — needs new `metadata/common/procedure-categories/NeoIPC-Procedure-Categories.csv` with columns `ichi_code`, `category_code` | **New file required.** Create in Surveillance-Toolkit before Phase 2. Coordinates with [csv-to-yaml-migration.md](../../tasks/csv-to-yaml-migration.md) if that task restructures this domain. |
+| 1 | Procedure-category map (ICHI → category) | *(file does not yet exist)* — needs new `metadata/common/procedure-categories/NeoIPC-Procedure-Categories.csv` with columns `ichi_code`, `category_code` | **New file required.** Create in Surveillance-Toolkit before Phase 2. Coordinates with the CSV-to-YAML migration if that task restructures this domain. |
 | 2 | Procedure-category labels | *(file does not yet exist)* — needs `metadata/common/procedure-categories/ListElements.csv` + `ListElements.de.csv` + `ListElements.es.csv` following the locale-file convention | **New files required** + depends on D-H. |
 | 3 | AWaRe categories (code → label) | Taxonomy: `antibiotics/WHO-AWaRe-Classification-2021.csv` (exists). Labels: `antibiotics/ListElements.csv` (+ `.de.csv`, `.es.csv`) — verify the `a` / `w` / `r` codes have label entries there | **Verify first.** If labels exist, ingest; if not, extend `ListElements.csv` with three rows. Depends on D-H. |
 | 4 | BW/GA breakpoints | *(no source file needed)* — these are numeric constants, not metadata | **None.** Numbers ship inline in `sysdata.Rda` per row 4 of §7.1. Optionally document them in the Surveillance-Toolkit protocol text, but no machine-readable file is warranted. |
@@ -613,7 +615,7 @@ usethis::use_data(
 - Rows 1, 2, 5 require **new files** under `Surveillance-Toolkit/metadata/common/` — Phase 2 of task 1.1 must file a companion task (or extend Surveillance-Toolkit directly) to create them.
 - Row 3 requires a **one-file verification** under `antibiotics/ListElements.csv`.
 - Row 4 has **no blockers** — promotable first as the ingestion-pattern pilot.
-- **Infectious-agent files stay held for [csv-to-yaml-migration.md](../../tasks/csv-to-yaml-migration.md)** — no rows above touch them. `internal_pathogen_concepts` / `internal_pathogen_synonyms` / `internal_pathogen_list` in [data-raw/sysdata.R](data-raw/sysdata.R) stay exactly as they are until that task reshapes the upstream YAML.
+- **Infectious-agent files stay held for the CSV-to-YAML migration** — no rows above touch them. `internal_pathogen_concepts` / `internal_pathogen_synonyms` / `internal_pathogen_list` in [data-raw/sysdata.R](data-raw/sysdata.R) stay exactly as they are until that task reshapes the upstream YAML.
 
 ---
 
@@ -652,7 +654,7 @@ Suggests:
     gt (>= X.Y.Z)    # minimum version pinned from current Surveillance-Toolkit usage
 ```
 
-(Phase 2 fills in the version floor by auditing `renv.lock` in `repos/Surveillance-Toolkit/`.)
+(Phase 2 fills in the version floor by auditing the Surveillance-Toolkit's `renv.lock`.)
 
 **Not `Imports`.** Reports that want `gt` output call `neoipcr::as_gt()` directly; callers who want the raw tibble (JSON exporters, the .NET reporting service) never touch `gt`. Keeping it in `Suggests` preserves the no-GT install path.
 
@@ -713,7 +715,7 @@ No other renames proposed for the 24 current exports. Long table-function names 
 
 ### §9.2. Class renames
 
-All class renames are owned by [task 1.2 (neoipcr-class-slug-rename.md)](../../tasks/neoipcr-class-slug-rename.md); §9 does not duplicate them. §3.2 lists three classes found by this audit that should be added to task 1.2's rename table:
+All class renames are owned by task 1.2, the class-slug rename; §9 does not duplicate them. §3.2 lists three classes found by this audit that should be added to task 1.2's rename table:
 
 - `neoipcr_bnch_ds` → `neoipcr_benchmark_ds`
 - `neoipcr_tbl_rtr` / `_ref` → `neoipcr_resistance_test_rate_table` / `_ref`
@@ -746,7 +748,7 @@ PI flagged that result-table names diverge across six surfaces — function name
 | # | Surface | Convention today | Owner |
 |---|---------|------------------|-------|
 | F | Function name in neoipcr | `get_<...>_table()` (snake_case) | neoipcr |
-| C | S3 class slug | `neoipcr_tbl_<airport-code>` (snake_case + abbreviation) — pending [task 1.2](../../tasks/neoipcr-class-slug-rename.md) | neoipcr (slug rename owned by 1.2) |
+| C | S3 class slug | `neoipcr_tbl_<airport-code>` (snake_case + abbreviation) — pending task 1.2 | neoipcr (slug rename owned by 1.2) |
 | S | `neoipcr_rep_ds` / `neoipcr_ref_ds` slot | `<...>_table` (snake_case) | neoipcr |
 | R | Conceptual rate name (the metric the table is about) | varies | shared concept |
 | Q | Quarto YAML param in report `*.qmd` | `include<...>Table` (camelCase) | Surveillance-Toolkit reports |
@@ -764,7 +766,7 @@ Nested snippet filenames (`_tbl-intro-<...>.Rmd`, `_methods-<...>.Rmd` per [repo
 
 #### §9.5.2. Current state — full inventory
 
-Confirmed end-to-end via grep across `repos/neoipcr/R/*.R`, `repos/Surveillance-Toolkit/reports/Partner-Report/Partner-Report.qmd` + `tables/_tbl-*.qmd` + `figures/_fig-*.qmd`, `Reference-Report/Reference-Report.qmd`, `Partner-Report/content/_sR.yaml`, `reports/common.yaml`, and the Partner Report wrapper script.
+Confirmed end-to-end via grep across this package's `R/*.R` and, in the Surveillance-Toolkit, `reports/Partner-Report/Partner-Report.qmd` + `tables/_tbl-*.qmd` + `figures/_fig-*.qmd`, `Reference-Report/Reference-Report.qmd`, `Partner-Report/content/_sR.yaml`, `reports/common.yaml`, and the Partner Report wrapper script.
 
 **Code-identifier surfaces (F / C / S / Q / P / Z / H):**
 
@@ -784,7 +786,7 @@ Confirmed end-to-end via grep across `repos/neoipcr/R/*.R`, `repos/Surveillance-
 | F1 | (figure slot) | `birth_weight_figure` | `includeBirthWeightFigure` | `BirthWeightDistribution` | `_fig-bw.qmd` | `birth_weight_distribution` |
 | F2 | (figure slot) | `gestational_age_figure` | `includeGestationalAgeFigure` | `GestationalAgeDistribution` | `_fig-ga.qmd` | `gestational_age_distribution` |
 
-C (class slug) column omitted from this table for width — see §3 / §4.5; all `neoipcr_tbl_*` slugs follow the airport-code abbreviation pattern pending [task 1.2](../../tasks/neoipcr-class-slug-rename.md). The `_ref` variants append `_ref` on F/C/S only (Q/P/Z/H/D unaffected).
+C (class slug) column omitted from this table for width — see §3 / §4.5; all `neoipcr_tbl_*` slugs follow the airport-code abbreviation pattern pending task 1.2. The `_ref` variants append `_ref` on F/C/S only (Q/P/Z/H/D unaffected).
 
 **Display heading strings (D — English source per AMA Manual; translated via po4a/Weblate):**
 
@@ -890,7 +892,7 @@ Master-name choice is a *domain* call grounded in the AMA-canonical term for eac
 
 #### §9.5.6. Coordination with task 1.2
 
-The class-slug column (C) above pre-empts [task 1.2 (neoipcr-class-slug-rename.md)](../../tasks/neoipcr-class-slug-rename.md). After D-I lands, task 1.2's rename table for result-table classes should be **replaced** by the §9.5 master names rather than rederived independently. Concretely, task 1.2's result-table candidates (`neoipcr_tbl_udr` → `neoipcr_usage_density_rate_table`, etc. — see [task 1.2 §3](../../tasks/neoipcr-class-slug-rename.md)) should be updated to follow §9.5 row #1's master `usage_density_rate` (under whatever PI ratifies in D-I), and the same for every other row. This avoids two independent rename schemes drifting apart.
+The class-slug column (C) above pre-empts task 1.2, the class-slug rename. After D-I lands, task 1.2's rename table for result-table classes should be **replaced** by the §9.5 master names rather than rederived independently. Concretely, task 1.2's result-table candidates (`neoipcr_tbl_udr` → `neoipcr_usage_density_rate_table`, etc. — see task 1.2 §3) should be updated to follow §9.5 row #1's master `usage_density_rate` (under whatever PI ratifies in D-I), and the same for every other row. This avoids two independent rename schemes drifting apart.
 
 The dataset-slot classes (`neoipcr_pat`, `neoipcr_enr`, `neoipcr_evt`, etc. in task 1.2 §1) are not affected by §9.5 — they're not result tables.
 
@@ -904,10 +906,10 @@ Phase 2 of task 1.1 promotes helpers but does not rename existing exports. **Pha
 4. **Surveillance-Toolkit reports — heading keys (H)** — rename keys in `reports/common.yaml` and per-report `content/_sR.yaml`. Update `sR$headings$<key>` references in every `.qmd` file.
 5. **Surveillance-Toolkit reports — display strings (D)** — change the English source values in `common.yaml` / `content/_sR.yaml` per AMA Manual. **Run [`scripts/Invoke-Localization.ps1 -Update`](../Surveillance-Toolkit/scripts/Invoke-Localization.ps1)** to regenerate `.pot` files; the existing translations get marked fuzzy in `.po` files; translators (or the PI) re-confirm via Weblate. Per Surveillance-Toolkit's [po4a guardrails](../Surveillance-Toolkit/CLAUDE.md), do not manually edit generated `common.<lang>.yaml` / `content.<lang>/_sR.yaml` files.
 6. **Surveillance-Toolkit scripts** (P) — `EnableElements`/`DisableElements` mapping tables in every report-wrapper script. Per Surveillance-Toolkit's PowerShell-alignment guardrail: the mapping tables must stay in sync across all wrapper scripts.
-7. **.NET reporting service** ([repos/NeoIPC-Reporting/](../NeoIPC-Reporting/)) — verify whether it consumes the PS switch tokens or the Quarto params or both; update accordingly.
+7. **.NET reporting service** (the `NeoIPC-Reporting` repository) — verify whether it consumes the PS switch tokens or the Quarto params or both; update accordingly.
 8. **Documentation** — README.md, vignettes (Phase 5), CLAUDE.md "Key R Files" table, NEWS.md entry per-rename.
 
-**Cross-repo change order** per workspace [CLAUDE.md](../../CLAUDE.md): protocol → DHIS2 config → neoipcr → reports → web. Phase 3's §9.5 renames all sit in the neoipcr → reports portion. The lockstep nature means the workspace-level commit references all touched repos: e.g. "Apply §9.5 cross-surface rename for usage-density-rate across neoipcr R/, Surveillance-Toolkit reports + scripts, NeoIPC-Reporting." Workflow per row of §9.5.4:
+**Cross-repo change order**, as NeoIPC's workspace-level agent instructions define it: protocol → DHIS2 config → neoipcr → reports → web. Phase 3's §9.5 renames all sit in the neoipcr → reports portion. The lockstep nature means the workspace-level commit references all touched repos: e.g. "Apply §9.5 cross-surface rename for usage-density-rate across neoipcr R/, Surveillance-Toolkit reports + scripts, NeoIPC-Reporting." Workflow per row of §9.5.4:
 
 1. Update neoipcr R/ + tests → submodule commit.
 2. Update Surveillance-Toolkit reports + scripts → submodule commit.
@@ -961,7 +963,7 @@ So the symmetry argument with `calculate_department_data()` / `calculate_referen
 
 **Alternative renames considered.** If we want a name that more accurately describes "combine for side-by-side display," `combine_benchmark_data()` or `merge_benchmark_data()` would fit. None of these is clearly better than the current `get_benchmark_data()` — `get_*` is a familiar fall-back when neither "compute" nor "retrieve from storage" cleanly fits, and a cosmetic rename is not worth touching every Surveillance-Toolkit caller.
 
-**Companion fix.** The task file at line 31 ([tasks/neoipcr-public-interface-refinement.md](../../tasks/neoipcr-public-interface-refinement.md)) needs its "actually *computes*" claim corrected — already done in the same commit as this note.
+**Companion fix.** The task file at line 31 (the public-interface refinement task) needs its "actually *computes*" claim corrected — already done in the same commit as this note.
 
 **PI resolution:** _pending_
 
@@ -1085,8 +1087,8 @@ In-tree exemplars — do not invent new conventions:
 
 ## §12. Cross-refs to sibling tasks
 
-- [tasks/neoipcr-class-slug-rename.md](../../tasks/neoipcr-class-slug-rename.md) — owns the `_iaf` / `_sbd` / `_udr` rename. §3/§4/§9 assume post-rename names.
-- [tasks/csv-to-yaml-migration.md](../../tasks/csv-to-yaml-migration.md) — owns the infectious-agent metadata reshape. §7 rows touching infectious agents wait on it.
-- [tasks/neoipcr-lifecycle-badges.md](../../tasks/neoipcr-lifecycle-badges.md) — consumes the audience-tier column of §3 and applies `lifecycle::badge()` markup. Cannot start until this note lands.
-- [tasks/completed/neoipcr-empty-data-resilience.md](../../tasks/completed/neoipcr-empty-data-resilience.md) — already completed; remaining crash paths are scoped out.
-- [tasks/completed/neoipcr-test-coverage.md](../../tasks/completed/neoipcr-test-coverage.md) — already completed; the fixture helpers §11 points at are its output.
+- task 1.2, the class-slug rename — owns the `_iaf` / `_sbd` / `_udr` rename. §3/§4/§9 assume post-rename names.
+- the CSV-to-YAML migration — owns the infectious-agent metadata reshape. §7 rows touching infectious agents wait on it.
+- the lifecycle-badges task — consumes the audience-tier column of §3 and applies `lifecycle::badge()` markup. Cannot start until this note lands.
+- The empty-data-resilience work — already completed; remaining crash paths are scoped out.
+- The test-coverage work — already completed; the fixture helpers §11 points at are its output.

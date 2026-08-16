@@ -59,9 +59,9 @@ NULL
 
 # ---- Internal helpers -----------------------------------------------------
 
-# Factor levels for DHIS2 option sets used by per-event-type DEs.
-# Codes come from `repos/neoipc-dhis2/dhis_metadata/metadata.json` —
-# these are the option codes in `sortOrder`.
+# Factor levels for DHIS2 option sets used by per-event-type data elements.
+# The values are the option codes of the corresponding NeoIPC option set, in
+# `sortOrder`, as configured in the DHIS2 deployment's metadata.
 .event_data_levels <- list(
   ADMISSION_TYPE           = c("1", "2", "3"),
   ASA_SCORE                = c("1", "2", "3", "4", "5"),
