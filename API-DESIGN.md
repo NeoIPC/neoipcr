@@ -62,7 +62,7 @@
 
 All 24 `export()` entries + 3 `S3method()` entries from [NAMESPACE](NAMESPACE).
 
-Where a row's return-class slug is scheduled for rename by task 1.2, the class-slug rename, the current slug is given first and the candidate post-rename name in a parenthetical. Slug-rename scheme in task 1.2 is labelled "suggestions, not commitments" — this note does not pin the scheme, it cross-references it.
+Where a row's return-class slug is scheduled for rename by task 1.2 (the class-slug rename), the current slug is given first and the candidate post-rename name in a parenthetical. Slug-rename scheme in task 1.2 is labelled "suggestions, not commitments" — this note does not pin the scheme, it cross-references it.
 
 | # | Symbol | File | Signature sketch | Returns class | Audience tier | Lifecycle | Rename proposal | Notes |
 |---|--------|------|------------------|---------------|---------------|-----------|-----------------|-------|
@@ -1087,8 +1087,8 @@ In-tree exemplars — do not invent new conventions:
 
 ## §12. Cross-refs to sibling tasks
 
-- task 1.2, the class-slug rename — owns the `_iaf` / `_sbd` / `_udr` rename. §3/§4/§9 assume post-rename names.
-- the CSV-to-YAML migration — owns the infectious-agent metadata reshape. §7 rows touching infectious agents wait on it.
-- the lifecycle-badges task — consumes the audience-tier column of §3 and applies `lifecycle::badge()` markup. Cannot start until this note lands.
+- Task 1.2, the class-slug rename — owns the `_iaf` / `_sbd` / `_udr` rename. §3/§4/§9 assume post-rename names.
+- The CSV-to-YAML migration — owns the infectious-agent metadata reshape. §7 rows touching infectious agents wait on it.
+- The lifecycle-badges task — consumes the audience-tier column of §3 and applies `lifecycle::badge()` markup. Cannot start until this note lands.
 - The empty-data-resilience work — already completed; remaining crash paths are scoped out.
 - The test-coverage work — already completed; the fixture helpers §11 points at are its output.
