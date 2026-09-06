@@ -472,7 +472,7 @@ labels <- get_procedure_category_labels(locale = opts$locale)  # explicit arg wi
 # or: labels <- get_procedure_category_labels()  # resolution chain kicks in
 ```
 
-**What this looks like to a translator.** `R-neoipcr.pot` covers the 60 M-class call sites after migration (down from 73 call sites, after removing the 11 F-class calls and the 2 B-class bug rewrites), all of them operator-facing messages; its entry count differs from the call count, because a `gettext()` call may carry several strings — two do, eight between them — and duplicates collapse to one entry. Procedure-category labels are translated in the YAML / CSV under Surveillance-Toolkit's metadata/ (out of scope for this note; §7 row 2 coordinates with A5b).
+**What this looks like to a translator.** `R-neoipcr.pot` covers the 60 M-class call sites after migration (down from 73 call sites, after removing the 11 F-class calls and the 2 B-class bug rewrites), all of them operator-facing messages. Its entry count differs from the call count, because a `gettext()` call may carry several strings and duplicates collapse to one entry. On today's tree the multi-string calls are the two B-class calls at `calc-api.R:843` and `calc-procedure-categories.R:45`, and two of the three collapsed duplicates sit in those calls and in the F-class recodes at `calc-procedure-categories.R:224` / `:231`, so the migration removes them together with the calls; afterwards only the identical message at `dhis2-connect.R:104` and `:134` separates the two counts, whichever form the `:45` rewrite takes. Procedure-category labels are translated in the YAML / CSV under Surveillance-Toolkit's metadata/ (out of scope for this note; §7 row 2 coordinates with A5b).
 
 ### §6.6. Migration plan for Phase 2
 
@@ -937,7 +937,7 @@ Each subsection states the question, the recommendation with rationale, and a "P
 
 **Rationale.** External-stable tier covers functions that appear in all five reports AND are documented in the auth chain / data-protection section of CLAUDE.md (the auth and dataset-options trio), plus standalone statistical utilities (`neoipc_*_ci`, `bootstrap_quantile_ci`), plus the widely-used taxonomy accessor and the ICHI validator, plus the two package-configuration and introspection entry points any caller may need before importing. Everything internal-stable is load-bearing for the NeoIPC pipeline but not primarily targeted at external users — Phase 5 vignettes can expose them progressively. Everything experimental has a specific reason flagged in §3.
 
-Task 1.4 (lifecycle badges) consumes this column verbatim.
+Task 1.4 (lifecycle badges) consumes §3's Lifecycle column verbatim — `lifecycle::badge()` accepts only lifecycle stages, not a tier; the tier column decides which symbols the Phase 5 vignettes present to external users first.
 
 **PI resolution:** _pending_
 
@@ -1088,6 +1088,6 @@ In-tree exemplars — do not invent new conventions:
 
 - Task 1.2, the class-slug rename — owns the `_iaf` / `_sbd` / `_udr` rename. §3/§4/§9 assume post-rename names.
 - The CSV-to-YAML migration — owns the infectious-agent metadata reshape. §7 rows touching infectious agents wait on it.
-- The lifecycle-badges task — consumes the audience-tier column of §3 and applies `lifecycle::badge()` markup. Cannot start until this note lands.
+- The lifecycle-badges task — consumes the Lifecycle column of §3 and applies `lifecycle::badge()` markup. Cannot start until this note lands.
 - The empty-data-resilience work — already completed; remaining crash paths are scoped out.
 - The test-coverage work — already completed; the fixture helpers §11 points at are its output.
