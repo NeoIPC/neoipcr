@@ -91,6 +91,41 @@ jobs:
           }
           Write-Output "Text-file hygiene OK: $($checked.Count) file(s)."
 
+  news-section:
+    # DESCRIPTION's Version must already be described in NEWS.md. The release workflow enforces the
+    # same thing, but only once a tag exists — and a tag here is immutable (the retag guard rejects a
+    # moved one), so discovering a missing section at release time costs a version number rather than
+    # an edit. Catching it on the pull request keeps it an edit.
+    #
+    # Its own job, and outside the matrix below, for the same reason text-hygiene is: the condition is
+    # a property of the tree, identical on all four platforms.
+    name: NEWS section for this version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: NEWS.md describes DESCRIPTION's version
+        shell: bash
+        run: |
+          ver="$(sed -n 's/^Version:[[:space:]]*//p' DESCRIPTION | tr -d '[:space:]')"
+          if [ -z "$ver" ]; then
+            echo "::error file=DESCRIPTION::No Version field found."
+            exit 1
+          fi
+          # Whole-line comparison, as in the release workflow. An R-convention heading has no closing
+          # delimiter, so a prefix test for `1.0` would also match the `1.0.1` heading; equality on
+          # the trimmed line makes the version boundary exact.
+          section="$(awk -v want="# neoipcr $ver" '
+            { line = $0; sub(/[[:space:]]+$/, "", line) }
+            line == want { inside = 1; next }
+            inside && index(line, "# neoipcr ") == 1 { exit }
+            inside { print }
+          ' NEWS.md)"
+          if [ -z "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
+            echo "::error file=NEWS.md::NEWS.md has no non-empty '# neoipcr $ver' section, but DESCRIPTION declares $ver. Rename the development-version heading before releasing."
+            exit 1
+          fi
+          echo "NEWS.md documents $ver."
+
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
 

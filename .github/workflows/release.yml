@@ -81,11 +81,35 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         # A 4-component dev snapshot (X.Y.Z.NNNN) is a pre-release; a 3-component X.Y.Z (future CRAN) is final.
+        #
+        # The body is this version's own NEWS.md section rather than generated commit notes, and the
+        # extraction IS the gate: a missing or empty section fails the release, with no fallback to
+        # --generate-notes, which would silently restore what this replaces.
+        #
+        # NEWS.md uses R's convention of one H1 per version (`# neoipcr <version>`), and the heading
+        # is compared as a WHOLE LINE rather than as a prefix. Unlike the `## [x.y.z]` form the other
+        # NeoIPC products use, this one has no closing delimiter, so a prefix test for `1.0` also
+        # matches the `1.0.1` heading — and, matching the later one first, would emit both sections
+        # as the notes for 1.0. Equality on the trimmed line is what makes the version boundary exact.
         shell: bash
         run: |
           tag="$GITHUB_REF_NAME"
+          ver="${tag#v}"
           pre=""
-          if [ "$(IFS=.; set -- ${tag#v}; echo $#)" -ge 4 ]; then pre="--prerelease"; fi
+          if [ "$(IFS=.; set -- ${ver}; echo $#)" -ge 4 ]; then pre="--prerelease"; fi
+          section="$(awk -v want="# neoipcr $ver" '
+            { line = $0; sub(/[[:space:]]+$/, "", line) }
+            line == want { inside = 1; next }
+            inside && index(line, "# neoipcr ") == 1 { exit }
+            inside { print }
+          ' NEWS.md)"
+          if [ -z "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
+            echo "::error::NEWS.md has no non-empty '# neoipcr $ver' section. Rename the development-version heading to $ver before tagging."
+            exit 1
+          fi
+          printf '%s\n' "$section" > "$RUNNER_TEMP/release-notes.md"
+          echo "Release notes for $ver taken from NEWS.md:"
+          cat "$RUNNER_TEMP/release-notes.md"
           # Idempotent: an Actions re-run reuses the original push payload, so skip if the Release already
           # exists (a prior run may have created it). No asset is attached, so nothing to re-do on the skip.
-          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --generate-notes $pre
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --notes-file "$RUNNER_TEMP/release-notes.md" $pre
