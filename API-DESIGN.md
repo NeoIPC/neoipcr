@@ -97,7 +97,7 @@ Where a row's return-class slug is scheduled for rename by task 1.2 (the class-s
 | 27 | `print.neoipcr_dhis2_conopt` | [R/dhis2-connect.R](R/dhis2-connect.R) | `(x, ...)` S3 method | `invisible(x)` | external-stable | stable | — | Dispatch class: `neoipcr_dhis2_conopt` → `neoipcr_dhis2_connection_options`. |
 | 28 | `neoipcr_log_config` | [R/log.R](R/log.R) | `(verbosity = NULL)` | the applied `logger` threshold, invisibly | external-stable | stable | — | Sets this package's `"neoipcr"` logger-namespace threshold from `quiet` / `normal` / `verbose` / `debug`; with no argument it re-reads `NEOIPC_LOG_LEVEL`. Carries the `neoipcr_` prefix under the §9.3 rule-5 exception. |
 | 29 | `neoipcr_supported_versions` | [R/import-dhis2.R](R/import-dhis2.R) | `()` | `list(dhis2, metadata_package)` | external-stable | stable | — | Introspection: the DHIS2 releases verified against a live server and the supported metadata-package range; `import_dhis2()` warns on a server outside them. Carries the `neoipcr_` prefix under the §9.3 rule-5 exception. |
-| 30 | `write_json` | [R/json.R](R/json.R) | `(x, file = NULL, pretty = FALSE)` | JSON string (invisible when `file` is given) | internal-stable | experimental | — | Plain-JSON serialiser for consumers in other languages (the .NET reporting service); a deliberately narrow first cut with no redaction of its own. |
+| 30 | `write_json` | [R/json.R](R/json.R) | `(x, file = NULL, pretty = FALSE)` | JSON string (invisible when `file` is given) | internal-stable | experimental | — | Plain-JSON serializer for consumers in other languages (the .NET reporting service); a deliberately narrow first cut with no redaction of its own. |
 
 ### §3.1. Naming patterns and inconsistencies (A1 findings, feed into §9)
 
@@ -177,7 +177,7 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 - `n_departments`, `n_patients`, `n_enrollments`, `n_patient_days` — summary counts.
 - `n_surgical_departments`, `n_surgical_patients`, `n_surgical_procedures` — surgery-specific counts.
 - `n_infections` — tibble (`inf_type`, `total`).
-- Sixteen result tables: `usage_density_rate_table`, `antibiotic_utilization_table`, `surgery_rate_table`, `incidence_density_rate_table`, `dev_ass_incidence_density_rate_table`, `infectious_agent_detection_rate_per_agent_table`, `infectious_agent_detection_rate_per_inf_type_table`, `abr_infection_rate_table`, `organism_resistance_rate_table`, `secondary_bsi_rate_table`, `resistance_test_rate_table` — each a tibble with factors, counts, pooled rate, and 95 % Poisson CI. **No quartile columns** — that's what distinguishes `neoipcr_rep_ds` from `neoipcr_ref_ds`.
+- Eleven result tables: `usage_density_rate_table`, `antibiotic_utilization_table`, `surgery_rate_table`, `incidence_density_rate_table`, `dev_ass_incidence_density_rate_table`, `infectious_agent_detection_rate_per_agent_table`, `infectious_agent_detection_rate_per_inf_type_table`, `abr_infection_rate_table`, `organism_resistance_rate_table`, `secondary_bsi_rate_table`, `resistance_test_rate_table` — each a tibble with factors, counts, pooled rate, and 95 % Poisson CI. **No quartile columns** — that's what distinguishes `neoipcr_rep_ds` from `neoipcr_ref_ds`.
 
 **Invariants**:
 
@@ -434,7 +434,7 @@ All of these `display*` values are **preserved only when the relevant `include_*
 | 2 | **"Writing R Extensions", § Translations** (R-core / CRAN manual) | Establishes that `gettext` / `gettextf` are for messages shown to users (errors, warnings, diagnostics). Data-layer labels (column names, factor levels, taxonomy terms) are not in scope for PO catalogs — they're part of the package's data contract. | The manual enumerates the set of `gettext`-wrapped user-facing messages and explicitly does not place factor labels, taxonomy tables, or column headers in that set. | Validates the split. The 60 M-class calls (validation errors, auth diagnostics) stay on `gettext/gettextf`; the 11 F-class calls migrate to locale-keyed columns per #1 above. |
 | 3 | **[`scales`](https://scales.r-lib.org)** (tidyverse) | Separates formatter construction from locale consumption. `scales::label_date()`, `scales::label_number()`, `scales::label_currency()` take format strings and locale hints as **explicit parameters**; they do not consult `Sys.getlocale()` silently at definition time. | `scales::label_date(format = "%b %d", locale = "de")` — caller is responsible for passing the locale. | Informs the unified resolution chain (§6.7). Every neoipcr entry point that produces localized output accepts an explicit `locale` argument that wins over `opts$locale`, which wins over `Sys.getlocale("LC_MESSAGES")`, which wins over `"en"`. |
 | 4 | **[`rlang`](https://rlang.r-lib.org)** + **[`cli`](https://cli.r-lib.org)** (tidyverse) | Class-tagged condition system: `rlang::abort()` / `cli::cli_abort()` / `cli::cli_warn()` attach a class to the condition; error handlers and tests dispatch on the class, not on the human-readable message. Translation of the message is **orthogonal** — it happens via gettext if you want it, but the class is what programs check. | `rlang::abort(class = "neoipcr_missing_token", message = gettext("…"))`. Tests assert on `class`, not on the translated string. | **Does not force a decision for Phase 1.** neoipcr can stay on `stop(gettext(...))` or migrate to `rlang::abort()` independently of the M/F split. Migration recommended but out of scope here — filed as a Phase 2/3 follow-up task if adopted. |
-| 5 | **[`potools`](https://cran.r-project.org/package=potools)** | Package-scoped message catalogs. `potools::create_catalog()` extracts every `gettext(...)` call from `R/` and writes a single `.pot`; translators add `.po` files. `potools` does not split catalogs by message class — the split happens **at the source level** before extraction. | `potools::create_catalog()` → `po/R-<pkg>.pot`. Data-layer labels (taxonomy tibbles in `sysdata.Rda`) are not scanned because they're not `gettext` calls. | Confirms D-G (single `R-neoipcr.pot`). Once the 11 F-class calls migrate out of `gettext`, the catalog shrinks to the 60 M-class entries — no clutter from data labels. |
+| 5 | **[`potools`](https://cran.r-project.org/package=potools)** | Package-scoped message catalogs. `potools::create_catalog()` extracts every `gettext(...)` call from `R/` and writes a single `.pot`; translators add `.po` files. `potools` does not split catalogs by message class — the split happens **at the source level** before extraction. | `potools::create_catalog()` → `po/R-<pkg>.pot`. Data-layer labels (taxonomy tibbles in `sysdata.Rda`) are not scanned because they're not `gettext` calls. | Confirms D-G (single `R-neoipcr.pot`). Once the 11 F-class calls migrate out of `gettext`, the catalog shrinks to the entries of the 60 M-class call sites — no clutter from data labels. |
 
 **Mainstream consensus.** Five sources converge on: (i) `gettext` is for user-facing messages only; (ii) data labels live in locale-keyed columns or equivalent structured data (not in PO catalogs); (iii) locale selection is explicit (parameter or resolver), never implicit from `Sys.getlocale()` alone; (iv) a single `.pot` per package is standard. neoipcr is already close on (i), (iii-partial), and (iv); the M/F split is what brings it into (ii).
 
@@ -472,7 +472,7 @@ labels <- get_procedure_category_labels(locale = opts$locale)  # explicit arg wi
 # or: labels <- get_procedure_category_labels()  # resolution chain kicks in
 ```
 
-**What this looks like to a translator.** `R-neoipcr.pot` contains 60 entries after migration (down from 73, after removing the 11 F-class calls and the 2 B-class bug rewrites), all of them operator-facing messages. Procedure-category labels are translated in the YAML / CSV under Surveillance-Toolkit's metadata/ (out of scope for this note; §7 row 2 coordinates with A5b).
+**What this looks like to a translator.** `R-neoipcr.pot` covers the 60 M-class call sites after migration (down from 73 call sites, after removing the 11 F-class calls and the 2 B-class bug rewrites), all of them operator-facing messages; its entry count differs from the call count, because a `gettext()` call may carry several strings — two do, eight between them — and duplicates collapse to one entry. Procedure-category labels are translated in the YAML / CSV under Surveillance-Toolkit's metadata/ (out of scope for this note; §7 row 2 coordinates with A5b).
 
 ### §6.6. Migration plan for Phase 2
 
@@ -862,7 +862,7 @@ Master-name choice is a *domain* call grounded in the AMA-canonical term for eac
 | # | Working concept | Proposed master | Section heading (H/D) treatment | Rationale |
 |---|-----------------|-----------------|----------------------------------|-----------|
 | 1 | usage / risk density rate | `usage_density_rate` | (b) keep section `presence_of_risk_and_protective_factors` as a parent; new H per table = `usage_density_rates` (option c if multiple density-rate tables grouped here later) | Numerator is days of use (device-days, antibiotic-days); "usage" describes the math. Section "Presence of risk and protective factors" is a broader epi grouping — keep it. **PI: is "usage density" the right epi term, or should we follow the report's "risk density" naming throughout?** |
-| 2 | antibiotic utilisation rate | `antibiotic_utilisation_rate` | (a) align — H/D = "Antibiotic Utilisation Rate" | Add `_rate` suffix everywhere for consistency. **Confirm British `utilisation` vs American `utilization`** — relevant for international audience; the neoipcr function and slot, the `.qmd` filename, the heading key and the display string are already `utilization`, while the Quarto param and the PowerShell switch are still `Utilisation`. |
+| 2 | antibiotic utilization rate | `antibiotic_utilization_rate` | (a) align — H/D = "Antibiotic Utilization Rate" | Add `_rate` suffix everywhere for consistency. The spelling is settled: the neoipcr function and slot, the `.qmd` filename, the heading key and the display string are `utilization`; what remains is renaming the Quarto param `includeAntibioticUtilisationTable` and the PowerShell switch `AntibioticUtilisationRates` to match. |
 | 3 | surgery rate | `surgery_rate` | (b) keep section `surgical_procedures_by_category` as the broader section title; new sub-H = `surgery_rates` if needed | "Surgery" is shorter and clinically standard. The H "Surgical Procedures by Category" is descriptive of how the table is structured, not the metric — keep as section copy. |
 | 3b | (asymmetric ref function) | resolve in Phase 2 | — | The two-function asymmetry (`get_surgery_rate_table` + `get_ref_surgery_rate_table` instead of one S3 dispatch) is a Phase 2 design fix, not a §9.5 naming fix. |
 | 4 | incidence density rate | `incidence_density_rate` | (b) keep section `severe_infections_and_nec`; new sub-H per table | Already aligned on F/S/Q/P. Section H is a broader epi grouping ("severe infections and NEC") that legitimately groups tables — keep. |
@@ -927,15 +927,15 @@ Each subsection states the question, the recommendation with rationale, and a "P
 
 ### §10.1. D-A. Audience tier per exported symbol
 
-**Question.** For each of the 30 exported symbols in §3, which audience tier applies? External-stable (documented for data scientists / researchers / clinicians as part of the stable public API), internal-stable (stable for the NeoIPC internal pipeline but not primarily targeted at external users), or experimental (API may change, warn external users)?
+**Question.** For each of the 30 exported symbols in §3, which audience tier applies? External-stable (documented for data scientists / researchers / clinicians as part of the stable public API) or internal-stable (stable for the NeoIPC internal pipeline but not primarily targeted at external users)? The lifecycle — stable or experimental (API may change, warn external users) — is §3's separate column, on top of the tier.
 
-**Recommendation.** Accept the tier column proposed in §3 as the default assignment. Key assignments:
+**Recommendation.** Accept the tier column proposed in §3 as the default assignment. Key assignments, counted over that column:
 
-- **external-stable (9):** `import_dhis2`, `dhis2_connection_options`, `dhis2_dataset_options`, `neoipc_poisson_ci`, `neoipc_wilson_ci`, `get_pathogen_taxonomy`, `print.neoipcr_dhis2_conopt`, `neoipcr_log_config`, `neoipcr_supported_versions`.
-- **experimental (6):** `bootstrap_quantile_ci` (not yet integrated into the rate-table pipeline), `is_valid_ichi_code` (syntax-only validator; the full-code bundling task is in flight), `pretty_names` + its two methods (the S3 generic is unstable; the B-class bug at [calc-api.R:843](R/calc-api.R#L843) confirms it), `write_json` (a deliberately narrow first cut — plain lists, scalars, character vectors and dates — without a reading companion).
-- **internal-stable (15):** the 12 `get_*_table` builders, both `calculate_*_data` pipeline entries, `get_benchmark_data` (pre-rename).
+- **external-stable (11):** `import_dhis2`, `dhis2_connection_options`, `dhis2_dataset_options`, `neoipc_poisson_ci`, `neoipc_wilson_ci`, `bootstrap_quantile_ci`, `get_pathogen_taxonomy`, `is_valid_ichi_code`, `print.neoipcr_dhis2_conopt`, `neoipcr_log_config`, `neoipcr_supported_versions`.
+- **internal-stable (19):** the 12 `get_*_table` builders, both `calculate_*_data` pipeline entries, `get_benchmark_data` (pre-rename), `pretty_names` with its two methods, `write_json`.
+- **Lifecycle `experimental` (6), across both tiers:** `bootstrap_quantile_ci` (not yet integrated into the rate-table pipeline) and `is_valid_ichi_code` (syntax-only validator; the full-code bundling task is in flight), both external-stable; `pretty_names` + its two methods (the S3 generic is unstable; the B-class bug at [calc-api.R:843](R/calc-api.R#L843) confirms it) and `write_json` (a deliberately narrow first cut — plain lists, scalars, character vectors and dates — without a reading companion), all internal-stable.
 
-**Rationale.** External-stable tier covers functions that appear in all five reports AND are documented in the auth chain / data-protection section of CLAUDE.md (the auth and dataset-options trio), plus standalone statistical utilities (`neoipc_*_ci`), plus the widely-used taxonomy accessor, plus the two package-configuration and introspection entry points any caller may need before importing. Everything internal-stable is load-bearing for the NeoIPC pipeline but not primarily targeted at external users — Phase 5 vignettes can expose them progressively. Everything experimental has a specific reason flagged in §3.
+**Rationale.** External-stable tier covers functions that appear in all five reports AND are documented in the auth chain / data-protection section of CLAUDE.md (the auth and dataset-options trio), plus standalone statistical utilities (`neoipc_*_ci`, `bootstrap_quantile_ci`), plus the widely-used taxonomy accessor and the ICHI validator, plus the two package-configuration and introspection entry points any caller may need before importing. Everything internal-stable is load-bearing for the NeoIPC pipeline but not primarily targeted at external users — Phase 5 vignettes can expose them progressively. Everything experimental has a specific reason flagged in §3.
 
 Task 1.4 (lifecycle badges) consumes this column verbatim.
 
@@ -1011,7 +1011,7 @@ We're already touching one of the three for the prefix-unification rename, and p
 
 **Recommendation.** Single catalog. Matches `potools` convention (§6.4 row 5), matches R's own convention, matches the current state. Splitting catalogs creates a coordination burden for translators with no operational benefit.
 
-**Rationale.** After the F-class migration (§6.5), the catalog shrinks to 60 entries — well within a single-file size. No need to complicate.
+**Rationale.** After the F-class migration (§6.5), the catalog shrinks to the entries of the 60 M-class call sites — well within a single-file size. No need to complicate.
 
 **PI resolution:** _pending_
 
@@ -1042,7 +1042,7 @@ We're already touching one of the three for the prefix-unification rename, and p
 | # | Today | Proposed master | Heading treatment |
 |---|-------|-----------------|-------------------|
 | 1 | usage / risk density | `usage_density_rate` | (b) keep section heading "Presence of Risk and Protective Factors"; sub-heading per table |
-| 2 | antibiotic utilisation | `antibiotic_utilisation_rate` (also: British vs American?) | (a) align to master |
+| 2 | antibiotic utilization | `antibiotic_utilization_rate` | (a) align to master |
 | 3 | surgery / surgical procedure rate | `surgery_rate` | (b) keep section "Surgical Procedures by Category" |
 | 3b | (asymmetric ref function) | Phase 2 design fix, not §9.5 | — |
 | 4 | incidence density rate | `incidence_density_rate` | (b) keep section "Severe Infections and NEC" |
@@ -1059,7 +1059,6 @@ We're already touching one of the three for the prefix-unification rename, and p
 **PI calls flagged in §9.5.4 that need explicit answers:**
 
 - Row 1: is "usage density" the correct epidemiological term, or should the master adopt the report's existing "risk density" wording across all surfaces?
-- Row 2: British `utilisation` vs American `utilization`?
 - Row 6: keep "infectious agent" in display copy but use shortened "agent" in identifiers, or align both?
 - Row 8: `antibiotic_resistance` vs `amr` (antimicrobial resistance) — which is preferred in the surveillance literature you cite?
 - Row 10: confirm adopting AMA's "antimicrobial susceptibility test" over the package's current "resistance test"? This is the largest individual rename.

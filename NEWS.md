@@ -7,8 +7,9 @@ The release workflow extracts the section whose heading matches the version bein
 released — the tag's, which its verify job has already checked against DESCRIPTION —
 and publishes it as the GitHub Release body; the pull-request check extracts the
 section for DESCRIPTION's version. So a release cannot be cut for a version this
-file does not describe. Rename `(development version)` to the version being released
-in the same commit that bumps DESCRIPTION.
+file does not describe. When bumping DESCRIPTION, rename `(development version)` to
+the new version in the same commit and open a fresh `# neoipcr (development version)`
+section above it for the next changes.
 -->
 
 # neoipcr (development version)
