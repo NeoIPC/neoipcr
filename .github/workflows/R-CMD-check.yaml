@@ -106,6 +106,9 @@ jobs:
       - name: NEWS.md describes DESCRIPTION's version
         shell: bash
         run: |
+          # A regex over DESCRIPTION rather than read.dcf, because this job has no R. Safe here: R rejects a
+          # multi-line Version field as a malformed package version, so any tree that passes the check
+          # matrix below has the whole value on this one line.
           ver="$(sed -n 's/^Version:[[:space:]]*//p' DESCRIPTION | tr -d '[:space:]')"
           if [ -z "$ver" ]; then
             echo "::error file=DESCRIPTION::No Version field found."
@@ -113,11 +116,14 @@ jobs:
           fi
           # Whole-line comparison, as in the release workflow. An R-convention heading has no closing
           # delimiter, so a prefix test for `1.0` would also match the `1.0.1` heading; equality on
-          # the trimmed line makes the version boundary exact.
+          # the trimmed line makes the version boundary exact. A link-reference definition line
+          # (`[x.y.z]: https://…`) ends the section too, so definitions collected at the end of the
+          # file never leak into the last version's notes.
           section="$(awk -v want="# neoipcr $ver" '
             { line = $0; sub(/[[:space:]]+$/, "", line) }
             line == want { inside = 1; next }
             inside && index(line, "# neoipcr ") == 1 { exit }
+            inside && line ~ /^\[[^]]+\]: / { exit }
             inside { print }
           ' NEWS.md)"
           if [ -z "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
