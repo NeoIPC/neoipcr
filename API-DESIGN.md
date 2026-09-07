@@ -38,7 +38,7 @@
 
 | ID | Decision | Recommendation | PI resolution |
 |----|----------|----------------|---------------|
-| D-A | Audience tier per exported symbol | Defaults from usage patterns (see §3) | pending |
+| D-A | Audience tier per public-surface symbol | Defaults from usage patterns (see §3) | pending |
 | D-B | GT-styling entry point shape | `as_gt.neoipcr_tbl_sr_ref()` (S3) | pending |
 | D-C | `get_benchmark_data()` rename | **Withdraw** — function combines, doesn't compute (see §10.3) | pending |
 | D-D | CI-function prefix unification | Rename all three to `neoipcr_*_ci()` (matches package name) | pending |
@@ -925,9 +925,9 @@ For 13 rows in §9.5.4, that's 13 lockstep change cycles. Phase 3 may batch rela
 
 Each subsection states the question, the recommendation with rationale, and a "PI resolution" line for you to fill in. Resolution can be: `accept`, `accept with amendment: …`, `reject — <alternative>`.
 
-### §10.1. D-A. Audience tier per exported symbol
+### §10.1. D-A. Audience tier per public-surface symbol
 
-**Question.** For each of the 30 exported symbols in §3, which audience tier applies? External-stable (documented for data scientists / researchers / clinicians as part of the stable public API) or internal-stable (stable for the NeoIPC internal pipeline but not primarily targeted at external users)? The lifecycle — stable or experimental (API may change, warn external users) — is §3's separate column, on top of the tier.
+**Question.** For each of the 30 public-surface symbols in §3 — 27 `export()` entries and 3 `S3method()` entries — which audience tier applies? External-stable (documented for data scientists / researchers / clinicians as part of the stable public API) or internal-stable (stable for the NeoIPC internal pipeline but not primarily targeted at external users)? The lifecycle — stable or experimental (API may change, warn external users) — is §3's separate column, on top of the tier.
 
 **Recommendation.** Accept the tier column proposed in §3 as the default assignment. Key assignments, counted over that column:
 
