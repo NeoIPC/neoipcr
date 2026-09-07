@@ -14,6 +14,8 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+# neoipcr 0.0.0.9001
+
 * `import_dhis2()` reads DHIS2 2.40 and 2.41 through one org-unit request dialect per version line,
   and reads `/me` `lastLogin` whether it is nested under `userCredentials` or absent. An offline
   compatibility matrix drives the whole import pipeline against synthetic fixtures for every version
