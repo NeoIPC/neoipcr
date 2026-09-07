@@ -110,7 +110,7 @@ jobs:
             inside { print }
           ' NEWS.md)"
           if [ -z "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
-            echo "::error::NEWS.md has no non-empty '# neoipcr $ver' section. Rename the development-version heading to $ver before tagging."
+            echo "::error::NEWS.md has no non-empty '# neoipcr $ver' section. Rename the '(development version)' heading to $ver and describe the version under it before tagging."
             exit 1
           fi
           printf '%s\n' "$section" > "$RUNNER_TEMP/release-notes.md"

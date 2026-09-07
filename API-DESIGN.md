@@ -402,7 +402,7 @@ All 60 M-class sites have the same migration action: **stay on `gettext` / `gett
 | File | M-class count | Surrounding functions | Notes |
 |------|---------------|----------------------|-------|
 | [R/dhis2-connect.R:72–137](R/dhis2-connect.R#L72-L137) | 14 | `read_token`, `get_password`, `get_auth_data` | Token validation + 5-step auth chain error messages. |
-| [R/validation.R:6–460](R/validation.R#L6-L460) | 46 | `validation_rules` formatter closures (rules 1–42) | One per rule body plus a few fragments (e.g., SSI severity at rule 19). The per-rule short-circuit handlers in `R/validation-rules-*.R` log through `logger::log_warn()` and carry no `gettext` call. Nothing invokes the closures today: `validate()` reads only `$id` and `$fun`, and the Validation Report builds its problem text from its own `_formatters.qmd`, so their strings are extracted into the catalogue but never emitted. |
+| [R/validation.R:6–460](R/validation.R#L6-L460) | 46 | `validation_rules` formatter closures (rules 1–42) | One per rule body plus a few fragments (e.g., SSI severity at rule 19). The per-rule short-circuit handlers in `R/validation-rules-*.R` log through `logger::log_warn()` and carry no `gettext` call. Nothing invokes the closures today: `validate()` reads only `$id` and `$fun`, and the Validation Report builds its problem text from its own `_formatters.qmd`, so their strings are extracted into the catalog but never emitted. |
 
 No individual-line enumeration needed — every site stays on gettext, catalog is regenerated post-migration (see §6.6).
 
@@ -1011,7 +1011,7 @@ We're already touching one of the three for the prefix-unification rename, and p
 
 **Recommendation.** Single catalog. Matches `potools` convention (§6.4 row 5), matches R's own convention, matches the current state. Splitting catalogs creates a coordination burden for translators with no operational benefit.
 
-**Rationale.** After the F-class migration (§6.5), the catalog shrinks to the entries of the 60 M-class call sites (62 if the `:45` rewrite keeps its two column headers on `gettext`) — well within a single-file size. No need to complicate.
+**Rationale.** After the F-class migration (§6.5), the catalog shrinks to the entries of the 60 M-class call sites — plus the two column headers if the `:45` rewrite keeps them on `gettext` — well within a single-file size. No need to complicate.
 
 **PI resolution:** _pending_
 

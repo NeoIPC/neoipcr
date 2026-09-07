@@ -127,7 +127,7 @@ jobs:
             inside { print }
           ' NEWS.md)"
           if [ -z "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
-            echo "::error file=NEWS.md::NEWS.md has no non-empty '# neoipcr $ver' section, but DESCRIPTION declares $ver. Rename the development-version heading before releasing."
+            echo "::error file=NEWS.md::NEWS.md has no non-empty '# neoipcr $ver' section, but DESCRIPTION declares $ver. Rename the '(development version)' heading to $ver and describe the version under it before releasing."
             exit 1
           fi
           echo "NEWS.md documents $ver."
