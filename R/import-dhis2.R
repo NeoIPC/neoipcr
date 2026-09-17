@@ -54,6 +54,17 @@ import_dhis2 <- function(
         i = paste0("An exception record carries ", paste(.exception_list_cols, collapse = ", "),
                    " (and DEPARTMENT_CODE when more than one department is imported).")),
         class = "neoipcr_invalid_exception_list")
+    # The dates join onto the imported `Date` columns.
+    date_cols <- c("ENROLMENT_DATE", "EVENT_DATE")
+    not_dates <- date_cols[!vapply(
+      date_cols,
+      \(col) inherits(dataset_options$include_invalid_patients[[col]], "Date"),
+      logical(1))]
+    if (length(not_dates) > 0L)
+      rlang::abort(c(
+        "An exception list's dates must be `Date` columns.",
+        x = paste0("Not `Date`: ", paste(not_dates, collapse = ", "), ".")),
+        class = "neoipcr_invalid_exception_list")
     if (dataset_options$include_patient != "full")
       rlang::abort(c(
         "An exception list needs the full patient tier: its records are matched by patient id.",

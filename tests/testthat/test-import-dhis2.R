@@ -669,6 +669,16 @@ test_that("import_dhis2 refuses to validate patients without the full enrollment
     import_dhis2(test_conn(), import_test_opts(
       include_invalid_patients = tibble::tibble(NEOIPC_PATIENT_ID = "PAT_1"))),
     class = "neoipcr_invalid_exception_list")
+  # The dates join onto `Date` columns, so text dates are refused up front.
+  expect_error(
+    import_dhis2(test_conn(), import_test_opts(
+      include_invalid_patients = tibble::tibble(
+        RULE_ID           = 1L,
+        NEOIPC_PATIENT_ID = "PAT_1",
+        ENROLMENT_DATE    = "2024-01-01",
+        EVENT_TYPE        = "adm",
+        EVENT_DATE        = "2024-01-01"))),
+    class = "neoipcr_invalid_exception_list")
   expect_length(m$urls(), 0L)
 
   # A well-formed list needs the full patient tier, which keeps `patient_id`

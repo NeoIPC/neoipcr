@@ -64,11 +64,18 @@ test_that("validate requires the full enrollment and event tiers, whose columns 
   expect_error(neoipcr::validate(pseudo_enrollments), "include_enrollment")
 })
 
-test_that("validate always carries the context column, as a list", {
+test_that("validate always carries its five columns, whatever ran", {
   ds <- make_populated_test_ds()
+  shape <- c("rule_id", "patient_key", "enrollment_key", "event_key", "context")
   # Rule 1 records no context; the column is part of the shape regardless.
   r <- neoipcr::validate(ds, rules = 1L)
-  expect_true("context" %in% names(r))
+  expect_named(r, shape)
   expect_type(r$context, "list")
-  expect_type(neoipcr::validate(ds)$context, "list")
+  expect_named(neoipcr::validate(ds), shape)
+  # Rule 2 skips itself on this dataset (no status columns) and returns
+  # nothing; the shape still holds, with zero rows.
+  r <- neoipcr::validate(ds, rules = 2L)
+  expect_named(r, shape)
+  expect_equal(nrow(r), 0L)
+  expect_type(r$rule_id, "integer")
 })

@@ -874,7 +874,12 @@ get_dev_ass_incidence_density_rate_table <- function(
 #' @param x A `neoipcr_ds` object imported with `include_enrollment = "full"`
 #'  and `include_event = "full"`, and with `include_patient` and
 #'  `include_department` not `"no"`: the admission date, the event date and
-#'  the department link are what this computation reads.
+#'  the department link are what this computation reads. The admission date
+#'  is the enrollment date (`enrolledAt`): in the NeoIPC data model the
+#'  enrollment is the admission, and an admission event dated differently is
+#'  a validation error (rule 3) that a validation-clean import does not
+#'  contain. Under `include_invalid_patients = TRUE` such an admission is
+#'  placed by its enrollment date.
 #' @param windows A data frame with one row per window: `department_key`
 #'  (integer, never `NA`), `window` (a label such as `"baseline"`), and the
 #'  inclusive `start` and `end` dates (`Date`). Windows may overlap; an

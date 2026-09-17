@@ -16,7 +16,12 @@ get_cumulative_incidence_table(
 \item{x}{A \code{neoipcr_ds} object imported with \code{include_enrollment = "full"}
 and \code{include_event = "full"}, and with \code{include_patient} and
 \code{include_department} not \code{"no"}: the admission date, the event date and
-the department link are what this computation reads.}
+the department link are what this computation reads. The admission date
+is the enrollment date (\code{enrolledAt}): in the NeoIPC data model the
+enrollment is the admission, and an admission event dated differently is
+a validation error (rule 3) that a validation-clean import does not
+contain. Under \code{include_invalid_patients = TRUE} such an admission is
+placed by its enrollment date.}
 
 \item{windows}{A data frame with one row per window: \code{department_key}
 (integer, never \code{NA}), \code{window} (a label such as \code{"baseline"}), and the

@@ -536,14 +536,16 @@ validate <- function(x, rules = NULL, exceptions = NULL)
     lapply(\(r)if(is.null(rules)||r$id%in%rules)r$fun(x,exceptions)) |>
     dplyr::bind_rows()
 
-  # Not every rule records a context; the column is part of the shape either
-  # way, so a caller can read it without checking for it first.
+  # The shape is the same whatever ran: a rule that skips itself or records
+  # no context, or a selection that flags nothing, still yields every column,
+  # so a caller can read them without checking for them first.
+  for (col in c("rule_id", "patient_key", "enrollment_key", "event_key"))
+    if (!(col %in% names(r)))
+      r[[col]] <- rep(NA_integer_, nrow(r))
   if (!("context" %in% names(r)))
     r$context <- vector("list", nrow(r))
 
   r |>
     dplyr::select(
-      tidyselect::any_of(
-        c("rule_id","patient_key","enrollment_key","event_key")),
-      "context")
+      "rule_id", "patient_key", "enrollment_key", "event_key", "context")
 }
