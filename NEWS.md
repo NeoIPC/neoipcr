@@ -28,12 +28,16 @@ section above it for the next changes.
 * `validate()` is exported, so the records the import would remove can be listed with the rule that
   flags them.
 * `gestational_age_to` now covers the whole completed week it names: `31` keeps 31+0 through 31+6,
-  where it used to stop at 31+0.
-* A metadata-only import (`include_patient`, `include_enrollment` and `include_event` all `"no"`) no
-  longer aborts: the eligibility filter used to look for admission data such an import does not
-  carry, and the validation pass ran with no patients to validate. An import that asks for
-  validated patients without the enrollments and events to check them against now says so and
-  names both ways out (import them, or `include_invalid_patients = TRUE`).
+  where it used to stop at 31+0. Reference data serialized with an upper bound before this change
+  describes a cohort six days narrower than an import with the same nominal bound yields now, and a
+  consumer that matches reference data to a report by that nominal bound compares the two as equal;
+  such reference data needs regenerating before it is compared.
+* The validation pass is skipped whenever no patients are imported (`include_patient = "no"`),
+  since it is patient-anchored and has nothing to remove; a metadata-only import, which used to
+  trip the pass's preconditions and the eligibility filter's look for admission data, now completes.
+  An import that asks for validated patients without the full enrollments and events to check them
+  against aborts before the first request, naming both ways out (import both with `"full"`, or
+  `include_invalid_patients = TRUE`); `validate()` requires the same.
 
 # neoipcr 0.0.0.9001
 

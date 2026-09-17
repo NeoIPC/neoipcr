@@ -499,11 +499,53 @@ test_that("get_cumulative_incidence_table honours event_types and conf.level", {
   expect_true(ci99$ci_upper > ci95$ci_upper)
 })
 
+test_that("get_cumulative_incidence_table numbers the windows on the ungrouped rows, so a grouped input does not pool departments", {
+  # The idiomatic construction of the input leaves it grouped; a numbering
+  # that restarted per group would give both departments the pooled counts.
+  grouped <- january_window(c(1L, 2L)) |>
+    dplyr::group_by(department_key)
+  result <- get_cumulative_incidence_table(calc_ds, grouped)
+
+  expect_false(dplyr::is_grouped_df(result))
+  expect_equal(result$department_key, c(1L, 2L))
+  expect_equal(result$n_patients, c(2L, 1L))
+  expect_equal(result$n_infected_patients, c(1L, 1L))
+})
+
+test_that("get_cumulative_incidence_table returns a tibble for a plain data frame and drops the caller's other columns", {
+  plain <- as.data.frame(january_window(1L))
+  plain$n_patients <- 99L
+  plain$note <- "kept nowhere"
+  result <- get_cumulative_incidence_table(calc_ds, plain)
+
+  expect_s3_class(result, "tbl_df")
+  expect_false(dplyr::is_grouped_df(result))
+  expect_equal(result$n_patients, 2L)
+  expect_false("note" %in% names(result))
+})
+
+test_that("get_cumulative_incidence_table accepts a pseudonymized department tier", {
+  ds <- make_calc_test_ds()
+  ds$metadata$dataset_options <- dhis2_dataset_options(
+    include_department = "pseudo",
+    include_country    = "full",
+    include_patient    = "full",
+    include_enrollment = "full",
+    include_event      = "full")
+  result <- get_cumulative_incidence_table(ds, january_window(1L))
+  expect_equal(result$n_patients, 2L)
+  expect_equal(result$n_infected_patients, 1L)
+})
+
 test_that("get_cumulative_incidence_table rejects malformed windows, unknown event types and narrowed datasets", {
   windows <- january_window(1L)
 
   no_end <- windows[, c("department_key", "window", "start")]
   expect_error(get_cumulative_incidence_table(calc_ds, no_end), "end")
+
+  no_department <- windows
+  no_department$department_key <- NA_integer_
+  expect_error(get_cumulative_incidence_table(calc_ds, no_department), "department_key")
 
   text_dates <- windows
   text_dates$start <- as.character(text_dates$start)

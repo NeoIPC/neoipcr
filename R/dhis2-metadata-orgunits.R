@@ -166,12 +166,11 @@ read_organisationUnits_hospitals <- function(x, dataset_options)
   if ("parent" %in% names(x))
     x <- x |> tidyr::hoist("parent", country = "id")
 
-  # The parent block repeats once per department; `distinct()` collapses the
-  # repeats, the `attributeValues` list column included — every copy of a
-  # hospital serializes identically, so its value lists are structurally
-  # equal and dedupe with the rest of the row.
-  processed <- x |>
-    dplyr::distinct() |>
+  # The parent block repeats once per department. Every copy of a hospital is
+  # the same entity, so the first row per id is kept; deduplicating on the
+  # whole row would make the result depend on the order in which DHIS2 lists
+  # a copy's attribute values, which nothing in the API promises.
+  processed <- x[!duplicated(x$id), ] |>
     dplyr::relocate("orgUnit" = "id") |>
     add_key_column("hospital_key")
 

@@ -13,6 +13,28 @@ import_dhis2 <- function(
   check_neoipcr_dhis2_conopt(connection_options)
   check_neoipcr_dhis2_dsopt(dataset_options)
 
+  # Validation removes patients, so it has nothing to do when the caller
+  # imports none: a metadata-only import must not trip the validation pass's
+  # own option preconditions. With patients it needs the full enrollments and
+  # events to check them against, and keeping unvalidated patients quietly
+  # would contradict the option, so that case aborts here — before any
+  # request is made — naming both ways out. The constructor stays permissive
+  # on purpose: the option matrix the schema tests enumerate includes shapes
+  # an import would refuse.
+  validation_requested <-
+    !rlang::is_bool(dataset_options$include_invalid_patients) ||
+    dataset_options$include_invalid_patients == FALSE
+  if (dataset_options$include_patient != "no" && validation_requested &&
+      (dataset_options$include_enrollment != "full" ||
+       dataset_options$include_event != "full"))
+    rlang::abort(c(
+      "Validating patients needs the full enrollments and events to check them against.",
+      x = sprintf(
+        "`include_enrollment` is \"%s\" and `include_event` is \"%s\", while `include_invalid_patients` asks for validation.",
+        dataset_options$include_enrollment, dataset_options$include_event),
+      i = "Import both with \"full\", or set `include_invalid_patients = TRUE` to keep every patient unvalidated."),
+      class = "neoipcr_validation_needs_facts")
+
   d2req_base <- dhis2_request(connection_options)
 
   user_info <- d2req_base |>
@@ -28,7 +50,7 @@ import_dhis2 <- function(
 
   # Push org unit filters to the API to reduce network traffic and memory use.
   # metadata$departments and metadata$countries are already filtered during
-  # metadata processing (read_metadata_reponses), so we can use them directly.
+  # metadata processing (assemble_metadata), so we can use them directly.
   #
   # trackedEntities and enrollments accept a multi-UID org-unit parameter; the
   # /tracker/events endpoint accepts only a single org unit, so event requests
@@ -253,27 +275,9 @@ import_dhis2 <- function(
       `.cache` = new.env(parent = emptyenv())),
     class = c("neoipcr_ds", "list"))
 
-  # Validation removes patients, so it has nothing to do when the caller
-  # imported none: a metadata-only import must not trip the validation
-  # pass's own option preconditions. With patients but without the
-  # enrollments and events to check them against it cannot run either, and
-  # keeping unvalidated patients quietly would contradict the option, so that
-  # case aborts naming both ways out.
-  validation_requested <-
-    !rlang::is_bool(dataset_options$include_invalid_patients) ||
-    dataset_options$include_invalid_patients == FALSE
+  # The preconditions of this pass were checked before the first request.
   if(dataset_options$include_patient != "no" && validation_requested)
   {
-    if(dataset_options$include_enrollment == "no" ||
-       dataset_options$include_event == "no")
-      rlang::abort(c(
-        "Validating patients needs the enrollments and events to check them against.",
-        x = sprintf(
-          "`include_enrollment` is \"%s\" and `include_event` is \"%s\", while `include_invalid_patients` asks for validation.",
-          dataset_options$include_enrollment, dataset_options$include_event),
-        i = "Import both (\"pseudo\" or \"full\"), or set `include_invalid_patients = TRUE` to keep every patient unvalidated."),
-        class = "neoipcr_validation_needs_facts")
-
     if(!rlang::is_bool(dataset_options$include_invalid_patients))
       exceptions <- dataset_options$include_invalid_patients |>
         transform_user_exceptions(r)

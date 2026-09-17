@@ -35,13 +35,18 @@ get_metadata <- function(d2_req_base, user_info, dataset_options)
 
 # The departments flagged by the `IsTestunit` custom attribute, as org-unit
 # ids. DHIS2 filters metadata objects by the value of one attribute through
-# `filter=<attribute uid>:eq:<value>` (dhis2-core `DefaultQueryPlanner`
-# `isFilterByAttributeId()`, evaluated in memory on the org units
-# `withinUserHierarchy` preselects; identical on 2.40 and 2.41), so the flag
-# is fetched as ids alone and no other attribute value travels on behalf of a
-# caller who did not opt into custom attributes. The uid is resolved by code
-# from the definitions of the same import; a caller who cannot read the
-# definition gets no flag from this source and falls back to group membership.
+# `filter=<attribute uid>:eq:<value>`: dhis2-core's query parser turns a
+# path that is no schema property but a valid uid into an attribute
+# restriction (`DefaultJpaQueryParser.getRestriction()` → `asAttribute()`),
+# and because `withinUserHierarchy` preselects the org units and sets them on
+# the query, `DefaultQueryService.queryObjects()` hands the whole query to the
+# in-memory engine, where `InMemoryQueryEngine.getValue()` reads
+# `getAttributeValue(uid)` and every restriction is AND-ed (identical on 2.40
+# and 2.41). So the flag is fetched as ids alone and no other attribute value
+# travels on behalf of a caller who did not opt into custom attributes. The
+# uid is resolved by code from the definitions of the same import; a caller
+# who cannot read the definition gets no flag from this source and falls back
+# to group membership.
 get_test_unit_attribute_ids <- function(req_base, definitions_map)
 {
   if (is.null(definitions_map))
@@ -50,9 +55,18 @@ get_test_unit_attribute_ids <- function(req_base, definitions_map)
   if (length(uid) != 1L)
     return(character())
 
-  resp <- get_test_unit_attribute_request(req_base, uid) |>
-    httr2::req_perform()
+  resp <- tryCatch(
+    get_test_unit_attribute_request(req_base, uid) |> httr2::req_perform(),
+    httr2_error = function(e) e)
   log_dhis2_request(resp, "organisationUnits")
+  if (rlang::is_error(resp)) {
+    status <- tryCatch(httr2::resp_status(resp$resp), error = \(e) "unknown")
+    rlang::abort(
+      paste0(
+        "DHIS2 organisationUnits (the IsTestunit test-unit lookup) returned HTTP ",
+        status, "."),
+      parent = resp)
+  }
   read_test_unit_attribute_ids(httr2::resp_body_json(resp))
 }
 

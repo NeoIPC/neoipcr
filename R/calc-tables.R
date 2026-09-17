@@ -876,10 +876,12 @@ get_dev_ass_incidence_density_rate_table <- function(
 #'  `include_department` not `"no"`: the admission date, the event date and
 #'  the department link are what this computation reads.
 #' @param windows A data frame with one row per window: `department_key`
-#'  (integer), `window` (a label such as `"baseline"`), and the inclusive
-#'  `start` and `end` dates (`Date`). Windows may overlap; an admission is
-#'  counted in every window it falls into. Further columns are not carried
-#'  over.
+#'  (integer, never `NA`), `window` (a label such as `"baseline"`), and the
+#'  inclusive `start` and `end` dates (`Date`). Windows may overlap; an
+#'  admission is counted in every window it falls into. Grouping is ignored
+#'  and further columns are dropped. An admission without an admission date,
+#'  or an infection without an event date (possible under
+#'  `include_incomplete`), falls into no window.
 #' @param event_types The event types that count as an infection, a subset of
 #'  `"bsi"`, `"nec"`, `"hap"` and `"ssi"`.
 #' @param unit Whether `n` and `n_infected`, and with them the proportion,
@@ -925,6 +927,8 @@ get_cumulative_incidence_table <- function(
     rlang::abort("`windows$start` and `windows$end` must be Date columns.")
   if (any(is.na(windows$start) | is.na(windows$end) | windows$start > windows$end))
     rlang::abort("Every window needs `start <= end`, with neither date missing.")
+  if (any(is.na(windows$department_key)))
+    rlang::abort("Every window needs a `department_key`; a window without a department cannot be meant.")
 
   event_types <- rlang::arg_match(
     event_types, c("bsi", "nec", "hap", "ssi"), multiple = TRUE)

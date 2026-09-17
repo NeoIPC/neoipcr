@@ -504,8 +504,10 @@ validation_rules <- list(
 #' directly on a dataset imported with `include_invalid_patients = TRUE` to see
 #' which records would be removed and why.
 #'
-#' @param x A `neoipcr_ds` object imported with `include_patient`,
-#'  `include_enrollment` and `include_event` each set to `"pseudo"` or `"full"`.
+#' @param x A `neoipcr_ds` object imported with `include_patient` set to
+#'  `"pseudo"` or `"full"` and `include_enrollment` and `include_event` set to
+#'  `"full"`: the rules read the enrollments' patient link and the events'
+#'  type, which the pseudonymized tiers do not carry.
 #' @param rules Integer vector of rule ids to run; `NULL` (the default) runs all
 #'  of them.
 #' @param exceptions A tibble of records to exempt, with the columns `rule_id`,
@@ -514,29 +516,34 @@ validation_rules <- list(
 #'
 #' @returns A tibble with one row per flagged record: `rule_id`, the keys that
 #'  identify the record (`patient_key`, `enrollment_key`, `event_key`; `NA`
-#'  where a rule does not operate at that level) and `context`, the
-#'  rule-specific values the finding refers to. Zero rows when nothing is
-#'  flagged.
+#'  where a rule does not operate at that level) and `context`, a list column
+#'  with the rule-specific values the finding refers to (`NULL` where the
+#'  rule records none). Zero rows when nothing is flagged.
 #' @export
 validate <- function(x, rules = NULL, exceptions = NULL)
 {
   check_neoipcr_ds(x)
-  # Validation rules access patients, enrollments, events, and per-event
-  # data. If any link-privacy gate is "no", rules that reference those
-  # tibbles would fail with unhelpful column-absent errors. Require the
-  # same gates as the calc pipeline.
+  # The rules read the enrollments' `patient_key` and the events'
+  # `event_type_key`, which only the "full" tiers carry; a narrower tier
+  # would fail inside a rule with a column-absent error.
   assert_options_for(x, required = list(
     include_patient    = c("pseudo", "full"),
-    include_enrollment = c("pseudo", "full"),
-    include_event      = c("pseudo", "full")
+    include_enrollment = "full",
+    include_event      = "full"
   ), fn_name = "validate")
 
   r <- validation_rules |>
     lapply(\(r)if(is.null(rules)||r$id%in%rules)r$fun(x,exceptions)) |>
-    dplyr::bind_rows() |>
+    dplyr::bind_rows()
+
+  # Not every rule records a context; the column is part of the shape either
+  # way, so a caller can read it without checking for it first.
+  if (!("context" %in% names(r)))
+    r$context <- vector("list", nrow(r))
+
+  r |>
     dplyr::select(
       tidyselect::any_of(
-        c("rule_id","patient_key","enrollment_key","event_key","context")))
-
-  r
+        c("rule_id","patient_key","enrollment_key","event_key")),
+      "context")
 }

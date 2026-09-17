@@ -133,13 +133,21 @@ get_incidence_density_rates <- function(
 # counts. Windows may overlap; an admission is counted in each window it falls
 # into, which is why both joins are declared many-to-many.
 #
-# Returns `windows` with `n_patients`, `n_enrollments`, `n_infected_patients`
-# and `n_infected_enrollments` appended; a window with no admissions keeps its
-# row with zeros rather than dropping out.
+# Returns the four window columns with `n_patients`, `n_enrollments`,
+# `n_infected_patients` and `n_infected_enrollments` appended, as an
+# ungrouped tibble; a window with no admissions keeps its row with zeros
+# rather than dropping out.
 get_cumulative_incidence <- function(x, windows, event_types)
 {
+  # Number the windows on the ungrouped rows: a grouped `windows` (the
+  # `group_by() |> summarise()` idiom leaves one) would restart the numbering
+  # per group and pool the cohorts of different departments. Dropping the
+  # caller's other columns keeps them from colliding with the counts.
   windows <- windows |>
-    dplyr::mutate(.window = dplyr::row_number())
+    dplyr::ungroup() |>
+    tibble::as_tibble() |>
+    dplyr::select("department_key", "window", "start", "end") |>
+    dplyr::mutate(.window = seq_len(dplyr::n()))
 
   cohort <- x$enrollments |>
     dplyr::select(

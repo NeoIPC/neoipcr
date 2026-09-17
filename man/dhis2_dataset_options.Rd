@@ -129,7 +129,11 @@ the NeoIPC core case eligibility criteria into the dataset.}
 patient records into the dataset.}
 
 \item{include_invalid_patients}{Include data from patient records that
-could have validation errors}
+could have validation errors. Validation is patient-anchored: with
+\code{include_patient = "no"} there is nothing to validate and the pass is
+skipped; with patients it needs \code{include_enrollment} and \code{include_event}
+set to \code{"full"}, and an import asking for less aborts before its first
+request.}
 
 \item{include_incomplete}{Include incomplete records into the dataset.
 Possible values are "enrollments" and "events"}

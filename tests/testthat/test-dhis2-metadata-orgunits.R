@@ -166,6 +166,21 @@ test_that("read_organisationUnits_hospitals dedupes repeated parents that carry 
   expect_equal(result$attribute_values$value, "Hospital text")
 })
 
+test_that("read_organisationUnits_hospitals dedupes on the id, whatever order a copy lists its attribute values in", {
+  opts <- dhis2_dataset_options(
+    include_hospital = "full", include_custom_attributes = "hospitals")
+  values <- c(raw_values("ATTR_A", "Hospital text"), raw_values("ATTR_B", "2024-01-31"))
+  x <- tibble::tibble(
+    id              = c("H1", "H1"),
+    code            = c("HOSP_1", "HOSP_1"),
+    attributeValues = list(values, rev(values)))
+  result <- neoipcr:::read_organisationUnits_hospitals(x, opts)
+
+  expect_equal(nrow(result$processed), 1L)
+  expect_equal(nrow(result$attribute_values), 2L)
+  expect_setequal(result$attribute_values$attribute, c("ATTR_A", "ATTR_B"))
+})
+
 test_that("read_organisationUnits_departments returns the attribute values and a processed tibble that still finalizes without scratch", {
   opts <- dhis2_dataset_options(
     include_department = "full", include_custom_attributes = "departments")
@@ -347,11 +362,11 @@ test_that("read_metadata_orgUnitAttributes reads the definitions when an entity 
       include_department = "full", include_custom_attributes = "departments"))
 
   expect_named(md$orgUnitAttributes, c("code", "name", "valueType"))
-  expect_equal(nrow(md$orgUnitAttributes), 6L)
+  # The fixture's sixth definition has no code, so its values could never be
+  # addressed: neither the public list nor the code map carries it.
+  expect_equal(nrow(md$orgUnitAttributes), 5L)
   expect_true("IsTestunit" %in% md$orgUnitAttributes$code)
-  # The definition without a code stays in the public list ...
-  expect_true(any(is.na(md$orgUnitAttributes$code)))
-  # ... but not in the code map, which has nothing to address it by.
+  expect_false(any(is.na(md$orgUnitAttributes$code)))
   expect_named(
     md$.orgUnitAttributes_internal_map, c("attribute", "code", "valueType"))
   expect_equal(nrow(md$.orgUnitAttributes_internal_map), 5L)

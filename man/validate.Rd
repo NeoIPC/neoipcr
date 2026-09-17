@@ -7,8 +7,10 @@
 validate(x, rules = NULL, exceptions = NULL)
 }
 \arguments{
-\item{x}{A \code{neoipcr_ds} object imported with \code{include_patient},
-\code{include_enrollment} and \code{include_event} each set to \code{"pseudo"} or \code{"full"}.}
+\item{x}{A \code{neoipcr_ds} object imported with \code{include_patient} set to
+\code{"pseudo"} or \code{"full"} and \code{include_enrollment} and \code{include_event} set to
+\code{"full"}: the rules read the enrollments' patient link and the events'
+type, which the pseudonymized tiers do not carry.}
 
 \item{rules}{Integer vector of rule ids to run; \code{NULL} (the default) runs all
 of them.}
@@ -20,9 +22,9 @@ derives from a user-supplied exception list.}
 \value{
 A tibble with one row per flagged record: \code{rule_id}, the keys that
 identify the record (\code{patient_key}, \code{enrollment_key}, \code{event_key}; \code{NA}
-where a rule does not operate at that level) and \code{context}, the
-rule-specific values the finding refers to. Zero rows when nothing is
-flagged.
+where a rule does not operate at that level) and \code{context}, a list column
+with the rule-specific values the finding refers to (\code{NULL} where the
+rule records none). Zero rows when nothing is flagged.
 }
 \description{
 Runs every registered validation rule, or the subset named in \code{rules}, over

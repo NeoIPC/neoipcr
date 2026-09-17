@@ -19,10 +19,12 @@ and \code{include_event = "full"}, and with \code{include_patient} and
 the department link are what this computation reads.}
 
 \item{windows}{A data frame with one row per window: \code{department_key}
-(integer), \code{window} (a label such as \code{"baseline"}), and the inclusive
-\code{start} and \code{end} dates (\code{Date}). Windows may overlap; an admission is
-counted in every window it falls into. Further columns are not carried
-over.}
+(integer, never \code{NA}), \code{window} (a label such as \code{"baseline"}), and the
+inclusive \code{start} and \code{end} dates (\code{Date}). Windows may overlap; an
+admission is counted in every window it falls into. Grouping is ignored
+and further columns are dropped. An admission without an admission date,
+or an infection without an event date (possible under
+\code{include_incomplete}), falls into no window.}
 
 \item{event_types}{The event types that count as an infection, a subset of
 \code{"bsi"}, \code{"nec"}, \code{"hap"} and \code{"ssi"}.}

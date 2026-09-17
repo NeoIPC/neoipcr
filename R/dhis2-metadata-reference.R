@@ -513,11 +513,16 @@ read_metadata_orgUnitAttributes <- function(metadata, dataset_options)
       valueType = as.character(.data$valueType)) |>
     dplyr::arrange(.data$code)
 
-  internal_map <- raw |>
-    dplyr::filter(!is.na(.data$code)) |>
+  # A definition without a code cannot be addressed and its values are never
+  # imported, so it is listed nowhere: the map resolves values by code, and
+  # the public tibble describes the attributes whose values can arrive.
+  coded <- raw |>
+    dplyr::filter(!is.na(.data$code))
+
+  internal_map <- coded |>
     dplyr::select("attribute", "code", "valueType")
 
-  public <- raw |>
+  public <- coded |>
     dplyr::select("attribute", "code", "name", "valueType") |>
     finalize_to_schema(orgUnitAttributes_cols, opts, scratch = "attribute")
   assert_schema(public, orgUnitAttributes_cols, opts)

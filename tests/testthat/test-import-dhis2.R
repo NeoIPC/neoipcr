@@ -523,6 +523,15 @@ test_that("import_dhis2 excludes a department flagged IsTestunit like a TEST_UNI
   expect_length(requests$test_units, 1L)
 })
 
+test_that("import_dhis2 names the IsTestunit lookup when its follow-up request fails", {
+  m <- new_dhis2_mock(attribute_fixtures(), status = list(testUnits = 500L))
+  httr2::local_mocked_responses(m$mock)
+
+  expect_error(
+    import_dhis2(test_conn(), import_test_opts()),
+    "IsTestunit.*HTTP 500")
+})
+
 test_that("import_dhis2 issues no test-unit follow-up when the instance defines no IsTestunit attribute", {
   # The baseline metadata fixture carries no attribute definitions and the
   # fixture set mocks no follow-up, so an unwanted one aborts in the mock.
@@ -569,7 +578,8 @@ test_that("import_dhis2 yields empty, schema-shaped attribute tables when the re
     c("department_key", "attribute_code", typed_value_columns))
   expect_equal(nrow(ds$metadata$departmentAttributeValues), 0L)
   expect_equal(ncol(ds$metadata$hospitalAttributeValues), 0L)
-  expect_equal(nrow(ds$metadata$orgUnitAttributes), 6L)
+  # The five coded definitions; the code-less one is listed nowhere.
+  expect_equal(nrow(ds$metadata$orgUnitAttributes), 5L)
 })
 
 test_that("import_dhis2 reads the org-unit metadata alone when every fact entity is switched off", {
@@ -618,7 +628,7 @@ test_that("import_dhis2 completes a metadata-only import under the public defaul
   expect_gt(nrow(ds$metadata$departments), 0L)
 })
 
-test_that("import_dhis2 refuses to validate patients without the enrollments and events to check them against", {
+test_that("import_dhis2 refuses to validate patients without the full enrollments and events to check them against", {
   m <- new_dhis2_mock(import_test_fixtures())
   httr2::local_mocked_responses(m$mock)
 
@@ -628,6 +638,24 @@ test_that("import_dhis2 refuses to validate patients without the enrollments and
       include_event            = "no",
       include_invalid_patients = FALSE)),
     class = "neoipcr_validation_needs_facts")
+  # The pseudonymized tiers do not carry what the rules read either.
+  expect_error(
+    import_dhis2(test_conn(), import_test_opts(
+      include_enrollment       = "pseudo",
+      include_invalid_patients = FALSE)),
+    class = "neoipcr_validation_needs_facts")
+  expect_error(
+    import_dhis2(test_conn(), import_test_opts(
+      include_event            = "pseudo",
+      include_invalid_patients = FALSE)),
+    class = "neoipcr_validation_needs_facts")
+  # The precondition reads the options alone, so it fails before any request.
+  expect_length(m$urls(), 0L)
+
+  # With the full tiers the pass runs.
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_invalid_patients = FALSE))
+  expect_true(is.data.frame(ds$validationResults))
 
   # Opting out of validation is the way to a patient-only import.
   ds <- import_dhis2(test_conn(), import_test_opts(

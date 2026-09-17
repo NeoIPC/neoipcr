@@ -51,3 +51,24 @@ test_that("validate is exported and returns its result visibly", {
   ds <- make_populated_test_ds()
   expect_true(withVisible(neoipcr::validate(ds))$visible)
 })
+
+test_that("validate requires the full enrollment and event tiers, whose columns the rules read", {
+  ds <- make_populated_test_ds()
+
+  pseudo_events <- ds
+  pseudo_events$metadata$dataset_options$include_event <- "pseudo"
+  expect_error(neoipcr::validate(pseudo_events), "include_event")
+
+  pseudo_enrollments <- ds
+  pseudo_enrollments$metadata$dataset_options$include_enrollment <- "pseudo"
+  expect_error(neoipcr::validate(pseudo_enrollments), "include_enrollment")
+})
+
+test_that("validate always carries the context column, as a list", {
+  ds <- make_populated_test_ds()
+  # Rule 1 records no context; the column is part of the shape regardless.
+  r <- neoipcr::validate(ds, rules = 1L)
+  expect_true("context" %in% names(r))
+  expect_type(r$context, "list")
+  expect_type(neoipcr::validate(ds)$context, "list")
+})
