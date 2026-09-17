@@ -68,11 +68,14 @@
 #'  patient records into the dataset.
 #' @param include_test_data Include data from test departments into the dataset.
 #' @param include_invalid_patients Include data from patient records that
-#'  could have validation errors. Validation is patient-anchored: with
-#'  `include_patient = "no"` there is nothing to validate and the pass is
-#'  skipped; with patients it needs `include_enrollment` and `include_event`
-#'  set to `"full"`, and an import asking for less aborts before its first
-#'  request.
+#'  could have validation errors: `FALSE` (the default) removes them, a
+#'  character vector of patient ids exempts those from removal, and `TRUE`
+#'  skips the validation pass altogether. Validation is patient-anchored:
+#'  with `include_patient = "no"` there is nothing to validate and the pass
+#'  is skipped whatever this option says. When it does run — patients
+#'  present and this option not `TRUE` — it needs `include_enrollment` and
+#'  `include_event` set to `"full"`, and an import asking for less aborts
+#'  before its first request; `TRUE` imposes no such requirement.
 #' @param include_incomplete Include incomplete records into the dataset.
 #'  Possible values are "enrollments" and "events"
 #' @param include_notes Include notes into the dataset. Possible values are

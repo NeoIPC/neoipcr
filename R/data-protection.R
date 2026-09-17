@@ -99,8 +99,15 @@ assert_data_protection <- function(x, dataset_options)
 }
 
 
-#' Assert that an org-unit attribute-values table is empty unless the
-#' caller opted into that entity's attributes and the entity is present.
+#' Assert that an org-unit attribute-values table is 0×0 unless the caller
+#' opted into that entity's attributes and the entity is present.
+#'
+#' The contract is the shape, not the row count: a closed gate yields a 0×0
+#' tibble (`finalize_to_schema()`), so a table that carries the schema's
+#' columns without the opt-in was emitted by a reader that ignored the gate,
+#' whether or not any row happens to be in it. Passing an empty
+#' schema-shaped table would let exactly that reader go unnoticed until an
+#' instance with values hit it.
 #'
 #' @noRd
 .assert_attribute_values_absent <- function(x, opts, entity, opts_key, tbl) {
@@ -113,7 +120,7 @@ assert_data_protection <- function(x, dataset_options)
   opted <- if (length(opts$include_custom_attributes) == 0L) "character()"
            else paste0('"', paste(opts$include_custom_attributes, collapse = '", "'), '"')
   rlang::abort(c(
-    sprintf("Data-protection violation: `x$metadata$%s` is populated without the `%s` opt-in.",
+    sprintf("Data-protection violation: `x$metadata$%s` carries columns without the `%s` opt-in (a closed gate yields a 0x0 tibble).",
             tbl, entity),
     "x" = sprintf("`include_custom_attributes` = %s; `%s` = \"%s\".",
                   opted, opts_key, opts[[opts_key]]),
