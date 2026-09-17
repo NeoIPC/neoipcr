@@ -66,8 +66,12 @@ import_dhis2 <- function(
       if (!inherits(ex$EVENT_DATE, "Date")) "`EVENT_DATE` is not a `Date`",
       if (!is.numeric(ex$RULE_ID)) "`RULE_ID` is not numeric",
       if (!is.character(ex$NEOIPC_PATIENT_ID)) "`NEOIPC_PATIENT_ID` is not character",
+      if ("DEPARTMENT_CODE" %in% names(ex) && !is.character(ex$DEPARTMENT_CODE))
+        "`DEPARTMENT_CODE` is not character",
       if (!all(is.na(event_types) | event_types %in% .exception_event_types))
-        paste0("`EVENT_TYPE` outside ", paste(.exception_event_types, collapse = "/"), " or `NA`"))
+        paste0("`EVENT_TYPE` outside ", paste(.exception_event_types, collapse = "/"), " or `NA`"),
+      if (inherits(ex$EVENT_DATE, "Date") && any(is.na(event_types) != is.na(ex$EVENT_DATE)))
+        "`EVENT_TYPE` and `EVENT_DATE` not both set or both `NA` (an enrollment-level record has neither)")
     if (length(wrong) > 0L)
       rlang::abort(c(
         "An exception list's columns must be of the types the records join on.",

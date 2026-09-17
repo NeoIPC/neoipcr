@@ -879,7 +879,8 @@ get_dev_ass_incidence_density_rate_table <- function(
 #'  enrollment is the admission, and an admission event dated differently is
 #'  a validation error (rule 3) that a validation-clean import does not
 #'  contain. Under `include_invalid_patients = TRUE` such an admission is
-#'  placed by its enrollment date.
+#'  placed by its enrollment date, and an infection dated before its
+#'  admission — another validation error — does not count.
 #' @param windows A data frame with one row per window: `department_key`
 #'  (integer, never `NA`), `window` (a label such as `"baseline"`), and the
 #'  inclusive `start` and `end` dates (`Date`). Windows may overlap; an

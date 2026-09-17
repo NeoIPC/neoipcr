@@ -473,6 +473,23 @@ test_that("get_cumulative_incidence_table ties an infection to the admission it 
   expect_equal(d2$n_infected_patients, 1L)
 })
 
+test_that("get_cumulative_incidence_table ignores an infection dated before its admission", {
+  # Patient 2 (department 1, admitted 2024-01-05, no infection) gets a BSI
+  # dated 2024-01-03: inside the window, but before the admission — a
+  # validation error that only `include_invalid_patients = TRUE` lets in.
+  ds <- make_calc_test_ds()
+  early <- ds$events[ds$events$event_type_key == "bsi" & ds$events$enrollment_key == 1L, ][1, ]
+  early$event_key <- 99L
+  early$enrollment_key <- 2L
+  early$patient_key <- 2L
+  early$occurredAt <- as.Date("2024-01-03")
+  ds$events <- dplyr::bind_rows(ds$events, early)
+
+  result <- get_cumulative_incidence_table(ds, january_window(1L))
+  expect_equal(result$n_patients, 2L)
+  expect_equal(result$n_infected_patients, 1L)
+})
+
 test_that("get_cumulative_incidence_table counts an admission in every window it falls into", {
   windows <- tibble::tibble(
     department_key = c(1L, 1L),

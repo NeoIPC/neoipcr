@@ -21,7 +21,8 @@ is the enrollment date (\code{enrolledAt}): in the NeoIPC data model the
 enrollment is the admission, and an admission event dated differently is
 a validation error (rule 3) that a validation-clean import does not
 contain. Under \code{include_invalid_patients = TRUE} such an admission is
-placed by its enrollment date.}
+placed by its enrollment date, and an infection dated before its
+admission — another validation error — does not count.}
 
 \item{windows}{A data frame with one row per window: \code{department_key}
 (integer, never \code{NA}), \code{window} (a label such as \code{"baseline"}), and the

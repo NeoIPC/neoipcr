@@ -127,11 +127,13 @@ get_incidence_density_rates <- function(
 # Cohort: an enrollment (admission) belongs to a window when its department
 # matches and `enrolledAt` falls inside the range. Infected: the enrollment has
 # at least one event of an `event_types` type whose `occurredAt` falls inside
-# the same window. Counting through the enrollment ties every infection to the
-# admission — and so to the department — it belongs to, so an infection outside
-# the window, or on another department's admission of the same patient, never
-# counts. Windows may overlap; an admission is counted in each window it falls
-# into, which is why both joins are declared many-to-many.
+# the same window and not before the admission. Counting through the
+# enrollment ties every infection to the admission — and so to the department
+# — it belongs to, so an infection outside the window, before its admission
+# (a validation error, reachable only under `include_invalid_patients = TRUE`),
+# or on another department's admission of the same patient, never counts.
+# Windows may overlap; an admission is counted in each window it falls into,
+# which is why both joins are declared many-to-many.
 #
 # Returns the four window columns with `n_patients`, `n_enrollments`,
 # `n_infected_patients` and `n_infected_enrollments` appended, as an
@@ -168,12 +170,14 @@ get_cumulative_incidence <- function(x, windows, event_types)
     dplyr::inner_join(
       cohort |>
         dplyr::select(
-          ".window", "enrollment_key", "patient_key", "start", "end"),
+          ".window", "enrollment_key", "patient_key", "enrolledAt",
+          "start", "end"),
       dplyr::join_by("enrollment_key"),
       relationship = "many-to-many") |>
     dplyr::filter(
       .data$occurredAt >= .data$start,
-      .data$occurredAt <= .data$end) |>
+      .data$occurredAt <= .data$end,
+      .data$occurredAt >= .data$enrolledAt) |>
     dplyr::select(".window", "enrollment_key", "patient_key") |>
     dplyr::distinct()
 

@@ -731,6 +731,9 @@ test_that("import_dhis2 refuses to validate patients without the full enrollment
     list(NEOIPC_PATIENT_ID = 1L),
     list(RULE_ID = "3"),
     list(EVENT_TYPE = "admission"),
+    list(EVENT_TYPE = "bsi"),
+    list(EVENT_DATE = as.Date("2024-01-02")),
+    list(DEPARTMENT_CODE = 1L),
     list(ENROLMENT_DATE = as.POSIXct("2024-01-01", tz = "UTC")))) {
     malformed <- tibble::tibble(
       RULE_ID           = 3L,
