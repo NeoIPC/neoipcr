@@ -529,6 +529,17 @@ test_that("import_dhis2 names the IsTestunit lookup when its follow-up request f
   expect_error(
     import_dhis2(test_conn(), import_test_opts()),
     "IsTestunit.*HTTP 500")
+
+  # A connection failure has no response to report a status from.
+  fx <- attribute_fixtures()
+  fx$testUnits <- function(req)
+    rlang::abort("no route to host", class = c("httr2_failure", "httr2_error"))
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+
+  expect_error(
+    import_dhis2(test_conn(), import_test_opts()),
+    "IsTestunit.*could not be performed: no route to host")
 })
 
 test_that("import_dhis2 issues no test-unit follow-up when the instance defines no IsTestunit attribute", {
@@ -711,6 +722,37 @@ test_that("import_dhis2 refuses to validate patients without the full enrollment
   expect_true(is.data.frame(ds$validationResults))
   expect_true("patient_id" %in% names(ds$patients))
 
+  # The list's columns must be of the types the records join on, and an
+  # event type outside the stage vocabulary would silently match nothing.
+  # A fresh mock, so the request count below covers these cases alone.
+  m <- new_dhis2_mock(import_test_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  for (bad in list(
+    list(NEOIPC_PATIENT_ID = 1L),
+    list(RULE_ID = "3"),
+    list(EVENT_TYPE = "admission"),
+    list(ENROLMENT_DATE = as.POSIXct("2024-01-01", tz = "UTC")))) {
+    malformed <- tibble::tibble(
+      RULE_ID           = 3L,
+      NEOIPC_PATIENT_ID = "PAT_1",
+      ENROLMENT_DATE    = as.Date("2024-01-01"),
+      EVENT_TYPE        = NA_character_,
+      EVENT_DATE        = as.Date(NA))
+    malformed[[names(bad)]] <- bad[[1]]
+    expect_error(
+      import_dhis2(test_conn(), import_test_opts(
+        include_invalid_patients = malformed)),
+      class = "neoipcr_invalid_exception_list")
+  }
+  # The records are matched within their department, which a department
+  # tier of "no" cannot provide.
+  expect_error(
+    import_dhis2(test_conn(), import_test_opts(
+      include_department       = "no",
+      include_invalid_patients = exceptions)),
+    class = "neoipcr_validation_needs_facts")
+  expect_length(m$urls(), 0L)
+
   # Without patients the pass never reads the list, so a metadata-only
   # import accepts one under the public constructor.
   ds <- import_dhis2(test_conn(), dhis2_dataset_options(
@@ -733,6 +775,45 @@ test_that("import_dhis2 refuses to validate patients without the full enrollment
       include_test_data        = TRUE,
       include_invalid_patients = exceptions)),
     class = "neoipcr_invalid_exception_list")
+})
+
+test_that("import_dhis2 keeps the records an exception list names", {
+  # On the mock, rules 3 and 25 flag both patients at the enrollment level
+  # (their admission events are dated a day after the enrollment). A list
+  # naming those records — `NA` event type and date for enrollment-level
+  # findings — keeps both patients with nothing left flagged.
+  flagged <- tibble::tibble(
+    RULE_ID           = c(3L, 3L, 25L, 25L),
+    NEOIPC_PATIENT_ID = c("PAT_1", "PAT_2", "PAT_1", "PAT_2"),
+    ENROLMENT_DATE    = as.Date(c("2024-01-01", "2024-01-05", "2024-01-01", "2024-01-05")),
+    EVENT_TYPE        = NA_character_,
+    EVENT_DATE        = as.Date(NA))
+
+  m <- new_dhis2_mock(import_test_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  removed <- import_dhis2(test_conn(), import_test_opts(
+    include_department       = "full",
+    include_invalid_patients = FALSE))
+  expect_equal(nrow(removed$patients), 0L)
+  expect_setequal(removed$validationResults$rule_id, c(3L, 25L))
+
+  kept <- import_dhis2(test_conn(), import_test_opts(
+    include_department       = "full",
+    include_invalid_patients = flagged))
+  expect_setequal(as.character(kept$patients$patient_id), c("PAT_1", "PAT_2"))
+  expect_equal(nrow(kept$validationResults), 0L)
+
+  # With a second department in the import the records join on the
+  # department code as well.
+  fx <- import_test_fixtures()
+  fx$organisationUnits <- read_fixture_text("orgunits-departments-2.json")
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  kept <- import_dhis2(test_conn(), import_test_opts(
+    include_department       = "full",
+    include_invalid_patients = flagged |> dplyr::mutate(DEPARTMENT_CODE = "DEPT_01")))
+  expect_setequal(as.character(kept$patients$patient_id), c("PAT_1", "PAT_2"))
+  expect_equal(nrow(kept$validationResults), 0L)
 
   # Opting out of validation is the way to a patient-only import.
   ds <- import_dhis2(test_conn(), import_test_opts(

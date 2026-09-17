@@ -532,20 +532,26 @@ validate <- function(x, rules = NULL, exceptions = NULL)
     include_event      = "full"
   ), fn_name = "validate")
 
-  r <- validation_rules |>
+  flagged <- validation_rules |>
     lapply(\(r)if(is.null(rules)||r$id%in%rules)r$fun(x,exceptions)) |>
-    dplyr::bind_rows()
+    dplyr::bind_rows() |>
+    dplyr::ungroup()
 
-  # The shape is the same whatever ran: a rule that skips itself or records
-  # no context, or a selection that flags nothing, still yields every column,
-  # so a caller can read them without checking for them first.
-  for (col in c("rule_id", "patient_key", "enrollment_key", "event_key"))
-    if (!(col %in% names(r)))
-      r[[col]] <- rep(NA_integer_, nrow(r))
-  if (!("context" %in% names(r)))
-    r$context <- vector("list", nrow(r))
-
-  r |>
+  # The shape is the same whatever ran. `bind_rows()` takes its class,
+  # grouping and column types from the first rule's result, so the result is
+  # bound onto a plain template instead: a rule that skips itself, records no
+  # context or returns a grouped tibble, or a selection that flags nothing,
+  # still yields exactly these five columns with integer keys.
+  template <- tibble::tibble(
+    rule_id        = integer(),
+    patient_key    = integer(),
+    enrollment_key = integer(),
+    event_key      = integer(),
+    context        = list())
+  dplyr::bind_rows(template, flagged) |>
+    dplyr::mutate(dplyr::across(
+      c("rule_id", "patient_key", "enrollment_key", "event_key"),
+      as.integer)) |>
     dplyr::select(
       "rule_id", "patient_key", "enrollment_key", "event_key", "context")
 }

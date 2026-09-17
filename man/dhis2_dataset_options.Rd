@@ -132,17 +132,21 @@ patient records into the dataset.}
 could have validation errors: \code{FALSE} (the default) removes them, \code{TRUE}
 skips the validation pass altogether, and a data frame of exception
 records keeps the named records despite the rule that flags them. An
-exception record carries \code{RULE_ID}, \code{NEOIPC_PATIENT_ID}, \code{ENROLMENT_DATE}
-and \code{EVENT_DATE} (\code{Date}), \code{EVENT_TYPE}, and \code{DEPARTMENT_CODE} when more
-than one department is imported; the records are matched by patient id,
-so a list needs \code{include_patient = "full"}, which then keeps
-\code{patient_id} whatever \code{patient_columns} says. Validation is
-patient-anchored: with \code{include_patient = "no"} there is nothing to
-validate and the pass is skipped whatever this option says. When it does
-run — patients present and this option not \code{TRUE} — it needs
-\code{include_enrollment} and \code{include_event} set to \code{"full"}, and an import
-asking for less, or handing over a malformed exception list, aborts
-before its first request; \code{TRUE} imposes no such requirement.}
+exception record carries \code{RULE_ID} (numeric), \code{NEOIPC_PATIENT_ID}
+(character), \code{ENROLMENT_DATE} and \code{EVENT_DATE} (\code{Date}), \code{EVENT_TYPE}
+(one of \code{adm}, \code{pro}, \code{bsi}, \code{nec}, \code{ssi}, \code{hap}, \code{end}, in any case),
+and \code{DEPARTMENT_CODE} when more than one department is imported; a
+record a rule flags at the enrollment level carries \code{NA} for both
+\code{EVENT_TYPE} and \code{EVENT_DATE}. The records are matched by patient id
+within their department, so a list needs \code{include_patient = "full"}
+(which then keeps \code{patient_id} whatever \code{patient_columns} says) and
+\code{include_department} not \code{"no"}. Validation is patient-anchored: with
+\code{include_patient = "no"} there is nothing to validate, the pass is
+skipped and a list is not read. When it does run — patients present and
+this option not \code{TRUE} — it needs \code{include_enrollment} and
+\code{include_event} set to \code{"full"}, and an import asking for less, or
+handing over a malformed exception list, aborts before its first
+request; \code{TRUE} imposes no such requirement.}
 
 \item{include_incomplete}{Include incomplete records into the dataset.
 Possible values are "enrollments" and "events"}

@@ -60,11 +60,15 @@ get_test_unit_attribute_ids <- function(req_base, definitions_map)
     httr2_error = function(e) e)
   log_dhis2_request(resp, "organisationUnits")
   if (rlang::is_error(resp)) {
-    status <- tryCatch(httr2::resp_status(resp$resp), error = \(e) "unknown")
+    # A connection failure carries no response; an HTTP error carries the
+    # one that was answered.
+    outcome <- if (is.null(resp$resp))
+      paste0("could not be performed: ", conditionMessage(resp))
+    else
+      paste0("returned HTTP ", tryCatch(
+        httr2::resp_status(resp$resp), error = \(e) "unknown"), ".")
     rlang::abort(
-      paste0(
-        "DHIS2 organisationUnits (the IsTestunit test-unit lookup) returned HTTP ",
-        status, "."),
+      paste0("DHIS2 organisationUnits (the IsTestunit test-unit lookup) ", outcome),
       parent = resp)
   }
   read_test_unit_attribute_ids(httr2::resp_body_json(resp))

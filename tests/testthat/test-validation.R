@@ -78,4 +78,15 @@ test_that("validate always carries its five columns, whatever ran", {
   expect_named(r, shape)
   expect_equal(nrow(r), 0L)
   expect_type(r$rule_id, "integer")
+  # Rule 3 returns a grouped tibble; the grouping and its variables do not
+  # leak, the keys are integer, and the class is a plain tibble.
+  r <- neoipcr::validate(ds, rules = 3L)
+  expect_named(r, shape)
+  expect_false(dplyr::is_grouped_df(r))
+  expect_type(r$enrollment_key, "integer")
+  expect_identical(class(r), c("tbl_df", "tbl", "data.frame"))
+  # A rule id nobody has runs nothing.
+  r <- neoipcr::validate(ds, rules = 99L)
+  expect_named(r, shape)
+  expect_equal(nrow(r), 0L)
 })

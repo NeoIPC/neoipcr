@@ -71,17 +71,21 @@
 #'  could have validation errors: `FALSE` (the default) removes them, `TRUE`
 #'  skips the validation pass altogether, and a data frame of exception
 #'  records keeps the named records despite the rule that flags them. An
-#'  exception record carries `RULE_ID`, `NEOIPC_PATIENT_ID`, `ENROLMENT_DATE`
-#'  and `EVENT_DATE` (`Date`), `EVENT_TYPE`, and `DEPARTMENT_CODE` when more
-#'  than one department is imported; the records are matched by patient id,
-#'  so a list needs `include_patient = "full"`, which then keeps
-#'  `patient_id` whatever `patient_columns` says. Validation is
-#'  patient-anchored: with `include_patient = "no"` there is nothing to
-#'  validate and the pass is skipped whatever this option says. When it does
-#'  run — patients present and this option not `TRUE` — it needs
-#'  `include_enrollment` and `include_event` set to `"full"`, and an import
-#'  asking for less, or handing over a malformed exception list, aborts
-#'  before its first request; `TRUE` imposes no such requirement.
+#'  exception record carries `RULE_ID` (numeric), `NEOIPC_PATIENT_ID`
+#'  (character), `ENROLMENT_DATE` and `EVENT_DATE` (`Date`), `EVENT_TYPE`
+#'  (one of `adm`, `pro`, `bsi`, `nec`, `ssi`, `hap`, `end`, in any case),
+#'  and `DEPARTMENT_CODE` when more than one department is imported; a
+#'  record a rule flags at the enrollment level carries `NA` for both
+#'  `EVENT_TYPE` and `EVENT_DATE`. The records are matched by patient id
+#'  within their department, so a list needs `include_patient = "full"`
+#'  (which then keeps `patient_id` whatever `patient_columns` says) and
+#'  `include_department` not `"no"`. Validation is patient-anchored: with
+#'  `include_patient = "no"` there is nothing to validate, the pass is
+#'  skipped and a list is not read. When it does run — patients present and
+#'  this option not `TRUE` — it needs `include_enrollment` and
+#'  `include_event` set to `"full"`, and an import asking for less, or
+#'  handing over a malformed exception list, aborts before its first
+#'  request; `TRUE` imposes no such requirement.
 #' @param include_incomplete Include incomplete records into the dataset.
 #'  Possible values are "enrollments" and "events"
 #' @param include_notes Include notes into the dataset. Possible values are

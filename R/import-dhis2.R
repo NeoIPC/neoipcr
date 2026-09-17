@@ -54,22 +54,36 @@ import_dhis2 <- function(
         i = paste0("An exception record carries ", paste(.exception_list_cols, collapse = ", "),
                    " (and DEPARTMENT_CODE when more than one department is imported).")),
         class = "neoipcr_invalid_exception_list")
-    # The dates join onto the imported `Date` columns.
-    date_cols <- c("ENROLMENT_DATE", "EVENT_DATE")
-    not_dates <- date_cols[!vapply(
-      date_cols,
-      \(col) inherits(dataset_options$include_invalid_patients[[col]], "Date"),
-      logical(1))]
-    if (length(not_dates) > 0L)
+    # The columns join onto the imported records, so they must be of the
+    # types those carry: `Date` dates (a `POSIXct` would not join), a
+    # numeric rule id, a character patient id, and an event type from the
+    # stage vocabulary (case does not matter; `NA` names an enrollment-level
+    # record together with an `NA` event date).
+    ex <- dataset_options$include_invalid_patients
+    event_types <- tolower(as.character(ex$EVENT_TYPE))
+    wrong <- c(
+      if (!inherits(ex$ENROLMENT_DATE, "Date")) "`ENROLMENT_DATE` is not a `Date`",
+      if (!inherits(ex$EVENT_DATE, "Date")) "`EVENT_DATE` is not a `Date`",
+      if (!is.numeric(ex$RULE_ID)) "`RULE_ID` is not numeric",
+      if (!is.character(ex$NEOIPC_PATIENT_ID)) "`NEOIPC_PATIENT_ID` is not character",
+      if (!all(is.na(event_types) | event_types %in% .exception_event_types))
+        paste0("`EVENT_TYPE` outside ", paste(.exception_event_types, collapse = "/"), " or `NA`"))
+    if (length(wrong) > 0L)
       rlang::abort(c(
-        "An exception list's dates must be `Date` columns.",
-        x = paste0("Not `Date`: ", paste(not_dates, collapse = ", "), ".")),
+        "An exception list's columns must be of the types the records join on.",
+        rlang::set_names(wrong, rep("x", length(wrong)))),
         class = "neoipcr_invalid_exception_list")
     if (dataset_options$include_patient != "full")
       rlang::abort(c(
         "An exception list needs the full patient tier: its records are matched by patient id.",
         x = sprintf("`include_patient` is \"%s\".", dataset_options$include_patient),
         i = "Set `include_patient = \"full\"` (`patient_id` is kept for the matching whatever `patient_columns` says), or drop the exception list."),
+        class = "neoipcr_validation_needs_facts")
+    if (dataset_options$include_department == "no")
+      rlang::abort(c(
+        "An exception list needs a department tier: its records are matched within their department.",
+        x = "`include_department` is \"no\".",
+        i = "Set `include_department` to \"pseudo\" or \"full\", or drop the exception list."),
         class = "neoipcr_validation_needs_facts")
   }
 
@@ -483,14 +497,26 @@ dhis2_request <- function(connection_options)
       password = connection_options$password)
 }
 
+# How many departments the import holds, read from the orchestrator-internal
+# map while it exists: the public tibble is the schema's 0×0 gate result
+# under `include_department = "no"`, which says nothing about the count.
 is_single_department <- function(ds)
-  nrow(ds$metadata$departments) == 1L
+{
+  departments <- ds$metadata$.departments_internal_map
+  if (is.null(departments))
+    departments <- ds$metadata$departments
+  nrow(departments) == 1L
+}
 
 # The columns an exception record must carry to be mapped onto the imported
 # records (see `transform_user_exceptions()`); `DEPARTMENT_CODE` joins in
 # addition when more than one department is imported.
 .exception_list_cols <- c(
   "RULE_ID", "NEOIPC_PATIENT_ID", "ENROLMENT_DATE", "EVENT_TYPE", "EVENT_DATE")
+
+# The event types an exception record may name, as `transform_user_exceptions()`
+# levels them.
+.exception_event_types <- c("adm", "pro", "bsi", "nec", "ssi", "hap", "end")
 
 # Whether `include_invalid_patients` carries an exception list rather than a
 # switch. The full patient tier keeps `patient_id` whenever it does, whatever
@@ -505,7 +531,7 @@ transform_user_exceptions <- function(ex, ds)
     dplyr::mutate(
       event_type_key = factor(
         tolower(.data$EVENT_TYPE),
-        levels = c("adm","pro","bsi","nec","ssi","hap","end")),
+        levels = .exception_event_types),
       .keep = "unused")
 
   if(is_single_department(ds))
