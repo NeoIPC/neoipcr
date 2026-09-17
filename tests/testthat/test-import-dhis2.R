@@ -767,8 +767,8 @@ test_that("import_dhis2 refuses to validate patients without the full enrollment
   expect_equal(ncol(ds$patients), 0L)
 
   # With more than one department the records join on the department code
-  # as well; a list without it is refused once the count is known, before
-  # the mapping.
+  # as well; a list without it is refused as soon as the metadata read has
+  # settled the count, before any tracker request.
   m <- new_dhis2_mock(attribute_fixtures())
   httr2::local_mocked_responses(m$mock)
   expect_error(
@@ -778,6 +778,7 @@ test_that("import_dhis2 refuses to validate patients without the full enrollment
       include_test_data        = TRUE,
       include_invalid_patients = exceptions)),
     class = "neoipcr_invalid_exception_list")
+  expect_false(any(grepl("/tracker/", m$urls(), fixed = TRUE)))
 })
 
 test_that("import_dhis2 keeps the records an exception list names", {

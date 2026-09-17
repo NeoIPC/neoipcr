@@ -55,7 +55,9 @@ import_dhis2 <- function(
                    " (and DEPARTMENT_CODE when more than one department is imported).")),
         class = "neoipcr_invalid_exception_list")
     # The columns join onto the imported records, so they must be of the
-    # types those carry: `Date` dates (a `POSIXct` would not join), a
+    # types those carry: `Date` dates (a `POSIXct` does join — vctrs casts
+    # the `Date` side to midnight — but one with a time of day silently
+    # matches nothing), a
     # numeric rule id, a character patient id, and an event type from the
     # stage vocabulary (case does not matter; `NA` names an enrollment-level
     # record together with an `NA` event date).
@@ -97,6 +99,20 @@ import_dhis2 <- function(
     get_user_info()
 
   metadata <- get_metadata(d2req_base, user_info, dataset_options)
+
+  # The metadata read settles the department count: with more than one
+  # department an exception list's records join on the department code as
+  # well (see `transform_user_exceptions()`), so a list without it is refused
+  # here, before the tracker requests.
+  if (dataset_options$include_patient != "no" && validation_requested &&
+      !rlang::is_bool(dataset_options$include_invalid_patients) &&
+      !is_single_department(list(metadata = metadata)) &&
+      !("DEPARTMENT_CODE" %in% names(dataset_options$include_invalid_patients)))
+    rlang::abort(c(
+      "The exception list needs `DEPARTMENT_CODE` when more than one department is imported.",
+      x = sprintf("%d departments were imported.", nrow(metadata$.departments_internal_map)),
+      i = "Add the column, or narrow the import to one department with `department_filter`."),
+      class = "neoipcr_invalid_exception_list")
 
   tracker_req <- d2req_base |>
     httr2::req_url_path_append("tracker") |>
@@ -335,19 +351,10 @@ import_dhis2 <- function(
   # request; how many departments the import holds is known only now.
   if(dataset_options$include_patient != "no" && validation_requested)
   {
-    if(!rlang::is_bool(dataset_options$include_invalid_patients)) {
-      # With more than one department the records join on the department
-      # code as well (see `transform_user_exceptions()`).
-      if (!is_single_department(r) &&
-          !("DEPARTMENT_CODE" %in% names(dataset_options$include_invalid_patients)))
-        rlang::abort(c(
-          "The exception list needs `DEPARTMENT_CODE` when more than one department is imported.",
-          x = sprintf("%d departments were imported.", nrow(r$metadata$departments)),
-          i = "Add the column, or narrow the import to one department with `department_filter`."),
-          class = "neoipcr_invalid_exception_list")
+    if(!rlang::is_bool(dataset_options$include_invalid_patients))
       exceptions <- dataset_options$include_invalid_patients |>
         transform_user_exceptions(r)
-    } else exceptions <- NULL
+    else exceptions <- NULL
 
     v <- r |> validate(exceptions = exceptions)
     r$validationResults <- v
