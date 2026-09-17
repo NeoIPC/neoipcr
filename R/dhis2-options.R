@@ -68,13 +68,19 @@
 #'  patient records into the dataset.
 #' @param include_test_data Include data from test departments into the dataset.
 #' @param include_invalid_patients Include data from patient records that
-#'  could have validation errors: `FALSE` (the default) removes them, a
-#'  character vector of patient ids exempts those from removal, and `TRUE`
-#'  skips the validation pass altogether. Validation is patient-anchored:
-#'  with `include_patient = "no"` there is nothing to validate and the pass
-#'  is skipped whatever this option says. When it does run — patients
-#'  present and this option not `TRUE` — it needs `include_enrollment` and
-#'  `include_event` set to `"full"`, and an import asking for less aborts
+#'  could have validation errors: `FALSE` (the default) removes them, `TRUE`
+#'  skips the validation pass altogether, and a data frame of exception
+#'  records keeps the named records despite the rule that flags them. An
+#'  exception record carries `RULE_ID`, `NEOIPC_PATIENT_ID`, `ENROLMENT_DATE`
+#'  and `EVENT_DATE` (`Date`), `EVENT_TYPE`, and `DEPARTMENT_CODE` when more
+#'  than one department is imported; the records are matched by patient id,
+#'  so a list needs `include_patient = "full"`, which then keeps
+#'  `patient_id` whatever `patient_columns` says. Validation is
+#'  patient-anchored: with `include_patient = "no"` there is nothing to
+#'  validate and the pass is skipped whatever this option says. When it does
+#'  run — patients present and this option not `TRUE` — it needs
+#'  `include_enrollment` and `include_event` set to `"full"`, and an import
+#'  asking for less, or handing over a malformed exception list, aborts
 #'  before its first request; `TRUE` imposes no such requirement.
 #' @param include_incomplete Include incomplete records into the dataset.
 #'  Possible values are "enrollments" and "events"

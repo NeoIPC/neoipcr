@@ -14,7 +14,7 @@ get_organisationUnit_request <- function(req_base, user_info, dataset_options)
   if(dataset_options$include_department == "full")
     fields <- paste0(fields, ",code,displayName,displayShortName,displayDescription,openingDate,comment,geometry")
   # We need the department code for filtering or to transform the supplied exceptions
-  else if(length(dataset_options$include_invalid_patients) > 1 || length(dataset_options$department_filter) > 0)
+  else if(has_exception_list(dataset_options) || length(dataset_options$department_filter) > 0)
     fields <- paste0(fields, ",code")
 
   # Hospital attribute values are fetched only on request. The hospital block

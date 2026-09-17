@@ -657,6 +657,43 @@ test_that("import_dhis2 refuses to validate patients without the full enrollment
     include_invalid_patients = FALSE))
   expect_true(is.data.frame(ds$validationResults))
 
+  # An exception list must be a data frame of exception records; anything
+  # else is refused before the first request, since the list is mapped onto
+  # the imported records by those columns.
+  m <- new_dhis2_mock(import_test_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  expect_error(
+    import_dhis2(test_conn(), import_test_opts(
+      include_invalid_patients = c("PAT_1", "PAT_2"))),
+    class = "neoipcr_invalid_exception_list")
+  expect_error(
+    import_dhis2(test_conn(), import_test_opts(
+      include_invalid_patients = tibble::tibble(NEOIPC_PATIENT_ID = "PAT_1"))),
+    class = "neoipcr_invalid_exception_list")
+  expect_length(m$urls(), 0L)
+
+  # A well-formed list needs the full patient tier, which keeps `patient_id`
+  # for the matching whatever `patient_columns` says; a pseudonymized tier
+  # is refused before the first request.
+  exceptions <- tibble::tibble(
+    RULE_ID           = integer(),
+    NEOIPC_PATIENT_ID = character(),
+    ENROLMENT_DATE    = as.Date(character()),
+    EVENT_TYPE        = character(),
+    EVENT_DATE        = as.Date(character()))
+  expect_error(
+    import_dhis2(test_conn(), import_test_opts(
+      include_patient          = "pseudo",
+      include_invalid_patients = exceptions)),
+    class = "neoipcr_validation_needs_facts")
+  expect_length(m$urls(), 0L)
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_patient          = "full",
+    patient_columns          = character(),
+    include_invalid_patients = exceptions))
+  expect_true(is.data.frame(ds$validationResults))
+  expect_true("patient_id" %in% names(ds$patients))
+
   # Opting out of validation is the way to a patient-only import.
   ds <- import_dhis2(test_conn(), import_test_opts(
     include_enrollment = "no",

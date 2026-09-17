@@ -75,19 +75,24 @@ test_that("patient_id maps to 'id' patient_columns key (legacy naming)", {
 
 test_that("patient_id survives via also_when when include_invalid_patients is a list", {
   # `transform_user_exceptions()` needs `patients$patient_id` to match
-  # caller-supplied IDs in `include_invalid_patients`. Schema must
-  # preserve the column under that opts combination regardless of
-  # `patient_columns` membership.
+  # the records of an exception list passed as `include_invalid_patients`.
+  # Schema must preserve the column under that opts combination regardless
+  # of `patient_columns` membership.
   opts_id_via_list <- dhis2_dataset_options(
     include_patient          = "full",
     patient_columns          = character(),
-    include_invalid_patients = c("PAT_1", "PAT_2"))
+    include_invalid_patients = tibble::tibble(
+      RULE_ID           = 1L,
+      NEOIPC_PATIENT_ID = "PAT_1",
+      ENROLMENT_DATE    = as.Date("2024-01-01"),
+      EVENT_TYPE        = "adm",
+      EVENT_DATE        = as.Date("2024-01-01")))
   schema <- neoipcr:::compile_schema(neoipcr:::patients_cols, opts_id_via_list)
   expect_true("patient_id" %in% names(schema))
 
-  # Boolean TRUE / FALSE does not trigger the escape hatch — only a
-  # multi-element character vector does. Under boolean TRUE the
-  # validator doesn't need patient IDs for matching.
+  # Boolean TRUE / FALSE does not trigger the escape hatch — only an
+  # exception list (a data frame) does. Under boolean TRUE the validator
+  # doesn't need patient IDs for matching.
   opts_id_true_bool <- dhis2_dataset_options(
     include_patient          = "full",
     patient_columns          = character(),

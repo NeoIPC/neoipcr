@@ -37,7 +37,8 @@ section above it for the next changes.
   trip the pass's preconditions and the eligibility filter's look for admission data, now completes.
   An import that asks for validated patients without the full enrollments and events to check them
   against aborts before the first request, naming both ways out (import both with `"full"`, or
-  `include_invalid_patients = TRUE`); `validate()` requires the same.
+  `include_invalid_patients = TRUE`); `validate()` requires the same. An exception list passed as
+  `include_invalid_patients` is checked for its record columns before the first request as well.
 
 # neoipcr 0.0.0.9001
 

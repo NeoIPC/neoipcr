@@ -34,6 +34,31 @@ import_dhis2 <- function(
         dataset_options$include_enrollment, dataset_options$include_event),
       i = "Import both with \"full\", or set `include_invalid_patients = TRUE` to keep every patient unvalidated."),
       class = "neoipcr_validation_needs_facts")
+  # An exception list is mapped onto the imported records by the columns
+  # below and by the patients' ids, which only the full patient tier
+  # carries; a list without them would fail inside that mapping, after every
+  # request was made.
+  if (!rlang::is_bool(dataset_options$include_invalid_patients)) {
+    missing_cols <- setdiff(
+      .exception_list_cols, names(dataset_options$include_invalid_patients))
+    if (!is.data.frame(dataset_options$include_invalid_patients) ||
+        length(missing_cols) > 0L)
+      rlang::abort(c(
+        "`include_invalid_patients` must be `TRUE`, `FALSE` or a data frame of exception records.",
+        x = if (is.data.frame(dataset_options$include_invalid_patients))
+              paste0("Missing column(s): ", paste(missing_cols, collapse = ", "), ".")
+            else
+              paste0("Got a ", class(dataset_options$include_invalid_patients)[1], "."),
+        i = paste0("An exception record carries ", paste(.exception_list_cols, collapse = ", "),
+                   " (and DEPARTMENT_CODE when more than one department is imported).")),
+        class = "neoipcr_invalid_exception_list")
+    if (dataset_options$include_patient != "full")
+      rlang::abort(c(
+        "An exception list needs the full patient tier: its records are matched by patient id.",
+        x = sprintf("`include_patient` is \"%s\".", dataset_options$include_patient),
+        i = "Set `include_patient = \"full\"` (`patient_id` is kept for the matching whatever `patient_columns` says), or drop the exception list."),
+        class = "neoipcr_validation_needs_facts")
+  }
 
   d2req_base <- dhis2_request(connection_options)
 
@@ -437,6 +462,19 @@ dhis2_request <- function(connection_options)
 
 is_single_department <- function(ds)
   nrow(ds$metadata$departments) == 1L
+
+# The columns an exception record must carry to be mapped onto the imported
+# records (see `transform_user_exceptions()`); `DEPARTMENT_CODE` joins in
+# addition when more than one department is imported.
+.exception_list_cols <- c(
+  "RULE_ID", "NEOIPC_PATIENT_ID", "ENROLMENT_DATE", "EVENT_TYPE", "EVENT_DATE")
+
+# Whether `include_invalid_patients` carries an exception list rather than a
+# switch. The full patient tier keeps `patient_id` whenever it does, whatever
+# `patient_columns` says, so the list can be matched; `import_dhis2()`
+# requires that tier for a list.
+has_exception_list <- function(dataset_options)
+  is.data.frame(dataset_options$include_invalid_patients)
 
 transform_user_exceptions <- function(ex, ds)
 {
