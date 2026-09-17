@@ -82,8 +82,7 @@ import_test_fixtures <- function(version = "2.40.12.0", me = "me-nested.json",
 # The org-unit requests an import issued, parsed: the department request and,
 # when the instance defines `IsTestunit`, the test-unit follow-up.
 orgunit_requests <- function(urls) {
-  parsed <- urls |>
-    Filter(f = function(u) grepl("/organisationUnits", u, fixed = TRUE)) |>
+  parsed <- Filter(function(u) grepl("/organisationUnits", u, fixed = TRUE), urls) |>
     lapply(httr2::url_parse)
   is_flag <- vapply(parsed, function(u)
     any(grepl("^[^.]+:eq:true$", unlist(u$query[names(u$query) == "filter"]))),
@@ -693,6 +692,29 @@ test_that("import_dhis2 refuses to validate patients without the full enrollment
     include_invalid_patients = exceptions))
   expect_true(is.data.frame(ds$validationResults))
   expect_true("patient_id" %in% names(ds$patients))
+
+  # Without patients the pass never reads the list, so a metadata-only
+  # import accepts one under the public constructor.
+  ds <- import_dhis2(test_conn(), dhis2_dataset_options(
+    include_patient          = "no",
+    include_enrollment       = "no",
+    include_event            = "no",
+    include_department       = "pseudo",
+    include_invalid_patients = exceptions))
+  expect_equal(ncol(ds$patients), 0L)
+
+  # With more than one department the records join on the department code
+  # as well; a list without it is refused once the count is known, before
+  # the mapping.
+  m <- new_dhis2_mock(attribute_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  expect_error(
+    import_dhis2(test_conn(), import_test_opts(
+      include_patient          = "full",
+      include_department       = "full",
+      include_test_data        = TRUE,
+      include_invalid_patients = exceptions)),
+    class = "neoipcr_invalid_exception_list")
 
   # Opting out of validation is the way to a patient-only import.
   ds <- import_dhis2(test_conn(), import_test_opts(

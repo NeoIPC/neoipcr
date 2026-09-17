@@ -37,8 +37,10 @@ import_dhis2 <- function(
   # An exception list is mapped onto the imported records by the columns
   # below and by the patients' ids, which only the full patient tier
   # carries; a list without them would fail inside that mapping, after every
-  # request was made.
-  if (!rlang::is_bool(dataset_options$include_invalid_patients)) {
+  # request was made. Without patients the pass does not run and the list is
+  # not read, so it is not checked either.
+  if (dataset_options$include_patient != "no" &&
+      !rlang::is_bool(dataset_options$include_invalid_patients)) {
     missing_cols <- setdiff(
       .exception_list_cols, names(dataset_options$include_invalid_patients))
     if (!is.data.frame(dataset_options$include_invalid_patients) ||
@@ -300,13 +302,23 @@ import_dhis2 <- function(
       `.cache` = new.env(parent = emptyenv())),
     class = c("neoipcr_ds", "list"))
 
-  # The preconditions of this pass were checked before the first request.
+  # The option-only preconditions of this pass were checked before the first
+  # request; how many departments the import holds is known only now.
   if(dataset_options$include_patient != "no" && validation_requested)
   {
-    if(!rlang::is_bool(dataset_options$include_invalid_patients))
+    if(!rlang::is_bool(dataset_options$include_invalid_patients)) {
+      # With more than one department the records join on the department
+      # code as well (see `transform_user_exceptions()`).
+      if (!is_single_department(r) &&
+          !("DEPARTMENT_CODE" %in% names(dataset_options$include_invalid_patients)))
+        rlang::abort(c(
+          "The exception list needs `DEPARTMENT_CODE` when more than one department is imported.",
+          x = sprintf("%d departments were imported.", nrow(r$metadata$departments)),
+          i = "Add the column, or narrow the import to one department with `department_filter`."),
+          class = "neoipcr_invalid_exception_list")
       exceptions <- dataset_options$include_invalid_patients |>
         transform_user_exceptions(r)
-    else exceptions <- NULL
+    } else exceptions <- NULL
 
     v <- r |> validate(exceptions = exceptions)
     r$validationResults <- v

@@ -928,7 +928,7 @@ get_cumulative_incidence_table <- function(
   if (any(is.na(windows$start) | is.na(windows$end) | windows$start > windows$end))
     rlang::abort("Every window needs `start <= end`, with neither date missing.")
   if (any(is.na(windows$department_key)))
-    rlang::abort("Every window needs a `department_key`; a window without a department cannot be meant.")
+    rlang::abort("Every window must have a non-missing `department_key`.")
 
   event_types <- rlang::arg_match(
     event_types, c("bsi", "nec", "hap", "ssi"), multiple = TRUE)
