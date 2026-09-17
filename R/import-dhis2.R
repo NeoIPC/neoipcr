@@ -50,7 +50,7 @@ import_dhis2 <- function(
         x = if (is.data.frame(dataset_options$include_invalid_patients))
               paste0("Missing column(s): ", paste(missing_cols, collapse = ", "), ".")
             else
-              paste0("Got a ", class(dataset_options$include_invalid_patients)[1], "."),
+              paste0("Got ", obj_type_friendly(dataset_options$include_invalid_patients), "."),
         i = paste0("An exception record carries ", paste(.exception_list_cols, collapse = ", "),
                    " (and DEPARTMENT_CODE when more than one department is imported).")),
         class = "neoipcr_invalid_exception_list")

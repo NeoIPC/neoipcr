@@ -250,7 +250,7 @@ A closed gate yields a 0×0 tibble; there is no "pseudo" tier, because the opt-i
 | `DATETIME` | `value_datetime` (UTC) |
 | every other type, and any value type the package does not know | `value_text` |
 
-The raw string is not kept. A value that does not parse under its family becomes `NA` in every typed column and raises one `neoipcr_attribute_value_parse_failure` warning per attribute code, naming the code and the count — never the value.
+The raw string is not kept. A value that does not parse under its family becomes `NA` in every typed column and is reported in a single `neoipcr_attribute_value_parse_failure` warning per resolved table, listing each failing attribute code with its count — never the value.
 
 **Resolution by code.** The definitions (`/api/metadata` `attributes`, filtered to `organisationUnitAttribute:eq:true`) are requested on every import, and a value's attribute UID is resolved to `attribute_code` through them; no UID is public on any of the three tibbles. A value whose definition the caller cannot read (the contact-person attributes are shared privately) is dropped and counted in a debug log line. Values are requested only for the opted-in entities, and resolved for the org units that survived the metadata narrowing, so a pruned department's value never raises a warning.
 
