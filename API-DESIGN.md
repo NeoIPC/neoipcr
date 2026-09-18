@@ -355,16 +355,16 @@ Already present: `dplyr`, `lubridate`, `rlang`, `readr`, `stringr`, `tidyr`, `ti
 
 ### §6.1. Current-state summary
 
-**Scope of the problem is narrower than feared.** Audit A4a enumerated 73 `gettext()` / `gettextf()` call sites across this package's `R/`:
+**Scope of the problem is narrower than feared.** Audit A4a enumerated 73 `gettext()` / `gettextf()` call sites across this package's `R/`; 46 of them, the validation-rule descriptions in `R/validation.R`, have since been deleted with the formatter closures that held them, leaving 27:
 
 | Classification | Count | Locations |
 |---|---|---|
-| M — Message (error/warning/diagnostic shown to a human operator) | 60 | [R/dhis2-connect.R](R/dhis2-connect.R) (14), [R/validation.R](R/validation.R) (46) |
+| M — Message (error/warning/diagnostic shown to a human operator) | 14 | [R/dhis2-connect.R](R/dhis2-connect.R) (14) |
 | C — Column header | 0 | — |
 | F — Factor-level label | 11 | All in [R/calc-procedure-categories.R:215–231](R/calc-procedure-categories.R#L215-L231) (`get_procedure_category_pretty()`; the eleventh, at :231, is the `NEOIPC-PERMANENT(dataset-format)` recode of the pre-`-ize` category spelling) |
 | D — DHIS2-display passthrough (redundant wrap) | 0 | — |
 | B — Bug (multi-arg `gettext` with silently dropped args) | 2 | [R/calc-api.R:843](R/calc-api.R#L843) and [R/calc-procedure-categories.R:45](R/calc-procedure-categories.R#L45) |
-| **Total** | **73** | — |
+| **Total** | **27** | — |
 
 Two corrections to the A4 problem-statement in the plan file:
 
@@ -454,7 +454,7 @@ Nothing is in both tracks.
 
 | Class | Count | Mechanism under new architecture |
 |---|---|---|
-| **M** — Message | 60 | Stay on `gettext` / `gettextf`. No call-site change in Phase 2 (other than the `Sys.getlocale` cleanup in §6.7's locale chain). `R-neoipcr.pot` regenerated after the F-class calls exit. |
+| **M** — Message | 14 | Stay on `gettext` / `gettextf`. No call-site change in Phase 2 (other than the `Sys.getlocale` cleanup in §6.7's locale chain). `R-neoipcr.pot` regenerated after the F-class calls exit. |
 | **C** — Column header | 0 | None exist today. If new entry points add column headers, they use the YAML resource cascade (via `get_string_resources()` promoted in §5 row 7), not `gettext`. |
 | **F** — Factor-level label | 11 | Migrate to package data. All 11 are procedure-category labels in [R/calc-procedure-categories.R:215–231](R/calc-procedure-categories.R#L215-L231). Target: the `procedure_category_labels` tibble proposed in §7 row 2, served by a new `get_procedure_category_labels(locale = NULL)`. Migration is the only non-trivial code change in Phase 2. |
 | **D** — DHIS2-display passthrough | 0 | None exist today. Entry points already consume DHIS2's `display*` fields directly (see §6.3). Document this pattern in every public entry point's roxygen. |
@@ -483,7 +483,6 @@ labels <- get_procedure_category_labels(locale = opts$locale)  # explicit arg wi
 | `R/calc-procedure-categories.R:45` | B | Fix to two separate `gettext` calls *or* move to YAML cascade (decide alongside string-resources promotion, §5 row 7). |
 | [R/calc-procedure-categories.R:215–231](R/calc-procedure-categories.R#L215-L231) (11 calls) | F → data-layer | Replace with reads from `procedure_category_labels` tibble. `get_procedure_category_pretty()` becomes `get_procedure_category_labels(locale = NULL)`; locale-resolution chain applied; the `"to_be_categorised"` recode at :231 stays as a code the lookup accepts. Remove the `Sys.getlocale("LC_MESSAGES")` fallback at line 14 of `get_procedure_categories()`. |
 | `R/dhis2-connect.R` (14 calls) | M | No action required. Stay as-is. Optionally document the behaviour of `gettext` falling back to English when the catalog lookup fails — useful for vignette writers. |
-| `R/validation.R` (46 calls) | M | No action. Stay on `gettext/gettextf`. |
 
 **Phase 2 sequencing.** The migration has exactly one non-trivial step: create `procedure_category_labels`, populate it, rewrite `get_procedure_category_pretty()` to read from it, delete the 11 `gettext` lines. Everything else is either "do nothing" (M-class) or a two-line bugfix (B-class). Estimate: half a day of work plus PO catalog regeneration.
 

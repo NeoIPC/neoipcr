@@ -178,9 +178,9 @@ has_exception_list <- function(dataset_options)
   is.data.frame(dataset_options$include_invalid_patients)
 
 # Assert that `ex` is an exception list of the shape the records join on:
-# the record columns, `Date` dates (a `POSIXct` does join — vctrs casts the
-# `Date` side to midnight — but one with a time of day silently matches
-# nothing), a rule id that names a registered rule, a patient id and a
+# the record columns, `Date` dates (a `POSIXct` is refused rather than
+# cast, since one carrying a time of day would silently match nothing
+# against the records' dates), a rule id that names a registered rule, a patient id and a
 # department code (where the column is present) on every record — a blank
 # one would match nothing and exempt nothing in silence — and an event type
 # from the stage vocabulary (case does not matter; `NA` names an
