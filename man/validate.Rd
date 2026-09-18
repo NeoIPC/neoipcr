@@ -46,12 +46,18 @@ is written and translated where the document is rendered.
 }
 \section{Context fields}{
 
-Each rule records the fields below in \code{context}, and is exempted by an
-exception record matched on the key named as its level. Dates are \code{Date},
-statuses factors, counts integers. A dataset imported without incomplete
-enrolments or events (\code{include_incomplete}) carries no \code{status} column for
-them; the rules then treat every such record as completed, which is what
-the import's request filter made it.\tabular{lll}{
+Each rule records the fields below in \code{context}, identifies its finding
+by the key named as its level, and is exempted by an exception record
+written at that level: the patient alone for rule 1, the patient and the
+enrolment date for an enrolment-level rule, and the event's type and date
+as well for an event-level rule, the type being one the rule concerns
+(rules 7, 12 and 27–30 sepsis, 8, 13 and 35–38 necrotizing enterocolitis,
+9, 14 and 31–34 pneumonia, 10, 15, 22–24, 39 and 40 surgical procedures,
+11, 16, 19, 41 and 42 surgical site infections, 20 any infection).
+Dates are \code{Date}, statuses factors, counts integers. A dataset imported
+without incomplete enrolments or events (\code{include_incomplete}) carries no
+\code{status} column for them; the rules then treat every such record as
+completed, which is what the import's request filter made it.\tabular{lll}{
    Rules \tab Level \tab Context fields \cr
    1 \tab \code{patient_key} \tab none \cr
    2 \tab \code{enrollment_key} \tab none \cr

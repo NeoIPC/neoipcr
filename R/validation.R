@@ -1,50 +1,64 @@
-# The registry of validation rules, in id order. Each entry names the rule
-# and the function that implements it. A finding is data — keys and the
-# values a rule compared — never a sentence: the prose belongs to whichever
-# document renders the finding, where it can be localized.
+# The registry of validation rules, in id order. Each entry names the rule,
+# the level its finding is recorded on — the key a finding is identified by
+# and an exception record is matched on — the event types an event-level
+# rule concerns, and the function that implements it. A finding is data —
+# keys and the values a rule compared — never a sentence: the prose belongs
+# to whichever document renders the finding, where it can be localized.
 validation_rules <- list(
-  list(id = 1L,  fun = validation_rule_1),
-  list(id = 2L,  fun = validation_rule_2),
-  list(id = 3L,  fun = validation_rule_3),
-  list(id = 4L,  fun = validation_rule_4),
-  list(id = 5L,  fun = validation_rule_5),
-  list(id = 6L,  fun = validation_rule_6),
-  list(id = 7L,  fun = validation_rule_7),
-  list(id = 8L,  fun = validation_rule_8),
-  list(id = 9L,  fun = validation_rule_9),
-  list(id = 10L, fun = validation_rule_10),
-  list(id = 11L, fun = validation_rule_11),
-  list(id = 12L, fun = validation_rule_12),
-  list(id = 13L, fun = validation_rule_13),
-  list(id = 14L, fun = validation_rule_14),
-  list(id = 15L, fun = validation_rule_15),
-  list(id = 16L, fun = validation_rule_16),
-  list(id = 17L, fun = validation_rule_17),
-  list(id = 18L, fun = validation_rule_18),
-  list(id = 19L, fun = validation_rule_19),
-  list(id = 20L, fun = validation_rule_20),
-  list(id = 21L, fun = validation_rule_21),
-  list(id = 22L, fun = validation_rule_22),
-  list(id = 23L, fun = validation_rule_23),
-  list(id = 24L, fun = validation_rule_24),
-  list(id = 25L, fun = validation_rule_25),
-  list(id = 26L, fun = validation_rule_26),
-  list(id = 27L, fun = validation_rule_27),
-  list(id = 28L, fun = validation_rule_28),
-  list(id = 29L, fun = validation_rule_29),
-  list(id = 30L, fun = validation_rule_30),
-  list(id = 31L, fun = validation_rule_31),
-  list(id = 32L, fun = validation_rule_32),
-  list(id = 33L, fun = validation_rule_33),
-  list(id = 34L, fun = validation_rule_34),
-  list(id = 35L, fun = validation_rule_35),
-  list(id = 36L, fun = validation_rule_36),
-  list(id = 37L, fun = validation_rule_37),
-  list(id = 38L, fun = validation_rule_38),
-  list(id = 39L, fun = validation_rule_39),
-  list(id = 40L, fun = validation_rule_40),
-  list(id = 41L, fun = validation_rule_41),
-  list(id = 42L, fun = validation_rule_42))
+  list(id = 1L,  level = "patient",    fun = validation_rule_1),
+  list(id = 2L,  level = "enrollment", fun = validation_rule_2),
+  list(id = 3L,  level = "enrollment", fun = validation_rule_3),
+  list(id = 4L,  level = "enrollment", fun = validation_rule_4),
+  list(id = 5L,  level = "enrollment", fun = validation_rule_5),
+  list(id = 6L,  level = "enrollment", fun = validation_rule_6),
+  list(id = 7L,  level = "event", event_types = "bsi", fun = validation_rule_7),
+  list(id = 8L,  level = "event", event_types = "nec", fun = validation_rule_8),
+  list(id = 9L,  level = "event", event_types = "hap", fun = validation_rule_9),
+  list(id = 10L, level = "event", event_types = "pro", fun = validation_rule_10),
+  list(id = 11L, level = "event", event_types = "ssi", fun = validation_rule_11),
+  list(id = 12L, level = "event", event_types = "bsi", fun = validation_rule_12),
+  list(id = 13L, level = "event", event_types = "nec", fun = validation_rule_13),
+  list(id = 14L, level = "event", event_types = "hap", fun = validation_rule_14),
+  list(id = 15L, level = "event", event_types = "pro", fun = validation_rule_15),
+  list(id = 16L, level = "event", event_types = "ssi", fun = validation_rule_16),
+  list(id = 17L, level = "enrollment", fun = validation_rule_17),
+  list(id = 18L, level = "enrollment", fun = validation_rule_18),
+  list(id = 19L, level = "event", event_types = "ssi", fun = validation_rule_19),
+  list(id = 20L, level = "event", event_types = c("bsi", "nec", "hap", "ssi"),
+       fun = validation_rule_20),
+  list(id = 21L, level = "enrollment", fun = validation_rule_21),
+  list(id = 22L, level = "event", event_types = "pro", fun = validation_rule_22),
+  list(id = 23L, level = "event", event_types = "pro", fun = validation_rule_23),
+  list(id = 24L, level = "event", event_types = "pro", fun = validation_rule_24),
+  list(id = 25L, level = "enrollment", fun = validation_rule_25),
+  list(id = 26L, level = "enrollment", fun = validation_rule_26),
+  list(id = 27L, level = "event", event_types = "bsi", fun = validation_rule_27),
+  list(id = 28L, level = "event", event_types = "bsi", fun = validation_rule_28),
+  list(id = 29L, level = "event", event_types = "bsi", fun = validation_rule_29),
+  list(id = 30L, level = "event", event_types = "bsi", fun = validation_rule_30),
+  list(id = 31L, level = "event", event_types = "hap", fun = validation_rule_31),
+  list(id = 32L, level = "event", event_types = "hap", fun = validation_rule_32),
+  list(id = 33L, level = "event", event_types = "hap", fun = validation_rule_33),
+  list(id = 34L, level = "event", event_types = "hap", fun = validation_rule_34),
+  list(id = 35L, level = "event", event_types = "nec", fun = validation_rule_35),
+  list(id = 36L, level = "event", event_types = "nec", fun = validation_rule_36),
+  list(id = 37L, level = "event", event_types = "nec", fun = validation_rule_37),
+  list(id = 38L, level = "event", event_types = "nec", fun = validation_rule_38),
+  list(id = 39L, level = "event", event_types = "pro", fun = validation_rule_39),
+  list(id = 40L, level = "event", event_types = "pro", fun = validation_rule_40),
+  list(id = 41L, level = "event", event_types = "ssi", fun = validation_rule_41),
+  list(id = 42L, level = "event", event_types = "ssi", fun = validation_rule_42))
+
+# The level of each rule, named by rule id, and the event types an
+# event-level rule concerns; `check_exception_list()` holds a record's shape
+# to its rule's level through these.
+.rule_levels <- function()
+  rlang::set_names(
+    vapply(validation_rules, \(r) r$level, character(1)),
+    validation_rule_ids())
+
+.rule_event_types <- function(rule_id)
+  validation_rules[[match(rule_id, validation_rule_ids())]]$event_types
 
 # The dataset slot that carries each infection or surgery event type's form
 # data, for the rule families that run once per type.
@@ -93,13 +107,12 @@ validation_rules <- list(
     event_key      = integer())
 
 # The exception records addressed to one rule, in key form with every key
-# column present. A rule anti-joins its findings on its natural key, so a
-# record whose key at that level is `NA` exempts nothing: one that did not
-# resolve, or one written on a level above the rule's (an enrolment for an
-# event-level rule). A record written below the rule's level — an event
-# named for an enrolment-level rule — carries the enrolment's key as well,
-# and exempts the enrolment once it has resolved as a whole (see
-# `resolve_validation_exceptions()`).
+# column present. A rule anti-joins its findings on its natural key — the
+# key of its level — so a record that is `NA` there exempts nothing. A
+# record in the user's form is written at its rule's level, which
+# `check_exception_list()` enforces, so once it has resolved it carries that
+# key; a key form built by hand may name another level and then exempts
+# nothing.
 .rule_exceptions <- function(exceptions, rule_id)
 {
   if (is.null(exceptions))
@@ -129,7 +142,7 @@ validation_rules <- list(
   present <- intersect(key_cols, names(exceptions))
   not_integer <- present[!vapply(
     present,
-    \(key) is.numeric(exceptions[[key]]) || all(is.na(exceptions[[key]])),
+    \(key) .whole_or_na(exceptions[[key]]),
     logical(1))]
   wrong <- c(
     .rule_id_problem(exceptions$rule_id, "rule_id"),
@@ -193,12 +206,18 @@ validation_rule_ids <- function()
 #'  records none). Zero rows when nothing is flagged.
 #'
 #' @section Context fields:
-#' Each rule records the fields below in `context`, and is exempted by an
-#' exception record matched on the key named as its level. Dates are `Date`,
-#' statuses factors, counts integers. A dataset imported without incomplete
-#' enrolments or events (`include_incomplete`) carries no `status` column for
-#' them; the rules then treat every such record as completed, which is what
-#' the import's request filter made it.
+#' Each rule records the fields below in `context`, identifies its finding
+#' by the key named as its level, and is exempted by an exception record
+#' written at that level: the patient alone for rule 1, the patient and the
+#' enrolment date for an enrolment-level rule, and the event's type and date
+#' as well for an event-level rule, the type being one the rule concerns
+#' (rules 7, 12 and 27–30 sepsis, 8, 13 and 35–38 necrotizing enterocolitis,
+#' 9, 14 and 31–34 pneumonia, 10, 15, 22–24, 39 and 40 surgical procedures,
+#' 11, 16, 19, 41 and 42 surgical site infections, 20 any infection).
+#' Dates are `Date`, statuses factors, counts integers. A dataset imported
+#' without incomplete enrolments or events (`include_incomplete`) carries no
+#' `status` column for them; the rules then treat every such record as
+#' completed, which is what the import's request filter made it.
 #'
 #' | Rules | Level | Context fields |
 #' |---|---|---|

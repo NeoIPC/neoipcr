@@ -16,8 +16,9 @@ A tibble with one row per exception record: \code{RULE_ID} (integer),
 carries it — the shape \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}} accepts as
 \code{include_invalid_patients} and \code{\link[=validate]{validate()}} as \code{exceptions}. A path that
 is not a file, a file that lacks a record column, holds a row with the
-wrong number of fields or a value that does not parse, or names a rule
-outside \code{\link[=validation_rule_ids]{validation_rule_ids()}}, is an error of class
+wrong number of fields or a value that does not parse, names a rule
+outside \code{\link[=validation_rule_ids]{validation_rule_ids()}}, or holds a record written at another
+level than its rule's, is an error of class
 \code{neoipcr_invalid_exception_list}.
 }
 \description{
@@ -25,10 +26,13 @@ Reads the records a data manager has reviewed and wants kept despite the
 validation rule that flags them, from the CSV file the Validation Report
 and the reporting tools exchange. Its columns are \code{RULE_ID},
 \code{DEPARTMENT_CODE}, \code{NEOIPC_PATIENT_ID}, \code{ENROLMENT_DATE}, \code{EVENT_TYPE} and
-\code{EVENT_DATE}; a record on the enrolment level leaves \code{EVENT_TYPE} and
-\code{EVENT_DATE} empty, one on the patient level leaves \code{ENROLMENT_DATE} empty
-as well, and \code{DEPARTMENT_CODE} may be absent when the list covers a single
-department. Dates are read in ISO 8601 form.
+\code{EVENT_DATE}. A record is written at the level of the rule it names, as
+the "Context fields" section of \code{\link[=validate]{validate()}} lists it: for rule 1 the
+patient alone, with \code{ENROLMENT_DATE}, \code{EVENT_TYPE} and \code{EVENT_DATE} empty;
+for an enrolment-level rule the patient and \code{ENROLMENT_DATE}, with the
+event columns empty; for an event-level rule the event's type (one the
+rule concerns) and date as well. \code{DEPARTMENT_CODE} may be absent when the
+list covers a single department. Dates are read in ISO 8601 form.
 }
 \seealso{
 Other validation:

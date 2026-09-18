@@ -1,12 +1,22 @@
 # Tests for R/validation.R — validate() orchestrator and validation_rules registry.
 
-test_that("validation_rules registry has 42 entries with an id and a function each", {
+test_that("validation_rules registry has 42 entries with an id, a level and a function each", {
   expect_equal(length(neoipcr:::validation_rules), 42L)
   for (entry in neoipcr:::validation_rules) {
-    expect_named(entry, c("id", "fun"))
+    expect_true(all(c("id", "level", "fun") %in% names(entry)))
     expect_true(is.integer(entry$id))
+    expect_true(entry$level %in% c("patient", "enrollment", "event"))
+    # An event-level rule names the event types it concerns; no other does.
+    expect_equal("event_types" %in% names(entry), entry$level == "event")
+    if (entry$level == "event")
+      expect_true(all(entry$event_types %in% neoipcr:::.exception_event_types))
     expect_true(is.function(entry$fun))
   }
+  levels <- neoipcr:::.rule_levels()
+  expect_equal(unname(levels["1"]), "patient")
+  expect_equal(unname(levels["3"]), "enrollment")
+  expect_equal(unname(levels["12"]), "event")
+  expect_equal(neoipcr:::.rule_event_types(20L), c("bsi", "nec", "hap", "ssi"))
 })
 
 test_that("validation_rule_ids is exported and lists the registry in order", {
@@ -163,15 +173,14 @@ test_that("validate resolves an exception list written in the user's form", {
   expect_equal(nrow(neoipcr::validate(
     ds, rules = 3L,
     exceptions = written |> dplyr::mutate(NEOIPC_PATIENT_ID = "PAT_9"))), 1L)
-  # A record that names the enrolment's admission event names the enrolment
-  # too, and exempts it once it has resolved as a whole; one naming an event
-  # the dataset does not hold resolves to nothing, whatever else it names.
-  on_event <- written |>
-    dplyr::mutate(EVENT_TYPE = "adm", EVENT_DATE = as.Date("2024-01-02"))
-  expect_equal(nrow(neoipcr::validate(ds, rules = 3L, exceptions = on_event)), 0L)
-  expect_equal(nrow(neoipcr::validate(
-    ds, rules = 3L,
-    exceptions = on_event |> dplyr::mutate(EVENT_DATE = as.Date("2024-01-07")))), 1L)
+  # Rule 3 is recorded on the enrolment, so a record for it that names an
+  # event is written at the wrong level and refused rather than resolved.
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = written |>
+        dplyr::mutate(EVENT_TYPE = "adm", EVENT_DATE = as.Date("2024-01-02"))),
+    regexp = "level",
+    class = "neoipcr_invalid_exception_list")
 })
 
 test_that("validate refuses exceptions that are neither form", {
@@ -201,6 +210,21 @@ test_that("validate checks a key-form list as it checks the written form", {
   expect_error(
     neoipcr::validate(ds, rules = 3L,
       exceptions = tibble::tibble(rule_id = NA_integer_, enrollment_key = 1L)),
+    class = "neoipcr_invalid_exception_list")
+  # A fraction would be truncated onto another record's key, an infinity
+  # onto `NA`; both are refused rather than cast.
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = 3L, enrollment_key = 1.5)),
+    regexp = "enrollment_key",
+    class = "neoipcr_invalid_exception_list")
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = 3L, enrollment_key = Inf)),
+    class = "neoipcr_invalid_exception_list")
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = Inf, enrollment_key = 1L)),
     class = "neoipcr_invalid_exception_list")
   # Whole-number doubles are integers in disguise and are accepted.
   expect_equal(nrow(neoipcr::validate(

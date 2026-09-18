@@ -79,7 +79,11 @@ test_that("read_validation_exceptions refuses a row with the wrong number of fie
   path <- write_exception_csv(exception_rows())
   # A record short of its two event fields would otherwise be read as an
   # enrolment-level one.
-  writeLines(c(readLines(path), "3,DEPT_1,PAT_2,2024-01-01"), path)
+  lines <- c(readLines(path), "3,DEPT_1,PAT_2,2024-01-01")
+  # A binary connection keeps the fixture LF whatever the platform.
+  con <- file(path, open = "wb")
+  writeLines(lines, con, sep = "\n", useBytes = TRUE)
+  close(con)
   # Named by its line in the file, the header being line one. The first
   # condition signalled is caught, so readr's own warning about the row,
   # were it let through, would be it and fail the class check.
@@ -169,11 +173,13 @@ resolvable_ds <- function(n_departments = 1L, include_department = "full") {
   ds
 }
 
+# One record at each level: rule 3 on the enrolment, rule 12 on the sepsis
+# event, rule 1 on a patient the dataset does not hold.
 written_exceptions <- function(department_code = NULL) {
   ex <- tibble::tibble(
     RULE_ID           = c(3L, 12L, 1L),
     NEOIPC_PATIENT_ID = c("PAT_1", "PAT_1", "PAT_9"),
-    ENROLMENT_DATE    = as.Date(c("2024-01-01", "2024-01-01", "2024-01-01")),
+    ENROLMENT_DATE    = as.Date(c("2024-01-01", "2024-01-01", NA)),
     EVENT_TYPE        = c(NA, "bsi", NA),
     EVENT_DATE        = as.Date(c(NA, "2024-01-06", NA)))
   if (!is.null(department_code))
@@ -208,10 +214,35 @@ test_that("resolve_validation_exceptions resolves a record as a whole or not at 
   keys <- neoipcr::resolve_validation_exceptions(ds, ex)
   expect_true(all(is.na(c(keys$patient_key, keys$enrollment_key))))
   # A patient-level record names the patient alone.
-  ex <- written_exceptions()[1, ] |> dplyr::mutate(RULE_ID = 1L, ENROLMENT_DATE = as.Date(NA))
+  ex <- written_exceptions()[3, ] |> dplyr::mutate(NEOIPC_PATIENT_ID = "PAT_1")
   keys <- neoipcr::resolve_validation_exceptions(ds, ex)
   expect_equal(keys$patient_key, 1L)
   expect_true(is.na(keys$enrollment_key))
+})
+
+test_that("resolve_validation_exceptions refuses a record written at another level than its rule", {
+  ds <- resolvable_ds()
+  refuse <- function(ex, pattern)
+    expect_error(
+      neoipcr::resolve_validation_exceptions(ds, ex),
+      regexp = pattern,
+      class = "neoipcr_invalid_exception_list")
+  # Rule 1 concerns the patient alone.
+  refuse(written_exceptions()[3, ] |> dplyr::mutate(ENROLMENT_DATE = as.Date("2024-01-01")),
+         "ENROLMENT_DATE")
+  # Rule 3 is recorded on the enrolment, not on the admission event.
+  refuse(written_exceptions()[1, ] |>
+           dplyr::mutate(EVENT_TYPE = "adm", EVENT_DATE = as.Date("2024-01-01")),
+         "EVENT_TYPE")
+  # Rule 12 is recorded on a sepsis event and needs one named.
+  refuse(written_exceptions()[2, ] |>
+           dplyr::mutate(EVENT_TYPE = NA_character_, EVENT_DATE = as.Date(NA)),
+         "EVENT_TYPE")
+  refuse(written_exceptions()[2, ] |> dplyr::mutate(EVENT_TYPE = "hap"), "12")
+  # The message names the rules concerned.
+  refuse(written_exceptions() |> dplyr::mutate(EVENT_TYPE = c("adm", "bsi", NA),
+                                              EVENT_DATE = as.Date(c("2024-01-01", "2024-01-06", NA))),
+         "rule\\(s\\) 3")
 })
 
 test_that("resolve_validation_exceptions resolves a record to every dataset record it fits", {

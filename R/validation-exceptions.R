@@ -4,10 +4,13 @@
 #' validation rule that flags them, from the CSV file the Validation Report
 #' and the reporting tools exchange. Its columns are `RULE_ID`,
 #' `DEPARTMENT_CODE`, `NEOIPC_PATIENT_ID`, `ENROLMENT_DATE`, `EVENT_TYPE` and
-#' `EVENT_DATE`; a record on the enrolment level leaves `EVENT_TYPE` and
-#' `EVENT_DATE` empty, one on the patient level leaves `ENROLMENT_DATE` empty
-#' as well, and `DEPARTMENT_CODE` may be absent when the list covers a single
-#' department. Dates are read in ISO 8601 form.
+#' `EVENT_DATE`. A record is written at the level of the rule it names, as
+#' the "Context fields" section of [validate()] lists it: for rule 1 the
+#' patient alone, with `ENROLMENT_DATE`, `EVENT_TYPE` and `EVENT_DATE` empty;
+#' for an enrolment-level rule the patient and `ENROLMENT_DATE`, with the
+#' event columns empty; for an event-level rule the event's type (one the
+#' rule concerns) and date as well. `DEPARTMENT_CODE` may be absent when the
+#' list covers a single department. Dates are read in ISO 8601 form.
 #'
 #' @param path Path to the CSV file.
 #'
@@ -17,8 +20,9 @@
 #'  carries it — the shape [dhis2_dataset_options()] accepts as
 #'  `include_invalid_patients` and [validate()] as `exceptions`. A path that
 #'  is not a file, a file that lacks a record column, holds a row with the
-#'  wrong number of fields or a value that does not parse, or names a rule
-#'  outside [validation_rule_ids()], is an error of class
+#'  wrong number of fields or a value that does not parse, names a rule
+#'  outside [validation_rule_ids()], or holds a record written at another
+#'  level than its rule's, is an error of class
 #'  `neoipcr_invalid_exception_list`.
 #' @family validation
 #' @export
@@ -108,8 +112,8 @@ read_validation_exceptions <- function(path)
 #' @returns A tibble with `rule_id`, `patient_key`, `enrollment_key` and
 #'  `event_key` (`department_key` too when the records were matched by
 #'  department code): one row per record, or one per dataset record it fits;
-#'  `NA` throughout where a record did not resolve, and on the keys below a
-#'  record's own level.
+#'  `NA` throughout where a record did not resolve, and on the keys below
+#'  its rule's level.
 #' @family validation
 #' @export
 resolve_validation_exceptions <- function(x, exceptions)
@@ -214,13 +218,19 @@ check_exception_list <- function(ex, header)
     if (!all(is.na(event_types) | event_types %in% .exception_event_types))
       paste0("`EVENT_TYPE` outside ", paste(.exception_event_types, collapse = "/"), " or `NA`"),
     if (inherits(ex$EVENT_DATE, "Date") && any(is.na(event_types) != is.na(ex$EVENT_DATE)))
-      "`EVENT_TYPE` and `EVENT_DATE` not both set or both `NA` (an enrollment-level record has neither)",
-    if (inherits(ex$ENROLMENT_DATE, "Date") && any(!is.na(event_types) & is.na(ex$ENROLMENT_DATE)))
-      "`ENROLMENT_DATE` is `NA` on a record that names an event")
+      "`EVENT_TYPE` and `EVENT_DATE` not both set or both `NA` (an enrollment-level record has neither)")
   if (length(wrong) > 0L)
     rlang::abort(c(
       "An exception list's columns must be of the types the records join on.",
       rlang::set_names(wrong, rep("x", length(wrong)))),
+      class = "neoipcr_invalid_exception_list")
+
+  misplaced <- .record_level_problems(ex, event_types)
+  if (length(misplaced) > 0L)
+    rlang::abort(c(
+      "An exception record is written at the level of the rule it names.",
+      rlang::set_names(misplaced, rep("x", length(misplaced))),
+      i = "The \"Context fields\" section of `?validate` lists each rule's level and event types."),
       class = "neoipcr_invalid_exception_list")
 
   ex
@@ -232,18 +242,60 @@ check_exception_list <- function(ex, header)
 .blank <- function(x)
   is.na(x) | !nzchar(trimws(x))
 
+# Whether a key or id column holds nothing but finite whole numbers and
+# `NA` — what `as.integer()` carries over unchanged; a fraction would be
+# truncated onto another record's key, an infinity onto `NA`.
+.whole_or_na <- function(x)
+  (is.numeric(x) && all(is.na(x) | (is.finite(x) & x == round(x)))) ||
+    all(is.na(x))
+
 # Why `ids` cannot name rules, or `NULL` when every one does: a rule id must
-# be a whole number that `validation_rule_ids()` lists, whichever form the
-# list arrives in. `column` names the column in the message.
+# be a finite whole number that `validation_rule_ids()` lists, whichever
+# form the list arrives in. `column` names the column in the message.
 .rule_id_problem <- function(ids, column)
 {
   if (!is.numeric(ids))
     sprintf("`%s` is not numeric", column)
-  else if (anyNA(ids) || any(ids != round(ids)))
+  else if (anyNA(ids) || !.whole_or_na(ids))
     sprintf("`%s` is empty or not a whole number on some record", column)
   else if (!all(ids %in% validation_rule_ids()))
     sprintf("`%s` names rules that do not exist: %s", column,
             paste(sort(unique(setdiff(ids, validation_rule_ids()))), collapse = ", "))
+}
+
+# Which records of `ex` — whose rule ids and column types have passed — are
+# not written at the level of the rule they name, as `validation_rules`
+# declares it, each as a sentence naming the rule ids concerned. A record
+# at another level would resolve keys its rule never joins on and exempt
+# nothing, or name an event of a type the rule does not look at.
+.record_level_problems <- function(ex, event_types)
+{
+  ids <- ex$RULE_ID
+  level <- unname(.rule_levels()[as.character(ids)])
+  has_enrolment <- !is.na(ex$ENROLMENT_DATE)
+  has_event     <- !is.na(event_types)
+  type_fits <- vapply(
+    seq_along(ids),
+    \(i) !has_event[i] || event_types[i] %in% .rule_event_types(ids[i]),
+    logical(1))
+  rules_where <- function(cond)
+    paste(sort(unique(ids[cond])), collapse = ", ")
+  c(
+    if (any(level == "patient" & has_enrolment))
+      sprintf("rule %s concerns the patient alone: its records leave `ENROLMENT_DATE` empty",
+              rules_where(level == "patient" & has_enrolment)),
+    if (any(level != "patient" & !has_enrolment))
+      sprintf("rule(s) %s are recorded on the enrolment or an event: their records name `ENROLMENT_DATE`",
+              rules_where(level != "patient" & !has_enrolment)),
+    if (any(level != "event" & has_event))
+      sprintf("rule(s) %s are not recorded on an event: their records leave `EVENT_TYPE` and `EVENT_DATE` empty",
+              rules_where(level != "event" & has_event)),
+    if (any(level == "event" & !has_event))
+      sprintf("rule(s) %s are recorded on an event: their records name `EVENT_TYPE` and `EVENT_DATE`",
+              rules_where(level == "event" & !has_event)),
+    if (!all(type_fits))
+      sprintf("rule(s) %s do not concern the `EVENT_TYPE` their records name",
+              rules_where(!type_fits)))
 }
 
 # Map the records onto the dataset's keys. Every join matches on the values

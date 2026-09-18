@@ -32,9 +32,11 @@ section above it for the next changes.
   aborts on a rule id it does not know instead of running nothing. New exports:
   `validation_rule_ids()`; `read_validation_exceptions()`, the CSV reader with the shape checks
   `import_dhis2()` applies to `include_invalid_patients`; and `resolve_validation_exceptions()`,
-  the mapping of a list onto a dataset's keys, which also works on a returned dataset. A record
-  resolves as a whole — one whose enrolment or event is not in the dataset exempts nothing — and
-  is matched within its department whenever the dataset carries the department codes.
+  the mapping of a list onto a dataset's keys, which also works on a returned dataset. A record is
+  written at the level of the rule it names (the patient alone, the enrolment, or an event of a
+  type the rule concerns) and is refused otherwise; it resolves as a whole — one whose enrolment
+  or event is not in the dataset exempts nothing — and is matched within its department whenever
+  the dataset carries the department codes.
 * `import_dhis2()` reads the custom attributes an instance sets on its organisation units. The new
   `include_custom_attributes` option of `dhis2_dataset_options()` names the entities whose values to
   import (`"departments"`, `"hospitals"`); their values land typed by the attribute's DHIS2 value type
