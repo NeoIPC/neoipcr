@@ -22,9 +22,9 @@ then matched by department code as well. A list carrying
 \value{
 A tibble with \code{rule_id}, \code{patient_key}, \code{enrollment_key} and
 \code{event_key} (\code{department_key} too when the records were matched by
-department code): one row per record, or one per dataset record it fits;
-\code{NA} throughout where a record did not resolve, and on the keys below
-its rule's level.
+department code): one row per record, or one per dataset record it fits.
+\code{rule_id} is kept on every row; the keys are \code{NA} throughout where a
+record did not resolve, and \code{NA} below its rule's level otherwise.
 }
 \description{
 Maps each exception record, written in terms of patient id, department

@@ -206,6 +206,27 @@ test_that("rule 17 finds an open enrolment by its enrolment date", {
     rule_17_open_ds(c("2024-01-01", "2024-01-01")), NULL)), 2L)
 })
 
+test_that("rule 17 treats an end event without a date like a missing one", {
+  # An undated end form leaves the period's end unknown, so the enrolment
+  # counts as under surveillance on its enrolment date only.
+  ds <- make_test_ds(
+    patients    = make_test_patients(1),
+    enrollments = make_test_enrollments(2,
+      patient_keys = c(1L, 1L),
+      enrolledAt = as.Date(c("2024-01-01", "2024-01-05"))),
+    events = make_test_events(2,
+      enrollment_keys = c(1L, 2L),
+      patient_keys    = c(1L, 1L),
+      event_type_keys = c("end", "end"),
+      occurredAt = as.Date(c("2024-01-10", NA))))
+  result <- neoipcr:::validation_rule_17(ds, NULL)
+  expect_equal(nrow(result), 2L)
+  this <- result$context[[which(result$enrollment_key == 2L)]]
+  expect_true(is.na(this$endOccurredAt_this))
+  ds$enrollments$enrolledAt[2] <- as.Date("2024-01-11")
+  expect_equal(nrow(neoipcr:::validation_rule_17(ds, NULL)), 0L)
+})
+
 test_that("rule 17 honours exceptions", {
   ds <- rule_17_ds(c("2024-01-01", "2024-01-05"), c("2024-01-10", "2024-01-15"))
   # Both enrollments are flagged (overlap is bidirectional)

@@ -408,9 +408,16 @@ test_that("resolve_validation_exceptions refuses blank identifiers in a list bui
   }
 })
 
-test_that("resolve_validation_exceptions needs the full enrollment and event tiers", {
-  # The joins read the enrollments' patient link and the events' type, which
-  # the pseudonymized tiers do not carry.
+test_that("resolve_validation_exceptions needs the full patient, enrollment and event tiers", {
+  # The joins read the patient ids, the enrollments' patient link and the
+  # events' type, which the pseudonymized tiers do not carry; the patient
+  # tier is asserted as an option, not inferred from a column that happens
+  # to be present.
+  ds <- resolvable_ds()
+  ds$metadata$dataset_options$include_patient <- "pseudo"
+  expect_error(
+    neoipcr::resolve_validation_exceptions(ds, written_exceptions()),
+    regexp = "include_patient")
   ds <- resolvable_ds()
   ds$metadata$dataset_options$include_enrollment <- "pseudo"
   expect_error(

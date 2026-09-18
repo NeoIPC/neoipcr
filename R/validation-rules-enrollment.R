@@ -48,10 +48,11 @@ validation_rule_2 <- function(x, exceptions)
 
 # Find enrolments of one patient whose surveillance periods overlap. A
 # period runs from the enrolment date to the surveillance-end event, both
-# days included. An enrolment without a surveillance-end event is known to
-# be under surveillance on its enrolment date only, so that day is its
-# period: it is found when the day falls inside another enrolment's period,
-# and two such enrolments are found when they share the day.
+# days included. An enrolment without a surveillance-end event, or whose
+# end event carries no date, is known to be under surveillance on its
+# enrolment date only, so that day is its period: it is found when the day
+# falls inside another enrolment's period, and two such enrolments are found
+# when they share the day.
 validation_rule_17 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)

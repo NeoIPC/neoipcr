@@ -112,9 +112,9 @@ read_validation_exceptions <- function(path)
 #'
 #' @returns A tibble with `rule_id`, `patient_key`, `enrollment_key` and
 #'  `event_key` (`department_key` too when the records were matched by
-#'  department code): one row per record, or one per dataset record it fits;
-#'  `NA` throughout where a record did not resolve, and on the keys below
-#'  its rule's level.
+#'  department code): one row per record, or one per dataset record it fits.
+#'  `rule_id` is kept on every row; the keys are `NA` throughout where a
+#'  record did not resolve, and `NA` below its rule's level otherwise.
 #' @family validation
 #' @export
 resolve_validation_exceptions <- function(x, exceptions)
@@ -123,6 +123,7 @@ resolve_validation_exceptions <- function(x, exceptions)
   exceptions <- check_exception_list(
     exceptions, "`exceptions` must be a data frame of exception records.")
   assert_options_for(x, required = list(
+    include_patient    = "full",
     include_enrollment = "full",
     include_event      = "full"
   ), fn_name = "resolve_validation_exceptions")
