@@ -13,7 +13,7 @@ read_validation_exceptions(path)
 A tibble with one row per exception record: \code{RULE_ID} (integer),
 \code{NEOIPC_PATIENT_ID} and \code{EVENT_TYPE} (character), \code{ENROLMENT_DATE} and
 \code{EVENT_DATE} (\code{Date}), and \code{DEPARTMENT_CODE} (character) when the file
-carries it — the shape \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}} accepts as
+carries it with a value — the shape \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}} accepts as
 \code{include_invalid_patients} and \code{\link[=validate]{validate()}} as \code{exceptions}. A path that
 is not a file, a file that lacks a record column, holds a row with the
 wrong number of fields or a value that does not parse, names a rule
@@ -31,8 +31,9 @@ the "Context fields" section of \code{\link[=validate]{validate()}} lists it: fo
 patient alone, with \code{ENROLMENT_DATE}, \code{EVENT_TYPE} and \code{EVENT_DATE} empty;
 for an enrolment-level rule the patient and \code{ENROLMENT_DATE}, with the
 event columns empty; for an event-level rule the event's type (one the
-rule concerns) and date as well. \code{DEPARTMENT_CODE} may be absent when the
-list covers a single department. Dates are read in ISO 8601 form.
+rule concerns) and date as well. \code{DEPARTMENT_CODE} may be absent, or left
+empty throughout, when the list covers a single department. Dates are read
+in ISO 8601 form.
 }
 \seealso{
 Other validation:

@@ -108,6 +108,16 @@ test_that("read_validation_exceptions refuses a record without a patient id or d
     class = "neoipcr_invalid_exception_list")
 })
 
+test_that("read_validation_exceptions treats a department column left empty throughout as absent", {
+  # The single-department list written in the six-column shape the tools
+  # exchange.
+  rows <- exception_rows()
+  rows$DEPARTMENT_CODE <- ""
+  ex <- neoipcr::read_validation_exceptions(write_exception_csv(rows))
+  expect_false("DEPARTMENT_CODE" %in% names(ex))
+  expect_equal(nrow(ex), 2L)
+})
+
 test_that("read_validation_exceptions names a value that does not parse", {
   bad_date <- exception_rows()
   bad_date$EVENT_DATE[2] <- "06.01.2024"
@@ -329,6 +339,17 @@ test_that("resolve_validation_exceptions needs the department codes for several 
   expect_error(
     neoipcr::resolve_validation_exceptions(ds, written_exceptions("DEPT_1")),
     class = "neoipcr_validation_needs_facts")
+  # A department column left empty throughout counts as absent, so with
+  # several departments the list is refused for want of the codes.
+  expect_error(
+    neoipcr::resolve_validation_exceptions(
+      resolvable_ds(n_departments = 2L), written_exceptions(NA_character_)),
+    regexp = "DEPARTMENT_CODE",
+    class = "neoipcr_invalid_exception_list")
+  # With one department it resolves like a list without the column.
+  keys <- neoipcr::resolve_validation_exceptions(resolvable_ds(), written_exceptions(NA_character_))
+  expect_false("department_key" %in% names(keys))
+  expect_equal(keys$patient_key[1], 1L)
 })
 
 test_that("resolve_validation_exceptions needs a department tier", {

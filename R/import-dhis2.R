@@ -41,7 +41,7 @@ import_dhis2 <- function(
   # not read, so it is not checked either.
   if (dataset_options$include_patient != "no" &&
       !rlang::is_bool(dataset_options$include_invalid_patients)) {
-    check_exception_list(
+    dataset_options$include_invalid_patients <- check_exception_list(
       dataset_options$include_invalid_patients,
       "`include_invalid_patients` must be `TRUE`, `FALSE` or a data frame of exception records.")
     if (dataset_options$include_patient != "full")

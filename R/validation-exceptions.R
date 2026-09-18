@@ -9,15 +9,16 @@
 #' patient alone, with `ENROLMENT_DATE`, `EVENT_TYPE` and `EVENT_DATE` empty;
 #' for an enrolment-level rule the patient and `ENROLMENT_DATE`, with the
 #' event columns empty; for an event-level rule the event's type (one the
-#' rule concerns) and date as well. `DEPARTMENT_CODE` may be absent when the
-#' list covers a single department. Dates are read in ISO 8601 form.
+#' rule concerns) and date as well. `DEPARTMENT_CODE` may be absent, or left
+#' empty throughout, when the list covers a single department. Dates are read
+#' in ISO 8601 form.
 #'
 #' @param path Path to the CSV file.
 #'
 #' @returns A tibble with one row per exception record: `RULE_ID` (integer),
 #'  `NEOIPC_PATIENT_ID` and `EVENT_TYPE` (character), `ENROLMENT_DATE` and
 #'  `EVENT_DATE` (`Date`), and `DEPARTMENT_CODE` (character) when the file
-#'  carries it — the shape [dhis2_dataset_options()] accepts as
+#'  carries it with a value — the shape [dhis2_dataset_options()] accepts as
 #'  `include_invalid_patients` and [validate()] as `exceptions`. A path that
 #'  is not a file, a file that lacks a record column, holds a row with the
 #'  wrong number of fields or a value that does not parse, names a rule
@@ -119,7 +120,7 @@ read_validation_exceptions <- function(path)
 resolve_validation_exceptions <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
-  check_exception_list(
+  exceptions <- check_exception_list(
     exceptions, "`exceptions` must be a data frame of exception records.")
   assert_options_for(x, required = list(
     include_enrollment = "full",
@@ -213,8 +214,9 @@ check_exception_list <- function(ex, header)
     else if (any(.blank(ex$NEOIPC_PATIENT_ID))) "`NEOIPC_PATIENT_ID` is empty on some record",
     if ("DEPARTMENT_CODE" %in% names(ex) && !is.character(ex$DEPARTMENT_CODE))
       "`DEPARTMENT_CODE` is not character"
-    else if ("DEPARTMENT_CODE" %in% names(ex) && any(.blank(ex$DEPARTMENT_CODE)))
-      "`DEPARTMENT_CODE` is empty on some record (drop the column for a single-department list)",
+    else if ("DEPARTMENT_CODE" %in% names(ex) && any(.blank(ex$DEPARTMENT_CODE)) &&
+             !all(.blank(ex$DEPARTMENT_CODE)))
+      "`DEPARTMENT_CODE` is empty on some record (fill it on every record, or leave it empty throughout for a single-department list)",
     if (!all(is.na(event_types) | event_types %in% .exception_event_types))
       paste0("`EVENT_TYPE` outside ", paste(.exception_event_types, collapse = "/"), " or `NA`"),
     if (inherits(ex$EVENT_DATE, "Date") && any(is.na(event_types) != is.na(ex$EVENT_DATE)))
@@ -232,6 +234,12 @@ check_exception_list <- function(ex, header)
       rlang::set_names(misplaced, rep("x", length(misplaced))),
       i = "The \"Context fields\" section of `?validate` lists each rule's level and event types."),
       class = "neoipcr_invalid_exception_list")
+
+  # A `DEPARTMENT_CODE` column left empty throughout is the single-department
+  # list written in the six-column shape the tools exchange; it says nothing
+  # and is treated as absent.
+  if ("DEPARTMENT_CODE" %in% names(ex) && all(.blank(ex$DEPARTMENT_CODE)))
+    ex <- ex |> dplyr::select(!"DEPARTMENT_CODE")
 
   ex
 }

@@ -27,7 +27,7 @@ rule_19_ds <- function(offset, infection_type = "1", implant = FALSE, surgery = 
     ssiData = make_test_ssi_data(n, infection_type = ssi_type(infection_type)))
 }
 
-test_that("rule 19 detects a superficial SSI more than 30 days after the surgery", {
+test_that("rule 19 detects a superficial SSI after the 30-day window", {
   result <- neoipcr:::validation_rule_19(rule_19_ds(35L), NULL)
   expect_equal(nrow(result), 1L)
   expect_equal(result$rule_id, 19L)
@@ -36,25 +36,27 @@ test_that("rule 19 detects a superficial SSI more than 30 days after the surgery
   expect_equal(as.character(result$context[[1]]$infection_type), "1")
 })
 
-test_that("rule 19 returns no rows for an SSI inside the follow-up window", {
+test_that("rule 19 counts the procedure date as day 1 of the window", {
+  # The protocol's 30 days run from the procedure date, so the window covers
+  # the offsets 0 to 29: an infection on the procedure day is inside it and
+  # one 30 days later is the first outside.
+  expect_equal(nrow(neoipcr:::validation_rule_19(rule_19_ds(0L), NULL)), 0L)
   expect_equal(nrow(neoipcr:::validation_rule_19(rule_19_ds(20L), NULL)), 0L)
-  expect_equal(nrow(neoipcr:::validation_rule_19(rule_19_ds(30L), NULL)), 0L)
-  # The window closes after its thirtieth day.
-  expect_equal(nrow(neoipcr:::validation_rule_19(rule_19_ds(31L), NULL)), 1L)
+  expect_equal(nrow(neoipcr:::validation_rule_19(rule_19_ds(29L), NULL)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_19(rule_19_ds(30L), NULL)), 1L)
 })
 
-test_that("rule 19 detects an SSI on the day of the surgery", {
-  # The window starts the day after the procedure.
-  expect_equal(nrow(neoipcr:::validation_rule_19(rule_19_ds(0L), NULL)), 1L)
+test_that("rule 19 detects an SSI dated before its only surgery", {
+  expect_equal(nrow(neoipcr:::validation_rule_19(rule_19_ds(-1L), NULL)), 1L)
 })
 
 test_that("rule 19 extends the window to 90 days for a deep infection after an implant", {
   expect_equal(nrow(neoipcr:::validation_rule_19(
     rule_19_ds(60L, infection_type = "2", implant = TRUE), NULL)), 0L)
   expect_equal(nrow(neoipcr:::validation_rule_19(
-    rule_19_ds(90L, infection_type = "2", implant = TRUE), NULL)), 0L)
+    rule_19_ds(89L, infection_type = "2", implant = TRUE), NULL)), 0L)
   expect_equal(nrow(neoipcr:::validation_rule_19(
-    rule_19_ds(91L, infection_type = "2", implant = TRUE), NULL)), 1L)
+    rule_19_ds(90L, infection_type = "2", implant = TRUE), NULL)), 1L)
   # Without an implant a deep infection keeps the 30-day window.
   expect_equal(nrow(neoipcr:::validation_rule_19(
     rule_19_ds(60L, infection_type = "2", implant = FALSE), NULL)), 1L)

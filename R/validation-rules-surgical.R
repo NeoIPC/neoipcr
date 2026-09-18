@@ -1,8 +1,9 @@
 # Find surgical site infections that fall outside the follow-up window of
-# every surgical procedure recorded for the patient. The window starts the
-# day after the procedure and lasts 30 days, or 90 days for a deep or
-# organ/space infection after a procedure with an implant; procedures from
-# the patient's other enrolments count, since an infection can follow a
+# every surgical procedure recorded for the patient. The protocol counts the
+# procedure date as day 1 of the window, which lasts 30 days, or 90 days for
+# a deep or organ/space infection after a procedure with an implant, so the
+# window covers the offsets 0 to 29 (or 89) from the procedure. Procedures
+# from the patient's other enrolments count, since an infection can follow a
 # procedure of an earlier stay.
 validation_rule_19 <- function(x, exceptions)
 {
@@ -41,10 +42,10 @@ validation_rule_19 <- function(x, exceptions)
     dplyr::mutate(
       ssi_offset = as.integer(.data$ssiOccurredAt - .data$surgeryOccurredAt),
       covered    = tidyr::replace_na(
-        .data$ssi_offset > 0L & (
-          (.data$infection_type == "1" & .data$ssi_offset <= 30L) |
-          (.data$infection_type != "1" &  .data$implant & .data$ssi_offset <= 90L) |
-          (.data$infection_type != "1" & !.data$implant & .data$ssi_offset <= 30L)),
+        .data$ssi_offset >= 0L & (
+          (.data$infection_type == "1" & .data$ssi_offset < 30L) |
+          (.data$infection_type != "1" &  .data$implant & .data$ssi_offset < 90L) |
+          (.data$infection_type != "1" & !.data$implant & .data$ssi_offset < 30L)),
         FALSE)) |>
     dplyr::group_by(
       .data$patient_key, .data$enrollment_key, .data$event_key,
