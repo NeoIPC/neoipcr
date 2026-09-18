@@ -78,6 +78,10 @@ test_that("validate refuses a rule id it does not know", {
   expect_error(
     neoipcr::validate(ds, rules = "1"),
     class = "neoipcr_unknown_validation_rule")
+  # An infinite id is refused outright, not cast to `NA` with a warning
+  # first: the first condition signalled is the classed error.
+  cnd <- rlang::catch_cnd(neoipcr::validate(ds, rules = Inf))
+  expect_s3_class(cnd, "neoipcr_unknown_validation_rule")
   # A double that is a whole number names a rule.
   expect_s3_class(neoipcr::validate(ds, rules = 1), "tbl_df")
 })

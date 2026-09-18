@@ -25,11 +25,14 @@ exempts nothing.}
 }
 \value{
 A tibble with one row per finding — a flagged record, or for
-rule 17 a pair of them: \code{rule_id}, the keys that identify the record
-(\code{patient_key}, \code{enrollment_key}, \code{event_key}; \code{NA} where a rule does not
-operate at that level) and \code{context}, a list column holding a one-row
-tibble of the values the finding refers to (\code{NULL} where the rule
-records none). Zero rows when nothing is flagged.
+rule 17 a pair of them: \code{rule_id}; \code{patient_key}, \code{enrollment_key} and
+\code{event_key}, each naming the record the finding refers to at that level
+and \code{NA} where there is none (an enrolment-level rule that compared a
+form names that form's event, so a consumer can show the finding under
+it; the level a rule is recorded and exempted on is the one the table
+below names); and \code{context}, a list column holding a one-row tibble of
+the values the finding refers to (\code{NULL} where the rule records none).
+Zero rows when nothing is flagged.
 }
 \description{
 Runs every registered validation rule, or the subset named in \code{rules}, over

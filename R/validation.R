@@ -199,11 +199,14 @@ validation_rule_ids <- function()
 #'  exempts nothing.
 #'
 #' @returns A tibble with one row per finding — a flagged record, or for
-#'  rule 17 a pair of them: `rule_id`, the keys that identify the record
-#'  (`patient_key`, `enrollment_key`, `event_key`; `NA` where a rule does not
-#'  operate at that level) and `context`, a list column holding a one-row
-#'  tibble of the values the finding refers to (`NULL` where the rule
-#'  records none). Zero rows when nothing is flagged.
+#'  rule 17 a pair of them: `rule_id`; `patient_key`, `enrollment_key` and
+#'  `event_key`, each naming the record the finding refers to at that level
+#'  and `NA` where there is none (an enrolment-level rule that compared a
+#'  form names that form's event, so a consumer can show the finding under
+#'  it; the level a rule is recorded and exempted on is the one the table
+#'  below names); and `context`, a list column holding a one-row tibble of
+#'  the values the finding refers to (`NULL` where the rule records none).
+#'  Zero rows when nothing is flagged.
 #'
 #' @section Context fields:
 #' Each rule records the fields below in `context`, identifies its finding
@@ -256,7 +259,7 @@ validate <- function(x, rules = NULL, exceptions = NULL)
 
   ids <- validation_rule_ids()
   if (!is.null(rules)) {
-    if (!is.numeric(rules) || anyNA(rules) || any(rules != round(rules)))
+    if (!is.numeric(rules) || anyNA(rules) || !.whole_or_na(rules))
       rlang::abort(
         "`rules` must be a vector of whole numbers naming validation rules.",
         class = "neoipcr_unknown_validation_rule")
