@@ -244,13 +244,13 @@ check_exception_list <- function(ex, header)
 
 # Whether a key or id column holds nothing but whole numbers within R's
 # integer range and `NA` — what `as.integer()` carries over unchanged; a
-# fraction would be truncated onto another record's key, an infinity or a
-# value beyond the range onto `NA`. A column of bare `NA`s is logical and
-# passes; an `NA` of another type does not, since it could not be bound onto
-# the integer keys.
+# fraction would be truncated onto another record's key, an infinity, a
+# `NaN` or a value beyond the range onto `NA`. A column of bare `NA`s is
+# logical and passes; an `NA` of another type does not, since it could not
+# be bound onto the integer keys.
 .whole_or_na <- function(x)
   (is.numeric(x) &&
-     all(is.na(x) |
+     all((is.na(x) & !is.nan(x)) |
          (is.finite(x) & x == round(x) & abs(x) <= .Machine$integer.max))) ||
     (is.logical(x) && all(is.na(x)))
 
