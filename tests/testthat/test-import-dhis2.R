@@ -819,6 +819,18 @@ test_that("import_dhis2 keeps the records an exception list names", {
   expect_setequal(as.character(kept$patients$patient_id), c("PAT_1", "PAT_2"))
   expect_equal(nrow(kept$validationResults), 0L)
 
+  # The import resolves the list under the pseudo tier too, since it holds
+  # the department codes while it runs. (A returned pseudo dataset that
+  # still holds several departments cannot resolve the list again; the
+  # resolver's own tests cover that refusal.)
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  kept <- import_dhis2(test_conn(), import_test_opts(
+    include_department       = "pseudo",
+    include_invalid_patients = flagged |> dplyr::mutate(DEPARTMENT_CODE = "DEPT_01")))
+  expect_setequal(as.character(kept$patients$patient_id), c("PAT_1", "PAT_2"))
+  expect_equal(nrow(kept$validationResults), 0L)
+
   # Opting out of validation is the way to a patient-only import.
   ds <- import_dhis2(test_conn(), import_test_opts(
     include_enrollment = "no",

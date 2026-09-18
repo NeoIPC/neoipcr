@@ -141,7 +141,12 @@ record a rule flags at the enrollment level carries \code{NA} for both
 \code{EVENT_TYPE} and \code{EVENT_DATE}. The records are matched by patient id
 within their department, so a list needs \code{include_patient = "full"}
 (which then keeps \code{patient_id} whatever \code{patient_columns} says) and
-\code{include_department} not \code{"no"}. Validation is patient-anchored: with
+\code{include_department} not \code{"no"}. The import resolves the list under
+either remaining department tier, since it holds the department codes
+while it runs; the returned dataset carries them under the full tier
+only, so resolving the same list on it with
+\code{\link[=resolve_validation_exceptions]{resolve_validation_exceptions()}} needs \code{include_department = "full"}
+when more than one department was imported. Validation is patient-anchored: with
 \code{include_patient = "no"} there is nothing to validate, the pass is
 skipped and a list is not read. When it does run — patients present and
 this option not \code{TRUE} — it needs \code{include_enrollment} and

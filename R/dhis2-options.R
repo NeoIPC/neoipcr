@@ -80,7 +80,12 @@
 #'  `EVENT_TYPE` and `EVENT_DATE`. The records are matched by patient id
 #'  within their department, so a list needs `include_patient = "full"`
 #'  (which then keeps `patient_id` whatever `patient_columns` says) and
-#'  `include_department` not `"no"`. Validation is patient-anchored: with
+#'  `include_department` not `"no"`. The import resolves the list under
+#'  either remaining department tier, since it holds the department codes
+#'  while it runs; the returned dataset carries them under the full tier
+#'  only, so resolving the same list on it with
+#'  [resolve_validation_exceptions()] needs `include_department = "full"`
+#'  when more than one department was imported. Validation is patient-anchored: with
 #'  `include_patient = "no"` there is nothing to validate, the pass is
 #'  skipped and a list is not read. When it does run — patients present and
 #'  this option not `TRUE` — it needs `include_enrollment` and
