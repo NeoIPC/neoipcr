@@ -536,3 +536,21 @@ test_that("apply_postfilter tolerates absent or 0x0 attribute-value tables", {
   ds$metadata$departmentAttributeValues <- tibble::tibble()
   expect_no_error(neoipcr:::apply_postfilter(ds))
 })
+
+test_that("apply_postfilter keeps a patient without enrolments only when the dataset asked for them", {
+  ds <- make_populated_test_ds()
+  # Take patient 1's enrollments away; the patient row itself stays.
+  ds$enrollments <- ds$enrollments[ds$enrollments$patient_key != 1L, ]
+
+  pruned <- neoipcr:::apply_postfilter(ds)
+  expect_false(1L %in% pruned$patients$patient_key)
+
+  ds$metadata$dataset_options$include_unenrolled_patients <- TRUE
+  kept <- neoipcr:::apply_postfilter(ds)
+  expect_true(1L %in% kept$patients$patient_key)
+  expect_false(1L %in% kept$enrollments$patient_key)
+  expect_false(1L %in% kept$events$patient_key)
+  # Nothing but the patient row refers to department 1 any more, and the
+  # patient alone keeps it in the hierarchy metadata.
+  expect_true(1L %in% kept$metadata$departments$department_key)
+})

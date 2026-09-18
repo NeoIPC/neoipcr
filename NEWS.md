@@ -45,6 +45,10 @@ section above it for the next changes.
 * A removed patient's free-text pathogen names no longer survive in `unknownPathogenNames`: the
   post-import cascade prunes them with the findings they belong to, whether the patient was removed
   by the validation pass or by a filter.
+* `include_unenrolled_patients = TRUE` now keeps the patients no enrolment refers to in the returned
+  dataset when enrollments are imported as well: the orphan removal that follows an import leaves them
+  in place, where it used to prune them with the enrollments they never had, so a `validate()` on such
+  a dataset can flag them under rule 1. Without the option the removal is unchanged.
 * `import_dhis2()` reads the custom attributes an instance sets on its organisation units. The new
   `include_custom_attributes` option of `dhis2_dataset_options()` names the entities whose values to
   import (`"departments"`, `"hospitals"`); their values land typed by the attribute's DHIS2 value type

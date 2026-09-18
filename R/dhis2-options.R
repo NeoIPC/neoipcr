@@ -64,12 +64,12 @@
 #'  into the dataset.
 #' @param include_ineligible_patients Include data from patients that don't meet
 #'  the NeoIPC core case eligibility criteria into the dataset.
-#' @param include_unenrolled_patients Request the NeoIPC patient records that
-#'  are not enrolled in the surveillance program as well, by tracked-entity
-#'  type rather than by program. They reach the returned dataset only with
-#'  `include_enrollment = "no"`: when enrollments are imported, every patient
-#'  no enrollment refers to is removed after the import, the validation pass
-#'  (rule 1) having flagged it first where it runs.
+#' @param include_unenrolled_patients Include the NeoIPC patient records that
+#'  are not enrolled in the surveillance program as well: they are requested
+#'  by tracked-entity type rather than by program, and the removal of orphan
+#'  records that follows an import leaves them in place. Without this option
+#'  an import with enrollments removes every patient no enrollment refers
+#'  to, the validation pass (rule 1) having flagged it first where it runs.
 #' @param include_test_data Include data from test departments into the dataset.
 #' @param include_invalid_patients Include data from patient records that
 #'  could have validation errors: `FALSE` (the default) removes them, `TRUE`
@@ -91,10 +91,11 @@
 #'  [resolve_validation_exceptions()] needs `include_department = "full"`
 #'  when more than one department was imported. An exception keeps a record
 #'  from the validation pass, not from the shape of the dataset: a patient
-#'  without any enrolment (rule 1) leaves the returned dataset with the
+#'  without any enrolment (rule 1) stays in the returned dataset only when
+#'  `include_unenrolled_patients` asks for such patients; otherwise the
 #'  removal of every patient no enrollment refers to that follows an import
-#'  with enrollments (see `include_unenrolled_patients`), so its exception
-#'  only stops the pass from reporting it. Validation is patient-anchored: with
+#'  with enrollments takes it, and its exception only stops the pass from
+#'  reporting it. Validation is patient-anchored: with
 #'  `include_patient = "no"` there is nothing to validate, the pass is
 #'  skipped and a list is not read. When it does run — patients present and
 #'  this option not `TRUE` — it needs `include_enrollment` and
