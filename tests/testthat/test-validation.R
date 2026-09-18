@@ -195,6 +195,14 @@ test_that("validate refuses exceptions that are neither form", {
   expect_error(
     neoipcr::validate(ds, exceptions = "PAT_1"),
     class = "neoipcr_invalid_exception_list")
+  # A key-form record without any record key could name nothing and is
+  # refused rather than carried along; an empty key-form table is fine.
+  expect_error(
+    neoipcr::validate(ds, rules = 3L, exceptions = tibble::tibble(rule_id = 3L)),
+    regexp = "patient_key",
+    class = "neoipcr_invalid_exception_list")
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = integer()))), 1L)
 })
 
 test_that("validate checks a key-form list as it checks the written form", {

@@ -139,6 +139,7 @@ validation_rules <- list(
       class = "neoipcr_invalid_exception_list")
 
   key_cols <- c("department_key", "patient_key", "enrollment_key", "event_key")
+  record_keys <- c("patient_key", "enrollment_key", "event_key")
   present <- intersect(key_cols, names(exceptions))
   not_integer <- present[!vapply(
     present,
@@ -146,6 +147,11 @@ validation_rules <- list(
     logical(1))]
   wrong <- c(
     .rule_id_problem(exceptions$rule_id, "rule_id"),
+    # A record with no key at all could name nothing; an empty table is
+    # the resolver's own shape for a list without records.
+    if (nrow(exceptions) > 0L && !any(record_keys %in% names(exceptions)))
+      sprintf("a record names its record through at least one of %s",
+              paste0("`", record_keys, "`", collapse = ", ")),
     if (length(not_integer) > 0L)
       sprintf("%s must hold integer keys or `NA`",
               paste0("`", not_integer, "`", collapse = ", ")))
