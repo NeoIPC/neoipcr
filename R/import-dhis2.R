@@ -323,6 +323,9 @@ import_dhis2 <- function(
     else exceptions <- NULL
 
     v <- r |> validate(exceptions = exceptions)
+    # The dataset keeps the findings, not the run's bookkeeping: the full
+    # tiers this pass requires give every rule its columns.
+    attr(v, "rules_skipped") <- NULL
     r$validationResults <- v
     r$patients <- r$patients |>
       dplyr::anti_join(v, dplyr::join_by("patient_key"))

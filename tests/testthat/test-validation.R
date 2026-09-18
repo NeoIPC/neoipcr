@@ -134,12 +134,18 @@ test_that("validate always carries its five columns, whatever ran", {
   expect_type(r$enrollment_key, "integer")
   expect_identical(class(r), c("tbl_df", "tbl", "data.frame"))
   # A rule that skips itself for want of a column contributes nothing; the
-  # shape still holds.
+  # shape still holds, and the result names the rule it could not run.
   skipping <- ds
   skipping$surveillanceEndData$patient_days <- NULL
   r <- neoipcr::validate(skipping, rules = 18L)
   expect_named(r, shape)
   expect_equal(nrow(r), 0L)
+  expect_identical(attr(r, "rules_skipped"), 18L)
+  r <- neoipcr::validate(skipping, rules = c(3L, 18L))
+  expect_identical(attr(r, "rules_skipped"), 18L)
+  # A run in which every selected rule ran says so with an empty vector.
+  expect_identical(attr(neoipcr::validate(ds, rules = 18L), "rules_skipped"),
+                   integer(0))
 })
 
 test_that("validate carries a rule's values as a one-row tibble in context", {

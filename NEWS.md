@@ -45,6 +45,9 @@ section above it for the next changes.
 * A removed patient's free-text pathogen names no longer survive in `unknownPathogenNames`: the
   post-import cascade prunes them with the findings they belong to, whether the patient was removed
   by the validation pass or by a filter.
+* `validate()` names the selected rules it could not run, for want of a column the dataset lacks, in
+  the result's `rules_skipped` attribute, so a consumer stating which rules a result rests on can
+  tell a rule that found nothing from one that never ran.
 * `include_unenrolled_patients = TRUE` now keeps the patients no enrolment refers to in the returned
   dataset when enrollments are imported as well: the orphan removal that follows an import leaves them
   in place, where it used to prune them with the enrollments they never had, so a `validate()` on such

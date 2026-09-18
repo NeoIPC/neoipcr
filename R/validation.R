@@ -213,7 +213,12 @@ validation_rule_ids <- function()
 #'  it; the level a rule is recorded and exempted on is the one the table
 #'  below names); and `context`, a list column holding a one-row tibble of
 #'  the values the finding refers to (`NULL` where the rule records none).
-#'  Zero rows when nothing is flagged.
+#'  Zero rows when nothing is flagged. The result's `rules_skipped`
+#'  attribute names the selected rules that could not run because the
+#'  dataset lacks a column they read (an integer vector, empty when every
+#'  rule ran); such a rule logs a warning and flags nothing, so a caller
+#'  stating which rules a result rests on reads that attribute rather than
+#'  the selection.
 #'
 #' @section Context fields:
 #' Each rule records the fields below in `context`, identifies its finding
@@ -282,8 +287,15 @@ validate <- function(x, rules = NULL, exceptions = NULL)
   }
   exceptions <- .exceptions_in_key_form(x, exceptions)
 
-  flagged <- validation_rules |>
-    lapply(\(r) if (is.null(rules) || r$id %in% rules) r$fun(x, exceptions)) |>
+  # A rule returns `NULL` when it cannot run for want of a column the dataset
+  # does not hold; it has logged that, but a caller reporting which rules a
+  # result rests on needs the ids, so they ride along as an attribute.
+  selected <- Filter(\(r) is.null(rules) || r$id %in% rules, validation_rules)
+  results  <- lapply(selected, \(r) r$fun(x, exceptions))
+  skipped  <- vapply(selected, \(r) r$id, integer(1))[
+    vapply(results, is.null, logical(1))]
+
+  flagged <- results |>
     dplyr::bind_rows() |>
     dplyr::ungroup()
 
@@ -298,10 +310,12 @@ validate <- function(x, rules = NULL, exceptions = NULL)
     enrollment_key = integer(),
     event_key      = integer(),
     context        = list())
-  dplyr::bind_rows(template, flagged) |>
+  findings <- dplyr::bind_rows(template, flagged) |>
     dplyr::mutate(dplyr::across(
       c("rule_id", "patient_key", "enrollment_key", "event_key"),
       as.integer)) |>
     dplyr::select(
       "rule_id", "patient_key", "enrollment_key", "event_key", "context")
+  attr(findings, "rules_skipped") <- unname(skipped)
+  findings
 }

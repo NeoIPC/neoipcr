@@ -33,7 +33,12 @@ form names that form's event, so a consumer can show the finding under
 it; the level a rule is recorded and exempted on is the one the table
 below names); and \code{context}, a list column holding a one-row tibble of
 the values the finding refers to (\code{NULL} where the rule records none).
-Zero rows when nothing is flagged.
+Zero rows when nothing is flagged. The result's \code{rules_skipped}
+attribute names the selected rules that could not run because the
+dataset lacks a column they read (an integer vector, empty when every
+rule ran); such a rule logs a warning and flags nothing, so a caller
+stating which rules a result rests on reads that attribute rather than
+the selection.
 }
 \description{
 Runs every registered validation rule, or the subset named in \code{rules}, over
