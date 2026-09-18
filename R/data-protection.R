@@ -5,7 +5,7 @@
 #' the readers own every tibble's shape, so this function's job is to
 #' **assert invariants** -- not to scrub columns.
 #'
-#' Scope is currently narrow: two invariant families are asserted here
+#' Scope is currently narrow: three invariant families are asserted here
 #' as a final net.
 #'
 #' 1. **Hierarchy keys** under `include_<level> == "no"` -- the key
@@ -16,6 +16,11 @@
 #'    `updatedBy`, `createdAt`, `updatedAt` are reserved for
 #'    partner-site-entered entities and must never appear on metadata
 #'    tibbles curated by NeoIPC.
+#' 3. **Org-unit attribute values** -- `departmentAttributeValues` and
+#'    `hospitalAttributeValues` must be empty unless the caller opted
+#'    into that entity's attributes (`include_custom_attributes`) and the
+#'    entity is present, and must never carry an `IsTestunit` row (that
+#'    flag is folded into `isTest`).
 #'
 #' Everything else (per-entity id / link / patient narrowing, factor
 #' levels, metadata-tibble nulling) is owned by the schemas + readers
@@ -75,7 +80,72 @@ assert_data_protection <- function(x, dataset_options)
   # surfaces loudly here.
   .assert_metadata_companion_cols_absent(x)
 
+  # Org-unit attribute values are an explicit opt-in per entity and can
+  # carry personal data (a site's contact person), so a populated table
+  # without the opt-in -- or for an entity the caller excluded -- is a
+  # leak. `IsTestunit` is folded into `isTest` by the orchestrator and
+  # must never surface as a value row.
+  .assert_attribute_values_absent(x, dataset_options,
+    entity   = "departments",
+    opts_key = "include_department",
+    tbl      = "departmentAttributeValues")
+  .assert_attribute_values_absent(x, dataset_options,
+    entity   = "hospitals",
+    opts_key = "include_hospital",
+    tbl      = "hospitalAttributeValues")
+  .assert_no_test_unit_attribute_rows(x)
+
   x
+}
+
+
+#' Assert that an org-unit attribute-values table is 0×0 unless the caller
+#' opted into that entity's attributes and the entity is present.
+#'
+#' The contract is the shape, not the row count: a closed gate yields a 0×0
+#' tibble (`finalize_to_schema()`), so a table that carries the schema's
+#' columns without the opt-in was emitted by a reader that ignored the gate,
+#' whether or not any row happens to be in it. Passing an empty
+#' schema-shaped table would let exactly that reader go unnoticed until an
+#' instance with values hit it.
+#'
+#' @noRd
+.assert_attribute_values_absent <- function(x, opts, entity, opts_key, tbl) {
+  t <- x$metadata[[tbl]]
+  if (is.null(t) || ncol(t) == 0L)
+    return(invisible(NULL))
+  if (entity %in% opts$include_custom_attributes && opts[[opts_key]] != "no")
+    return(invisible(NULL))
+
+  opted <- if (length(opts$include_custom_attributes) == 0L) "character()"
+           else paste0('"', paste(opts$include_custom_attributes, collapse = '", "'), '"')
+  rlang::abort(c(
+    sprintf("Data-protection violation: `x$metadata$%s` carries columns without the `%s` opt-in (a closed gate yields a 0x0 tibble).",
+            tbl, entity),
+    "x" = sprintf("`include_custom_attributes` = %s; `%s` = \"%s\".",
+                  opted, opts_key, opts[[opts_key]]),
+    "i" = paste0("Custom attribute values can carry personal data. Fix the ",
+                 "reader that emits them -- this guardian asserts, it does ",
+                 "not scrub.")
+  ))
+}
+
+
+#' Assert that no `IsTestunit` row survives in an attribute-values table.
+#'
+#' @noRd
+.assert_no_test_unit_attribute_rows <- function(x) {
+  for (tbl in c("departmentAttributeValues", "hospitalAttributeValues")) {
+    t <- x$metadata[[tbl]]
+    if (is.null(t) || !("attribute_code" %in% names(t)))
+      next
+    if (any(t$attribute_code == "IsTestunit", na.rm = TRUE))
+      rlang::abort(c(
+        sprintf("`x$metadata$%s` carries `IsTestunit` rows.", tbl),
+        "i" = paste0("The test-unit flag is represented by `isTest`; the ",
+                     "orchestrator folds these rows in and drops them.")
+      ))
+  }
 }
 
 
@@ -130,7 +200,9 @@ assert_data_protection <- function(x, dataset_options)
 .assert_metadata_companion_cols_absent <- function(x) {
   companion_cols  <- c("createdBy", "updatedBy", "createdAt", "updatedAt")
   metadata_tables <- c("worldBankClasses", "countries", "hospitals",
-                       "departments", "users", "eventTypes")
+                       "departments", "users", "eventTypes",
+                       "orgUnitAttributes", "departmentAttributeValues",
+                       "hospitalAttributeValues")
   for (tbl in metadata_tables) {
     t <- x$metadata[[tbl]]
     if (!is.null(t)) {

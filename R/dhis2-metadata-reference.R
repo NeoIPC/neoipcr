@@ -465,6 +465,71 @@ read_metadata_countries <- function(metadata, dataset_options, wb_country_map)
   list(public = public, internal_map = internal_map)
 }
 
+# Read the DHIS2 custom-attribute definitions that apply to organisation
+# units.
+#
+# Returns a named list with two components:
+#   * `public`       — schema-conformant tibble matching
+#                      `compile_schema(orgUnitAttributes_cols, opts)`: 0×0
+#                      unless the caller opted into an entity's attribute
+#                      values, else `code`, `name`, `valueType`.
+#   * `internal_map` — orchestrator-internal tibble with `attribute` (the
+#                      DHIS2 UID), `code` and `valueType` for the coded
+#                      definitions. Present whatever the gate says: the
+#                      orchestrator resolves every value — the always-fetched
+#                      `IsTestunit` included — by code through it. A
+#                      definition without a code cannot be addressed by a
+#                      consumer, so it is left out of the map and its values
+#                      take the resolver's drop-with-log path.
+read_metadata_orgUnitAttributes <- function(metadata, dataset_options)
+{
+  opts <- dataset_options
+  empty_map <- tibble::tibble(
+    attribute = character(), code = character(), valueType = character())
+
+  attributes <- metadata |>
+    purrr::pluck("attributes")
+
+  if (rlang::is_null(attributes) || length(attributes) < 1L)
+    return(list(
+      public       = compile_schema(orgUnitAttributes_cols, opts),
+      internal_map = empty_map))
+
+  raw <- attributes |>
+    tibble::tibble() |>
+    tidyr::unnest_wider(1)
+
+  # DHIS2 omits a field that is empty on every row; materialize the columns
+  # the schema declares before reading them.
+  for (col in c("code", "name", "valueType"))
+    if (!(col %in% names(raw)))
+      raw[[col]] <- NA_character_
+
+  raw <- raw |>
+    dplyr::rename(attribute = "id") |>
+    dplyr::mutate(
+      code      = as.character(.data$code),
+      name      = as.character(.data$name),
+      valueType = as.character(.data$valueType)) |>
+    dplyr::arrange(.data$code)
+
+  # A definition without a code cannot be addressed and its values are never
+  # imported, so it is listed nowhere: the map resolves values by code, and
+  # the public tibble describes the attributes whose values can arrive.
+  coded <- raw |>
+    dplyr::filter(!is.na(.data$code))
+
+  internal_map <- coded |>
+    dplyr::select("attribute", "code", "valueType")
+
+  public <- coded |>
+    dplyr::select("attribute", "code", "name", "valueType") |>
+    finalize_to_schema(orgUnitAttributes_cols, opts, scratch = "attribute")
+  assert_schema(public, orgUnitAttributes_cols, opts)
+
+  list(public = public, internal_map = internal_map)
+}
+
 read_metadata_optionGroupSets <- function(
     metadata, filter, code_levels = NULL, ordered = FALSE)
 {

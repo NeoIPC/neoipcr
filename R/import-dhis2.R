@@ -13,12 +13,106 @@ import_dhis2 <- function(
   check_neoipcr_dhis2_conopt(connection_options)
   check_neoipcr_dhis2_dsopt(dataset_options)
 
+  # Validation removes patients, so it has nothing to do when the caller
+  # imports none: a metadata-only import must not trip the validation pass's
+  # own option preconditions. With patients it needs the full enrollments and
+  # events to check them against, and keeping unvalidated patients quietly
+  # would contradict the option, so that case aborts here — before any
+  # request is made — naming both ways out. The constructor stays permissive
+  # on purpose: the option matrix the schema tests enumerate includes shapes
+  # an import would refuse.
+  validation_requested <-
+    !rlang::is_bool(dataset_options$include_invalid_patients) ||
+    dataset_options$include_invalid_patients == FALSE
+  if (dataset_options$include_patient != "no" && validation_requested &&
+      (dataset_options$include_enrollment != "full" ||
+       dataset_options$include_event != "full"))
+    rlang::abort(c(
+      "Validating patients needs the full enrollments and events to check them against.",
+      x = sprintf(
+        "`include_enrollment` is \"%s\" and `include_event` is \"%s\", while `include_invalid_patients` asks for validation.",
+        dataset_options$include_enrollment, dataset_options$include_event),
+      i = "Import both with \"full\", or set `include_invalid_patients = TRUE` to keep every patient unvalidated."),
+      class = "neoipcr_validation_needs_facts")
+  # An exception list is mapped onto the imported records by the columns
+  # below and by the patients' ids, which only the full patient tier
+  # carries; a list without them would fail inside that mapping, after every
+  # request was made. Without patients the pass does not run and the list is
+  # not read, so it is not checked either.
+  if (dataset_options$include_patient != "no" &&
+      !rlang::is_bool(dataset_options$include_invalid_patients)) {
+    missing_cols <- setdiff(
+      .exception_list_cols, names(dataset_options$include_invalid_patients))
+    if (!is.data.frame(dataset_options$include_invalid_patients) ||
+        length(missing_cols) > 0L)
+      rlang::abort(c(
+        "`include_invalid_patients` must be `TRUE`, `FALSE` or a data frame of exception records.",
+        x = if (is.data.frame(dataset_options$include_invalid_patients))
+              paste0("Missing column(s): ", paste(missing_cols, collapse = ", "), ".")
+            else
+              paste0("Got ", obj_type_friendly(dataset_options$include_invalid_patients), "."),
+        i = paste0("An exception record carries ", paste(.exception_list_cols, collapse = ", "),
+                   " (and DEPARTMENT_CODE when more than one department is imported).")),
+        class = "neoipcr_invalid_exception_list")
+    # The columns join onto the imported records, so they must be of the
+    # types those carry: `Date` dates (a `POSIXct` does join — vctrs casts
+    # the `Date` side to midnight — but one with a time of day silently
+    # matches nothing), a
+    # numeric rule id, a character patient id, and an event type from the
+    # stage vocabulary (case does not matter; `NA` names an enrollment-level
+    # record together with an `NA` event date).
+    ex <- dataset_options$include_invalid_patients
+    event_types <- tolower(as.character(ex$EVENT_TYPE))
+    wrong <- c(
+      if (!inherits(ex$ENROLMENT_DATE, "Date")) "`ENROLMENT_DATE` is not a `Date`",
+      if (!inherits(ex$EVENT_DATE, "Date")) "`EVENT_DATE` is not a `Date`",
+      if (!is.numeric(ex$RULE_ID)) "`RULE_ID` is not numeric",
+      if (!is.character(ex$NEOIPC_PATIENT_ID)) "`NEOIPC_PATIENT_ID` is not character",
+      if ("DEPARTMENT_CODE" %in% names(ex) && !is.character(ex$DEPARTMENT_CODE))
+        "`DEPARTMENT_CODE` is not character",
+      if (!all(is.na(event_types) | event_types %in% .exception_event_types))
+        paste0("`EVENT_TYPE` outside ", paste(.exception_event_types, collapse = "/"), " or `NA`"),
+      if (inherits(ex$EVENT_DATE, "Date") && any(is.na(event_types) != is.na(ex$EVENT_DATE)))
+        "`EVENT_TYPE` and `EVENT_DATE` not both set or both `NA` (an enrollment-level record has neither)")
+    if (length(wrong) > 0L)
+      rlang::abort(c(
+        "An exception list's columns must be of the types the records join on.",
+        rlang::set_names(wrong, rep("x", length(wrong)))),
+        class = "neoipcr_invalid_exception_list")
+    if (dataset_options$include_patient != "full")
+      rlang::abort(c(
+        "An exception list needs the full patient tier: its records are matched by patient id.",
+        x = sprintf("`include_patient` is \"%s\".", dataset_options$include_patient),
+        i = "Set `include_patient = \"full\"` (`patient_id` is kept for the matching whatever `patient_columns` says), or drop the exception list."),
+        class = "neoipcr_validation_needs_facts")
+    if (dataset_options$include_department == "no")
+      rlang::abort(c(
+        "An exception list needs a department tier: its records are matched within their department.",
+        x = "`include_department` is \"no\".",
+        i = "Set `include_department` to \"pseudo\" or \"full\", or drop the exception list."),
+        class = "neoipcr_validation_needs_facts")
+  }
+
   d2req_base <- dhis2_request(connection_options)
 
   user_info <- d2req_base |>
     get_user_info()
 
   metadata <- get_metadata(d2req_base, user_info, dataset_options)
+
+  # The metadata read settles the department count: with more than one
+  # department an exception list's records join on the department code as
+  # well (see `transform_user_exceptions()`), so a list without it is refused
+  # here, before the tracker requests.
+  if (dataset_options$include_patient != "no" && validation_requested &&
+      !rlang::is_bool(dataset_options$include_invalid_patients) &&
+      !is_single_department(list(metadata = metadata)) &&
+      !("DEPARTMENT_CODE" %in% names(dataset_options$include_invalid_patients)))
+    rlang::abort(c(
+      "The exception list needs `DEPARTMENT_CODE` when more than one department is imported.",
+      x = sprintf("%d departments were imported.", nrow(metadata$.departments_internal_map)),
+      i = "Add the column, or narrow the import to one department with `department_filter`."),
+      class = "neoipcr_invalid_exception_list")
 
   tracker_req <- d2req_base |>
     httr2::req_url_path_append("tracker") |>
@@ -28,7 +122,7 @@ import_dhis2 <- function(
 
   # Push org unit filters to the API to reduce network traffic and memory use.
   # metadata$departments and metadata$countries are already filtered during
-  # metadata processing (read_metadata_reponses), so we can use them directly.
+  # metadata processing (assemble_metadata), so we can use them directly.
   #
   # trackedEntities and enrollments accept a multi-UID org-unit parameter; the
   # /tracker/events endpoint accepts only a single org unit, so event requests
@@ -253,8 +347,9 @@ import_dhis2 <- function(
       `.cache` = new.env(parent = emptyenv())),
     class = c("neoipcr_ds", "list"))
 
-  if(!rlang::is_bool(dataset_options$include_invalid_patients) ||
-     dataset_options$include_invalid_patients == FALSE)
+  # The option-only preconditions of this pass were checked before the first
+  # request; how many departments the import holds is known only now.
+  if(dataset_options$include_patient != "no" && validation_requested)
   {
     if(!rlang::is_bool(dataset_options$include_invalid_patients))
       exceptions <- dataset_options$include_invalid_patients |>
@@ -275,7 +370,8 @@ import_dhis2 <- function(
   # transform_user_exceptions (uses .departments_internal_map) and
   # apply_postfilter.
   # Hierarchy order: metadata → fact entities
-  r$metadata$.wb_country_map           <- NULL
+  r$metadata$.wb_country_map               <- NULL
+  r$metadata$.orgUnitAttributes_internal_map <- NULL
   r$metadata$.countries_internal_map   <- NULL
   r$metadata$.hospitals_internal_map   <- NULL
   r$metadata$.departments_internal_map <- NULL
@@ -412,8 +508,33 @@ dhis2_request <- function(connection_options)
       password = connection_options$password)
 }
 
+# How many departments the import holds, read from the orchestrator-internal
+# map while it exists: the public tibble is the schema's 0×0 gate result
+# under `include_department = "no"`, which says nothing about the count.
 is_single_department <- function(ds)
-  nrow(ds$metadata$departments) == 1L
+{
+  departments <- ds$metadata$.departments_internal_map
+  if (is.null(departments))
+    departments <- ds$metadata$departments
+  nrow(departments) == 1L
+}
+
+# The columns an exception record must carry to be mapped onto the imported
+# records (see `transform_user_exceptions()`); `DEPARTMENT_CODE` joins in
+# addition when more than one department is imported.
+.exception_list_cols <- c(
+  "RULE_ID", "NEOIPC_PATIENT_ID", "ENROLMENT_DATE", "EVENT_TYPE", "EVENT_DATE")
+
+# The event types an exception record may name, as `transform_user_exceptions()`
+# levels them.
+.exception_event_types <- c("adm", "pro", "bsi", "nec", "ssi", "hap", "end")
+
+# Whether `include_invalid_patients` carries an exception list rather than a
+# switch. The full patient tier keeps `patient_id` whenever it does, whatever
+# `patient_columns` says, so the list can be matched; `import_dhis2()`
+# requires that tier for a list.
+has_exception_list <- function(dataset_options)
+  is.data.frame(dataset_options$include_invalid_patients)
 
 transform_user_exceptions <- function(ex, ds)
 {
@@ -421,7 +542,7 @@ transform_user_exceptions <- function(ex, ds)
     dplyr::mutate(
       event_type_key = factor(
         tolower(.data$EVENT_TYPE),
-        levels = c("adm","pro","bsi","nec","ssi","hap","end")),
+        levels = .exception_event_types),
       .keep = "unused")
 
   if(is_single_department(ds))

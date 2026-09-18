@@ -1022,3 +1022,98 @@ test_that("make_test_metadata_event_types output matches eventTypes_cols schema"
     expect_schema_matches(fixture, schema)
   }
 })
+
+# --- Org-unit attributes: opt-in × entity presence ---
+
+attribute_gate_fields <- c(
+  "include_custom_attributes", "include_department", "include_hospital")
+
+attribute_gate_label <- function(opts)
+  sprintf(
+    "include_custom_attributes=[%s], include_department=%s, include_hospital=%s",
+    paste(opts$include_custom_attributes, collapse = ","),
+    opts$include_department, opts$include_hospital)
+
+typed_value_names <- c(
+  "value_text", "value_logical", "value_integer", "value_number",
+  "value_date", "value_datetime")
+
+test_that("orgUnitAttributes schema opens only when an opted-in entity is present", {
+  for (opts in iter_dataset_options(attribute_gate_fields)) {
+    schema <- neoipcr:::get_orgUnitAttributes_schema(opts)
+    open <-
+      ("departments" %in% opts$include_custom_attributes &&
+         opts$include_department != "no") ||
+      ("hospitals" %in% opts$include_custom_attributes &&
+         opts$include_hospital != "no")
+    if (open)
+      expect_identical(
+        names(schema), c("code", "name", "valueType"),
+        info = attribute_gate_label(opts))
+    else
+      expect_equal(ncol(schema), 0L, info = attribute_gate_label(opts))
+  }
+})
+
+test_that("the attribute-values schemas carry the key, the code and six typed columns exactly when their entity is opted in and present", {
+  for (opts in iter_dataset_options(attribute_gate_fields)) {
+    d <- neoipcr:::get_departmentAttributeValues_schema(opts)
+    h <- neoipcr:::get_hospitalAttributeValues_schema(opts)
+    d_open <- "departments" %in% opts$include_custom_attributes &&
+      opts$include_department != "no"
+    h_open <- "hospitals" %in% opts$include_custom_attributes &&
+      opts$include_hospital != "no"
+
+    if (d_open)
+      expect_identical(
+        names(d), c("department_key", "attribute_code", typed_value_names),
+        info = attribute_gate_label(opts))
+    else
+      expect_equal(ncol(d), 0L, info = attribute_gate_label(opts))
+
+    if (h_open)
+      expect_identical(
+        names(h), c("hospital_key", "attribute_code", typed_value_names),
+        info = attribute_gate_label(opts))
+    else
+      expect_equal(ncol(h), 0L, info = attribute_gate_label(opts))
+  }
+})
+
+test_that("the typed value columns declare the expected base types", {
+  schema <- neoipcr:::get_departmentAttributeValues_schema(
+    dhis2_dataset_options(
+      include_department = "full", include_custom_attributes = "departments"))
+  expect_true(is.integer(schema$department_key))
+  expect_true(is.character(schema$attribute_code))
+  expect_true(is.character(schema$value_text))
+  expect_true(is.logical(schema$value_logical))
+  expect_true(is.integer(schema$value_integer))
+  expect_true(is.double(schema$value_number))
+  expect_s3_class(schema$value_date, "Date")
+  expect_s3_class(schema$value_datetime, "POSIXct")
+})
+
+test_that("the org-unit attribute builders match their schemas", {
+  opts <- dhis2_dataset_options(
+    include_department        = "full",
+    include_hospital          = "full",
+    include_custom_attributes = c("departments", "hospitals"))
+
+  expect_schema_matches(
+    make_test_metadata_orgUnitAttributes(),
+    neoipcr:::get_orgUnitAttributes_schema(opts))
+  expect_schema_matches(
+    make_test_metadata_department_attribute_values(),
+    neoipcr:::get_departmentAttributeValues_schema(opts))
+  expect_schema_matches(
+    make_test_metadata_hospital_attribute_values(),
+    neoipcr:::get_hospitalAttributeValues_schema(opts))
+
+  expect_equal(ncol(make_test_metadata_orgUnitAttributes(
+    include_custom_attributes = character())), 0L)
+  expect_equal(ncol(make_test_metadata_department_attribute_values(
+    include_custom_attributes = character())), 0L)
+  expect_equal(ncol(make_test_metadata_hospital_attribute_values(
+    include_hospital = "no")), 0L)
+})

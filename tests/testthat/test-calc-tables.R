@@ -344,3 +344,243 @@ test_that("calculate_reference_data survives empty data", {
   result <- calculate_reference_data(empty_ds, use_cache = FALSE)
   expect_s3_class(result, "neoipcr_ref_ds")
 })
+
+# --- get_cumulative_incidence_table ---
+#
+# calc_ds: department 1 admits patients 1 (2024-01-01, BSI on 2024-01-08) and
+# 2 (2024-01-05, no infection); department 2 admits patient 3 (2024-01-10,
+# BSI on 2024-01-18).
+
+january_window <- function(department_key)
+  tibble::tibble(
+    department_key = department_key,
+    window = "jan",
+    start  = as.Date("2024-01-01"),
+    end    = as.Date("2024-01-31"))
+
+test_that("get_cumulative_incidence_table counts admissions and infections inside each window", {
+  result <- get_cumulative_incidence_table(calc_ds, january_window(c(1L, 2L)))
+
+  expect_s3_class(result, "neoipcr_tbl_cuminc")
+  expect_named(result, c(
+    "department_key", "window", "start", "end",
+    "n_patients", "n_enrollments", "n_infected_patients", "n_infected_enrollments",
+    "n", "n_infected", "proportion", "ci_lower", "ci_upper"))
+
+  d1 <- result[result$department_key == 1L, ]
+  expect_equal(d1$n_patients, 2L)
+  expect_equal(d1$n_enrollments, 2L)
+  expect_equal(d1$n_infected_patients, 1L)
+  expect_equal(d1$n, 2L)
+  expect_equal(d1$n_infected, 1L)
+  expect_equal(d1$proportion, 50)
+  ci <- neoipc_wilson_ci(1, 2)
+  expect_equal(d1$ci_lower, ci$lower * 100)
+  expect_equal(d1$ci_upper, ci$upper * 100)
+
+  d2 <- result[result$department_key == 2L, ]
+  expect_equal(d2$n, 1L)
+  expect_equal(d2$n_infected, 1L)
+  expect_equal(d2$proportion, 100)
+})
+
+test_that("get_cumulative_incidence_table keeps a window with no admissions, with zero counts and NA interval", {
+  windows <- tibble::tibble(
+    department_key = 1L, window = "feb",
+    start = as.Date("2024-02-01"), end = as.Date("2024-02-29"))
+  result <- get_cumulative_incidence_table(calc_ds, windows)
+
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$n, 0L)
+  expect_equal(result$n_infected, 0L)
+  expect_true(is.na(result$proportion))
+  expect_true(is.na(result$ci_lower))
+  expect_true(is.na(result$ci_upper))
+})
+
+test_that("get_cumulative_incidence_table ignores an infection that falls outside the window", {
+  # Both department-1 admissions fall in the window, but the BSI on
+  # 2024-01-08 is after its end.
+  windows <- tibble::tibble(
+    department_key = 1L, window = "early",
+    start = as.Date("2024-01-01"), end = as.Date("2024-01-05"))
+  result <- get_cumulative_incidence_table(calc_ds, windows)
+
+  expect_equal(result$n_patients, 2L)
+  expect_equal(result$n_infected_patients, 0L)
+  expect_equal(result$proportion, 0)
+})
+
+test_that("get_cumulative_incidence_table counts a patient admitted twice in one window once", {
+  ds <- make_calc_test_ds()
+  ds$enrollments <- make_test_enrollments(2,
+    patient_keys   = c(1L, 1L),
+    department_key = c(1L, 1L),
+    enrolledAt     = as.Date(c("2024-01-01", "2024-01-20")))
+  ds$events <- make_test_events(
+    n               = 4,
+    enrollment_keys = c(1L, 1L, 2L, 2L),
+    patient_keys    = c(1L, 1L, 1L, 1L),
+    event_type_keys = c("adm", "bsi", "adm", "bsi"),
+    occurredAt      = as.Date(c("2024-01-01", "2024-01-08",
+                                "2024-01-20", "2024-01-25")),
+    department_key  = c(1L, 1L, 1L, 1L))
+
+  by_patient <- get_cumulative_incidence_table(ds, january_window(1L))
+  expect_equal(by_patient$n_patients, 1L)
+  expect_equal(by_patient$n_enrollments, 2L)
+  expect_equal(by_patient$n_infected_patients, 1L)
+  expect_equal(by_patient$n_infected_enrollments, 2L)
+  expect_equal(by_patient$n, 1L)
+  expect_equal(by_patient$proportion, 100)
+
+  by_enrollment <- get_cumulative_incidence_table(
+    ds, january_window(1L), unit = "enrollments")
+  expect_equal(by_enrollment$n, 2L)
+  expect_equal(by_enrollment$n_infected, 2L)
+})
+
+test_that("get_cumulative_incidence_table counts infections only on the window department's own admissions", {
+  # Department 2's window must not pick up the department-1 BSI.
+  result <- get_cumulative_incidence_table(calc_ds, january_window(2L))
+  expect_equal(result$n_infected, 1L)
+  expect_equal(result$n, 1L)
+})
+
+test_that("get_cumulative_incidence_table ties an infection to the admission it belongs to, not to the patient", {
+  # Patient 1 is admitted to department 1 inside the window and later to
+  # department 2; the only BSI sits on the department-2 admission. A join
+  # through the patient would count it for department 1.
+  ds <- make_calc_test_ds()
+  ds$enrollments <- make_test_enrollments(2,
+    patient_keys   = c(1L, 1L),
+    department_key = c(1L, 2L),
+    enrolledAt     = as.Date(c("2024-01-01", "2024-01-10")))
+  ds$events <- make_test_events(
+    n               = 3,
+    enrollment_keys = c(1L, 2L, 2L),
+    patient_keys    = c(1L, 1L, 1L),
+    event_type_keys = c("adm", "adm", "bsi"),
+    occurredAt      = as.Date(c("2024-01-01", "2024-01-10", "2024-01-15")),
+    department_key  = c(1L, 2L, 2L))
+
+  d1 <- get_cumulative_incidence_table(ds, january_window(1L))
+  expect_equal(d1$n_patients, 1L)
+  expect_equal(d1$n_infected_patients, 0L)
+
+  d2 <- get_cumulative_incidence_table(ds, january_window(2L))
+  expect_equal(d2$n_patients, 1L)
+  expect_equal(d2$n_infected_patients, 1L)
+})
+
+test_that("get_cumulative_incidence_table ignores an infection dated before its admission", {
+  # Patient 2 (department 1, admitted 2024-01-05, no infection) gets a BSI
+  # dated 2024-01-03: inside the window, but before the admission — a
+  # validation error that only `include_invalid_patients = TRUE` lets in.
+  ds <- make_calc_test_ds()
+  early <- ds$events[ds$events$event_type_key == "bsi" & ds$events$enrollment_key == 1L, ][1, ]
+  early$event_key <- 99L
+  early$enrollment_key <- 2L
+  early$patient_key <- 2L
+  early$occurredAt <- as.Date("2024-01-03")
+  ds$events <- dplyr::bind_rows(ds$events, early)
+
+  result <- get_cumulative_incidence_table(ds, january_window(1L))
+  expect_equal(result$n_patients, 2L)
+  expect_equal(result$n_infected_patients, 1L)
+})
+
+test_that("get_cumulative_incidence_table counts an admission in every window it falls into", {
+  windows <- tibble::tibble(
+    department_key = c(1L, 1L),
+    window = c("jan", "early-jan"),
+    start  = as.Date(c("2024-01-01", "2024-01-01")),
+    end    = as.Date(c("2024-01-31", "2024-01-15")))
+  result <- get_cumulative_incidence_table(calc_ds, windows)
+
+  # Both windows hold both admissions and the BSI of 2024-01-08.
+  expect_equal(result$window, c("jan", "early-jan"))
+  expect_equal(result$n_patients, c(2L, 2L))
+  expect_equal(result$n_infected_patients, c(1L, 1L))
+})
+
+test_that("get_cumulative_incidence_table honours event_types and conf.level", {
+  none <- get_cumulative_incidence_table(
+    calc_ds, january_window(1L), event_types = "nec")
+  expect_equal(none$n_infected, 0L)
+
+  ci95 <- get_cumulative_incidence_table(calc_ds, january_window(1L))
+  ci99 <- get_cumulative_incidence_table(
+    calc_ds, january_window(1L), conf.level = 0.99)
+  expect_true(ci99$ci_lower < ci95$ci_lower)
+  expect_true(ci99$ci_upper > ci95$ci_upper)
+})
+
+test_that("get_cumulative_incidence_table numbers the windows on the ungrouped rows, so a grouped input does not pool departments", {
+  # The idiomatic construction of the input leaves it grouped; a numbering
+  # that restarted per group would give both departments the pooled counts.
+  grouped <- january_window(c(1L, 2L)) |>
+    dplyr::group_by(department_key)
+  result <- get_cumulative_incidence_table(calc_ds, grouped)
+
+  expect_false(dplyr::is_grouped_df(result))
+  expect_equal(result$department_key, c(1L, 2L))
+  expect_equal(result$n_patients, c(2L, 1L))
+  expect_equal(result$n_infected_patients, c(1L, 1L))
+})
+
+test_that("get_cumulative_incidence_table returns a tibble for a plain data frame and drops the caller's other columns", {
+  plain <- as.data.frame(january_window(1L))
+  plain$n_patients <- 99L
+  plain$note <- "kept nowhere"
+  result <- get_cumulative_incidence_table(calc_ds, plain)
+
+  expect_s3_class(result, "tbl_df")
+  expect_false(dplyr::is_grouped_df(result))
+  expect_equal(result$n_patients, 2L)
+  expect_false("note" %in% names(result))
+})
+
+test_that("get_cumulative_incidence_table accepts a pseudonymized department tier", {
+  ds <- make_calc_test_ds()
+  ds$metadata$dataset_options <- dhis2_dataset_options(
+    include_department = "pseudo",
+    include_country    = "full",
+    include_patient    = "full",
+    include_enrollment = "full",
+    include_event      = "full")
+  result <- get_cumulative_incidence_table(ds, january_window(1L))
+  expect_equal(result$n_patients, 2L)
+  expect_equal(result$n_infected_patients, 1L)
+})
+
+test_that("get_cumulative_incidence_table rejects malformed windows, unknown event types and narrowed datasets", {
+  windows <- january_window(1L)
+
+  no_end <- windows[, c("department_key", "window", "start")]
+  expect_error(get_cumulative_incidence_table(calc_ds, no_end), "end")
+
+  no_department <- windows
+  no_department$department_key <- NA_integer_
+  expect_error(get_cumulative_incidence_table(calc_ds, no_department), "department_key")
+
+  text_dates <- windows
+  text_dates$start <- as.character(text_dates$start)
+  expect_error(get_cumulative_incidence_table(calc_ds, text_dates), "Date")
+
+  reversed <- windows
+  reversed$end <- reversed$start - 1L
+  expect_error(get_cumulative_incidence_table(calc_ds, reversed), "start <= end")
+
+  expect_error(get_cumulative_incidence_table(calc_ds, windows, event_types = "adm"))
+
+  narrowed <- calc_ds
+  narrowed$metadata$dataset_options <- dhis2_dataset_options(
+    include_department = "full",
+    include_country    = "full",
+    include_patient    = "full",
+    include_enrollment = "pseudo",
+    include_event      = "full")
+  expect_error(
+    get_cumulative_incidence_table(narrowed, windows), "include_enrollment")
+})

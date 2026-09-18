@@ -210,11 +210,10 @@ get_hospitals_schema <- function(opts)
 # Under pseudo / no modes, the fat-lookup role collapses to just the
 # link-FK and PK.
 #
-# `isTest` is populated by the orchestrator (computed from
-# `orgUnit %in% testUnitIds`), gated by `include_test_data`. Source #1
-# of the three-source isTest merge (group membership); sources #2
-# (subtree) and #3 (IsTestunit attribute) land later via
-# `tasks/orgunit-attributes-import.md`.
+# `isTest` is populated by the orchestrator from two sources — membership
+# in the TEST_UNITS org-unit group and the department's own `IsTestunit`
+# attribute value — gated by `include_test_data`. A test flag carried by an
+# ancestor (a hospital's group membership or attribute) is not consulted.
 #
 # Three-mode shape:
 #   "no"     — 0×0 tibble (via the entity gate).
@@ -284,6 +283,90 @@ departments_cols <- with_entity_gate(
 
 get_departments_schema <- function(opts)
   compile_schema(departments_cols, opts)
+
+# ---- Org-unit attributes --------------------------------------------------
+#
+# DHIS2 custom attributes on organisation units: the definitions
+# (`orgUnitAttributes`) and the values set on departments and hospitals
+# (`departmentAttributeValues`, `hospitalAttributeValues`). Values are
+# selected through `include_custom_attributes` — an opt-in axis like
+# `include_dhis2_ids`, naming the entities whose values to import — and an
+# entity contributes only when it is present at all (`include_<entity>` not
+# "no"), because a value row is keyed on that entity's key.
+#
+# Each value row fills at most one typed column — the one of its attribute's
+# value-type family, through the families DHIS2 itself declares (see
+# `value_type_family()`): integer types → `value_integer`, decimal types →
+# `value_number`, boolean types → `value_logical`, DATE and AGE →
+# `value_date`, DATETIME → `value_datetime`, everything else → `value_text`.
+# A missing or unparseable value leaves every typed column NA (the latter
+# with a warning). The raw string is not kept. `valueType` on the definitions stays the DHIS2
+# enum name as character: the enum grows upstream, and fixed factor levels
+# would turn a value type added later into a schema violation.
+#
+# `IsTestunit` is not an ordinary attribute here: the orchestrator reads it
+# on every import, whatever `include_custom_attributes` says, folds it into
+# `isTest`, and drops its rows, so it never appears in the values tables. No
+# DHIS2 UID is public on any of the three tibbles — a value is addressed by
+# `attribute_code`, resolved through the definitions.
+#
+# Shape: each tibble is 0×0 while its gate is closed and carries every
+# declared column once it opens. There is no "pseudo" tier, because the
+# opt-in is the whole contract.
+
+.attr_entity_on <- function(opts, entity, opts_key)
+  entity %in% opts$include_custom_attributes && opts[[opts_key]] != "no"
+
+orgUnitAttributes_cols <- with_entity_gate(
+  list(
+    schema_col("code",      character()),
+    schema_col("name",      character()),
+    schema_col("valueType", character())
+  ),
+  gate = \(opts)
+    .attr_entity_on(opts, "departments", "include_department") ||
+    .attr_entity_on(opts, "hospitals",   "include_hospital")
+)
+
+get_orgUnitAttributes_schema <- function(opts)
+  compile_schema(orgUnitAttributes_cols, opts)
+
+.typed_value_cols <- list(
+  schema_col("value_text",     character()),
+  schema_col("value_logical",  logical()),
+  schema_col("value_integer",  integer()),
+  schema_col("value_number",   double()),
+  schema_col("value_date",     as.Date(character())),
+  schema_col("value_datetime", as.POSIXct(character()))
+)
+
+departmentAttributeValues_cols <- with_entity_gate(
+  c(
+    list(
+      col_department_key,
+      schema_col("attribute_code", character())
+    ),
+    .typed_value_cols
+  ),
+  gate = \(opts) .attr_entity_on(opts, "departments", "include_department")
+)
+
+get_departmentAttributeValues_schema <- function(opts)
+  compile_schema(departmentAttributeValues_cols, opts)
+
+hospitalAttributeValues_cols <- with_entity_gate(
+  c(
+    list(
+      col_hospital_key,
+      schema_col("attribute_code", character())
+    ),
+    .typed_value_cols
+  ),
+  gate = \(opts) .attr_entity_on(opts, "hospitals", "include_hospital")
+)
+
+get_hospitalAttributeValues_schema <- function(opts)
+  compile_schema(hospitalAttributeValues_cols, opts)
 
 # ---- Users ----------------------------------------------------------------
 #

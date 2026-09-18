@@ -87,7 +87,7 @@ read_enrollments <- function(enrollments, patients, metadata, dataset_options)
      dataset_options$include_hospital != "no" ||
      dataset_options$include_country != "no" ||
      dataset_options$include_world_bank_class != "no" ||
-     length(dataset_options$include_invalid_patients) > 1)
+     has_exception_list(dataset_options))
   {
     hierarchy_cols <- intersect(
       c("department_key", "hospital_key", "country_key",

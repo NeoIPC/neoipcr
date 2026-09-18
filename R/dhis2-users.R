@@ -98,7 +98,7 @@ get_user_info <- function(req)
 
 # Read the currently-authenticated user into a `users` tibble.
 #
-# Used as a fallback by `read_metadata_reponses()` when the caller lacks
+# Used as a fallback by `assemble_metadata()` when the caller lacks
 # the `F_USER_VIEW` / `F_METADATA_EXPORT` / `ALL` authorities required to
 # fetch the full user list through the metadata endpoint.
 #

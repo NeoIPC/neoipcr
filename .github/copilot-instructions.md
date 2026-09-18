@@ -111,19 +111,19 @@ The `R/` directory follows a deliberate structure established by the neoipcr fil
 | **Import pipeline** | |
 | `R/import-dhis2.R` | `import_dhis2()` orchestrator + cross-cutting utilities (`add_key_column`, `convert_value`, `dhis2_ou_dialect()` version→org-unit-request dialect, `neoipcr_supported_versions()` + the unsupported-version warning helpers) |
 | `R/dhis2-connect.R` | Connection options, authentication (token/basic/session/interactive) |
-| `R/dhis2-options.R` | `dhis2_dataset_options()` constructor |
+| `R/dhis2-options.R` | `dhis2_dataset_options()` constructor, incl. the `include_custom_attributes` opt-in |
 | `R/dhis2-users.R` | `get_user_info()` API call, `read_user_info_table()`, `read_metadata_users()` |
-| `R/dhis2-metadata.R` | Metadata orchestration (`get_metadata`, request builders, response readers) |
-| `R/dhis2-metadata-orgunits.R` | Org unit request builder + `read_organisationUnits*` response readers |
+| `R/dhis2-metadata.R` | Metadata orchestration (`get_metadata`, request builders, response readers; test-unit detection from group membership + `IsTestunit`) |
+| `R/dhis2-metadata-orgunits.R` | Org unit request builders (`get_organisationUnit_request`, the `IsTestunit` follow-up `get_test_unit_attribute_request`) + `read_organisationUnits*` response readers + the custom-attribute value split (`read_organisationUnit_attribute_values`), resolver (`resolve_organisationUnit_attribute_values`) and typing (`value_type_family()`, `spread_typed_values()` — DHIS2 value-type families → typed `value_*` columns) |
 | `R/dhis2-metadata-options.R` | Option-set readers (12 `read_metadata_<optionset>` functions) + filter/convert helpers |
-| `R/dhis2-metadata-reference.R` | Program structure + reference data (substances, AWaRe, ATC5, TEAs, trials, WB classes, countries) |
+| `R/dhis2-metadata-reference.R` | Program structure + reference data (substances, AWaRe, ATC5, TEAs, trials, WB classes, countries, org-unit attribute definitions) |
 | `R/dhis2-trackedEntities.R` | Patient (tracked entity) import |
 | `R/dhis2-enrollments.R` | Enrollment import |
 | `R/dhis2-events.R` | Event import and processing |
 | **Calculations** | |
 | `R/calc-api.R` | Pipeline entry points (`calculate_reference_data`, `calculate_department_data`, `get_benchmark_data`, `pretty_names`) |
-| `R/calc-tables.R` | 15 public table/figure builders (epidemiological progression: usage → incidence → detection → resistance) |
-| `R/calc-rates.R` | 11 internal rate/count computers |
+| `R/calc-tables.R` | Public table/figure builders (epidemiological progression: usage → incidence → detection → resistance), incl. `get_cumulative_incidence_table()` — infections among the admissions of caller-supplied calendar windows |
+| `R/calc-rates.R` | Internal rate/count computers, incl. `get_cumulative_incidence()` (uncached: its windows are caller data, not options) |
 | `R/calc-denominators.R` | Risk-time, population, substance-day, AWaRe denominators |
 | `R/calc-procedure-categories.R` | ICHI procedure category mapping |
 | `R/scales.R` | Birth-weight / gestational-age binning helpers (`ga7`, `bw50`, `bw125`, `bw250`, `bw500`) |
@@ -132,17 +132,17 @@ The `R/` directory follows a deliberate structure established by the neoipcr fil
 | **Schema engine** | |
 | `R/schema-tools.R` | `schema_col()`, `compile_schema()`, `schema_codes()`, `assert_schema()`, `finalize_to_schema()` — column-as-declaration engine. `with_entity_gate(cols, gate)` + `entity_gate()` + `entity_exists()` attach a containing-entity-gate predicate so `compile_schema`/`assert_schema`/`finalize_to_schema` short-circuit to 0×0 when the gate rejects `opts`. Internal, no `@export`. |
 | `R/schema-cols-shared.R` | Cross-entity column declarations: `col_patient_key`, `col_enrollment_key`, `col_event_key`, `col_department_key`, `col_hospital_key`, `col_country_key`, `col_wb_class_key`, `col_isTest`, plus `col_inherited_from()` (hierarchy-inheritance helper) and `attribute_cols()` / `tea_attribute_cols()` (companion-column helpers for partner-site-entered attributes). Loads before every `schema-<domain>.R` via `@include`. |
-| `R/schema-orgunits.R` | Column declarations + `get_<entity>_schema(opts)` wrappers for the org-unit-derived metadata entities: WB classes, countries, hospitals, departments, users, event types. Loads after `schema-cols-shared.R`. Internal. |
+| `R/schema-orgunits.R` | Column declarations + `get_<entity>_schema(opts)` wrappers for the org-unit-derived metadata entities: WB classes, countries, hospitals, departments, org-unit attribute definitions and the department / hospital attribute values, users, event types. Loads after `schema-cols-shared.R`. Internal. |
 | `R/schema-patients.R` | `patient_attribute_cols()` wrapper + `patients_cols` + `get_patients_schema()`. First fact-layer schema. Loads after `schema-orgunits.R`. Internal. |
 | `R/schema-enrollments.R` | `enrollment_inherited_from()` helper + `enrollments_cols` + `get_enrollments_schema()`. Second fact-layer schema; atoms declared directly (no per-attribute wrapper — every user/timestamp field on enrollments is entity-level). Loads after `schema-patients.R`. Internal. |
 | `R/schema-events.R` | `event_hierarchy_col()` helper + `events_cols` + `get_events_schema()`. Third fact-layer schema; introduces the `include_event` gate; carries PK + id-opt-in + occurredAt + status + event_type_key + link FKs + hierarchy keys via direct materialization + entity-level user fields (`createdBy` / `updatedBy` / `storedBy` / `completedBy`) + six entity-level timestamps + `followup` + `deleted`. The former `eventDetails` sidecar tibble was merged in here in phase-b-event-details. Loads after `schema-enrollments.R`. Internal. |
 | `R/schema-event-data.R` | Per-event-type data schemas for all seven event types (`admissionData_cols`, `surveillanceEndData_cols`, `sepsisData_cols`, `necData_cols`, `pneumoniaData_cols`, `surgeryData_cols`, `ssiData_cols`) + `event_data_col()` wrapper (payload + three DE-level companion columns via `event_data_attribute_cols()`) + `event_data_cols_for(event_type_key)` dispatcher. Pre-pivot factor pinning via `schema_codes()` + `pivot_wider(names_expand = TRUE)` closes the pivot-volatility hazard in `read_event_data()`. `vs_days` on surveillance-end is declared on the schema and computed post-pivot from the guaranteed `inv_days + niv_days`. Also hosts the three findings-family schemas — `findings_cols` (`infectiousAgentFindings` — `source` + resistance markers + `multiple` all unconditionally declared under full mode, fixing failure pattern #6), `substanceDays_cols`, and `unknownPathogenNames_cols`. `read_infectious_agent_findings()` produces both findings and the `unknownPathogenNames` split as a list, splitting on the pre-finalize intermediate (where `name` is still attached) via the internal `split_unknown_pathogen_names()` helper. Pre-pivot factor pinning on the pathogen-subfield `type` + `names_expand = TRUE` closes the pivot-volatility hazard; `read_substance_days()` follows the same pattern. Loads after `schema-events.R`. Internal. |
 | `R/schema-notes.R` | `event_notes_cols` and `enrollment_notes_cols` with a shared `.notes_payload_cols(parent_full)` factory (same payload shape: `note`, `value`, `storedBy`, `storedAt`, `createdBy`). Entity gate compounds `include_<parent> != "no"` with `"<parent>" %in% include_notes`. Hierarchy-key inheritance via `col_inherited_from(..., <parent>_cols)` — lean children under fat parents, direct materialization under pseudo parents. Loads after `schema-enrollments.R` + `schema-events.R`. Internal. |
 | **Data protection** | |
-| `R/data-protection.R` | `assert_data_protection()` — the authoritative data-protection guardian. Asserts invariants under the schema contract (reader-owned tibble shapes); no scrubs remain after phase-b-event-details. |
-| `R/filter.R` | `filter_*` family + `apply_postfilter` |
+| `R/data-protection.R` | `assert_data_protection()` — the authoritative data-protection guardian. Asserts three invariant families under the schema contract (hierarchy keys, metadata companion columns, attribute-value opt-in); no scrubs remain after phase-b-event-details. |
+| `R/filter.R` | `filter_*` family + `apply_postfilter` (incl. pruning the attribute-value leaves) |
 | **Validation** | |
-| `R/validation.R` | `validation_rules` registry list + `validate()` orchestrator |
+| `R/validation.R` | `validation_rules` registry list + the exported `validate()` orchestrator |
 | `R/validation-rules-enrollment.R` | Rules 1, 2, 17, 25, 26 — enrollment lifecycle |
 | `R/validation-rules-dates.R` | Rules 3, 4, 12–16 — date consistency |
 | `R/validation-rules-completeness.R` | Rules 5–11 — form completion |
@@ -223,6 +223,41 @@ Test organisation units live outside the real country hierarchy:
 
 Because test units have **no country, no hospital, and no World Bank income class**, code must tolerate `NA` in these keys when `include_test_data = TRUE`. Use `left_join` (not `inner_join`) when joining with countries or World Bank classes so that test data is preserved with `NA` keys.
 
+A department counts as a test unit when it is a member of the `TEST_UNITS` org-unit group **or** carries the `IsTestunit` custom attribute (`TRUE_ONLY`) itself. The flagged departments are fetched on every import, whatever `include_custom_attributes` says, through a narrowed follow-up request that returns ids only (see Org-unit Attributes below). A test flag on an ancestor — a hospital's group membership or attribute — is not consulted.
+
+---
+
+## Org-unit Attributes
+
+DHIS2 custom attributes on organisation units are imported on request through `dhis2_dataset_options(include_custom_attributes = ...)`, an opt-in axis like `include_dhis2_ids` that names the entities whose values to import (`"departments"`, `"hospitals"`). Three metadata tibbles carry them:
+
+| Tibble | Columns | Present when |
+|---|---|---|
+| `metadata$orgUnitAttributes` | `code`, `name`, `valueType` (the DHIS2 enum name, as character); coded definitions only, since a value is addressed by code and a code-less definition's values never arrive | any opted-in entity is present (`include_<entity>` not `"no"`) |
+| `metadata$departmentAttributeValues` | `department_key`, `attribute_code`, six typed `value_*` columns | `"departments"` opted in and `include_department != "no"` |
+| `metadata$hospitalAttributeValues` | `hospital_key`, `attribute_code`, six typed `value_*` columns | `"hospitals"` opted in and `include_hospital != "no"` |
+
+A closed gate yields a 0×0 tibble; there is no "pseudo" tier, because the opt-in is the whole contract. The values can carry personal data (a site's contact person), so opting in under a pseudonymized entity re-identifies it — the caller's explicit choice, as with `include_dhis2_ids`. Without the opt-in no attribute value is requested at all — the `IsTestunit` flag arrives as org-unit ids from its own request — so a malformed value can only ever be reported to a caller who receives the values.
+
+**Typed values.** Each value row fills at most one typed column — the one of its attribute's value-type family, through the families DHIS2 declares in `ValueType.java` (`value_type_family()` in `R/dhis2-metadata-orgunits.R`); a missing or unparseable value leaves every typed column `NA`:
+
+| DHIS2 value types | Column |
+|---|---|
+| `INTEGER`, `INTEGER_POSITIVE`, `INTEGER_NEGATIVE`, `INTEGER_ZERO_OR_POSITIVE` | `value_integer` |
+| `NUMBER`, `UNIT_INTERVAL`, `PERCENTAGE` | `value_number` |
+| `BOOLEAN`, `TRUE_ONLY` | `value_logical` |
+| `DATE`, `AGE` | `value_date` |
+| `DATETIME` | `value_datetime` (UTC) |
+| every other type, and any value type the package does not know | `value_text` |
+
+The raw string is not kept. A value that does not parse under its family becomes `NA` in every typed column and is reported in a single `neoipcr_attribute_value_parse_failure` warning per resolved table, listing each failing attribute code with its count — never the value.
+
+**Resolution by code.** The definitions (`/api/metadata` `attributes`, filtered to `organisationUnitAttribute:eq:true`) are requested on every import, and a value's attribute UID is resolved to `attribute_code` through them; no UID is public on any of the three tibbles. A value whose definition the caller cannot read (the contact-person attributes are shared privately) is dropped and counted in a debug log line. Values are requested only for the opted-in entities, and resolved for the org units that survived the metadata narrowing, so a pruned department's value never raises a warning.
+
+**`IsTestunit`.** Evaluated on every import regardless of the opt-in through a follow-up request that returns ids only: DHIS2 filters metadata objects by one attribute's value with `filter=<attribute uid>:eq:<value>` — the query parser turns a path that is no schema property but a valid uid into an attribute restriction (`DefaultJpaQueryParser.getRestriction()` → `asAttribute()`), and since `withinUserHierarchy` preselects the org units and sets them on the query, `DefaultQueryService.queryObjects()` hands the whole query to the in-memory engine (`InMemoryQueryEngine.getValue()` → `getAttributeValue(uid)`, every restriction AND-ed; the query planner is not reached on this path); identical on 2.40 and 2.41 — and the uid is resolved by code from the definitions of the same import. The ids are folded into `isTest` (see DHIS2 Test Units above) alongside the `TEST_UNITS` membership; a caller who cannot read the definition gets no flag from this source. Under the opt-in the attribute's rows are dropped from the values tables. `assert_data_protection()` aborts if an `IsTestunit` row survives, or if a values table carries columns without the opt-in — the contract is the shape: a closed gate yields a 0×0 tibble, so a schema-shaped table there, rows or not, means a reader ignored the gate.
+
+**Post-filter.** The values tables are leaves: `apply_postfilter()` prunes them to the surviving departments / hospitals after the hierarchy cascade, and they never anchor that cascade.
+
 ---
 
 ## Gestational Age
@@ -250,30 +285,35 @@ Test files mirror source files: `R/foo.R` -> `tests/testthat/test-foo.R`.
 |------|-------|
 | `tests/testthat/test-ci.R` | `neoipc_poisson_ci()`, `neoipc_wilson_ci()`, bootstrap CI, vectorized wrappers |
 | `tests/testthat/test-dhis2-metadata.R` | `read_metadata()` validation and data-reading tests |
+| `tests/testthat/test-dhis2-metadata-orgunits.R` | The `/organisationUnits` request shapes (the opt-in department and hospital `attributeValues` fragments, the `IsTestunit` follow-up request, the always-on `attributes:` definitions request) and the org-unit attribute path: value split, hospital dedup with the list column, resolver (UID → code, undefined dropped, non-surviving parents dropped), the typed-value helpers (`value_type_family()`, `spread_typed_values()`), definitions reader |
+| `tests/testthat/test-dhis2-options.R` | `dhis2_dataset_options()` constructor: serialization, class order, the `include_custom_attributes` vocabulary |
 | `tests/testthat/test-dhis2-connect.R` | `dhis2_connection_options()`, `get_auth_data()`, `read_token()`, `get_password()` |
-| `tests/testthat/test-data-protection.R` | `assert_data_protection()` — happy-path (schema-compliant ds passes) and failure-path (reader regression leaks a forbidden column → abort) coverage; pure-assertion guardian post phase-b-event-details |
-| `tests/testthat/test-data-protection-complete.R` | Option-matrix coverage: iterates every `include_*` gate (hierarchy, link-privacy, user, timestamps, deleted) under every value against a schema-compliant ds, verifying the guardian passes. Maximally-restrictive smoke test. |
-| `tests/testthat/test-validation.R` | `validate()` orchestrator, rule registry |
+| `tests/testthat/test-data-protection.R` | `assert_data_protection()` — happy-path (schema-compliant ds passes) and failure-path (reader regression leaks a forbidden column → abort) coverage, incl. the attribute-value opt-in and the `IsTestunit`-row assertions; pure-assertion guardian post phase-b-event-details |
+| `tests/testthat/test-data-protection-complete.R` | Option-matrix coverage: iterates every `include_*` gate (hierarchy, link-privacy, user, timestamps, deleted, the custom-attribute opt-in) under every value against a schema-compliant ds, verifying the guardian passes. Maximally-restrictive smoke test. |
+| `tests/testthat/test-validation.R` | `validate()` orchestrator (exported, visible return), rule registry |
 | `tests/testthat/test-validation-rules-*.R` | Per-domain rule tests (42 rules; 34 skip-wrapped stubs for unmigrated rules) |
 | `tests/testthat/test-calc-api.R` | `calculate_department_data()` integration: structure, counts, table presence |
-| `tests/testthat/test-calc-tables.R` | All 16 `get_*_table()` + figure data builders, with numerical spot-checks |
+| `tests/testthat/test-calc-tables.R` | The `get_*_table()` + figure data builders, with numerical spot-checks; `get_cumulative_incidence_table()` window semantics (in-window infections only, a patient admitted twice counted once, empty windows, the other department's infections excluded) |
 | `tests/testthat/test-pathogens.R` | `get_pathogen_taxonomy()`, `get_pathogen_list()`, synonym resolution |
+| `tests/testthat/test-scales.R` | Birth-weight binning helpers: NA tolerance, shared 50 g strata |
+| `tests/testthat/test-calc-procedure-categories.R` | Procedure category codes and their labels, incl. the pre-rename spelling a serialized dataset may carry |
+| `tests/testthat/test-json.R` | `write_json()`: plain-JSON shape, file output, LF / no-BOM on every platform, vectors and `NA` |
 | `tests/testthat/test-log.R` | `log_dhis2_request()` records URL+status+count and **never** the response body (data-protection guard), httr2-error handling, threshold gating; `neoipcr_log_config()` verbosity mapping + `NEOIPC_LOG_LEVEL` default |
-| `tests/testthat/test-filter.R` | `filter_*` family, `apply_postfilter()` cascade, `filter_dataset()` bug coverage |
+| `tests/testthat/test-filter.R` | `filter_*` family (incl. the completed-week `gestational_age_to` bound), `apply_postfilter()` cascade and attribute-value leaf pruning, `filter_dataset()` bug coverage |
 | `tests/testthat/test-test-units.R` | Test org unit tolerance — NA hierarchy keys through calc pipeline |
 | `tests/testthat/test-schema-tools.R` | `schema_col()`, `compile_schema()`, `schema_codes()`, `assert_schema()`, `finalize_to_schema()` |
 | `tests/testthat/test-schema-cols-shared.R` | Shared column declarations, `col_inherited_from()`, `attribute_cols()` / `tea_attribute_cols()`, plus `expect_schema_matches()` / `iter_dataset_options()` helpers |
-| `tests/testthat/test-schema-orgunits.R` | Per-domain schema assembly for org-unit-derived metadata entities: WB classes / countries / hospitals / departments / users / event types. |
+| `tests/testthat/test-schema-orgunits.R` | Per-domain schema assembly for org-unit-derived metadata entities: WB classes / countries / hospitals / departments / users / event types / org-unit attribute definitions and values (opt-in × entity-presence gates, typed columns, builders). |
 | `tests/testthat/test-schema-patients.R` | `patient_attribute_cols()` wrapper behaviour + `patients_cols` three-mode shape, hierarchy-key inheritance, `isTest` gating (full mode + `include_test_data`), companion-column semantics. |
 | `tests/testthat/test-schema-enrollments.R` | `enrollments_cols` three-mode shape, entity-level user/timestamp gating, hierarchy-key inheritance anchored on patients. |
 | `tests/testthat/test-schema-events.R` | `events_cols` three-mode shape, compound link-FK gating on enrollment/patient, hierarchy-key direct materialization, status/event_type_key factor levels, `isTest` direct materialization. |
 | `tests/testthat/test-schema-event-data.R` | Per-event-type data schemas (all 7) + the three findings-family schemas (`findings_cols`, `substanceDays_cols`, `unknownPathogenNames_cols`): three-mode shape, inheritance-driven link/hierarchy key absence, per-type payload coverage + fixed factor levels, companion-column gating (3 per DE), `source` / resistance / `multiple` unconditional declaration under full mode, `split_unknown_pathogen_names()` behaviour (the internal split helper invoked by `read_infectious_agent_findings()`), fixture round-trip, dispatcher. |
 | `tests/testthat/test-schema-notes.R` | `event_notes_cols` + `enrollment_notes_cols`: compound entity-gate (include_event/include_enrollment AND include_notes), pseudo-parent inheritance-driven direct materialization, payload gating on include_dhis2_ids / include_user / include_timestamps, hierarchy-key inheritance absence under full parent, fixture round-trip. |
 | `tests/testthat/test-read-event-data.R` | Reader-level integration tests: sparse-data resilience for `read_event_data` (all 7 types), `read_substance_days`, `read_infectious_agent_findings`, `read_events`; pivot-volatility, absent-column materialization, type-drift, hierarchy-key inheritance, enrollment-chain patient_key derivation, companion columns. |
-| `tests/testthat/test-import-dhis2.R` | `import_dhis2()` pipeline: `dhis2_ou_dialect()` version→dialect unit tests; the full offline pipeline via the `helper-dhis2-mock.R` dispatcher; the compatibility matrix, which is deliberately wider than the declared supported set — it drives the unsupported lines too, for request-shape coverage (identical read-out + per-version request shapes); error-surfacing + the no-real-HTTP invariant; the unsupported-version warning, asserted in both directions; parameterless import from `NEOIPC_DHIS2_HOST` + env auth |
+| `tests/testthat/test-import-dhis2.R` | `import_dhis2()` pipeline: `dhis2_ou_dialect()` version→dialect unit tests; the full offline pipeline via the `helper-dhis2-mock.R` dispatcher; the compatibility matrix, which is deliberately wider than the declared supported set — it drives the unsupported lines too, for request-shape coverage (identical read-out + per-version request shapes); error-surfacing + the no-real-HTTP invariant; the unsupported-version warning, asserted in both directions; parameterless import from `NEOIPC_DHIS2_HOST` + env auth; the org-unit attribute import end to end (typed values, the `IsTestunit` follow-up request and the exclusion / marking it drives, empty shapes, the metadata-only import), on 2.40 in detail and on every supported line in outline |
 | `tests/testthat/test-dhis2-users.R` | `get_user_info()` — `/me` `lastLogin` read nested under `userCredentials` (2.40/2.41), and the no-`lastLogin` case (2.42+ drop it / never-logged-in → NA, no crash) |
-| `tests/testthat/helper-fixtures.R` | `read_test_metadata()`, `make_test_ds()`, `make_populated_test_ds()`, `make_calc_test_ds()`, per-table builders |
-| `tests/testthat/helper-schema.R` | `expect_schema_matches(x, expected)`, `iter_dataset_options(fields)` |
+| `tests/testthat/helper-fixtures.R` | `read_test_metadata()`, `make_test_ds()`, `make_populated_test_ds()` (opt-in `orgunit_attributes = TRUE` populates the attribute tables), `make_calc_test_ds()`, per-table builders |
+| `tests/testthat/helper-schema.R` | `expect_schema_matches(x, expected)`, `iter_dataset_options(fields)` — a catalogue entry may be a list of vectors for a multi-valued option such as `include_custom_attributes` |
 | `tests/testthat/helper-event-data.R` | Raw DHIS2-shaped fixture builders for reader integration tests: `build_raw_events()`, `build_processed_events()`, `build_reader_metadata()`, `build_raw_substance_events()`, `build_raw_pathogen_events()` |
 | `tests/testthat/helper-dhis2-mock.R` | Offline HTTP interception for the import pipeline: `mock_json_response()`, `read_fixture_text()`, `build_metadata_response(version)`, and `new_dhis2_mock(fixtures)` — a URL-dispatching `httr2::local_mocked_responses` mock that serves per-endpoint fixtures, records request URLs, and **aborts on any unmocked request** (no silent real HTTP) |
 
@@ -281,17 +321,13 @@ Planned (not yet created):
 
 | File | Scope |
 |------|-------|
-| `test-dhis2-options.R` | `dhis2_dataset_options()` constructor |
 | `test-dhis2-enrollments.R` | Enrollment import |
 | `test-dhis2-events.R` | Event import and processing |
 | `test-dhis2-trackedEntities.R` | Patient (tracked entity) import |
-| `test-dhis2-metadata-orgunits.R` | Org unit reading |
 | `test-dhis2-metadata-options.R` | Option-set readers |
 | `test-dhis2-metadata-reference.R` | Program structure + reference data readers |
 | `test-calc-rates.R` | Rate/count computers |
 | `test-calc-denominators.R` | Denominators |
-| `test-calc-procedure-categories.R` | Procedure category mapping |
-| `test-scales.R` | Binning helpers |
 | `test-cache.R` | Cache primitives |
 
 ### Fixture files
@@ -303,10 +339,13 @@ Static JSON fixtures live under `tests/testthat/fixtures/`. The `system`/`progra
 | `system.json` | `system` |
 | `program.json` | `programs`, `trackedEntityTypes` |
 | `org-units.json` | `organisationUnitGroups` |
+| `org-unit-attributes.json` | `attributes` — the org-unit custom-attribute definitions (`IsTestunit`, a text, a date, an integer and a number attribute, plus one without a code, which neither the public tibble nor the map lists). Merged only on request (`read_test_metadata(include = "org_unit_attributes")`, `build_metadata_response(org_unit_attributes = TRUE)`, `import_test_fixtures(org_unit_attributes = TRUE)`), so the baseline metadata graph the other tests assume carries no definitions and issues no `IsTestunit` follow-up |
 | `antimicrobials.json` | `options` (antimicrobials), `optionGroupSets` |
 | `me-nested.json` / `me-no-lastlogin.json` | `/me` responses: `lastLogin` nested under `userCredentials` (2.40/2.41), and absent (2.42+ drop it / never-logged-in) |
 | `orgunits-departments.json` / `orgunits-departments-2.json` | `/organisationUnits` — one department (ACCESSIBLE path) and two coded departments (the `department_filter` request-shape path) |
+| `orgunits-departments-attributes.json` | `/organisationUnits` — three departments under one hospital with `attributeValues`: typed values (one unparseable), a value on an undefined attribute and `IsTestunit` "false" on `DEPT_01`, none on `DEPT_02`, `IsTestunit` "true" on `DEPT_03`; the shared parent carries a text value and `IsTestunit` "true" (never consulted, never surfaced) |
 | `tracker-trackedEntities.json` / `tracker-enrollments.json` / `tracker-events.json` | `/tracker/*` responses: 2 patients, 2 enrollments, 2 admission events (referentially consistent with the `program.json` UIDs) |
+| `tracker-*-attributes.json` | The same tracker triple plus a third patient admitted in `DEPT_03`, so the `IsTestunit` exclusion / marking is observable end to end |
 
 ### Running tests locally
 

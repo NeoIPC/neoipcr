@@ -25,6 +25,12 @@
   md$worldBankClasses <- neoipcr:::compile_schema(neoipcr:::worldBankClasses_cols, opts)
   md$eventTypes      <- neoipcr:::compile_schema(neoipcr:::eventTypes_cols, opts)
   md$users           <- neoipcr:::compile_schema(neoipcr:::users_cols, opts)
+  md$orgUnitAttributes <- neoipcr:::compile_schema(
+    neoipcr:::orgUnitAttributes_cols, opts)
+  md$departmentAttributeValues <- neoipcr:::compile_schema(
+    neoipcr:::departmentAttributeValues_cols, opts)
+  md$hospitalAttributeValues <- neoipcr:::compile_schema(
+    neoipcr:::hospitalAttributeValues_cols, opts)
   md$dataset_options <- opts
 
   make_test_ds(
@@ -156,4 +162,24 @@ test_that("assert_data_protection passes under maximally restrictive opts", {
   expect_equal(ncol(ds$patients), 0L)
   expect_equal(ncol(ds$enrollments), 0L)
   expect_equal(ncol(ds$events), 0L)
+})
+
+
+# ---- Org-unit attribute values: opt-in × entity gates ----------------
+#
+# The values tables open only where the caller opted into an entity's
+# attributes AND that entity is present. A schema-compliant shape must
+# pass the guardian under every combination.
+
+test_that("assert_data_protection passes for schema-compliant attribute-value shapes under every opt-in / gate combination", {
+  for (opts in iter_dataset_options(c(
+    "include_custom_attributes", "include_department", "include_hospital"))) {
+    ds <- .schema_compliant_ds(opts)
+    expect_error(
+      neoipcr:::assert_data_protection(ds, opts), NA,
+      info = sprintf(
+        "include_custom_attributes=[%s], include_department=%s, include_hospital=%s",
+        paste(opts$include_custom_attributes, collapse = ","),
+        opts$include_department, opts$include_hospital))
+  }
 })

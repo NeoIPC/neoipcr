@@ -23,6 +23,7 @@ dhis2_dataset_options(
   include_enrollment = c("no", "pseudo", "full"),
   include_event = c("no", "pseudo", "full"),
   include_dhis2_ids = character(),
+  include_custom_attributes = character(),
   include_timestamps = FALSE,
   include_test_data = FALSE,
   include_ineligible_patients = FALSE,
@@ -53,7 +54,8 @@ records to include into the dataset.}
 of patient records to include into the dataset.}
 
 \item{gestational_age_to}{The highest gestational age (in completed weeks) of
-patient records to include into the dataset}
+patient records to include into the dataset. The bound covers the whole
+completed week: \code{31} keeps 31+0 through 31+6.}
 
 \item{country_filter}{ISO 3166 country codes    of the countries the enrolling
 departments are located in to include into the dataset.}
@@ -103,6 +105,18 @@ notes, unknown pathogen names). Same three-mode semantics as
 
 \item{include_dhis2_ids}{Include the DHIS2 ids into the dataset.}
 
+\item{include_custom_attributes}{Include the values of the DHIS2 custom
+attributes set on organisation units into the dataset, as
+\code{metadata$departmentAttributeValues} and \code{metadata$hospitalAttributeValues},
+with the attribute definitions in \code{metadata$orgUnitAttributes}. Possible
+values are "departments" and "hospitals"; an entity whose \verb{include_*}
+option is "no" contributes nothing. Each value arrives typed by its
+attribute's DHIS2 value type. Custom attributes can hold personal data (a
+site's contact person), so requesting them under "pseudo" re-identifies the
+entity — the caller's explicit choice, as with \code{include_dhis2_ids}. The
+\code{IsTestunit} attribute is evaluated for test-unit detection regardless of
+this option and never appears in the values tables.}
+
 \item{include_timestamps}{Include the createdAt and modifiedAt timestamps
 into the dataset.}
 
@@ -115,7 +129,24 @@ the NeoIPC core case eligibility criteria into the dataset.}
 patient records into the dataset.}
 
 \item{include_invalid_patients}{Include data from patient records that
-could have validation errors}
+could have validation errors: \code{FALSE} (the default) removes them, \code{TRUE}
+skips the validation pass altogether, and a data frame of exception
+records keeps the named records despite the rule that flags them. An
+exception record carries \code{RULE_ID} (numeric), \code{NEOIPC_PATIENT_ID}
+(character), \code{ENROLMENT_DATE} and \code{EVENT_DATE} (\code{Date}), \code{EVENT_TYPE}
+(one of \code{adm}, \code{pro}, \code{bsi}, \code{nec}, \code{ssi}, \code{hap}, \code{end}, in any case),
+and \code{DEPARTMENT_CODE} when more than one department is imported; a
+record a rule flags at the enrollment level carries \code{NA} for both
+\code{EVENT_TYPE} and \code{EVENT_DATE}. The records are matched by patient id
+within their department, so a list needs \code{include_patient = "full"}
+(which then keeps \code{patient_id} whatever \code{patient_columns} says) and
+\code{include_department} not \code{"no"}. Validation is patient-anchored: with
+\code{include_patient = "no"} there is nothing to validate, the pass is
+skipped and a list is not read. When it does run — patients present and
+this option not \code{TRUE} — it needs \code{include_enrollment} and
+\code{include_event} set to \code{"full"}, and an import asking for less, or
+handing over a malformed exception list, aborts before its first
+request; \code{TRUE} imposes no such requirement.}
 
 \item{include_incomplete}{Include incomplete records into the dataset.
 Possible values are "enrollments" and "events"}

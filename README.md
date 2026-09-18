@@ -65,6 +65,13 @@ variable (alongside the credential variables above) and call
 data <- import_dhis2()
 ```
 
+The custom attributes an instance sets on its organisation units (a
+trial’s per-site dates, for example) are imported on request for an
+entity that is itself imported:
+`dhis2_dataset_options(include_department = "full", include_custom_attributes = "departments")`
+adds their typed values as `metadata$departmentAttributeValues`, with
+the attribute definitions in `metadata$orgUnitAttributes`.
+
 ## Calculating Indicators
 
 `import_dhis2()` returns a keyed, relational dataset. From there,

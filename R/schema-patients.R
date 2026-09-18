@@ -59,8 +59,8 @@ patient_attribute_cols <- function(name, type,
   # `also_when` is an escape hatch for attributes that must be present
   # for reasons other than `patient_columns` membership — today used
   # only by `patient_id`, which `transform_user_exceptions()` needs
-  # when `include_invalid_patients` is a character vector of patient
-  # IDs. Defaults to always-FALSE so unused attributes retain the
+  # when `include_invalid_patients` is an exception list. Defaults to
+  # always-FALSE so unused attributes retain the
   # pure `patient_columns`-gating behaviour.
   base_when <- \(opts)
     opts$include_patient == "full" &&
@@ -109,14 +109,14 @@ patients_cols <- with_entity_gate(
     # factors, INTEGER_* → integer, BOOLEAN / TRUE_ONLY → logical,
     # rest → character. Factor levels come from data (option-set
     # codes in the DHIS2 metadata), so `levels_source = "data"`.
-    # `patient_id` must also survive when the caller passes a character
-    # vector via `include_invalid_patients` — `transform_user_exceptions()`
+    # `patient_id` must also survive when the caller passes an exception
+    # list via `include_invalid_patients` — `transform_user_exceptions()`
     # in `import_dhis2.R` needs `patients$patient_id` to match the
-    # caller-supplied patient IDs. Same `also_when` escape hatch
-    # propagates to the per-TEA companion columns.
+    # records it names. Same `also_when` escape hatch propagates to the
+    # per-TEA companion columns.
     patient_attribute_cols(
       "patient_id", character(), patient_columns_key = "id",
-      also_when = \(opts) length(opts$include_invalid_patients) > 1),
+      also_when = has_exception_list),
     patient_attribute_cols(
       "sex", factor(), factor_levels = character(),
       levels_source = "data"),

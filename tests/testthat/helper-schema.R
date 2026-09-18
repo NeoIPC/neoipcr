@@ -68,7 +68,11 @@ expect_schema_matches <- function(x, expected)
   include_enrollment       = c("no", "pseudo", "full"),
   include_event            = c("no", "pseudo", "full"),
   include_timestamps       = c(FALSE, TRUE),
-  include_test_data        = c(FALSE, TRUE)
+  include_test_data        = c(FALSE, TRUE),
+  # A multi-valued option: each catalogue entry is one value of the whole
+  # character vector, so this field is a list rather than a vector.
+  include_custom_attributes = list(
+    character(), "departments", "hospitals", c("departments", "hospitals"))
 )
 
 # Build the cross-product of values for the named option fields and
@@ -89,9 +93,14 @@ iter_dataset_options <- function(fields = NULL)
     ))
 
   chosen <- .schema_test_field_values[fields]
-  grid   <- do.call(expand.grid, c(chosen, stringsAsFactors = FALSE))
+  # Enumerate positions rather than values: a list-valued catalogue entry
+  # (a multi-valued option) is indexed element-wise below, which a grid of
+  # the values themselves could not carry.
+  idx <- do.call(
+    expand.grid, c(lapply(chosen, seq_along), KEEP.OUT.ATTRS = FALSE))
 
-  purrr::map(seq_len(nrow(grid)), \(i)
-    do.call(dhis2_dataset_options, as.list(grid[i, , drop = FALSE]))
-  )
+  purrr::map(seq_len(nrow(idx)), \(i) {
+    args <- purrr::imap(chosen, \(values, field) values[[idx[i, field]]])
+    do.call(dhis2_dataset_options, args)
+  })
 }

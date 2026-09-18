@@ -14,6 +14,32 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+* `import_dhis2()` reads the custom attributes an instance sets on its organisation units. The new
+  `include_custom_attributes` option of `dhis2_dataset_options()` names the entities whose values to
+  import (`"departments"`, `"hospitals"`); their values land typed by the attribute's DHIS2 value type
+  in `metadata$departmentAttributeValues` / `metadata$hospitalAttributeValues`, with the definitions in
+  `metadata$orgUnitAttributes`. Departments flagged by the `IsTestunit` attribute are fetched on every
+  import through a narrowed request and now count as test units alongside `TEST_UNITS` group
+  membership.
+* New export `get_cumulative_incidence_table()`: the share of patients (or admissions) admitted to a
+  department within a calendar window who acquired an infection within that same window, with a
+  Wilson interval; the default outcome is the severe-infection composite (primary sepsis/BSI plus
+  pneumonia).
+* `validate()` is exported, so the records the import would remove can be listed with the rule that
+  flags them.
+* `gestational_age_to` now covers the whole completed week it names: `31` keeps 31+0 through 31+6,
+  where it used to stop at 31+0. Reference data serialized with an upper bound before this change
+  describes a cohort six days narrower than an import with the same nominal bound yields now, and a
+  consumer that matches reference data to a report by that nominal bound compares the two as equal;
+  such reference data needs regenerating before it is compared.
+* The validation pass is skipped whenever no patients are imported (`include_patient = "no"`),
+  since it is patient-anchored and has nothing to remove; a metadata-only import, which used to
+  trip the pass's preconditions and the eligibility filter's look for admission data, now completes.
+  An import that asks for validated patients without the full enrollments and events to check them
+  against aborts before the first request, naming both ways out (import both with `"full"`, or
+  `include_invalid_patients = TRUE`); `validate()` requires the same. An exception list passed as
+  `include_invalid_patients` is checked for its record columns before the first request as well.
+
 # neoipcr 0.0.0.9001
 
 * `import_dhis2()` reads DHIS2 2.40 and 2.41 through one org-unit request dialect per version line,

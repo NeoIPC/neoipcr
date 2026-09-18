@@ -1,0 +1,10 @@
+{
+  "attributes": [
+    { "id": "ATTR_FLAG_01", "code": "IsTestunit", "name": "IsTestunit", "valueType": "TRUE_ONLY" },
+    { "id": "ATTR_TEXT_01", "code": "TEST_ATTR_TEXT", "name": "Test text attribute", "valueType": "TEXT" },
+    { "id": "ATTR_DATE_01", "code": "TEST_ATTR_DATE", "name": "Test date attribute", "valueType": "DATE" },
+    { "id": "ATTR_INT_01", "code": "TEST_ATTR_INT", "name": "Test integer attribute", "valueType": "INTEGER" },
+    { "id": "ATTR_NUM_01", "code": "TEST_ATTR_NUMBER", "name": "Test number attribute", "valueType": "NUMBER" },
+    { "id": "ATTR_NOCODE_01", "name": "Attribute without a code", "valueType": "TEXT" }
+  ]
+}

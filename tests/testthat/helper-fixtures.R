@@ -8,6 +8,11 @@
   "countries", "test_units", "antimicrobials"
 )
 
+# Valid values for the `include` parameter of read_test_metadata(): fixtures
+# merged only on request, so the baseline metadata graph stays what the
+# existing tests assume.
+.valid_inclusions <- c("org_unit_attributes")
+
 #' Read static JSON fixtures and return processed metadata.
 #'
 #' Loads fixture files from tests/testthat/fixtures/, merges them into a single
@@ -16,15 +21,22 @@
 #' @param exclude Character vector of components to omit. See .valid_exclusions
 #'   for allowed values.
 #' @param dataset_options A neoipcr_dhis2_dsopt object (default: all defaults).
+#' @param include Character vector of optional components to merge in. See
+#'   .valid_inclusions for allowed values.
 #' @return A neoipcr_metadata object.
 read_test_metadata <- function(
     exclude = character(),
-    dataset_options = dhis2_dataset_options())
+    dataset_options = dhis2_dataset_options(),
+    include = character())
 {
   bad <- setdiff(exclude, .valid_exclusions)
   if (length(bad) > 0L)
     stop("Unknown exclusion(s): ", paste(bad, collapse = ", "),
          "\nValid values: ", paste(.valid_exclusions, collapse = ", "))
+  bad <- setdiff(include, .valid_inclusions)
+  if (length(bad) > 0L)
+    stop("Unknown inclusion(s): ", paste(bad, collapse = ", "),
+         "\nValid values: ", paste(.valid_inclusions, collapse = ", "))
 
   fixture_path <- testthat::test_path("fixtures")
   read_fixture <- function(name) {
@@ -76,6 +88,11 @@ read_test_metadata <- function(
 
     metadata <- utils::modifyList(metadata, ou)
   }
+
+  # --- org-unit custom-attribute definitions (opt-in) ---
+  if ("org_unit_attributes" %in% include)
+    metadata <- utils::modifyList(
+      metadata, read_fixture("org-unit-attributes.json"))
 
   # --- antimicrobials (options + optionGroupSets) ---
   if (!("antimicrobials" %in% exclude)) {
@@ -930,16 +947,97 @@ make_test_metadata_users <- function(
     dplyr::select(tidyselect::all_of(names(schema)))
 }
 
+# Shape matches `orgUnitAttributes_cols` in R/schema-orgunits.R: 0×0 while
+# no opted-in entity is present, else the three definition columns. The
+# value types cycle through the families so a fixture exercises every
+# typed column.
+make_test_metadata_orgUnitAttributes <- function(
+    n = 3,
+    include_department        = "full",
+    include_hospital          = "full",
+    include_custom_attributes = c("departments", "hospitals"))
+{
+  schema <- neoipcr:::compile_schema(
+    neoipcr:::orgUnitAttributes_cols,
+    dhis2_dataset_options(
+      include_department        = include_department,
+      include_hospital          = include_hospital,
+      include_custom_attributes = include_custom_attributes))
+  if (ncol(schema) == 0L) return(schema)
+
+  keys <- seq_len(n)
+  tibble::tibble(
+    code      = paste0("ATTR_", keys),
+    name      = paste0("Attribute ", keys),
+    valueType = rep(
+      c("TEXT", "DATE", "INTEGER", "TRUE_ONLY", "NUMBER", "DATETIME"),
+      length.out = n))
+}
+
+# One text-valued row of `ATTR_1` per key, with every other typed column NA
+# — the shape a resolved TEXT attribute takes.
+.make_test_attribute_values <- function(key_col, keys, schema)
+{
+  if (ncol(schema) == 0L) return(schema)
+
+  n   <- length(keys)
+  out <- tibble::tibble(
+    attribute_code = rep("ATTR_1", n),
+    value_text     = paste0("Value ", keys),
+    value_logical  = rep(NA, n),
+    value_integer  = rep(NA_integer_, n),
+    value_number   = rep(NA_real_, n),
+    value_date     = rep(as.Date(NA), n),
+    value_datetime = rep(as.POSIXct(NA_real_, tz = "UTC"), n))
+  out[[key_col]] <- as.integer(keys)
+  out |>
+    dplyr::relocate(tidyselect::all_of(key_col))
+}
+
+# Shape matches `departmentAttributeValues_cols` in R/schema-orgunits.R.
+make_test_metadata_department_attribute_values <- function(
+    department_keys           = 1:2,
+    include_department        = "full",
+    include_custom_attributes = "departments")
+{
+  schema <- neoipcr:::compile_schema(
+    neoipcr:::departmentAttributeValues_cols,
+    dhis2_dataset_options(
+      include_department        = include_department,
+      include_custom_attributes = include_custom_attributes))
+  .make_test_attribute_values("department_key", department_keys, schema)
+}
+
+# Shape matches `hospitalAttributeValues_cols` in R/schema-orgunits.R.
+make_test_metadata_hospital_attribute_values <- function(
+    hospital_keys             = 1:2,
+    include_hospital          = "full",
+    include_custom_attributes = "hospitals")
+{
+  schema <- neoipcr:::compile_schema(
+    neoipcr:::hospitalAttributeValues_cols,
+    dhis2_dataset_options(
+      include_hospital          = include_hospital,
+      include_custom_attributes = include_custom_attributes))
+  .make_test_attribute_values("hospital_key", hospital_keys, schema)
+}
+
 # ---------------------------------------------------------------------------
 # Convenience: build a populated neoipcr_ds for testing
 # ---------------------------------------------------------------------------
 
+# `orgunit_attributes = TRUE` populates the org-unit attribute tables
+# (definitions plus one text value per department and hospital); the
+# default leaves them 0×0, the shape an import without the
+# `include_custom_attributes` opt-in produces, so the narrowed-gate tests
+# see exactly that.
 make_populated_test_ds <- function(
     n_patients    = 3,
     n_enrollments = 3,
     n_adm_events  = 3,
     n_end_events  = 3,
     metadata      = read_test_metadata(),
+    orgunit_attributes = FALSE,
     ...) {
   patients    <- make_test_patients(n_patients)
   enrollments <- make_test_enrollments(n_enrollments,
@@ -974,6 +1072,15 @@ make_populated_test_ds <- function(
   md$worldBankClasses <- make_test_metadata_wb_classes()
   md$eventTypes      <- make_test_metadata_event_types()
   md$users           <- make_test_metadata_users()
+  if (isTRUE(orgunit_attributes)) {
+    md$orgUnitAttributes         <- make_test_metadata_orgUnitAttributes()
+    md$departmentAttributeValues <- make_test_metadata_department_attribute_values()
+    md$hospitalAttributeValues   <- make_test_metadata_hospital_attribute_values()
+  } else {
+    md$orgUnitAttributes         <- tibble::tibble()
+    md$departmentAttributeValues <- tibble::tibble()
+    md$hospitalAttributeValues   <- tibble::tibble()
+  }
 
   make_test_ds(
     metadata        = md,

@@ -483,9 +483,10 @@ test_that("read_metadata countries has no `country` column under the schema cont
 test_that("read_organisationUnits_hospitals returns empty processed tibble on NULL/empty input", {
   opts <- dhis2_dataset_options(include_hospital = "full")
   result <- neoipcr:::read_organisationUnits_hospitals(NULL, opts)
-  expect_named(result, c("processed", "internal_map"))
+  expect_named(result, c("processed", "internal_map", "attribute_values"))
   expect_equal(ncol(result$processed), 0L)
   expect_null(result$internal_map)
+  expect_equal(nrow(result$attribute_values), 0L)
 
   result <- neoipcr:::read_organisationUnits_hospitals(tibble::tibble(), opts)
   expect_equal(nrow(result$processed), 0L)
@@ -549,19 +550,7 @@ test_that("read_organisationUnits_hospitals deduplicates parent hospitals shared
   expect_setequal(result$internal_map$orgUnit, c("H1", "H2"))
 })
 
-# --- read_metadata_reponses orchestrator — hospitals final shape ---
-#
-# The orchestrator's post-processing (country_key join, WB-class
-# inheritance join, finalize_to_schema + assert_schema) is exercised
-# indirectly via `import_dhis2()` in production. Here we assert the
-# most important observable property: after processing,
-# `metadata$hospitals` carries only the columns declared by
-# `hospitals_cols`, never any orchestrator-internal column like `country`.
-
-test_that("metadata$hospitals never exposes the internal `country` column", {
-  # This also exercises the `.hospitals_internal_map` lift + strip path
-  # implicitly — if the map didn't carry `country`, the country_key
-  # join in read_metadata_reponses would fail. Since that join runs
-  # without error against the fixture, the map is correctly populated.
-  skip("read_test_metadata does not construct hospitals from /organisationUnits — re-enable when the fixture exercises the hospitals path")
-})
+# The orchestrator's hospitals post-processing (country_key join, WB-class
+# inheritance, finalize_to_schema + assert_schema) is exercised end to end
+# by the offline import in `test-import-dhis2.R`, whose org-unit attribute
+# fixture carries a hospital parent.

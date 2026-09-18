@@ -1,6 +1,8 @@
 ^\.github$
 ^\.git$
 ^\.gitignore$
+^\.editorconfig$
+^\.vscode$
 ^neoipcr\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$

@@ -105,12 +105,11 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
   # allowed_codes so the pre-pivot factor pinning picks them up.
   if ("gestational_age" %in% allowed_codes)
     allowed_codes <- c(allowed_codes, "gest_age", "total_gestation_days")
-  # `include_invalid_patients` can be a character vector of patient IDs
-  # (exceptions to the invalid filter in `import_dhis2()`). When it is,
+  # `include_invalid_patients` can be an exception list (records exempt
+  # from the invalid-patient filter in `import_dhis2()`). When it is,
   # `patient_id` must remain accessible regardless of `patient_columns`
-  # so the downstream filter can match IDs. Preserves pre-schema
-  # behaviour of the patient reader.
-  if (length(opts$include_invalid_patients) > 1)
+  # so the list can be matched onto the patients.
+  if (has_exception_list(opts))
     allowed_codes <- c(allowed_codes, "patient_id")
   # Match against the normalized code (lowercase, NEOIPC_[TEA_]
   # prefix stripped) — same extraction that will run below.
@@ -210,7 +209,7 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
      dataset_options$include_country != "no" ||
      dataset_options$include_world_bank_class != "no" ||
      dataset_options$include_test_data ||
-     length(dataset_options$include_invalid_patients) > 1)
+     has_exception_list(dataset_options))
   {
     # Select only the hierarchy columns the schema declares under
     # the current opts, plus orgUnit for the join key. `include_test_data`

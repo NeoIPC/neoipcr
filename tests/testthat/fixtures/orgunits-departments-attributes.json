@@ -1,0 +1,58 @@
+{
+  "organisationUnits": [
+    {
+      "id": "OU_DEPT_1",
+      "code": "DEPT_01",
+      "displayName": "Department 1",
+      "attributeValues": [
+        { "attribute": { "id": "ATTR_DATE_01" }, "value": "2024-08-03" },
+        { "attribute": { "id": "ATTR_TEXT_01" }, "value": "A text value" },
+        { "attribute": { "id": "ATTR_INT_01" }, "value": "12" },
+        { "attribute": { "id": "ATTR_NUM_01" }, "value": "not a number" },
+        { "attribute": { "id": "ATTR_FLAG_01" }, "value": "false" },
+        { "attribute": { "id": "ATTR_UNDEFINED" }, "value": "dropped" }
+      ],
+      "parent": {
+        "id": "OU_HOSP_1",
+        "code": "HOSP_01",
+        "displayName": "Hospital 1",
+        "attributeValues": [
+          { "attribute": { "id": "ATTR_TEXT_01" }, "value": "Hospital text" },
+          { "attribute": { "id": "ATTR_FLAG_01" }, "value": "true" }
+        ]
+      }
+    },
+    {
+      "id": "OU_DEPT_2",
+      "code": "DEPT_02",
+      "displayName": "Department 2",
+      "attributeValues": [],
+      "parent": {
+        "id": "OU_HOSP_1",
+        "code": "HOSP_01",
+        "displayName": "Hospital 1",
+        "attributeValues": [
+          { "attribute": { "id": "ATTR_TEXT_01" }, "value": "Hospital text" },
+          { "attribute": { "id": "ATTR_FLAG_01" }, "value": "true" }
+        ]
+      }
+    },
+    {
+      "id": "OU_DEPT_3",
+      "code": "DEPT_03",
+      "displayName": "Department 3",
+      "attributeValues": [
+        { "attribute": { "id": "ATTR_FLAG_01" }, "value": "true" }
+      ],
+      "parent": {
+        "id": "OU_HOSP_1",
+        "code": "HOSP_01",
+        "displayName": "Hospital 1",
+        "attributeValues": [
+          { "attribute": { "id": "ATTR_TEXT_01" }, "value": "Hospital text" },
+          { "attribute": { "id": "ATTR_FLAG_01" }, "value": "true" }
+        ]
+      }
+    }
+  ]
+}

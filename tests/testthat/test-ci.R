@@ -213,6 +213,13 @@ test_that("wilson_ci_cols returns NA for NA/zero-n inputs", {
   expect_true(is.na(result$ci_lower[3]))
 })
 
+test_that("wilson_ci_cols passes conf.level through to the interval", {
+  ci95 <- neoipcr:::wilson_ci_cols(10, 50, scale = 100)
+  ci99 <- neoipcr:::wilson_ci_cols(10, 50, scale = 100, conf.level = 0.99)
+  expect_true(ci99$ci_lower < ci95$ci_lower)
+  expect_true(ci99$ci_upper > ci95$ci_upper)
+})
+
 test_that("poisson_ci_cols returns 0x2 tibble for empty input", {
   result <- neoipcr:::poisson_ci_cols(integer(), numeric(), 1000)
   expect_s3_class(result, "tbl_df")

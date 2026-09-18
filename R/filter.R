@@ -92,7 +92,10 @@ filter_admissions <- function(
     admission_data,
     include_ineligible_patients = FALSE)
 {
-  if(include_ineligible_patients)
+  # An `include_event = "no"` import carries a 0×0 admission tibble, which has
+  # nothing to filter on. A populated tibble without `dol` is a schema breach
+  # and fails below.
+  if(include_ineligible_patients || ncol(admission_data) == 0L)
     return(admission_data)
 
   admission_data |>
@@ -116,9 +119,11 @@ filter_patients <- function(
   if(!is.null(gestational_age_from))
     patients <- patients |>
       dplyr::filter(.data$total_gestation_days >= (gestational_age_from * 7))
+  # `gestational_age_to` is a completed week, so the bound covers the whole
+  # week: `to = 31` keeps 31+0 through 31+6 (days 217 to 223) and drops 32+0.
   if(!is.null(gestational_age_to))
     patients <- patients |>
-      dplyr::filter(.data$total_gestation_days <= (gestational_age_to * 7))
+      dplyr::filter(.data$total_gestation_days < ((gestational_age_to + 1L) * 7L))
   if(!include_ineligible_patients)
     patients <- patients |>
       dplyr::filter(
@@ -184,6 +189,12 @@ apply_postfilter <- function(x)
     after  <- .postfilter_row_counts(x)
     if (identical(before, after)) break
   }
+
+  # Step 2b: prune the org-unit attribute-value leaves. They hang off
+  # departments / hospitals and never anchor the cascade (a value row alone
+  # must not keep an org unit alive), so they follow once the hierarchy has
+  # settled.
+  x <- .postfilter_attribute_values(x)
 
   # Step 3: drop unused levels on data-sourced factor columns. Protocol-
   # fixed factors (`levels_source = "fixed"`) keep their full level list
@@ -373,7 +384,10 @@ apply_postfilter <- function(x)
 
 # Collect the union of a hierarchy key's values across every data-
 # carrying tibble in `x` that carries the column, excluding the
-# metadata tibble being filtered (which is the target).
+# metadata tibble being filtered (which is the target). The org-unit
+# attribute-value tables are leaves of departments / hospitals and are
+# deliberately not consulted: a value row alone must not keep its org
+# unit alive.
 #
 # Returns `NULL` when no tibble carries the key (caller should skip
 # filtering in that case — there's no source of truth).
@@ -403,6 +417,31 @@ apply_postfilter <- function(x)
 
   if (length(vals) == 0L) return(NULL)
   unique(unlist(vals))
+}
+
+
+# Prune the org-unit attribute-value tables to the surviving rows of their
+# parent metadata tibble. Column-presence-guarded: under a closed gate the
+# tables are 0×0, and a fixture dataset may not carry them at all.
+.postfilter_attribute_values <- function(x)
+{
+  leaves <- list(
+    list(tbl = "departmentAttributeValues",
+         parent = "departments", key = "department_key"),
+    list(tbl = "hospitalAttributeValues",
+         parent = "hospitals",   key = "hospital_key"))
+
+  for (leaf in leaves) {
+    values <- x$metadata[[leaf$tbl]]
+    parent <- x$metadata[[leaf$parent]]
+    if (is.null(values) || is.null(parent) ||
+        !(leaf$key %in% names(values)) || !(leaf$key %in% names(parent)))
+      next
+    x$metadata[[leaf$tbl]] <- values |>
+      dplyr::semi_join(parent, by = leaf$key)
+  }
+
+  x
 }
 
 

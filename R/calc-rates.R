@@ -118,6 +118,94 @@ get_incidence_density_rates <- function(
     cache(x, cache_key)
 }
 
+# Cumulative incidence of infection among the admissions of calendar windows.
+#
+# `windows` is caller data — one row per (department_key, window) with an
+# inclusive [start, end] date range — so the result is not cached: the cache
+# keys are option-derived strings and cannot describe an arbitrary window set.
+#
+# Cohort: an enrollment (admission) belongs to a window when its department
+# matches and `enrolledAt` falls inside the range. Infected: the enrollment has
+# at least one event of an `event_types` type whose `occurredAt` falls inside
+# the same window and not before the admission. Counting through the
+# enrollment ties every infection to the admission — and so to the department
+# — it belongs to, so an infection outside the window, before its admission
+# (a validation error, reachable only under `include_invalid_patients = TRUE`),
+# or on another department's admission of the same patient, never counts.
+# Windows may overlap; an admission is counted in each window it falls into,
+# which is why both joins are declared many-to-many.
+#
+# Returns the four window columns with `n_patients`, `n_enrollments`,
+# `n_infected_patients` and `n_infected_enrollments` appended, as an
+# ungrouped tibble; a window with no admissions keeps its row with zeros
+# rather than dropping out.
+get_cumulative_incidence <- function(x, windows, event_types)
+{
+  # Number the windows on the ungrouped rows: a grouped `windows` (the
+  # `group_by() |> summarise()` idiom leaves one) would restart the numbering
+  # per group and pool the cohorts of different departments. Dropping the
+  # caller's other columns keeps them from colliding with the counts.
+  windows <- windows |>
+    dplyr::ungroup() |>
+    tibble::as_tibble() |>
+    dplyr::select("department_key", "window", "start", "end") |>
+    dplyr::mutate(.window = seq_len(dplyr::n()))
+
+  cohort <- x$enrollments |>
+    dplyr::select(
+      "enrollment_key", "patient_key", "department_key", "enrolledAt") |>
+    dplyr::semi_join(x$patients, dplyr::join_by("patient_key")) |>
+    dplyr::inner_join(
+      windows |>
+        dplyr::select(".window", "department_key", "start", "end"),
+      dplyr::join_by("department_key"),
+      relationship = "many-to-many") |>
+    dplyr::filter(
+      .data$enrolledAt >= .data$start,
+      .data$enrolledAt <= .data$end)
+
+  infected <- x$events |>
+    dplyr::filter(.data$event_type_key %in% event_types) |>
+    dplyr::select("enrollment_key", "occurredAt") |>
+    dplyr::inner_join(
+      cohort |>
+        dplyr::select(
+          ".window", "enrollment_key", "patient_key", "enrolledAt",
+          "start", "end"),
+      dplyr::join_by("enrollment_key"),
+      relationship = "many-to-many") |>
+    dplyr::filter(
+      .data$occurredAt >= .data$start,
+      .data$occurredAt <= .data$end,
+      .data$occurredAt >= .data$enrolledAt) |>
+    dplyr::select(".window", "enrollment_key", "patient_key") |>
+    dplyr::distinct()
+
+  cohort_counts <- cohort |>
+    dplyr::group_by(.data$.window) |>
+    dplyr::summarise(
+      n_patients = dplyr::n_distinct(.data$patient_key),
+      n_enrollments = dplyr::n_distinct(.data$enrollment_key),
+      .groups = "drop")
+
+  infected_counts <- infected |>
+    dplyr::group_by(.data$.window) |>
+    dplyr::summarise(
+      n_infected_patients = dplyr::n_distinct(.data$patient_key),
+      n_infected_enrollments = dplyr::n_distinct(.data$enrollment_key),
+      .groups = "drop")
+
+  windows |>
+    dplyr::left_join(cohort_counts, dplyr::join_by(".window")) |>
+    dplyr::left_join(infected_counts, dplyr::join_by(".window")) |>
+    dplyr::mutate(
+      dplyr::across(
+        c("n_patients", "n_enrollments",
+          "n_infected_patients", "n_infected_enrollments"),
+        \(v) tidyr::replace_na(v, 0L))) |>
+    dplyr::select(!".window")
+}
+
 get_infectious_agent_detection_rates_with_department_quartiles <- function(
     x, group_cols = NULL, use_cache = TRUE) {
   if(is.null(group_cols))

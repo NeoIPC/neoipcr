@@ -73,6 +73,19 @@ test_that("filter_admissions with include_ineligible=FALSE excludes dol >= 120",
   expect_true(all(result$dol < 120))
 })
 
+test_that("filter_admissions passes a 0x0 admission tibble through under the default filter", {
+  # An `include_event = "no"` import carries no admission data at all; the
+  # eligibility filter must not look for `dol` there.
+  result <- neoipcr:::filter_admissions(tibble::tibble(), include_ineligible_patients = FALSE)
+  expect_equal(ncol(result), 0L)
+  expect_equal(nrow(result), 0L)
+})
+
+test_that("filter_admissions still requires `dol` on a populated admission tibble", {
+  expect_error(neoipcr:::filter_admissions(
+    tibble::tibble(event_key = 1L), include_ineligible_patients = FALSE))
+})
+
 # --- filter_patients (internal, called on patients tibble directly) ---
 
 test_that("filter_patients with all NULL and include_ineligible=TRUE returns all", {
@@ -124,6 +137,18 @@ test_that("filter_patients filters by gestational age in weeks", {
     gestational_age_from = 32, include_ineligible_patients = TRUE)
   expect_equal(nrow(result), 2L)
   expect_true(all(result$total_gestation_days >= 224))
+})
+
+test_that("filter_patients gestational_age_to keeps the whole completed week", {
+  # `gestational_age_to = 31` means 31 completed weeks: 31+0 (217 days) and
+  # 31+6 (223 days) stay in, 32+0 (224 days) drops out.
+  patients <- make_test_patients(3,
+    birth_weight = c(800L, 800L, 800L),
+    total_gestation_days = c(217L, 223L, 224L))
+  result <- neoipcr:::filter_patients(patients,
+    gestational_age_to = 31, include_ineligible_patients = TRUE)
+  expect_equal(nrow(result), 2L)
+  expect_true(all(result$total_gestation_days < 224L))
 })
 
 test_that("filter_patients combines birth_weight and gestation filters", {
@@ -456,4 +481,45 @@ test_that("apply_postfilter: dynamic anchor handles pseudo-event (hierarchy keys
   expect_gt(nrow(result$metadata$countries), 0L)
   expect_gt(nrow(result$metadata$hospitals), 0L)
   expect_gt(nrow(result$metadata$worldBankClasses), 0L)
+})
+
+# --- apply_postfilter: org-unit attribute-value leaves ---
+#
+# The values tables hang off departments / hospitals: they are pruned to
+# the surviving parents once the hierarchy has settled, and never keep a
+# parent alive on their own.
+
+test_that("apply_postfilter prunes the attribute values of a pruned department and hospital", {
+  ds <- make_populated_test_ds(orgunit_attributes = TRUE)
+  ds$enrollments <- ds$enrollments[ds$enrollments$department_key == 1L, ]
+
+  result <- neoipcr:::apply_postfilter(ds)
+
+  expect_false(2L %in% result$metadata$departments$department_key)
+  expect_false(2L %in% result$metadata$departmentAttributeValues$department_key)
+  expect_true(1L %in% result$metadata$departmentAttributeValues$department_key)
+  expect_true(all(
+    result$metadata$hospitalAttributeValues$hospital_key %in%
+      result$metadata$hospitals$hospital_key))
+})
+
+test_that("apply_postfilter: a value row alone does not keep its org unit alive", {
+  ds <- make_populated_test_ds(orgunit_attributes = TRUE)
+  ds$enrollments <- ds$enrollments[ds$enrollments$department_key == 1L, ]
+  ds$metadata$departmentAttributeValues <-
+    make_test_metadata_department_attribute_values(
+      department_keys = c(1L, 2L, 99L))
+
+  result <- neoipcr:::apply_postfilter(ds)
+
+  expect_false(99L %in% result$metadata$departments$department_key)
+  expect_setequal(result$metadata$departmentAttributeValues$department_key, 1L)
+})
+
+test_that("apply_postfilter tolerates absent or 0x0 attribute-value tables", {
+  ds <- make_populated_test_ds()
+  ds$metadata$departmentAttributeValues <- NULL
+  expect_no_error(neoipcr:::apply_postfilter(ds))
+  ds$metadata$departmentAttributeValues <- tibble::tibble()
+  expect_no_error(neoipcr:::apply_postfilter(ds))
 })

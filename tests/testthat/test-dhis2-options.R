@@ -15,3 +15,19 @@ test_that("dhis2_dataset_options() keeps its S3 class first in the class vector"
     class(dhis2_dataset_options()),
     c("neoipcr_dhis2_dsopt", "list"))
 })
+
+test_that("include_custom_attributes defaults to empty and accepts the org-unit entities", {
+  expect_identical(dhis2_dataset_options()$include_custom_attributes, character())
+  expect_identical(
+    dhis2_dataset_options(include_custom_attributes = "departments")$include_custom_attributes,
+    "departments")
+  expect_setequal(
+    dhis2_dataset_options(
+      include_custom_attributes = c("hospitals", "departments"))$include_custom_attributes,
+    c("departments", "hospitals"))
+})
+
+test_that("include_custom_attributes rejects an entity it does not know", {
+  expect_error(dhis2_dataset_options(include_custom_attributes = "countries"))
+  expect_error(dhis2_dataset_options(include_custom_attributes = "users"))
+})

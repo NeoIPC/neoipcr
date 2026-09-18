@@ -56,9 +56,12 @@ neoipcr_log_threshold <- function(verbosity)
 # (no credentials — auth travels in a redacted header or a cookie, never the
 # URL), the HTTP status, and an optional row count of the parsed result.
 #
-# `x` is either an httr2 response or — at the parallel-perform sites that use
-# `on_error = "continue"` — an httr2 error object carrying the failed `$resp`.
-# Both are accepted so a failed sibling request is still traced.
+# `x` is either an httr2 response or an httr2 error object: the
+# parallel-perform sites that use `on_error = "continue"` pass one carrying
+# the failed `$resp`, and a sequential caller that catches `httr2_error` may
+# pass one without any response (a connection failure), in which case the URL
+# and status log as `NA`. All are accepted so a failed request is still
+# traced.
 log_dhis2_request <- function(x, endpoint, n_rows = NULL)
 {
   resp <- if (rlang::is_error(x)) x$resp else x

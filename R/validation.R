@@ -496,25 +496,62 @@ validation_rules <- list(
       dplyr::join_by("department_key"))
 }
 
+#' Validate a NeoIPC dataset against the protocol's validation rules
+#'
+#' Runs every registered validation rule, or the subset named in `rules`, over
+#' the dataset and returns the records each rule flags. [import_dhis2()] runs
+#' it by default and removes the flagged patients from the dataset; call it
+#' directly on a dataset imported with `include_invalid_patients = TRUE` to see
+#' which records would be removed and why.
+#'
+#' @param x A `neoipcr_ds` object imported with `include_patient` set to
+#'  `"pseudo"` or `"full"` and `include_enrollment` and `include_event` set to
+#'  `"full"`: the rules read the enrollments' patient link and the events'
+#'  type, which the pseudonymized tiers do not carry.
+#' @param rules Integer vector of rule ids to run; `NULL` (the default) runs all
+#'  of them.
+#' @param exceptions A tibble of records to exempt, with the columns `rule_id`,
+#'  `patient_key`, `enrollment_key` and `event_key` — the shape [import_dhis2()]
+#'  derives from a user-supplied exception list.
+#'
+#' @returns A tibble with one row per flagged record: `rule_id`, the keys that
+#'  identify the record (`patient_key`, `enrollment_key`, `event_key`; `NA`
+#'  where a rule does not operate at that level) and `context`, a list column
+#'  with the rule-specific values the finding refers to (`NULL` where the
+#'  rule records none). Zero rows when nothing is flagged.
+#' @export
 validate <- function(x, rules = NULL, exceptions = NULL)
 {
   check_neoipcr_ds(x)
-  # Validation rules access patients, enrollments, events, and per-event
-  # data. If any link-privacy gate is "no", rules that reference those
-  # tibbles would fail with unhelpful column-absent errors. Require the
-  # same gates as the calc pipeline.
+  # The rules read the enrollments' `patient_key` and the events'
+  # `event_type_key`, which only the "full" tiers carry; a narrower tier
+  # would fail inside a rule with a column-absent error.
   assert_options_for(x, required = list(
     include_patient    = c("pseudo", "full"),
-    include_enrollment = c("pseudo", "full"),
-    include_event      = c("pseudo", "full")
+    include_enrollment = "full",
+    include_event      = "full"
   ), fn_name = "validate")
 
-  r <- validation_rules |>
+  flagged <- validation_rules |>
     lapply(\(r)if(is.null(rules)||r$id%in%rules)r$fun(x,exceptions)) |>
     dplyr::bind_rows() |>
-    dplyr::select(
-      tidyselect::any_of(
-        c("rule_id","patient_key","enrollment_key","event_key","context")))
+    dplyr::ungroup()
 
-  invisible(r)
+  # The shape is the same whatever ran. `bind_rows()` takes its class,
+  # grouping and column types from the first rule's result, so the result is
+  # bound onto a plain template instead: a rule that skips itself, records no
+  # context or returns a grouped tibble, or a selection that flags nothing,
+  # still yields exactly these five columns with integer keys.
+  template <- tibble::tibble(
+    rule_id        = integer(),
+    patient_key    = integer(),
+    enrollment_key = integer(),
+    event_key      = integer(),
+    context        = list())
+  dplyr::bind_rows(template, flagged) |>
+    dplyr::mutate(dplyr::across(
+      c("rule_id", "patient_key", "enrollment_key", "event_key"),
+      as.integer)) |>
+    dplyr::select(
+      "rule_id", "patient_key", "enrollment_key", "event_key", "context")
 }

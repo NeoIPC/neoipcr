@@ -856,6 +856,120 @@ get_dev_ass_incidence_density_rate_table <- function(
     cache(x, cache_key)
 }
 
+#' Get the table with the cumulative incidence of infection per admission window
+#'
+#' The cumulative incidence is the share of the patients (or admissions)
+#' admitted to a department within a calendar window who acquired at least one
+#' infection of the given types within that same window. It complements the
+#' incidence density tables, which relate infections to patient days rather
+#' than to the admitted cohort, and is the measure a trial asks for when its
+#' study periods are calendar windows per site.
+#'
+#' The default `event_types`, primary sepsis/BSI plus pneumonia, is the
+#' "severe infection" composite (`si`) that
+#' [get_incidence_density_rate_table()] reports. The confidence interval is the
+#' Wilson score interval, the house method for a proportion of discrete
+#' entities.
+#'
+#' @param x A `neoipcr_ds` object imported with `include_enrollment = "full"`
+#'  and `include_event = "full"`, and with `include_patient` and
+#'  `include_department` not `"no"`: the admission date, the event date and
+#'  the department link are what this computation reads. The admission date
+#'  is the enrollment date (`enrolledAt`): in the NeoIPC data model the
+#'  enrollment is the admission, and an admission event dated differently is
+#'  a validation error (rule 3) that a validation-clean import does not
+#'  contain. Under `include_invalid_patients = TRUE` such an admission is
+#'  placed by its enrollment date, and an infection dated before its
+#'  admission — another validation error — does not count.
+#' @param windows A data frame with one row per window: `department_key`
+#'  (integer, never `NA`), `window` (a label such as `"baseline"`), and the
+#'  inclusive `start` and `end` dates (`Date`). Windows may overlap; an
+#'  admission is counted in every window it falls into. Grouping is ignored
+#'  and further columns are dropped. An admission without an admission date,
+#'  or an infection without an event date (possible under
+#'  `include_incomplete`), falls into no window.
+#' @param event_types The event types that count as an infection, a subset of
+#'  `"bsi"`, `"nec"`, `"hap"` and `"ssi"`.
+#' @param unit Whether `n` and `n_infected`, and with them the proportion,
+#'  count distinct `"patients"` (the default: a patient admitted twice in one
+#'  window counts once) or `"enrollments"` (admissions).
+#' @param conf.level Confidence level of the Wilson interval. Default 0.95.
+#'
+#' @returns A tibble with one row per row of `windows`: `department_key`,
+#'  `window`, `start`, `end`, the four counts `n_patients`, `n_enrollments`,
+#'  `n_infected_patients` and `n_infected_enrollments`, then `n` and
+#'  `n_infected` for the chosen `unit`, `proportion` (per 100; `NA` when `n`
+#'  is 0) and its `ci_lower` and `ci_upper`.
+#' @export
+get_cumulative_incidence_table <- function(
+    x, windows, event_types = c("bsi", "hap"),
+    unit = c("patients", "enrollments"), conf.level = 0.95)
+{
+  check_neoipcr_ds(x)
+  assert_options_for(x, required = list(
+    include_patient    = c("pseudo", "full"),
+    include_enrollment = "full",
+    include_event      = "full",
+    include_department = c("pseudo", "full")
+  ), fn_name = "get_cumulative_incidence_table")
+  require_cols(x$patients, "patient_key", "patients")
+  require_cols(
+    x$enrollments,
+    c("enrollment_key", "patient_key", "department_key", "enrolledAt"),
+    "enrollments")
+  require_cols(
+    x$events,
+    c("event_key", "enrollment_key", "event_type_key", "occurredAt"),
+    "events")
+
+  if (!is.data.frame(windows))
+    rlang::abort("`windows` must be a data frame.")
+  missing_cols <- setdiff(c("department_key", "window", "start", "end"), names(windows))
+  if (length(missing_cols) > 0L)
+    rlang::abort(c(
+      "`windows` lacks required column(s):",
+      "x" = paste(missing_cols, collapse = ", ")))
+  if (!inherits(windows$start, "Date") || !inherits(windows$end, "Date"))
+    rlang::abort("`windows$start` and `windows$end` must be Date columns.")
+  if (any(is.na(windows$start) | is.na(windows$end) | windows$start > windows$end))
+    rlang::abort("Every window needs `start <= end`, with neither date missing.")
+  if (any(is.na(windows$department_key)))
+    rlang::abort("Every window must have a non-missing `department_key`.")
+
+  event_types <- rlang::arg_match(
+    event_types, c("bsi", "nec", "hap", "ssi"), multiple = TRUE)
+  unit <- rlang::arg_match(unit)
+  check_number_decimal(
+    conf.level, min = .Machine$double.eps, max = 1 - .Machine$double.eps)
+
+  r <- x |>
+    get_cumulative_incidence(windows, event_types)
+
+  if (unit == "patients")
+    r <- r |>
+      dplyr::mutate(
+        n = .data$n_patients,
+        n_infected = .data$n_infected_patients)
+  else
+    r <- r |>
+      dplyr::mutate(
+        n = .data$n_enrollments,
+        n_infected = .data$n_infected_enrollments)
+
+  r |>
+    dplyr::mutate(
+      proportion = dplyr::if_else(
+        .data$n > 0L, .data$n_infected / .data$n * 100, NA_real_)) |>
+    dplyr::bind_cols(
+      wilson_ci_cols(r$n_infected, r$n, scale = 100, conf.level = conf.level)) |>
+    dplyr::select(
+      "department_key", "window", "start", "end",
+      "n_patients", "n_enrollments",
+      "n_infected_patients", "n_infected_enrollments",
+      "n", "n_infected", "proportion", "ci_lower", "ci_upper") |>
+    add_class("neoipcr_tbl_cuminc")
+}
+
 #' Get the table with infectious agent detection rates per type of infection
 #'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds

@@ -187,3 +187,43 @@ test_that("assert_data_protection passes under all-'no' opts when fact + metadat
       include_country           = "no",
       include_world_bank_class  = "no"))
 })
+
+# --- Org-unit attribute values: opt-in gate + IsTestunit --------------
+#
+# The values tables may carry personal data, so they must be empty unless
+# the caller opted into that entity's attributes and the entity is present;
+# and the IsTestunit flag lives in `isTest`, never as a value row.
+
+attrs_ds <- make_populated_test_ds(orgunit_attributes = TRUE)
+
+test_that("assert_data_protection passes for populated attribute values when both entities are opted in", {
+  expect_no_error(guard_with(
+    ds = attrs_ds, include_custom_attributes = c("departments", "hospitals")))
+})
+
+test_that("assert_data_protection aborts when attribute values are populated without the opt-in", {
+  expect_error(guard_with(ds = attrs_ds), "departmentAttributeValues")
+  expect_error(guard_with(ds = attrs_ds), "opt-in")
+  expect_error(
+    guard_with(ds = attrs_ds, include_custom_attributes = "departments"),
+    "hospitalAttributeValues")
+})
+
+test_that("assert_data_protection aborts when attribute values are populated for an entity the caller excluded", {
+  ds <- strip_key(attrs_ds, "hospital_key", metadata_targets = "departments")
+  ds$metadata$hospitals <- tibble::tibble()
+  expect_error(
+    guard_with(
+      ds = ds, include_hospital = "no",
+      include_custom_attributes = c("departments", "hospitals")),
+    "hospitalAttributeValues")
+})
+
+test_that("assert_data_protection aborts when an IsTestunit row survives in a values table", {
+  ds <- attrs_ds
+  ds$metadata$departmentAttributeValues$attribute_code[1] <- "IsTestunit"
+  expect_error(
+    guard_with(
+      ds = ds, include_custom_attributes = c("departments", "hospitals")),
+    "IsTestunit")
+})

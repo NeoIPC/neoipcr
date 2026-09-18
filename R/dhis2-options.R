@@ -11,7 +11,8 @@
 #' @param gestational_age_from The lowest gestational age (in completed weeks)
 #'  of patient records to include into the dataset.
 #' @param gestational_age_to The highest gestational age (in completed weeks) of
-#'  patient records to include into the dataset
+#'  patient records to include into the dataset. The bound covers the whole
+#'  completed week: `31` keeps 31+0 through 31+6.
 #' @param country_filter ISO 3166 country codes	of the countries the enrolling
 #'  departments are located in to include into the dataset.
 #' @param department_filter NeoIPC department codes of the departments to
@@ -48,6 +49,17 @@
 #'  notes, unknown pathogen names). Same three-mode semantics as
 #'  `include_patient`.
 #' @param include_dhis2_ids Include the DHIS2 ids into the dataset.
+#' @param include_custom_attributes Include the values of the DHIS2 custom
+#'  attributes set on organisation units into the dataset, as
+#'  `metadata$departmentAttributeValues` and `metadata$hospitalAttributeValues`,
+#'  with the attribute definitions in `metadata$orgUnitAttributes`. Possible
+#'  values are "departments" and "hospitals"; an entity whose `include_*`
+#'  option is "no" contributes nothing. Each value arrives typed by its
+#'  attribute's DHIS2 value type. Custom attributes can hold personal data (a
+#'  site's contact person), so requesting them under "pseudo" re-identifies the
+#'  entity — the caller's explicit choice, as with `include_dhis2_ids`. The
+#'  `IsTestunit` attribute is evaluated for test-unit detection regardless of
+#'  this option and never appears in the values tables.
 #' @param include_timestamps Include the createdAt and modifiedAt timestamps
 #'  into the dataset.
 #' @param include_ineligible_patients Include data from patients that don't meet
@@ -56,7 +68,24 @@
 #'  patient records into the dataset.
 #' @param include_test_data Include data from test departments into the dataset.
 #' @param include_invalid_patients Include data from patient records that
-#'  could have validation errors
+#'  could have validation errors: `FALSE` (the default) removes them, `TRUE`
+#'  skips the validation pass altogether, and a data frame of exception
+#'  records keeps the named records despite the rule that flags them. An
+#'  exception record carries `RULE_ID` (numeric), `NEOIPC_PATIENT_ID`
+#'  (character), `ENROLMENT_DATE` and `EVENT_DATE` (`Date`), `EVENT_TYPE`
+#'  (one of `adm`, `pro`, `bsi`, `nec`, `ssi`, `hap`, `end`, in any case),
+#'  and `DEPARTMENT_CODE` when more than one department is imported; a
+#'  record a rule flags at the enrollment level carries `NA` for both
+#'  `EVENT_TYPE` and `EVENT_DATE`. The records are matched by patient id
+#'  within their department, so a list needs `include_patient = "full"`
+#'  (which then keeps `patient_id` whatever `patient_columns` says) and
+#'  `include_department` not `"no"`. Validation is patient-anchored: with
+#'  `include_patient = "no"` there is nothing to validate, the pass is
+#'  skipped and a list is not read. When it does run — patients present and
+#'  this option not `TRUE` — it needs `include_enrollment` and
+#'  `include_event` set to `"full"`, and an import asking for less, or
+#'  handing over a malformed exception list, aborts before its first
+#'  request; `TRUE` imposes no such requirement.
 #' @param include_incomplete Include incomplete records into the dataset.
 #'  Possible values are "enrollments" and "events"
 #' @param include_notes Include notes into the dataset. Possible values are
@@ -86,6 +115,7 @@ dhis2_dataset_options <- function(
     include_enrollment = c("no","pseudo","full"),
     include_event = c("no","pseudo","full"),
     include_dhis2_ids = character(),
+    include_custom_attributes = character(),
     include_timestamps = FALSE,
     include_test_data = FALSE,
     include_ineligible_patients = FALSE,
@@ -110,6 +140,7 @@ dhis2_dataset_options <- function(
   check_character(country_filter, allow_null = TRUE)
   check_character(department_filter, allow_null = TRUE)
   check_character(patient_columns)
+  check_character(include_custom_attributes)
   check_bool(include_timestamps)
   check_bool(include_test_data)
   check_bool(include_ineligible_patients)
@@ -150,6 +181,10 @@ dhis2_dataset_options <- function(
       include_dhis2_ids,
       c("countries","hospitals","departments","patients","enrollments",
         "events","notes","event_types","users"),
+      multiple = TRUE),
+    include_custom_attributes = rlang::arg_match(
+      include_custom_attributes,
+      c("departments", "hospitals"),
       multiple = TRUE),
     include_timestamps = include_timestamps,
     include_test_data = include_test_data,

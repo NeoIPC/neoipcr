@@ -143,9 +143,11 @@ poisson_ci_cols <- function(events, exposure, multiplier) {
 #' @param x Integer vector of successes.
 #' @param n Integer vector of trials.
 #' @param scale Numeric scalar. Multiplier for the CI bounds. Default 1.
+#' @param conf.level Numeric scalar. Confidence level passed on to
+#'   [neoipc_wilson_ci()]. Default 0.95.
 #' @returns A tibble with columns `ci_lower` and `ci_upper`.
 #' @noRd
-wilson_ci_cols <- function(x, n, scale = 1) {
+wilson_ci_cols <- function(x, n, scale = 1, conf.level = 0.95) {
   if (length(x) == 0L)
     return(tibble::tibble(ci_lower = numeric(), ci_upper = numeric()))
   purrr::pmap(
@@ -154,7 +156,7 @@ wilson_ci_cols <- function(x, n, scale = 1) {
       if (is.na(x) || is.na(n) || n == 0) {
         return(tibble::tibble(ci_lower = NA_real_, ci_upper = NA_real_))
       }
-      ci <- neoipc_wilson_ci(x, n)
+      ci <- neoipc_wilson_ci(x, n, conf.level = conf.level)
       tibble::tibble(ci_lower = ci$lower * scale, ci_upper = ci$upper * scale)
     }) |>
     purrr::list_rbind()
