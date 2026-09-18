@@ -315,11 +315,31 @@ test_that("resolve_validation_exceptions needs a department tier", {
 })
 
 test_that("resolve_validation_exceptions needs the patient ids", {
+  # The full patient tier alone does not carry them; the hint names what does.
   ds <- resolvable_ds()
   ds$patients$patient_id <- NULL
   expect_error(
     neoipcr::resolve_validation_exceptions(ds, written_exceptions()),
+    regexp = "patient_columns",
     class = "neoipcr_validation_needs_facts")
+})
+
+test_that("resolve_validation_exceptions refuses blank identifiers in a list built in code", {
+  # readr turns an empty field into `NA`; a data frame can carry the empty
+  # string or whitespace instead, which would match nothing in silence.
+  for (blank in c("", "  ")) {
+    expect_error(
+      neoipcr::resolve_validation_exceptions(
+        resolvable_ds(),
+        written_exceptions() |> dplyr::mutate(NEOIPC_PATIENT_ID = c("PAT_1", blank, "PAT_9"))),
+      regexp = "NEOIPC_PATIENT_ID",
+      class = "neoipcr_invalid_exception_list")
+    expect_error(
+      neoipcr::resolve_validation_exceptions(
+        resolvable_ds(), written_exceptions(c("DEPT_1", blank, "DEPT_1"))),
+      regexp = "DEPARTMENT_CODE",
+      class = "neoipcr_invalid_exception_list")
+  }
 })
 
 test_that("resolve_validation_exceptions needs the full enrollment and event tiers", {

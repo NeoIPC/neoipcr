@@ -1,4 +1,4 @@
-#' @include schema-cols-shared.R schema-orgunits.R
+#' @include schema-cols-shared.R schema-orgunits.R validation-exceptions.R
 NULL
 
 # Schema declarations for patients (tracked entities).
@@ -58,10 +58,12 @@ patient_attribute_cols <- function(name, type,
   levels_source <- match.arg(levels_source)
   # `also_when` is an escape hatch for attributes that must be present
   # for reasons other than `patient_columns` membership — today used
-  # only by `patient_id`, which `transform_user_exceptions()` needs
+  # only by `patient_id`, which `resolve_validation_exceptions()` needs
   # when `include_invalid_patients` is an exception list. Defaults to
   # always-FALSE so unused attributes retain the
-  # pure `patient_columns`-gating behaviour.
+  # pure `patient_columns`-gating behaviour. The predicate is forced only
+  # when a schema is compiled, so it may name a function defined in a
+  # file collated later; the Collate order keeps it earlier regardless.
   base_when <- \(opts)
     opts$include_patient == "full" &&
     (patient_columns_key %in% opts$patient_columns ||

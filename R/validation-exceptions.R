@@ -95,8 +95,10 @@ read_validation_exceptions <- function(path)
 #' see which records a list actually reaches.
 #'
 #' @param x A `neoipcr_ds` imported with the full patient, enrollment and
-#'  event tiers (the records are matched by patient id and joined through
-#'  the enrollments' patient link and the events' type) and a department
+#'  event tiers and with the patient id (`"id"` in `patient_columns`; an
+#'  import given the list as `include_invalid_patients` keeps it by itself),
+#'  since the records are matched by patient id and joined through the
+#'  enrollments' patient link and the events' type; and with a department
 #'  tier: `"pseudo"` suffices for a single department, while more than one
 #'  department needs `include_department = "full"`, since the records are
 #'  then matched by department code as well. A list carrying
@@ -122,7 +124,7 @@ resolve_validation_exceptions <- function(x, exceptions)
   if (!"patient_id" %in% names(x$patients))
     rlang::abort(c(
       "An exception list is matched by patient id, which this dataset does not carry.",
-      i = "Import with `include_patient = \"full\"`."),
+      i = "Import with `include_patient = \"full\"` and `\"id\"` in `patient_columns`, or pass the list to the import as `include_invalid_patients`."),
       class = "neoipcr_validation_needs_facts")
 
   # The import resolves before it strips its internal maps, which carry the
@@ -198,24 +200,16 @@ check_exception_list <- function(ex, header)
                  " (and DEPARTMENT_CODE when more than one department is imported).")),
       class = "neoipcr_invalid_exception_list")
 
-  rule_ids <- ex$RULE_ID
-  rule_id_problem <- if (!is.numeric(rule_ids))
-    "`RULE_ID` is not numeric"
-  else if (anyNA(rule_ids) || any(rule_ids != round(rule_ids)))
-    "`RULE_ID` is empty or not a whole number on some record"
-  else if (!all(rule_ids %in% validation_rule_ids()))
-    sprintf("`RULE_ID` names rules that do not exist: %s",
-            paste(sort(unique(setdiff(rule_ids, validation_rule_ids()))), collapse = ", "))
   event_types <- tolower(as.character(ex$EVENT_TYPE))
   wrong <- c(
     if (!inherits(ex$ENROLMENT_DATE, "Date")) "`ENROLMENT_DATE` is not a `Date`",
     if (!inherits(ex$EVENT_DATE, "Date")) "`EVENT_DATE` is not a `Date`",
-    rule_id_problem,
+    .rule_id_problem(ex$RULE_ID, "RULE_ID"),
     if (!is.character(ex$NEOIPC_PATIENT_ID)) "`NEOIPC_PATIENT_ID` is not character"
-    else if (anyNA(ex$NEOIPC_PATIENT_ID)) "`NEOIPC_PATIENT_ID` is empty on some record",
+    else if (any(.blank(ex$NEOIPC_PATIENT_ID))) "`NEOIPC_PATIENT_ID` is empty on some record",
     if ("DEPARTMENT_CODE" %in% names(ex) && !is.character(ex$DEPARTMENT_CODE))
       "`DEPARTMENT_CODE` is not character"
-    else if ("DEPARTMENT_CODE" %in% names(ex) && anyNA(ex$DEPARTMENT_CODE))
+    else if ("DEPARTMENT_CODE" %in% names(ex) && any(.blank(ex$DEPARTMENT_CODE)))
       "`DEPARTMENT_CODE` is empty on some record (drop the column for a single-department list)",
     if (!all(is.na(event_types) | event_types %in% .exception_event_types))
       paste0("`EVENT_TYPE` outside ", paste(.exception_event_types, collapse = "/"), " or `NA`"),
@@ -230,6 +224,26 @@ check_exception_list <- function(ex, header)
       class = "neoipcr_invalid_exception_list")
 
   ex
+}
+
+# A character value that would match no record: `NA`, or nothing but
+# whitespace. readr reads an empty CSV field as `NA`; a data frame built in
+# code can carry the empty string instead.
+.blank <- function(x)
+  is.na(x) | !nzchar(trimws(x))
+
+# Why `ids` cannot name rules, or `NULL` when every one does: a rule id must
+# be a whole number that `validation_rule_ids()` lists, whichever form the
+# list arrives in. `column` names the column in the message.
+.rule_id_problem <- function(ids, column)
+{
+  if (!is.numeric(ids))
+    sprintf("`%s` is not numeric", column)
+  else if (anyNA(ids) || any(ids != round(ids)))
+    sprintf("`%s` is empty or not a whole number on some record", column)
+  else if (!all(ids %in% validation_rule_ids()))
+    sprintf("`%s` names rules that do not exist: %s", column,
+            paste(sort(unique(setdiff(ids, validation_rule_ids()))), collapse = ", "))
 }
 
 # Map the records onto the dataset's keys. Every join matches on the values

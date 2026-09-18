@@ -183,3 +183,26 @@ test_that("validate refuses exceptions that are neither form", {
     neoipcr::validate(ds, exceptions = "PAT_1"),
     class = "neoipcr_invalid_exception_list")
 })
+
+test_that("validate checks a key-form list as it checks the written form", {
+  ds <- rule_3_flagged_ds()
+  # A rule id no rule carries, or a key that is not an integer, is refused
+  # rather than carried along as an exception that exempts nothing.
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = 99L, enrollment_key = 1L)),
+    regexp = "99",
+    class = "neoipcr_invalid_exception_list")
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = 3L, enrollment_key = "1")),
+    regexp = "enrollment_key",
+    class = "neoipcr_invalid_exception_list")
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = NA_integer_, enrollment_key = 1L)),
+    class = "neoipcr_invalid_exception_list")
+  # Whole-number doubles are integers in disguise and are accepted.
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = 3, enrollment_key = 1))), 0L)
+})

@@ -11,8 +11,8 @@ validate(x, rules = NULL, exceptions = NULL)
 \code{"pseudo"} or \code{"full"} and \code{include_enrollment} and \code{include_event} set to
 \code{"full"}: the rules read the enrollments' patient link and the events'
 type, which the pseudonymized tiers do not carry. An exception list in
-the form a user writes needs \code{include_patient = "full"} and a department
-tier on top, as \code{\link[=resolve_validation_exceptions]{resolve_validation_exceptions()}} describes.}
+the form a user writes needs the patient id and a department tier on
+top, as \code{\link[=resolve_validation_exceptions]{resolve_validation_exceptions()}} describes.}
 
 \item{rules}{Integer vector of rule ids to run; \code{NULL} (the default) runs all
 of them. An id outside \code{\link[=validation_rule_ids]{validation_rule_ids()}} is an error.}
@@ -24,11 +24,12 @@ it (\code{rule_id}, \code{patient_key}, \code{enrollment_key}, \code{event_key})
 exempts nothing.}
 }
 \value{
-A tibble with one row per flagged record: \code{rule_id}, the keys that
-identify the record (\code{patient_key}, \code{enrollment_key}, \code{event_key}; \code{NA}
-where a rule does not operate at that level) and \code{context}, a list column
-holding a one-row tibble of the values the finding refers to (\code{NULL}
-where the rule records none). Zero rows when nothing is flagged.
+A tibble with one row per finding — a flagged record, or for
+rule 17 a pair of them: \code{rule_id}, the keys that identify the record
+(\code{patient_key}, \code{enrollment_key}, \code{event_key}; \code{NA} where a rule does not
+operate at that level) and \code{context}, a list column holding a one-row
+tibble of the values the finding refers to (\code{NULL} where the rule
+records none). Zero rows when nothing is flagged.
 }
 \description{
 Runs every registered validation rule, or the subset named in \code{rules}, over
@@ -59,7 +60,7 @@ the import's request filter made it.\tabular{lll}{
    5, 6 \tab \code{enrollment_key} \tab \code{status} \cr
    7, 8, 9, 10, 11 \tab \code{event_key} \tab \code{enrollment_status}, \code{end_status}, and the form's own status as \code{bsi_status}, \code{nec_status}, \code{hap_status}, \code{pro_status} or \code{ssi_status} \cr
    12, 13, 14, 15, 16 \tab \code{event_key} \tab \code{enrolledAt}, \code{admOccurredAt}, \code{endOccurredAt}, and the event's date as \code{bsiOccurredAt}, \code{necOccurredAt}, \code{hapOccurredAt}, \code{proOccurredAt} or \code{ssiOccurredAt} \cr
-   17 \tab \code{enrollment_key} \tab \code{enrolledAt_this}, \code{endOccurredAt_this}, \code{enrolledAt_other}, \code{endOccurredAt_other} \cr
+   17 \tab \code{enrollment_key} \tab \code{enrolledAt_this}, \code{endOccurredAt_this}, \code{enrolledAt_other}, \code{endOccurredAt_other} — one finding per overlapping pair, so an enrolment that overlaps two others appears twice, once with each partner's dates \cr
    18 \tab \code{enrollment_key} \tab \code{patient_days}, \code{patient_days_calculated} \cr
    19 \tab \code{event_key} \tab \code{infection_type} \cr
    20 \tab \code{event_key} \tab \code{index}, \code{secondary_bsi}, \code{name} \cr

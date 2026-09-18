@@ -135,6 +135,28 @@ test_that("rule 17 counts the surveillance-end day as part of the period", {
     rule_17_ds(c("2024-01-01", "2024-01-11"), c("2024-01-10", "2024-01-20")), NULL)), 0L)
 })
 
+test_that("rule 17 records one finding per overlapping pair", {
+  # Three enrolments of one patient that all overlap: each is found twice,
+  # once with each partner's dates, so a reader sees which pair overlaps.
+  ds <- make_test_ds(
+    patients    = make_test_patients(1),
+    enrollments = make_test_enrollments(3,
+      patient_keys = c(1L, 1L, 1L),
+      enrolledAt = as.Date(c("2024-01-01", "2024-01-05", "2024-01-08"))),
+    events = make_test_events(3,
+      enrollment_keys = c(1L, 2L, 3L),
+      patient_keys    = c(1L, 1L, 1L),
+      event_type_keys = rep("end", 3),
+      occurredAt = as.Date(c("2024-01-10", "2024-01-15", "2024-01-20"))))
+  result <- neoipcr:::validation_rule_17(ds, NULL)
+  expect_equal(nrow(result), 6L)
+  expect_equal(as.vector(table(result$enrollment_key)), c(2L, 2L, 2L))
+  partners <- vapply(
+    result$context[result$enrollment_key == 1L],
+    \(ctx) format(ctx$enrolledAt_other), character(1))
+  expect_setequal(partners, c("2024-01-05", "2024-01-08"))
+})
+
 test_that("rule 17 compares the enrolments of one patient only", {
   # Two patients whose surveillance periods overlap are not each other's
   # finding.

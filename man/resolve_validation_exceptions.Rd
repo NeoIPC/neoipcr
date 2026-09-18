@@ -8,8 +8,10 @@ resolve_validation_exceptions(x, exceptions)
 }
 \arguments{
 \item{x}{A \code{neoipcr_ds} imported with the full patient, enrollment and
-event tiers (the records are matched by patient id and joined through
-the enrollments' patient link and the events' type) and a department
+event tiers and with the patient id (\code{"id"} in \code{patient_columns}; an
+import given the list as \code{include_invalid_patients} keeps it by itself),
+since the records are matched by patient id and joined through the
+enrollments' patient link and the events' type; and with a department
 tier: \code{"pseudo"} suffices for a single department, while more than one
 department needs \code{include_department = "full"}, since the records are
 then matched by department code as well. A list carrying

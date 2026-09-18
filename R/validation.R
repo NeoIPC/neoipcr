@@ -109,7 +109,10 @@ validation_rules <- list(
     dplyr::filter(.data$rule_id == id)
 }
 
-# Whatever form the caller passed exceptions in, the rules read key form.
+# Whatever form the caller passed exceptions in, the rules read key form. A
+# list in key form is checked the way the written form is: its rule ids must
+# name rules, and its keys must be integers — a key form built by hand with
+# a mistyped id would otherwise exempt nothing in silence.
 .exceptions_in_key_form <- function(x, exceptions)
 {
   if (is.null(exceptions))
@@ -121,7 +124,26 @@ validation_rules <- list(
       "`exceptions` must be a data frame of exception records.",
       i = "Pass the list `read_validation_exceptions()` returns, or the key form `resolve_validation_exceptions()` returns."),
       class = "neoipcr_invalid_exception_list")
-  dplyr::bind_rows(.exception_keys(), exceptions)
+
+  key_cols <- c("department_key", "patient_key", "enrollment_key", "event_key")
+  present <- intersect(key_cols, names(exceptions))
+  not_integer <- present[!vapply(
+    present,
+    \(key) is.numeric(exceptions[[key]]) || all(is.na(exceptions[[key]])),
+    logical(1))]
+  wrong <- c(
+    .rule_id_problem(exceptions$rule_id, "rule_id"),
+    if (length(not_integer) > 0L)
+      sprintf("%s must hold integer keys or `NA`",
+              paste0("`", not_integer, "`", collapse = ", ")))
+  if (length(wrong) > 0L)
+    rlang::abort(c(
+      "`exceptions` in key form must name existing rules through integer keys.",
+      rlang::set_names(wrong, rep("x", length(wrong)))),
+      class = "neoipcr_invalid_exception_list")
+
+  dplyr::bind_rows(.exception_keys(), exceptions) |>
+    dplyr::mutate(dplyr::across(c("rule_id", tidyselect::all_of(present)), as.integer))
 }
 
 #' Ids of the validation rules
@@ -153,8 +175,8 @@ validation_rule_ids <- function()
 #'  `"pseudo"` or `"full"` and `include_enrollment` and `include_event` set to
 #'  `"full"`: the rules read the enrollments' patient link and the events'
 #'  type, which the pseudonymized tiers do not carry. An exception list in
-#'  the form a user writes needs `include_patient = "full"` and a department
-#'  tier on top, as [resolve_validation_exceptions()] describes.
+#'  the form a user writes needs the patient id and a department tier on
+#'  top, as [resolve_validation_exceptions()] describes.
 #' @param rules Integer vector of rule ids to run; `NULL` (the default) runs all
 #'  of them. An id outside [validation_rule_ids()] is an error.
 #' @param exceptions The records to exempt from the rule that flags them:
@@ -163,11 +185,12 @@ validation_rule_ids <- function()
 #'  it (`rule_id`, `patient_key`, `enrollment_key`, `event_key`). `NULL`
 #'  exempts nothing.
 #'
-#' @returns A tibble with one row per flagged record: `rule_id`, the keys that
-#'  identify the record (`patient_key`, `enrollment_key`, `event_key`; `NA`
-#'  where a rule does not operate at that level) and `context`, a list column
-#'  holding a one-row tibble of the values the finding refers to (`NULL`
-#'  where the rule records none). Zero rows when nothing is flagged.
+#' @returns A tibble with one row per finding — a flagged record, or for
+#'  rule 17 a pair of them: `rule_id`, the keys that identify the record
+#'  (`patient_key`, `enrollment_key`, `event_key`; `NA` where a rule does not
+#'  operate at that level) and `context`, a list column holding a one-row
+#'  tibble of the values the finding refers to (`NULL` where the rule
+#'  records none). Zero rows when nothing is flagged.
 #'
 #' @section Context fields:
 #' Each rule records the fields below in `context`, and is exempted by an
@@ -186,7 +209,7 @@ validation_rule_ids <- function()
 #' | 5, 6 | `enrollment_key` | `status` |
 #' | 7, 8, 9, 10, 11 | `event_key` | `enrollment_status`, `end_status`, and the form's own status as `bsi_status`, `nec_status`, `hap_status`, `pro_status` or `ssi_status` |
 #' | 12, 13, 14, 15, 16 | `event_key` | `enrolledAt`, `admOccurredAt`, `endOccurredAt`, and the event's date as `bsiOccurredAt`, `necOccurredAt`, `hapOccurredAt`, `proOccurredAt` or `ssiOccurredAt` |
-#' | 17 | `enrollment_key` | `enrolledAt_this`, `endOccurredAt_this`, `enrolledAt_other`, `endOccurredAt_other` |
+#' | 17 | `enrollment_key` | `enrolledAt_this`, `endOccurredAt_this`, `enrolledAt_other`, `endOccurredAt_other` — one finding per overlapping pair, so an enrolment that overlaps two others appears twice, once with each partner's dates |
 #' | 18 | `enrollment_key` | `patient_days`, `patient_days_calculated` |
 #' | 19 | `event_key` | `infection_type` |
 #' | 20 | `event_key` | `index`, `secondary_bsi`, `name` |
