@@ -474,17 +474,6 @@ dhis2_request <- function(connection_options)
       password = connection_options$password)
 }
 
-# How many departments the import holds, read from the orchestrator-internal
-# map while it exists: the public tibble is the schema's 0×0 gate result
-# under `include_department = "no"`, which says nothing about the count.
-is_single_department <- function(ds)
-{
-  departments <- ds$metadata$.departments_internal_map
-  if (is.null(departments))
-    departments <- ds$metadata$departments
-  nrow(departments) == 1L
-}
-
 add_key_column <- function(table, key_name = "key")
 {
   table |>
