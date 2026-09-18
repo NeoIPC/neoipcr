@@ -77,8 +77,9 @@ for (entry in dol_rules) {
     })
 
     test_that(paste0("rule ", r, " does not flag a ", t, " form without a day of life"), {
-      # A missing value is not a mismatch; the form's compulsory field is
-      # DHIS2's to require.
+      # A missing value is not a mismatch. The field is compulsory on the
+      # form, so DHIS2 refuses its absence at entry; this rule compares
+      # values that were entered.
       expect_equal(nrow(f(timing_ds(t, form = list(dol = NA_integer_)), NULL)), 0L)
     })
 
