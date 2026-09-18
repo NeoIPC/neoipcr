@@ -237,8 +237,11 @@ check_exception_list <- function(ex, header)
 
   # A `DEPARTMENT_CODE` column left empty throughout is the single-department
   # list written in the six-column shape the tools exchange; it says nothing
-  # and is treated as absent.
-  if ("DEPARTMENT_CODE" %in% names(ex) && all(.blank(ex$DEPARTMENT_CODE)))
+  # and is treated as absent. A list without records keeps the column: the
+  # empty template exempts nothing and is valid for any number of
+  # departments.
+  if (nrow(ex) > 0L && "DEPARTMENT_CODE" %in% names(ex) &&
+      all(.blank(ex$DEPARTMENT_CODE)))
     ex <- ex |> dplyr::select(!"DEPARTMENT_CODE")
 
   ex

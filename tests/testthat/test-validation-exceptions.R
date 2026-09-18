@@ -118,6 +118,20 @@ test_that("read_validation_exceptions treats a department column left empty thro
   expect_equal(nrow(ex), 2L)
 })
 
+test_that("read_validation_exceptions keeps the columns of a file without records", {
+  # The empty template exempts nothing and is valid for any number of
+  # departments, so its department column is not dropped.
+  ex <- neoipcr::read_validation_exceptions(write_exception_csv(exception_rows()[0, ]))
+  expect_equal(nrow(ex), 0L)
+  expect_true("DEPARTMENT_CODE" %in% names(ex))
+  ds <- make_test_ds(
+    patients    = make_test_patients(1),
+    enrollments = make_test_enrollments(1, patient_keys = 1L),
+    events      = make_test_events(1, enrollment_keys = 1L, patient_keys = 1L))
+  ds$metadata$departments <- make_test_metadata_departments(n = 2)
+  expect_equal(nrow(neoipcr::resolve_validation_exceptions(ds, ex)), 0L)
+})
+
 test_that("read_validation_exceptions names a value that does not parse", {
   bad_date <- exception_rows()
   bad_date$EVENT_DATE[2] <- "06.01.2024"
