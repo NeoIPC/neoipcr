@@ -18,8 +18,9 @@ section above it for the next changes.
   implementation, which had been the only complete one. Rules 19, 20, 21, 27, 28, 30–37 and
   39–42 were placeholders that flagged nothing; rules 22–24 read a code list from a file the
   package cannot rely on and now check the ICHI code grammar with `is_valid_ichi_code()`; rule 17
-  now enters an enrolment without a surveillance-end event into the overlap comparison, where it
-  is found when it shares its enrolment date with another enrolment of the patient; rule 19 reads
+  now enters an enrolment without a surveillance-end event into the overlap comparison as under
+  surveillance on its enrolment date, so it is found when that day falls inside another enrolment's
+  period or coincides with another open enrolment's start; rule 19 reads
   an implant flag that was not recorded as no implant; and rules 7–11 flag an open infection or
   surgery form whenever the enrolment *or* its surveillance-end form is completed, keyed on the
   form's event. Every rule is exempted through the key its finding is recorded on.

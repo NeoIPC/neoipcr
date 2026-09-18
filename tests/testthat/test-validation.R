@@ -230,6 +230,15 @@ test_that("validate checks a key-form list as it checks the written form", {
     neoipcr::validate(ds, rules = 3L,
       exceptions = tibble::tibble(rule_id = Inf, enrollment_key = 1L)),
     class = "neoipcr_invalid_exception_list")
+  # An `NA` of a type that cannot be bound onto the integer keys is refused
+  # under the same class; a bare `NA` is accepted.
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = 3L, enrollment_key = 1L, event_key = NA_character_)),
+    regexp = "event_key",
+    class = "neoipcr_invalid_exception_list")
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = 3L, enrollment_key = 1L, event_key = NA))), 0L)
   # Whole-number doubles are integers in disguise and are accepted.
   expect_equal(nrow(neoipcr::validate(
     ds, rules = 3L, exceptions = tibble::tibble(rule_id = 3, enrollment_key = 1))), 0L)

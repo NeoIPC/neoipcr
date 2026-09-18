@@ -173,29 +173,37 @@ test_that("rule 17 compares the enrolments of one patient only", {
   expect_equal(nrow(neoipcr:::validation_rule_17(ds, NULL)), 0L)
 })
 
-test_that("rule 17 finds an open enrolment only on a shared enrolment date", {
-  # An enrolment without an end event has an open interval, which overlaps
-  # nothing; two such enrolments are found when they start on the same day.
-  open <- make_test_ds(
+# Two enrolments of one patient, the first closed by an end event on
+# `first_ends`, the second without an end event.
+rule_17_open_ds <- function(enrolled_at, first_ends = NULL)
+  make_test_ds(
     patients    = make_test_patients(1),
     enrollments = make_test_enrollments(2,
       patient_keys = c(1L, 1L),
-      enrolledAt = as.Date(c("2024-01-01", "2024-01-05"))),
-    events = make_test_events(1,
-      enrollment_keys = 1L,
-      patient_keys    = 1L,
-      event_type_keys = "adm"))
-  expect_equal(nrow(neoipcr:::validation_rule_17(open, NULL)), 0L)
-  same_day <- make_test_ds(
-    patients    = make_test_patients(1),
-    enrollments = make_test_enrollments(2,
-      patient_keys = c(1L, 1L),
-      enrolledAt = as.Date(c("2024-01-01", "2024-01-01"))),
-    events = make_test_events(1,
-      enrollment_keys = 1L,
-      patient_keys    = 1L,
-      event_type_keys = "adm"))
-  expect_equal(nrow(neoipcr:::validation_rule_17(same_day, NULL)), 2L)
+      enrolledAt = as.Date(enrolled_at)),
+    events = if (is.null(first_ends))
+      make_test_events(1, enrollment_keys = 1L, patient_keys = 1L, event_type_keys = "adm")
+    else
+      make_test_events(1, enrollment_keys = 1L, patient_keys = 1L, event_type_keys = "end",
+                       occurredAt = as.Date(first_ends)))
+
+test_that("rule 17 finds an open enrolment by its enrolment date", {
+  # An enrolment without an end event is under surveillance on its
+  # enrolment date: found when that day lies inside another enrolment's
+  # period, not when it lies after it.
+  result <- neoipcr:::validation_rule_17(
+    rule_17_open_ds(c("2024-01-01", "2024-01-05"), first_ends = "2024-01-10"), NULL)
+  expect_equal(nrow(result), 2L)
+  this <- result$context[[which(result$enrollment_key == 2L)]]
+  expect_true(is.na(this$endOccurredAt_this))
+  expect_equal(this$endOccurredAt_other, as.Date("2024-01-10"))
+  expect_equal(nrow(neoipcr:::validation_rule_17(
+    rule_17_open_ds(c("2024-01-01", "2024-01-11"), first_ends = "2024-01-10"), NULL)), 0L)
+  # Two open enrolments are found when they share the day, and only then.
+  expect_equal(nrow(neoipcr:::validation_rule_17(
+    rule_17_open_ds(c("2024-01-01", "2024-01-05")), NULL)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_17(
+    rule_17_open_ds(c("2024-01-01", "2024-01-01")), NULL)), 2L)
 })
 
 test_that("rule 17 honours exceptions", {

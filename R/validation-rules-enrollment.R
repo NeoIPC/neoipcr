@@ -46,10 +46,12 @@ validation_rule_2 <- function(x, exceptions)
       .keep = "none")
 }
 
-# Find enrolments of one patient whose surveillance intervals overlap. The
-# interval runs from the enrolment date to the surveillance-end event; an
-# enrolment without one has an open interval, which overlaps nothing, so two
-# such enrolments are only found when they share the enrolment date.
+# Find enrolments of one patient whose surveillance periods overlap. A
+# period runs from the enrolment date to the surveillance-end event, both
+# days included. An enrolment without a surveillance-end event is known to
+# be under surveillance on its enrolment date only, so that day is its
+# period: it is found when the day falls inside another enrolment's period,
+# and two such enrolments are found when they share the day.
 validation_rule_17 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
@@ -63,7 +65,8 @@ validation_rule_17 <- function(x, exceptions)
       dplyr::join_by("enrollment_key")) |>
     dplyr::mutate(
       surveillanceInterval = lubridate::interval(
-        .data$enrolledAt, .data$endOccurredAt))
+        .data$enrolledAt,
+        dplyr::coalesce(.data$endOccurredAt, .data$enrolledAt)))
 
   intervals |>
     dplyr::inner_join(
@@ -73,10 +76,9 @@ validation_rule_17 <- function(x, exceptions)
       suffix = c("_this", "_other")) |>
     dplyr::filter(
       .data$enrollment_key_this != .data$enrollment_key_other &
-        (lubridate::int_overlaps(
+        lubridate::int_overlaps(
           .data$surveillanceInterval_this,
-          .data$surveillanceInterval_other) |
-         .data$enrolledAt_this == .data$enrolledAt_other)) |>
+          .data$surveillanceInterval_other)) |>
     dplyr::select(!c("surveillanceInterval_this", "surveillanceInterval_other")) |>
     dplyr::anti_join(
       .rule_exceptions(exceptions, 17L),
