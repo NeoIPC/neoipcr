@@ -97,9 +97,13 @@ test_that("rule 21 honours exceptions", {
   expect_equal(nrow(result), 0L)
 })
 
-test_that("rule 21 skips without a warning when the substance days are absent", {
+test_that("rule 21 skips without a warning when the substance days or the antibiotic days are absent", {
   ds <- surveillance_end_ds(ab_days = 5L, substance_days = c(2L, 2L))
   ds$substanceDays$days <- NULL
+  expect_no_warning(result <- neoipcr:::validation_rule_21(ds, NULL))
+  expect_null(result)
+  ds <- surveillance_end_ds(ab_days = 5L, substance_days = c(2L, 2L))
+  ds$surveillanceEndData$ab_days <- NULL
   expect_no_warning(result <- neoipcr:::validation_rule_21(ds, NULL))
   expect_null(result)
 })

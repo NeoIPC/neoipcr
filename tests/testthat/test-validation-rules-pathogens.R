@@ -58,3 +58,12 @@ test_that("rule 20 skips without a warning when the unknown pathogen names are a
   expect_no_warning(result <- neoipcr:::validation_rule_20(ds, NULL))
   expect_null(result)
 })
+
+test_that("rule 20 skips without a warning when a findings column it reads is absent", {
+  for (col in c("pathogen_key", "index", "secondary_bsi")) {
+    ds <- pathogen_ds(pathogen_key = 0L)
+    ds$infectiousAgentFindings[[col]] <- NULL
+    expect_no_warning(result <- neoipcr:::validation_rule_20(ds, NULL))
+    expect_null(result)
+  }
+})

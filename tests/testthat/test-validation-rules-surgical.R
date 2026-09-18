@@ -148,6 +148,13 @@ test_that("rule 19 skips without a warning when the implant flag is absent", {
   expect_null(result)
 })
 
+test_that("rule 19 skips without a warning when the infection type is absent", {
+  ds <- rule_19_ds(35L)
+  ds$ssiData$infection_type <- NULL
+  expect_no_warning(result <- neoipcr:::validation_rule_19(ds, NULL))
+  expect_null(result)
+})
+
 # --- Rules 22-24: procedure codes that are not valid ICHI codes ---
 # Rule 22 = main code, 23 = first side code, 24 = second side code.
 
@@ -196,6 +203,11 @@ for (entry in ichi_rules) {
     test_that(paste0("rule ", r, " skips without a warning when ", col, " is absent"), {
       ds <- with_code("NOT A CODE")
       ds$surgeryData[[col]] <- NULL
+      expect_no_warning(result <- f(ds, NULL))
+      expect_null(result)
+      # The procedure description travels in the context, so it is read too.
+      ds <- with_code("NOT A CODE")
+      ds$surgeryData$procedure_description <- NULL
       expect_no_warning(result <- f(ds, NULL))
       expect_null(result)
     })
