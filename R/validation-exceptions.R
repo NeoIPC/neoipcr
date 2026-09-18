@@ -242,13 +242,16 @@ check_exception_list <- function(ex, header)
 .blank <- function(x)
   is.na(x) | !nzchar(trimws(x))
 
-# Whether a key or id column holds nothing but finite whole numbers and
-# `NA` — what `as.integer()` carries over unchanged; a fraction would be
-# truncated onto another record's key, an infinity onto `NA`. A column of
-# bare `NA`s is logical and passes; an `NA` of another type does not, since
-# it could not be bound onto the integer keys.
+# Whether a key or id column holds nothing but whole numbers within R's
+# integer range and `NA` — what `as.integer()` carries over unchanged; a
+# fraction would be truncated onto another record's key, an infinity or a
+# value beyond the range onto `NA`. A column of bare `NA`s is logical and
+# passes; an `NA` of another type does not, since it could not be bound onto
+# the integer keys.
 .whole_or_na <- function(x)
-  (is.numeric(x) && all(is.na(x) | (is.finite(x) & x == round(x)))) ||
+  (is.numeric(x) &&
+     all(is.na(x) |
+         (is.finite(x) & x == round(x) & abs(x) <= .Machine$integer.max))) ||
     (is.logical(x) && all(is.na(x)))
 
 # Why `ids` cannot name rules, or `NULL` when every one does: a rule id must

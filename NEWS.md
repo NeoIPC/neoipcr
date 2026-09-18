@@ -38,6 +38,9 @@ section above it for the next changes.
   type the rule concerns) and is refused otherwise; it resolves as a whole — one whose enrolment
   or event is not in the dataset exempts nothing — and is matched within its department whenever
   the dataset carries the department codes.
+* A removed patient's free-text pathogen names no longer survive in `unknownPathogenNames`: the
+  post-import cascade prunes them with the findings they belong to, whether the patient was removed
+  by the validation pass or by a filter.
 * `import_dhis2()` reads the custom attributes an instance sets on its organisation units. The new
   `include_custom_attributes` option of `dhis2_dataset_options()` names the entities whose values to
   import (`"departments"`, `"hospitals"`); their values land typed by the attribute's DHIS2 value type

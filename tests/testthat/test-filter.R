@@ -257,6 +257,19 @@ test_that("apply_postfilter removes orphaned admission data", {
   expect_equal(nrow(result$surveillanceEndData), 0L)
 })
 
+test_that("apply_postfilter removes the pathogen names of removed findings", {
+  # The free-text names hang off the findings by `agent_finding_key`; a
+  # finding removed with its event takes its name with it, so nothing of a
+  # removed patient's pathogens survives.
+  ds <- make_populated_test_ds(
+    infectiousAgentFindings = make_test_iaf(c(1L, 2L)),
+    unknownPathogenNames    = make_test_unknown_pathogen_names(c(1L, 2L)))
+  ds$patients <- ds$patients[ds$patients$patient_key != 1L, ]
+  result <- neoipcr:::apply_postfilter(ds)
+  expect_equal(result$infectiousAgentFindings$agent_finding_key, 2L)
+  expect_equal(result$unknownPathogenNames$agent_finding_key, 2L)
+})
+
 test_that("apply_postfilter cascades metadata removal", {
   ds <- make_populated_test_ds()
   # Keep only enrollments in department 1

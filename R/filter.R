@@ -309,6 +309,15 @@ apply_postfilter <- function(x)
         dplyr::semi_join(x$events, dplyr::join_by("event_key"))
   }
 
+  # unknownPathogenNames ← infectiousAgentFindings: the free-text names
+  # hang off the findings by `agent_finding_key`, not off the events, so
+  # they follow the findings rather than the event cascade above.
+  if ("agent_finding_key" %in% names(x$unknownPathogenNames) &&
+      "agent_finding_key" %in% names(x$infectiousAgentFindings))
+    x$unknownPathogenNames <- x$unknownPathogenNames |>
+      dplyr::semi_join(
+        x$infectiousAgentFindings, dplyr::join_by("agent_finding_key"))
+
   # enrollment_notes ← enrollments.
   if ("enrollment_key" %in% names(x$enrollment_notes) &&
       "enrollment_key" %in% names(x$enrollments))
@@ -452,7 +461,7 @@ apply_postfilter <- function(x)
     "patients", "enrollments", "events",
     "admissionData", "surveillanceEndData", "sepsisData", "necData",
     "pneumoniaData", "surgeryData", "ssiData",
-    "infectiousAgentFindings", "substanceDays",
+    "infectiousAgentFindings", "unknownPathogenNames", "substanceDays",
     "eventNotes", "enrollment_notes")
   md_tbls <- c("worldBankClasses", "countries", "hospitals", "departments")
 

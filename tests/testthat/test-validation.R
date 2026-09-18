@@ -230,6 +230,12 @@ test_that("validate checks a key-form list as it checks the written form", {
     neoipcr::validate(ds, rules = 3L,
       exceptions = tibble::tibble(rule_id = Inf, enrollment_key = 1L)),
     class = "neoipcr_invalid_exception_list")
+  # A whole number beyond R's integer range would become `NA` in the cast.
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = 3L, enrollment_key = 2147483648)),
+    regexp = "enrollment_key",
+    class = "neoipcr_invalid_exception_list")
   # An `NA` of a type that cannot be bound onto the integer keys is refused
   # under the same class; a bare `NA` is accepted.
   expect_error(
