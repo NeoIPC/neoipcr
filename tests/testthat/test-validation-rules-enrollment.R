@@ -135,9 +135,9 @@ test_that("rule 17 counts the surveillance-end day as part of the period", {
     rule_17_ds(c("2024-01-01", "2024-01-11"), c("2024-01-10", "2024-01-20")), NULL)), 0L)
 })
 
-test_that("rule 17 records one finding per overlapping pair", {
+test_that("rule 17 records one finding for each enrolment of an overlapping pair", {
   # Three enrolments of one patient that all overlap: each is found twice,
-  # once with each partner's dates, so a reader sees which pair overlaps.
+  # once with each partner's dates, so every overlap is seen from either side.
   ds <- make_test_ds(
     patients    = make_test_patients(1),
     enrollments = make_test_enrollments(3,

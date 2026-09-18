@@ -25,7 +25,8 @@ exempts nothing.}
 }
 \value{
 A tibble with one row per finding — a flagged record, or for
-rule 17 a pair of them: \code{rule_id}; \code{patient_key}, \code{enrollment_key} and
+rule 17 one of the two enrolments of an overlapping pair: \code{rule_id};
+\code{patient_key}, \code{enrollment_key} and
 \code{event_key}, each naming the record the finding refers to at that level
 and \code{NA} where there is none (an enrolment-level rule that compared a
 form names that form's event, so a consumer can show the finding under
@@ -69,7 +70,7 @@ completed, which is what the import's request filter made it.\tabular{lll}{
    5, 6 \tab \code{enrollment_key} \tab \code{status} \cr
    7, 8, 9, 10, 11 \tab \code{event_key} \tab \code{enrollment_status}, \code{end_status}, and the form's own status as \code{bsi_status}, \code{nec_status}, \code{hap_status}, \code{pro_status} or \code{ssi_status} \cr
    12, 13, 14, 15, 16 \tab \code{event_key} \tab \code{enrolledAt}, \code{admOccurredAt}, \code{endOccurredAt}, and the event's date as \code{bsiOccurredAt}, \code{necOccurredAt}, \code{hapOccurredAt}, \code{proOccurredAt} or \code{ssiOccurredAt} \cr
-   17 \tab \code{enrollment_key} \tab \code{enrolledAt_this}, \code{endOccurredAt_this}, \code{enrolledAt_other}, \code{endOccurredAt_other} — one finding per overlapping pair, so an enrolment that overlaps two others appears twice, once with each partner's dates \cr
+   17 \tab \code{enrollment_key} \tab \code{enrolledAt_this}, \code{endOccurredAt_this}, \code{enrolledAt_other}, \code{endOccurredAt_other} — one finding for each enrolment of an overlapping pair, naming the other's dates, so each overlap appears once from either side and an enrolment that overlaps two others appears twice \cr
    18 \tab \code{enrollment_key} \tab \code{patient_days}, \code{patient_days_calculated} \cr
    19 \tab \code{event_key} \tab \code{infection_type} \cr
    20 \tab \code{event_key} \tab \code{index}, \code{secondary_bsi}, \code{name} \cr

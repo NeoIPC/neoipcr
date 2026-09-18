@@ -4,6 +4,11 @@
 validation_rule_20 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
+  # NEOIPC-PERMANENT(dataset-format): never remove the `is.null()` branch. A
+  # dataset serialized before the free-text pathogen names had a slot of
+  # their own has no `unknownPathogenNames`, and a file on disk outlives the
+  # code that wrote it; the rule skips on such a dataset rather than failing
+  # it. Without the branch the `left_join()` below aborts on a `NULL`.
   if (!all(c("pathogen_key", "index", "secondary_bsi") %in%
            names(x$infectiousAgentFindings)) ||
       is.null(x$unknownPathogenNames))

@@ -199,7 +199,8 @@ validation_rule_ids <- function()
 #'  exempts nothing.
 #'
 #' @returns A tibble with one row per finding — a flagged record, or for
-#'  rule 17 a pair of them: `rule_id`; `patient_key`, `enrollment_key` and
+#'  rule 17 one of the two enrolments of an overlapping pair: `rule_id`;
+#'  `patient_key`, `enrollment_key` and
 #'  `event_key`, each naming the record the finding refers to at that level
 #'  and `NA` where there is none (an enrolment-level rule that compared a
 #'  form names that form's event, so a consumer can show the finding under
@@ -231,7 +232,7 @@ validation_rule_ids <- function()
 #' | 5, 6 | `enrollment_key` | `status` |
 #' | 7, 8, 9, 10, 11 | `event_key` | `enrollment_status`, `end_status`, and the form's own status as `bsi_status`, `nec_status`, `hap_status`, `pro_status` or `ssi_status` |
 #' | 12, 13, 14, 15, 16 | `event_key` | `enrolledAt`, `admOccurredAt`, `endOccurredAt`, and the event's date as `bsiOccurredAt`, `necOccurredAt`, `hapOccurredAt`, `proOccurredAt` or `ssiOccurredAt` |
-#' | 17 | `enrollment_key` | `enrolledAt_this`, `endOccurredAt_this`, `enrolledAt_other`, `endOccurredAt_other` — one finding per overlapping pair, so an enrolment that overlaps two others appears twice, once with each partner's dates |
+#' | 17 | `enrollment_key` | `enrolledAt_this`, `endOccurredAt_this`, `enrolledAt_other`, `endOccurredAt_other` — one finding for each enrolment of an overlapping pair, naming the other's dates, so each overlap appears once from either side and an enrolment that overlaps two others appears twice |
 #' | 18 | `enrollment_key` | `patient_days`, `patient_days_calculated` |
 #' | 19 | `event_key` | `infection_type` |
 #' | 20 | `event_key` | `index`, `secondary_bsi`, `name` |
