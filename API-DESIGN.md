@@ -16,7 +16,7 @@
 
 **Phase 1 exit-criterion checklist.** All items ticked — every decision below surfaces in §10 for PI resolution; content is ready for Phase 2 to consume once D-A…D-H are resolved.
 
-- [x] All 27 `export()` lines in [NAMESPACE](NAMESPACE) have a row in §3 with eight columns populated.
+- [x] All 32 `export()` lines in [NAMESPACE](NAMESPACE) have a row in §3 with eight columns populated.
 - [x] All 3 `S3method()` entries have a row in §3 with dispatch class recorded.
 - [x] Each of the four custom classes (`neoipcr_ds`, `neoipcr_rep_ds`, `neoipcr_ref_ds`, `neoipcr_tbl_sr_ref`) has a §4 subsection with constructor site, columns, invariants, and pointer to the relevant `R/schema-*.R`.
 - [x] The `_iaf` / `_sbd` / `_udr` subclasses each have a §4 row (§4.5) under the post-task-1.2 names with an explicit "depends on task 1.2" callout. Three additional subclasses surfaced and are flagged in §3.2 for task 1.2 expansion.
@@ -62,7 +62,7 @@
 
 ## §3. Public surface inventory
 
-All 27 `export()` entries + 3 `S3method()` entries from [NAMESPACE](NAMESPACE).
+All 32 `export()` entries + 3 `S3method()` entries from [NAMESPACE](NAMESPACE).
 
 Where a row's return-class slug is scheduled for rename by task 1.2 (the class-slug rename), the current slug is given first and the candidate post-rename name in a parenthetical. Slug-rename scheme in task 1.2 is labelled "suggestions, not commitments" — this note does not pin the scheme, it cross-references it.
 
@@ -98,6 +98,11 @@ Where a row's return-class slug is scheduled for rename by task 1.2 (the class-s
 | 28 | `neoipcr_log_config` | [R/log.R](R/log.R) | `(verbosity = NULL)` | the applied `logger` threshold, invisibly | external-stable | stable | — | Sets this package's `"neoipcr"` logger-namespace threshold from `quiet` / `normal` / `verbose` / `debug`; with no argument it re-reads `NEOIPC_LOG_LEVEL`. Carries the `neoipcr_` prefix under the §9.3 rule-5 exception. |
 | 29 | `neoipcr_supported_versions` | [R/import-dhis2.R](R/import-dhis2.R) | `()` | `list(dhis2, metadata_package)` | external-stable | stable | — | Introspection: the DHIS2 releases verified against a live server and the supported metadata-package range; `import_dhis2()` warns on a server outside them. Carries the `neoipcr_` prefix under the §9.3 rule-5 exception. |
 | 30 | `write_json` | [R/json.R](R/json.R) | `(x, file = NULL, pretty = FALSE)` | JSON string (invisible when `file` is given) | internal-stable | experimental | — | Plain-JSON serializer for consumers in other languages (the .NET reporting service); a deliberately narrow first cut with no redaction of its own. |
+| 31 | `get_cumulative_incidence_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, ...)` | tibble | external-stable | experimental | — | The share of patients (or admissions) admitted to a department within a calendar window who acquired an infection within that window, with a Wilson interval. |
+| 32 | `validate` | [R/validation.R](R/validation.R) | `(x, rules = NULL, exceptions = NULL)` | tibble (`rule_id`, `patient_key`, `enrollment_key`, `event_key`, `context`) | external-stable | experimental | — | The 42 validation rules over a dataset; a finding is data (keys and a one-row `context` tibble), never prose. Aborts on a rule id it does not know. |
+| 33 | `validation_rule_ids` | [R/validation.R](R/validation.R) | `()` | integer vector | external-stable | experimental | — | The registry's rule ids, for consumers that let a user choose rules or keep a catalogue of rule descriptions. |
+| 34 | `read_validation_exceptions` | [R/validation-exceptions.R](R/validation-exceptions.R) | `(path)` | tibble (`RULE_ID`, `NEOIPC_PATIENT_ID`, `ENROLMENT_DATE`, `EVENT_TYPE`, `EVENT_DATE`, optional `DEPARTMENT_CODE`) | external-stable | experimental | — | The exception-list CSV reader with the shape checks `import_dhis2()` applies; every defect is `neoipcr_invalid_exception_list`. |
+| 35 | `resolve_validation_exceptions` | [R/validation-exceptions.R](R/validation-exceptions.R) | `(x, exceptions)` | tibble (`rule_id` + keys) | external-stable | experimental | — | Maps a written list onto a dataset's keys, as a whole per record; `validate()` calls it itself. |
 
 ### §3.1. Naming patterns and inconsistencies (A1 findings, feed into §9)
 
@@ -927,7 +932,7 @@ Each subsection states the question, the recommendation with rationale, and a "P
 
 ### §10.1. D-A. Audience tier per public-surface symbol
 
-**Question.** For each of the 30 public-surface symbols in §3 — 27 `export()` entries and 3 `S3method()` entries — which audience tier applies? External-stable (documented for data scientists / researchers / clinicians as part of the stable public API) or internal-stable (stable for the NeoIPC internal pipeline but not primarily targeted at external users)? The lifecycle — stable or experimental (API may change, warn external users) — is §3's separate column, on top of the tier.
+**Question.** For each of the 35 public-surface symbols in §3 — 32 `export()` entries and 3 `S3method()` entries — which audience tier applies? External-stable (documented for data scientists / researchers / clinicians as part of the stable public API) or internal-stable (stable for the NeoIPC internal pipeline but not primarily targeted at external users)? The lifecycle — stable or experimental (API may change, warn external users) — is §3's separate column, on top of the tier.
 
 **Recommendation.** Accept the tier column proposed in §3 as the default assignment. Key assignments, counted over that column:
 

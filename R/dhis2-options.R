@@ -85,7 +85,11 @@
 #'  while it runs; the returned dataset carries them under the full tier
 #'  only, so resolving the same list on it with
 #'  [resolve_validation_exceptions()] needs `include_department = "full"`
-#'  when more than one department was imported. Validation is patient-anchored: with
+#'  when more than one department was imported. An exception keeps a record
+#'  from the validation pass, not from the shape of the dataset: a patient
+#'  without any enrolment (rule 1) leaves the returned dataset with the
+#'  cascade that removes every patient no enrolment refers to, so its
+#'  exception only stops the pass from reporting it. Validation is patient-anchored: with
 #'  `include_patient = "no"` there is nothing to validate, the pass is
 #'  skipped and a list is not read. When it does run — patients present and
 #'  this option not `TRUE` — it needs `include_enrollment` and
