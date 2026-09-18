@@ -110,9 +110,9 @@ patients_cols <- with_entity_gate(
     # rest → character. Factor levels come from data (option-set
     # codes in the DHIS2 metadata), so `levels_source = "data"`.
     # `patient_id` must also survive when the caller passes an exception
-    # list via `include_invalid_patients` — `transform_user_exceptions()`
-    # in `import_dhis2.R` needs `patients$patient_id` to match the
-    # records it names. Same `also_when` escape hatch propagates to the
+    # list via `include_invalid_patients` — `resolve_validation_exceptions()`
+    # in `validation-exceptions.R` matches the records a list names by
+    # `patients$patient_id`. Same `also_when` escape hatch propagates to the
     # per-TEA companion columns.
     patient_attribute_cols(
       "patient_id", character(), patient_columns_key = "id",

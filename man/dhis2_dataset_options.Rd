@@ -131,7 +131,8 @@ patient records into the dataset.}
 \item{include_invalid_patients}{Include data from patient records that
 could have validation errors: \code{FALSE} (the default) removes them, \code{TRUE}
 skips the validation pass altogether, and a data frame of exception
-records keeps the named records despite the rule that flags them. An
+records — as \code{\link[=read_validation_exceptions]{read_validation_exceptions()}} returns it — keeps the named
+records despite the rule that flags them. An
 exception record carries \code{RULE_ID} (numeric), \code{NEOIPC_PATIENT_ID}
 (character), \code{ENROLMENT_DATE} and \code{EVENT_DATE} (\code{Date}), \code{EVENT_TYPE}
 (one of \code{adm}, \code{pro}, \code{bsi}, \code{nec}, \code{ssi}, \code{hap}, \code{end}, in any case),

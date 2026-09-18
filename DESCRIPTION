@@ -79,6 +79,7 @@ Collate:
     'schema-event-data.R'
     'schema-notes.R'
     'types-check.R'
+    'validation-exceptions.R'
     'validation-rules-completeness.R'
     'validation-rules-dates.R'
     'validation-rules-enrollment.R'

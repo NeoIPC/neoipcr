@@ -14,6 +14,27 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+* `validate()` runs every one of the 42 validation rules, ported from the Validation Report's
+  implementation, which had been the only complete one. Rules 19, 20, 21, 27, 28, 30–37 and
+  39–42 were placeholders that flagged nothing; rules 22–24 read a code list from a file the
+  package cannot rely on and now check the ICHI code grammar with `is_valid_ichi_code()`; rule 17
+  now enters an enrolment without a surveillance-end event into the overlap comparison, where it
+  is found when it shares its enrolment date with another enrolment of the patient; rule 19 reads
+  an implant flag that was not recorded as no implant; and rules 7–11 flag an open infection or
+  surgery form whenever the enrolment *or* its surveillance-end form is completed, keyed on the
+  form's event. Every rule is exempted through the key its finding is recorded on.
+* `validate()` returns no prose. A finding's `context` is a one-row tibble of the values the rule
+  compared, named as the "Context fields" section of `?validate` lists them; the sentence a reader
+  sees belongs to the document that renders the finding, where it is written and translated. The
+  rule descriptions the package carried as unused message-catalogue entries are gone with the
+  formatters that held them.
+* `validate()` accepts the exception list in the form a user writes it as well as in key form, and
+  aborts on a rule id it does not know instead of running nothing. New exports:
+  `validation_rule_ids()`; `read_validation_exceptions()`, the CSV reader with the shape checks
+  `import_dhis2()` applies to `include_invalid_patients`; and `resolve_validation_exceptions()`,
+  the mapping of a list onto a dataset's keys, which also works on a returned dataset. A record
+  resolves as a whole — one whose enrolment or event is not in the dataset exempts nothing — and
+  is matched within its department whenever the dataset carries the department codes.
 * `import_dhis2()` reads the custom attributes an instance sets on its organisation units. The new
   `include_custom_attributes` option of `dhis2_dataset_options()` names the entities whose values to
   import (`"departments"`, `"hospitals"`); their values land typed by the attribute's DHIS2 value type

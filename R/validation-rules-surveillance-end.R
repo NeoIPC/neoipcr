@@ -1,4 +1,4 @@
-# Find surveillance end events where the stored number of patient days is
+# Find surveillance-end events whose stored number of patient days is
 # missing, or does not match the value calculated from the enrolment date and
 # the event date. patient_days is compulsory in DHIS2 and calculated from those
 # dates, so a missing value is a data-quality failure and is flagged like a
@@ -7,63 +7,80 @@
 validation_rule_18 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
+  if (!"patient_days" %in% names(x$surveillanceEndData))
+    return(.rule_skipped(18L, "the surveillance-end form's patient days"))
 
-  r <- dplyr::bind_cols(
-    rule_id = c(18L),
-    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
-      dplyr::select(
-        tidyselect::any_of(c("hospital_key","department_key","patient_key")),
-        "enrollment_key","enrolledAt") |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::inner_join(
-            x$surveillanceEndData |>
-              dplyr::select("event_key", "patient_days"),
-            dplyr::join_by("event_key")) |>
-          dplyr::select("enrollment_key","occurredAt","patient_days"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::mutate(
-        patient_days_calculated = 1L + as.integer(.data$occurredAt - .data$enrolledAt)
-      ) |>
-      dplyr::filter(
-        is.na(.data$patient_days) |
-          .data$patient_days_calculated != .data$patient_days) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key")),"enrollment_key","enrolledAt","occurredAt",
-        "patient_days","patient_days_calculated")) |>
-    dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt","patient_days","patient_days_calculated"))) |>
-    dplyr::summarise(
-      context = list(
-        list(
-          enrolledAt = .data$enrolledAt,
-          occurredAt = .data$occurredAt,
-          patient_days = .data$patient_days,
-          patient_days_calculated = .data$patient_days_calculated)))
-
-  if(!is.null(exceptions))
-    r <- r |>
+  x$enrollments |>
+    dplyr::select("patient_key", "enrollment_key", "enrolledAt") |>
+    dplyr::inner_join(
+      x$events |>
+        dplyr::filter(.data$event_type_key == "end") |>
+        dplyr::select("enrollment_key", "event_key", "occurredAt"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::inner_join(
+      x$surveillanceEndData |>
+        dplyr::select("event_key", "patient_days"),
+      dplyr::join_by("event_key")) |>
+    dplyr::mutate(
+      patient_days_calculated = 1L + as.integer(.data$occurredAt - .data$enrolledAt)) |>
+    dplyr::filter(is.na(.data$patient_days) |
+                  .data$patient_days != .data$patient_days_calculated) |>
     dplyr::anti_join(
-      exceptions,
-      dplyr::join_by("rule_id","enrollment_key"))
-
-  return(r)
+      .rule_exceptions(exceptions, 18L),
+      dplyr::join_by("enrollment_key")) |>
+    tidyr::nest(context = c("patient_days", "patient_days_calculated")) |>
+    dplyr::mutate(
+      rule_id        = 18L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = .data$event_key,
+      context        = .data$context,
+      .keep = "none")
 }
 
-# Find surveillance end events where the sum of all individual antibiotic
-# substance days is less than the number of antibiotic days.
+# Find surveillance-end events whose antibiotic substance days sum to less
+# than the total number of antibiotic days. The sum may exceed the total —
+# combination therapy counts one antibiotic day and several substance days —
+# so only the shortfall is a finding, and an event without antibiotic days is
+# not checked at all.
 validation_rule_21 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
+  if (!"ab_days" %in% names(x$surveillanceEndData) ||
+      !"days" %in% names(x$substanceDays))
+    return(.rule_skipped(21L, "the antibiotic days and the substance days"))
 
-  # TODO: Implement
-  r <- dplyr::bind_cols(
-    rule_id = c(21L),
-    x$enrollments |>
-      dplyr::select("enrollment_key") |>
-      dplyr::filter(.data$enrollment_key == -1))
-
-  return(r)
+  x$enrollments |>
+    dplyr::select("patient_key", "enrollment_key") |>
+    dplyr::inner_join(
+      x$events |>
+        dplyr::filter(.data$event_type_key == "end") |>
+        dplyr::select("enrollment_key", "event_key"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::inner_join(
+      x$surveillanceEndData |>
+        dplyr::filter(.data$ab_days > 0L) |>
+        dplyr::select("event_key", "ab_days"),
+      dplyr::join_by("event_key")) |>
+    dplyr::left_join(
+      x$substanceDays |>
+        dplyr::group_by(.data$event_key) |>
+        dplyr::summarise(
+          ab_substance_days = sum(.data$days, na.rm = TRUE),
+          .groups = "drop"),
+      dplyr::join_by("event_key")) |>
+    dplyr::mutate(
+      ab_substance_days = tidyr::replace_na(.data$ab_substance_days, 0L)) |>
+    dplyr::filter(.data$ab_substance_days < .data$ab_days) |>
+    dplyr::anti_join(
+      .rule_exceptions(exceptions, 21L),
+      dplyr::join_by("enrollment_key")) |>
+    tidyr::nest(context = c("ab_substance_days", "ab_days")) |>
+    dplyr::mutate(
+      rule_id        = 21L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = .data$event_key,
+      context        = .data$context,
+      .keep = "none")
 }

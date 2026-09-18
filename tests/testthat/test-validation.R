@@ -1,41 +1,75 @@
 # Tests for R/validation.R — validate() orchestrator and validation_rules registry.
 
-test_that("validation_rules registry has 42 entries", {
+test_that("validation_rules registry has 42 entries with an id and a function each", {
   expect_equal(length(neoipcr:::validation_rules), 42L)
-})
-
-test_that("validation_rules registry entries have correct structure", {
   for (entry in neoipcr:::validation_rules) {
+    expect_named(entry, c("id", "fun"))
     expect_true(is.integer(entry$id))
     expect_true(is.function(entry$fun))
-    expect_true(is.function(entry$formatter))
   }
 })
 
-test_that("validate returns zero-row tibble on clean data", {
-  ds <- make_populated_test_ds()
-  result <- neoipcr:::validate(ds)
-  expect_s3_class(result, "tbl_df")
-  # Clean data should have zero or few violations (rule 1 won't fire
-  # because all patients have enrollments in make_populated_test_ds)
-  expect_true("rule_id" %in% names(result))
+test_that("validation_rule_ids is exported and lists the registry in order", {
+  namespace <- readLines(system.file("NAMESPACE", package = "neoipcr"))
+  expect_true("export(validation_rule_ids)" %in% namespace)
+  expect_identical(neoipcr::validation_rule_ids(), 1:42)
 })
 
-test_that("validate runs only specified rules", {
+# The populated fixture with its surveillance-end forms made consistent: the
+# patient days as the enrolment dates and end events imply them, and no
+# antibiotic days for the substance days to fall short of.
+clean_ds <- function() {
   ds <- make_populated_test_ds()
-  result <- neoipcr:::validate(ds, rules = c(1L))
+  ds$surveillanceEndData$patient_days <- 15L
+  ds$surveillanceEndData$ab_days      <- 0L
+  ds
+}
+
+# A dataset two rules flag: the admission event is dated a day after the
+# enrolment (rule 3, at the enrolment level), and the completed enrolment has
+# no surveillance-end event (rule 25).
+rule_3_flagged_ds <- function()
+  make_test_ds(
+    patients    = make_test_patients(1),
+    enrollments = make_test_enrollments(1,
+      patient_keys = 1L,
+      enrolledAt = as.Date("2024-01-01")),
+    events = make_test_events(1,
+      enrollment_keys = 1L,
+      patient_keys    = 1L,
+      event_type_keys = "adm",
+      occurredAt = as.Date("2024-01-02")))
+
+test_that("validate returns a zero-row tibble on consistent data", {
+  result <- neoipcr::validate(clean_ds())
   expect_s3_class(result, "tbl_df")
-  # Result should only contain rule_id == 1 (or be empty)
-  if (nrow(result) > 0L)
-    expect_true(all(result$rule_id == 1L))
+  expect_equal(nrow(result), 0L)
+  expect_named(result, c("rule_id", "patient_key", "enrollment_key", "event_key", "context"))
 })
 
-test_that("validate result has expected columns", {
+test_that("validate runs only the rules named", {
+  ds <- rule_3_flagged_ds()
+  expect_setequal(neoipcr::validate(ds)$rule_id, c(3L, 25L))
+  result <- neoipcr::validate(ds, rules = 3L)
+  expect_equal(result$rule_id, 3L)
+})
+
+test_that("validate refuses a rule id it does not know", {
   ds <- make_populated_test_ds()
-  result <- neoipcr:::validate(ds)
-  possible_cols <- c("rule_id", "patient_key", "enrollment_key",
-                     "event_key", "context")
-  expect_true(all(names(result) %in% possible_cols))
+  expect_error(
+    neoipcr::validate(ds, rules = 99L),
+    class = "neoipcr_unknown_validation_rule")
+  expect_error(
+    neoipcr::validate(ds, rules = c(1L, 43L)),
+    regexp = "43")
+  expect_error(
+    neoipcr::validate(ds, rules = 1.5),
+    class = "neoipcr_unknown_validation_rule")
+  expect_error(
+    neoipcr::validate(ds, rules = "1"),
+    class = "neoipcr_unknown_validation_rule")
+  # A double that is a whole number names a rule.
+  expect_s3_class(neoipcr::validate(ds, rules = 1), "tbl_df")
 })
 
 test_that("validate is exported and returns its result visibly", {
@@ -72,21 +106,80 @@ test_that("validate always carries its five columns, whatever ran", {
   expect_named(r, shape)
   expect_type(r$context, "list")
   expect_named(neoipcr::validate(ds), shape)
-  # Rule 2 skips itself on this dataset (no status columns) and returns
-  # nothing; the shape still holds, with zero rows.
+  # Every enrolment in this dataset is completed, so rule 2 finds no active
+  # one; the shape still holds, with zero rows.
   r <- neoipcr::validate(ds, rules = 2L)
   expect_named(r, shape)
   expect_equal(nrow(r), 0L)
   expect_type(r$rule_id, "integer")
-  # Rule 3 returns a grouped tibble; the grouping and its variables do not
-  # leak, the keys are integer, and the class is a plain tibble.
+  # Rule 3 nests its context; the keys are integer, and the class is a plain
+  # tibble.
   r <- neoipcr::validate(ds, rules = 3L)
   expect_named(r, shape)
   expect_false(dplyr::is_grouped_df(r))
   expect_type(r$enrollment_key, "integer")
   expect_identical(class(r), c("tbl_df", "tbl", "data.frame"))
-  # A rule id nobody has runs nothing.
-  r <- neoipcr::validate(ds, rules = 99L)
+  # A rule that skips itself for want of a column contributes nothing; the
+  # shape still holds.
+  skipping <- ds
+  skipping$surveillanceEndData$patient_days <- NULL
+  r <- neoipcr::validate(skipping, rules = 18L)
   expect_named(r, shape)
   expect_equal(nrow(r), 0L)
+})
+
+test_that("validate carries a rule's values as a one-row tibble in context", {
+  r <- neoipcr::validate(rule_3_flagged_ds(), rules = 3L)
+  expect_equal(nrow(r), 1L)
+  expect_s3_class(r$context[[1]], "tbl_df")
+  expect_equal(nrow(r$context[[1]]), 1L)
+  expect_named(r$context[[1]], c("enrolledAt", "occurredAt"))
+})
+
+test_that("validate exempts records named in key form", {
+  ds <- rule_3_flagged_ds()
+  expect_equal(nrow(neoipcr::validate(ds, rules = 3L)), 1L)
+  # The key an exception is matched on is the rule's level; a record on
+  # another level, or for another rule, exempts nothing.
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = 3L, enrollment_key = 1L))), 0L)
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = 4L, enrollment_key = 1L))), 1L)
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = 3L, event_key = 1L))), 1L)
+})
+
+test_that("validate resolves an exception list written in the user's form", {
+  ds <- rule_3_flagged_ds()
+  ds$metadata$departments <- make_test_metadata_departments(n = 1)
+  written <- tibble::tibble(
+    RULE_ID           = 3L,
+    NEOIPC_PATIENT_ID = "PAT_1",
+    ENROLMENT_DATE    = as.Date("2024-01-01"),
+    EVENT_TYPE        = NA_character_,
+    EVENT_DATE        = as.Date(NA))
+  expect_equal(nrow(neoipcr::validate(ds, rules = 3L, exceptions = written)), 0L)
+  # A record naming a patient the dataset does not hold exempts nothing.
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L,
+    exceptions = written |> dplyr::mutate(NEOIPC_PATIENT_ID = "PAT_9"))), 1L)
+  # A record that names the enrolment's admission event names the enrolment
+  # too, and exempts it once it has resolved as a whole; one naming an event
+  # the dataset does not hold resolves to nothing, whatever else it names.
+  on_event <- written |>
+    dplyr::mutate(EVENT_TYPE = "adm", EVENT_DATE = as.Date("2024-01-02"))
+  expect_equal(nrow(neoipcr::validate(ds, rules = 3L, exceptions = on_event)), 0L)
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L,
+    exceptions = on_event |> dplyr::mutate(EVENT_DATE = as.Date("2024-01-07")))), 1L)
+})
+
+test_that("validate refuses exceptions that are neither form", {
+  ds <- rule_3_flagged_ds()
+  expect_error(
+    neoipcr::validate(ds, exceptions = tibble::tibble(patient_key = 1L)),
+    class = "neoipcr_invalid_exception_list")
+  expect_error(
+    neoipcr::validate(ds, exceptions = "PAT_1"),
+    class = "neoipcr_invalid_exception_list")
 })

@@ -2,8 +2,8 @@
 
 # --- Rule 3: admission event date differs from enrollment date ---
 
-test_that("rule 3 detects admission date != enrollment date", {
-  ds <- make_test_ds(
+rule_3_ds <- function(admission_date)
+  make_test_ds(
     patients    = make_test_patients(1),
     enrollments = make_test_enrollments(1,
       patient_keys = 1L,
@@ -12,93 +12,65 @@ test_that("rule 3 detects admission date != enrollment date", {
       enrollment_keys = 1L,
       patient_keys    = 1L,
       event_type_keys = "adm",
-      occurredAt = as.Date("2024-01-02")))  # different from enrollment
-  result <- neoipcr:::validation_rule_3(ds, NULL)
-  expect_true(nrow(result) > 0L)
-  expect_equal(unique(result$rule_id), 3L)
+      occurredAt = as.Date(admission_date)))
+
+test_that("rule 3 detects admission date != enrollment date", {
+  result <- neoipcr:::validation_rule_3(rule_3_ds("2024-01-02"), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$rule_id, 3L)
+  expect_equal(result$enrollment_key, 1L)
+  expect_equal(result$event_key, 1L)
+  expect_s3_class(result$context[[1]], "tbl_df")
+  expect_named(result$context[[1]], c("enrolledAt", "occurredAt"))
+  expect_equal(result$context[[1]]$occurredAt, as.Date("2024-01-02"))
 })
 
 test_that("rule 3 returns no rows when dates match", {
-  ds <- make_test_ds(
-    patients    = make_test_patients(1),
-    enrollments = make_test_enrollments(1,
-      patient_keys = 1L,
-      enrolledAt = as.Date("2024-01-01")),
-    events = make_test_events(1,
-      enrollment_keys = 1L,
-      patient_keys    = 1L,
-      event_type_keys = "adm",
-      occurredAt = as.Date("2024-01-01")))
-  result <- neoipcr:::validation_rule_3(ds, NULL)
-  expect_equal(nrow(result), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_3(rule_3_ds("2024-01-01"), NULL)), 0L)
 })
 
 test_that("rule 3 honours exceptions", {
-  ds <- make_test_ds(
-    patients    = make_test_patients(1),
-    enrollments = make_test_enrollments(1,
-      patient_keys = 1L,
-      enrolledAt = as.Date("2024-01-01")),
-    events = make_test_events(1,
-      enrollment_keys = 1L,
-      patient_keys    = 1L,
-      event_type_keys = "adm",
-      occurredAt = as.Date("2024-01-02")))
-  exc <- tibble::tibble(rule_id = 3L, enrollment_key = 1L)
-  result <- neoipcr:::validation_rule_3(ds, exc)
+  result <- neoipcr:::validation_rule_3(
+    rule_3_ds("2024-01-02"), make_test_exceptions(3L, enrollment_key = 1L))
   expect_equal(nrow(result), 0L)
 })
 
 # --- Rule 4: surveillance end date before admission date ---
 
-test_that("rule 4 detects end date before admission date", {
-  ds <- make_test_ds(
+rule_4_ds <- function(admission_date, end_date)
+  make_test_ds(
     patients    = make_test_patients(1),
     enrollments = make_test_enrollments(1, patient_keys = 1L),
     events = make_test_events(2,
       enrollment_keys = c(1L, 1L),
       patient_keys    = c(1L, 1L),
       event_type_keys = c("adm", "end"),
-      occurredAt = as.Date(c("2024-01-10", "2024-01-05"))))  # end before adm
-  result <- neoipcr:::validation_rule_4(ds, NULL)
-  expect_true(nrow(result) > 0L)
-  expect_equal(unique(result$rule_id), 4L)
+      occurredAt = as.Date(c(admission_date, end_date))))
+
+test_that("rule 4 detects end date before admission date", {
+  result <- neoipcr:::validation_rule_4(rule_4_ds("2024-01-10", "2024-01-05"), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$rule_id, 4L)
+  # The finding names the end event.
+  expect_equal(result$event_key, 2L)
+  expect_named(result$context[[1]], c("admOccurredAt", "endOccurredAt"))
 })
 
 test_that("rule 4 returns no rows when end is after admission", {
-  ds <- make_test_ds(
-    patients    = make_test_patients(1),
-    enrollments = make_test_enrollments(1, patient_keys = 1L),
-    events = make_test_events(2,
-      enrollment_keys = c(1L, 1L),
-      patient_keys    = c(1L, 1L),
-      event_type_keys = c("adm", "end"),
-      occurredAt = as.Date(c("2024-01-01", "2024-01-15"))))
-  result <- neoipcr:::validation_rule_4(ds, NULL)
-  expect_equal(nrow(result), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_4(rule_4_ds("2024-01-01", "2024-01-15"), NULL)), 0L)
 })
 
 test_that("rule 4 honours exceptions", {
-  ds <- make_test_ds(
-    patients    = make_test_patients(1),
-    enrollments = make_test_enrollments(1, patient_keys = 1L),
-    events = make_test_events(2,
-      enrollment_keys = c(1L, 1L),
-      patient_keys    = c(1L, 1L),
-      event_type_keys = c("adm", "end"),
-      occurredAt = as.Date(c("2024-01-10", "2024-01-05"))))
-  exc <- tibble::tibble(rule_id = 4L, enrollment_key = 1L)
-  result <- neoipcr:::validation_rule_4(ds, exc)
+  result <- neoipcr:::validation_rule_4(
+    rule_4_ds("2024-01-10", "2024-01-05"), make_test_exceptions(4L, enrollment_key = 1L))
   expect_equal(nrow(result), 0L)
 })
 
-# --- Rules 12-16: infection/surgery event date outside surveillance period ---
-# Rule 12=bsi, 13=nec, 14=hap, 15=pro, 16=ssi
-# NOTE: Rule 12 has a bug — sets rule_id = 13L instead of 12L.
-#       Tests assert against actual (buggy) behavior.
+# --- Rules 12-16: infection/surgery event date outside the enrolment window ---
+# Rule 12=bsi, 13=nec, 14=hap, 15=pro, 16=ssi. The window runs from the later
+# of the enrolment date and the admission event to the surveillance-end event.
 
-# Helper: ds with admission + end + one event of given type outside the period
-outside_period_ds <- function(event_type, event_date = "2024-02-01") {
+window_ds <- function(event_type, event_date, admission_date = "2024-01-01")
   make_test_ds(
     patients    = make_test_patients(1),
     enrollments = make_test_enrollments(1,
@@ -108,12 +80,7 @@ outside_period_ds <- function(event_type, event_date = "2024-02-01") {
       enrollment_keys = c(1L, 1L, 1L),
       patient_keys    = c(1L, 1L, 1L),
       event_type_keys = c("adm", "end", event_type),
-      occurredAt = as.Date(c("2024-01-01", "2024-01-15", event_date))))
-}
-
-within_period_ds <- function(event_type) {
-  outside_period_ds(event_type, "2024-01-10")  # within Jan 1 - Jan 15
-}
+      occurredAt = as.Date(c(admission_date, "2024-01-15", event_date))))
 
 date_rules <- list(
   list(rule = 12L, type = "bsi", fun = neoipcr:::validation_rule_12),
@@ -129,23 +96,37 @@ for (entry in date_rules) {
     t <- entry$type
     f <- entry$fun
 
-    test_that(paste0("rule ", r, " detects ", t, " event outside surveillance period"), {
-      ds <- outside_period_ds(t)
-      result <- f(ds, NULL)
-      expect_true(nrow(result) > 0L)
-      expect_equal(unique(result$rule_id), r)
+    test_that(paste0("rule ", r, " detects ", t, " event after the surveillance end"), {
+      result <- f(window_ds(t, "2024-02-01"), NULL)
+      expect_equal(nrow(result), 1L)
+      expect_equal(result$rule_id, r)
+      expect_equal(result$event_key, 3L)
+      expect_named(
+        result$context[[1]],
+        c("enrolledAt", "admOccurredAt", "endOccurredAt", paste0(t, "OccurredAt")))
+      expect_equal(result$context[[1]][[paste0(t, "OccurredAt")]], as.Date("2024-02-01"))
     })
 
-    test_that(paste0("rule ", r, " returns no rows when ", t, " event is within period"), {
-      ds <- within_period_ds(t)
-      result <- f(ds, NULL)
-      expect_equal(nrow(result), 0L)
+    test_that(paste0("rule ", r, " detects ", t, " event before the admission event"), {
+      # The enrolment starts on the first, the admission form is dated the
+      # third: an event on the second is inside the enrolment but before the
+      # admission, and is a finding.
+      result <- f(window_ds(t, "2024-01-02", admission_date = "2024-01-03"), NULL)
+      expect_equal(nrow(result), 1L)
+    })
+
+    test_that(paste0("rule ", r, " returns no rows when ", t, " event is within the window"), {
+      expect_equal(nrow(f(window_ds(t, "2024-01-10"), NULL)), 0L)
+    })
+
+    test_that(paste0("rule ", r, " counts the admission and surveillance-end days as inside the window"), {
+      expect_equal(nrow(f(window_ds(t, "2024-01-01"), NULL)), 0L)
+      expect_equal(nrow(f(window_ds(t, "2024-01-15"), NULL)), 0L)
+      expect_equal(nrow(f(window_ds(t, "2024-01-16"), NULL)), 1L)
     })
 
     test_that(paste0("rule ", r, " honours exceptions"), {
-      ds <- outside_period_ds(t)
-      exc <- tibble::tibble(rule_id = r, event_key = 3L)
-      result <- f(ds, exc)
+      result <- f(window_ds(t, "2024-02-01"), make_test_exceptions(r, event_key = 3L))
       expect_equal(nrow(result), 0L)
     })
   })

@@ -70,7 +70,8 @@
 #' @param include_invalid_patients Include data from patient records that
 #'  could have validation errors: `FALSE` (the default) removes them, `TRUE`
 #'  skips the validation pass altogether, and a data frame of exception
-#'  records keeps the named records despite the rule that flags them. An
+#'  records — as [read_validation_exceptions()] returns it — keeps the named
+#'  records despite the rule that flags them. An
 #'  exception record carries `RULE_ID` (numeric), `NEOIPC_PATIENT_ID`
 #'  (character), `ENROLMENT_DATE` and `EVENT_DATE` (`Date`), `EVENT_TYPE`
 #'  (one of `adm`, `pro`, `bsi`, `nec`, `ssi`, `hap`, `end`, in any case),
