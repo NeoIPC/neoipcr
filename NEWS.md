@@ -14,6 +14,25 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+# neoipcr 0.0.0.9002
+
+* A dataset carries the validation pass's findings in `validationResults` and their counts in
+  `validationSummary`: per rule, the distinct records the import removed and the ones the exception
+  list exempted from the rule, at the rule's record kind, and a totals row per record kind counting
+  the records the findings concern — the `patients` row is the number of patients the pass removed.
+  Both slots exist on every dataset and are empty when the pass does not run.
+  `calculate_department_data()` and `calculate_reference_data()` carry the summary and refuse a
+  dataset without it, and `get_benchmark_data()` carries each dataset's summary under its name beside
+  its metadata, so a report can state what its data rests on.
+* A calculated dataset's options are fit to leave the package: an exception list is replaced by the
+  marker `"exception_list_applied"`, and reference data replaces its department filter by `"applied"`,
+  since the list carries patient ids and enrolment dates and the filter names the departments behind
+  the reference values. Both calculation functions assert that the copy they emit holds no data frame;
+  `calculate_reference_data()` also asserts that its copy names no department. The `redact` argument
+  of `calculate_reference_data()` is gone with the replacement it switched.
+* The rule registry declares the context fields each rule records, `validation_rule_context_fields()`
+  exports them, and `validate()` refuses a finding whose fields differ from the declaration, so a
+  consumer's templates are checked against the package rather than against a copied table.
 * Rule 16 is removed. It reported a surgical site infection form dated outside the time frame of its
   enrolment, but a surgical site infection is attributed to its procedure's follow-up period, which may
   run past the discharge and into a readmission — an infection date on or before the admission of the

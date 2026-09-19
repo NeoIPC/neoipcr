@@ -232,6 +232,28 @@ test_that("import_dhis2 keeps an enrolment without an admission form only when i
   ds <- import_dhis2(conn, import_test_opts(include_invalid_patients = FALSE))
   expect_true(26L %in% ds$validationResults$rule_id)
   expect_false("PAT_2" %in% as.character(ds$patients$patient_id))
+
+  # An exception keeps the record from the pass, not from the dataset's
+  # shape: exempted under rule 26, the enrolment counts as exempted and
+  # still leaves with the orphan removal, its patient with it.
+  exempt_all <- tibble::tibble(
+    RULE_ID           = c(3L, 25L, 25L, 26L),
+    NEOIPC_PATIENT_ID = c("PAT_1", "PAT_1", "PAT_2", "PAT_2"),
+    ENROLMENT_DATE    = as.Date(c("2024-01-01", "2024-01-01", "2024-01-05", "2024-01-05")),
+    EVENT_TYPE        = NA_character_,
+    EVENT_DATE        = as.Date(NA))
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(conn, import_test_opts(include_invalid_patients = exempt_all))
+  expect_equal(nrow(ds$validationResults), 0L)
+  expect_equal(as.character(ds$patients$patient_id), "PAT_1")
+  expect_equal(nrow(ds$enrollments), 1L)
+  rule_26 <- ds$validationSummary[ds$validationSummary$rule_id %in% 26L, ]
+  expect_equal(rule_26$n_removed, 0L)
+  expect_equal(rule_26$n_exempted, 1L)
+  totals <- ds$validationSummary[is.na(ds$validationSummary$rule_id), ]
+  expect_equal(totals$n_removed, c(0L, 0L, 0L))
+  expect_equal(totals$n_exempted, c(2L, 2L, 0L))
 })
 
 # ---------------------------------------------------------------------------
@@ -712,6 +734,9 @@ test_that("import_dhis2 reads the org-unit metadata alone when every fact entity
   expect_equal(ncol(ds$patients), 0L)
   expect_equal(ncol(ds$enrollments), 0L)
   expect_equal(ncol(ds$admissionData), 0L)
+  # Without patients there was no validation pass to report on.
+  expect_equal(ncol(ds$validationResults), 0L)
+  expect_equal(ncol(ds$validationSummary), 0L)
   # No fact tibble anchors the post-filter, so every non-test department
   # stays listed, whether or not it has patients.
   expect_setequal(ds$metadata$departments$code, c("DEPT_01", "DEPT_02"))
@@ -863,6 +888,8 @@ test_that("import_dhis2 refuses to validate patients without the full enrollment
     include_department       = "pseudo",
     include_invalid_patients = exceptions))
   expect_equal(ncol(ds$patients), 0L)
+  expect_equal(ncol(ds$validationResults), 0L)
+  expect_equal(ncol(ds$validationSummary), 0L)
 
   # With more than one department the records join on the department code
   # as well; a list without it is refused as soon as the metadata read has
@@ -898,12 +925,61 @@ test_that("import_dhis2 keeps the records an exception list names", {
     include_invalid_patients = FALSE))
   expect_equal(nrow(removed$patients), 0L)
   expect_setequal(removed$validationResults$rule_id, c(3L, 25L))
+  # The summary: both enrolment-level rules flagged both enrolments, which
+  # count once in the totals row of their kind, and the two patients the
+  # import removed count in theirs; the admission forms the rules compared
+  # are not events concerned.
+  per_rule <- removed$validationSummary[!is.na(removed$validationSummary$rule_id), ]
+  expect_equal(per_rule$rule_id, c(3L, 25L))
+  expect_equal(as.character(per_rule$record_kind), c("enrollments", "enrollments"))
+  expect_equal(per_rule$n_removed, c(2L, 2L))
+  expect_equal(per_rule$n_exempted, c(0L, 0L))
+  totals <- removed$validationSummary[is.na(removed$validationSummary$rule_id), ]
+  expect_equal(as.character(totals$record_kind), c("patients", "enrollments", "events"))
+  expect_equal(totals$n_removed, c(2L, 2L, 0L))
+  expect_equal(totals$n_exempted, c(0L, 0L, 0L))
 
   kept <- import_dhis2(test_conn(), import_test_opts(
     include_department       = "full",
     include_invalid_patients = flagged))
   expect_setequal(as.character(kept$patients$patient_id), c("PAT_1", "PAT_2"))
   expect_equal(nrow(kept$validationResults), 0L)
+  per_rule <- kept$validationSummary[!is.na(kept$validationSummary$rule_id), ]
+  expect_equal(per_rule$rule_id, c(3L, 25L))
+  expect_equal(per_rule$n_removed, c(0L, 0L))
+  expect_equal(per_rule$n_exempted, c(2L, 2L))
+  totals <- kept$validationSummary[is.na(kept$validationSummary$rule_id), ]
+  expect_equal(totals$n_removed, c(0L, 0L, 0L))
+  expect_equal(totals$n_exempted, c(2L, 2L, 0L))
+
+  # A list naming only the first patient keeps that one and not the other,
+  # and each column counts its own records.
+  partial <- import_dhis2(test_conn(), import_test_opts(
+    include_department       = "full",
+    include_invalid_patients = flagged[flagged$NEOIPC_PATIENT_ID == "PAT_1", ]))
+  expect_equal(as.character(partial$patients$patient_id), "PAT_1")
+  per_rule <- partial$validationSummary[!is.na(partial$validationSummary$rule_id), ]
+  expect_equal(per_rule$rule_id, c(3L, 25L))
+  expect_equal(per_rule$n_removed, c(1L, 1L))
+  expect_equal(per_rule$n_exempted, c(1L, 1L))
+  totals <- partial$validationSummary[is.na(partial$validationSummary$rule_id), ]
+  expect_equal(totals$n_removed, c(1L, 1L, 0L))
+  expect_equal(totals$n_exempted, c(1L, 1L, 0L))
+
+  # An exception keeps a record from the rule it names, not from the
+  # others: exempted under rule 3 and still flagged under rule 25, both
+  # enrolments are removed and count in both columns.
+  one_rule <- import_dhis2(test_conn(), import_test_opts(
+    include_department       = "full",
+    include_invalid_patients = flagged[flagged$RULE_ID == 3L, ]))
+  expect_equal(nrow(one_rule$patients), 0L)
+  per_rule <- one_rule$validationSummary[!is.na(one_rule$validationSummary$rule_id), ]
+  expect_equal(per_rule$rule_id, c(3L, 25L))
+  expect_equal(per_rule$n_removed, c(0L, 2L))
+  expect_equal(per_rule$n_exempted, c(2L, 0L))
+  totals <- one_rule$validationSummary[is.na(one_rule$validationSummary$rule_id), ]
+  expect_equal(totals$n_removed, c(2L, 2L, 0L))
+  expect_equal(totals$n_exempted, c(2L, 2L, 0L))
 
   # With a second department in the import the records join on the
   # department code as well.
@@ -929,10 +1005,13 @@ test_that("import_dhis2 keeps the records an exception list names", {
   expect_setequal(as.character(kept$patients$patient_id), c("PAT_1", "PAT_2"))
   expect_equal(nrow(kept$validationResults), 0L)
 
-  # Opting out of validation is the way to a patient-only import.
+  # Opting out of validation is the way to a patient-only import; with no
+  # pass to report on, both validation slots are 0×0.
   ds <- import_dhis2(test_conn(), import_test_opts(
     include_enrollment = "no",
     include_event      = "no"))
   expect_equal(ncol(ds$enrollments), 0L)
   expect_setequal(as.character(ds$patients$patient_id), c("PAT_1", "PAT_2"))
+  expect_equal(ncol(ds$validationResults), 0L)
+  expect_equal(ncol(ds$validationSummary), 0L)
 })

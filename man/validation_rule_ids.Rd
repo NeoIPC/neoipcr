@@ -18,6 +18,7 @@ rule descriptions, checks itself against this list.
 Other validation:
 \code{\link[=read_validation_exceptions]{read_validation_exceptions()}},
 \code{\link[=resolve_validation_exceptions]{resolve_validation_exceptions()}},
-\code{\link[=validate]{validate()}}
+\code{\link[=validate]{validate()}},
+\code{\link[=validation_rule_context_fields]{validation_rule_context_fields()}}
 }
 \concept{validation}

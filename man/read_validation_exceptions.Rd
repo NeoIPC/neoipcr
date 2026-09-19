@@ -39,6 +39,7 @@ in ISO 8601 form.
 Other validation:
 \code{\link[=resolve_validation_exceptions]{resolve_validation_exceptions()}},
 \code{\link[=validate]{validate()}},
+\code{\link[=validation_rule_context_fields]{validation_rule_context_fields()}},
 \code{\link[=validation_rule_ids]{validation_rule_ids()}}
 }
 \concept{validation}

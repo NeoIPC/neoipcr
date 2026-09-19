@@ -16,7 +16,32 @@ server.}
 \item{dataset_options}{The options to use for the dataset configuration}
 }
 \value{
-A NeoIPC dataset.
+A NeoIPC dataset. Its \code{validationResults} slot holds the findings
+of the import's validation pass in the shape \code{\link[=validate]{validate()}} returns, and
+\code{validationSummary} counts them: one row per rule that flagged or
+exempted a record, with the rule's record kind — \code{patients},
+\code{enrollments} or \code{events}, the level it is recorded on; see the table on
+\code{\link[=validate]{validate()}} — \code{n_removed}, the distinct records the rule flagged and the
+import removed, and \code{n_exempted}, the distinct records the exception
+list exempted from the rule; and one row per record kind, with \code{rule_id}
+\code{NA}, counting the distinct records of that kind the findings concern:
+every finding concerns its patient, a finding of an enrolment- or
+event-level rule also concerns its enrolment, and a finding of an
+event-level rule also concerns its event, so the \code{patients} row is the
+number of patients the pass removed. An exception
+keeps a record from the rule it names, not from the others: a record
+exempted from one rule and flagged under another is removed all the
+same and counts in both columns. Nor does it keep a record from the
+dataset's shape, which the summary does not describe: a patient without
+an enrolment exempted under rule 1 is exempted in the summary and stays
+only with \code{include_unenrolled_patients} (see \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}),
+and an enrolment without an admission form exempted under rule 26 is
+exempted in the summary and always leaves with the orphan removal that
+follows the pass, its patient with it when nothing else remains, since
+the admission-form invariant stands aside only under
+\code{include_invalid_patients = TRUE}, which runs no pass. Both slots are
+0×0 when the pass does not run: with \code{include_invalid_patients = TRUE},
+or without patients.
 }
 \description{
 Import data from a NeoIPC DHIS2 server

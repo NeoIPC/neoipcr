@@ -1,52 +1,107 @@
 # The registry of validation rules, in id order. Each entry names the rule,
 # the level its finding is recorded on — the key a finding is identified by
 # and an exception record is matched on — the event types an event-level
-# rule concerns, and the function that implements it. A finding is data —
-# keys and the values a rule compared — never a sentence: the prose belongs
-# to whichever document renders the finding, where it can be localized.
+# rule concerns, the fields the rule records in a finding's `context`, and
+# the function that implements it. A finding is data — keys and the values a
+# rule compared — never a sentence: the prose belongs to whichever document
+# renders the finding, where it can be localized, and the declared fields
+# are the contract its sentences are written against; `validate()` refuses
+# a finding whose fields differ from the declaration.
+.frame_fields <- function(type)
+  c("enrolledAt", "admOccurredAt", "endOccurredAt", paste0(type, "OccurredAt"))
+
+.completion_fields <- function(type)
+  c("enrollment_status", "end_status", paste0(type, "_status"))
+
 validation_rules <- list(
-  list(id = 1L,  level = "patient",    fun = validation_rule_1),
-  list(id = 2L,  level = "enrollment", fun = validation_rule_2),
-  list(id = 3L,  level = "enrollment", fun = validation_rule_3),
-  list(id = 4L,  level = "enrollment", fun = validation_rule_4),
-  list(id = 5L,  level = "enrollment", fun = validation_rule_5),
-  list(id = 6L,  level = "enrollment", fun = validation_rule_6),
-  list(id = 7L,  level = "event", event_types = "bsi", fun = validation_rule_7),
-  list(id = 8L,  level = "event", event_types = "nec", fun = validation_rule_8),
-  list(id = 9L,  level = "event", event_types = "hap", fun = validation_rule_9),
-  list(id = 10L, level = "event", event_types = "pro", fun = validation_rule_10),
-  list(id = 11L, level = "event", event_types = "ssi", fun = validation_rule_11),
-  list(id = 12L, level = "event", event_types = "bsi", fun = validation_rule_12),
-  list(id = 13L, level = "event", event_types = "nec", fun = validation_rule_13),
-  list(id = 14L, level = "event", event_types = "hap", fun = validation_rule_14),
-  list(id = 15L, level = "event", event_types = "pro", fun = validation_rule_15),
-  list(id = 17L, level = "enrollment", fun = validation_rule_17),
-  list(id = 18L, level = "enrollment", fun = validation_rule_18),
-  list(id = 19L, level = "event", event_types = "ssi", fun = validation_rule_19),
+  list(id = 1L,  level = "patient",    context = character(),
+       fun = validation_rule_1),
+  list(id = 2L,  level = "enrollment", context = character(),
+       fun = validation_rule_2),
+  list(id = 3L,  level = "enrollment", context = c("enrolledAt", "occurredAt"),
+       fun = validation_rule_3),
+  list(id = 4L,  level = "enrollment", context = c("admOccurredAt", "endOccurredAt"),
+       fun = validation_rule_4),
+  list(id = 5L,  level = "enrollment", context = "status",
+       fun = validation_rule_5),
+  list(id = 6L,  level = "enrollment", context = "status",
+       fun = validation_rule_6),
+  list(id = 7L,  level = "event", event_types = "bsi",
+       context = .completion_fields("bsi"), fun = validation_rule_7),
+  list(id = 8L,  level = "event", event_types = "nec",
+       context = .completion_fields("nec"), fun = validation_rule_8),
+  list(id = 9L,  level = "event", event_types = "hap",
+       context = .completion_fields("hap"), fun = validation_rule_9),
+  list(id = 10L, level = "event", event_types = "pro",
+       context = .completion_fields("pro"), fun = validation_rule_10),
+  list(id = 11L, level = "event", event_types = "ssi",
+       context = .completion_fields("ssi"), fun = validation_rule_11),
+  list(id = 12L, level = "event", event_types = "bsi",
+       context = .frame_fields("bsi"), fun = validation_rule_12),
+  list(id = 13L, level = "event", event_types = "nec",
+       context = .frame_fields("nec"), fun = validation_rule_13),
+  list(id = 14L, level = "event", event_types = "hap",
+       context = .frame_fields("hap"), fun = validation_rule_14),
+  list(id = 15L, level = "event", event_types = "pro",
+       context = .frame_fields("pro"), fun = validation_rule_15),
+  list(id = 17L, level = "enrollment",
+       context = c("enrolledAt_this", "endOccurredAt_this",
+                   "enrolledAt_other", "endOccurredAt_other"),
+       fun = validation_rule_17),
+  list(id = 18L, level = "enrollment",
+       context = c("patient_days", "patient_days_calculated"),
+       fun = validation_rule_18),
+  list(id = 19L, level = "event", event_types = "ssi",
+       context = "infection_type", fun = validation_rule_19),
   list(id = 20L, level = "event", event_types = c("bsi", "nec", "hap", "ssi"),
-       fun = validation_rule_20),
-  list(id = 21L, level = "enrollment", fun = validation_rule_21),
-  list(id = 22L, level = "event", event_types = "pro", fun = validation_rule_22),
-  list(id = 23L, level = "event", event_types = "pro", fun = validation_rule_23),
-  list(id = 24L, level = "event", event_types = "pro", fun = validation_rule_24),
-  list(id = 25L, level = "enrollment", fun = validation_rule_25),
-  list(id = 26L, level = "enrollment", fun = validation_rule_26),
-  list(id = 27L, level = "event", event_types = "bsi", fun = validation_rule_27),
-  list(id = 28L, level = "event", event_types = "bsi", fun = validation_rule_28),
-  list(id = 29L, level = "event", event_types = "bsi", fun = validation_rule_29),
-  list(id = 30L, level = "event", event_types = "bsi", fun = validation_rule_30),
-  list(id = 31L, level = "event", event_types = "hap", fun = validation_rule_31),
-  list(id = 32L, level = "event", event_types = "hap", fun = validation_rule_32),
-  list(id = 33L, level = "event", event_types = "hap", fun = validation_rule_33),
-  list(id = 34L, level = "event", event_types = "hap", fun = validation_rule_34),
-  list(id = 35L, level = "event", event_types = "nec", fun = validation_rule_35),
-  list(id = 36L, level = "event", event_types = "nec", fun = validation_rule_36),
-  list(id = 37L, level = "event", event_types = "nec", fun = validation_rule_37),
-  list(id = 38L, level = "event", event_types = "nec", fun = validation_rule_38),
-  list(id = 39L, level = "event", event_types = "pro", fun = validation_rule_39),
-  list(id = 40L, level = "event", event_types = "pro", fun = validation_rule_40),
-  list(id = 41L, level = "event", event_types = "ssi", fun = validation_rule_41),
-  list(id = 42L, level = "event", event_types = "ssi", fun = validation_rule_42))
+       context = c("index", "secondary_bsi", "name"), fun = validation_rule_20),
+  list(id = 21L, level = "enrollment",
+       context = c("ab_substance_days", "ab_days"), fun = validation_rule_21),
+  list(id = 22L, level = "event", event_types = "pro",
+       context = c("procedure_description", "procedure_code"),
+       fun = validation_rule_22),
+  list(id = 23L, level = "event", event_types = "pro",
+       context = c("procedure_description", "procedure_code"),
+       fun = validation_rule_23),
+  list(id = 24L, level = "event", event_types = "pro",
+       context = c("procedure_description", "procedure_code"),
+       fun = validation_rule_24),
+  list(id = 25L, level = "enrollment", context = character(),
+       fun = validation_rule_25),
+  list(id = 26L, level = "enrollment", context = character(),
+       fun = validation_rule_26),
+  list(id = 27L, level = "event", event_types = "bsi",
+       context = c("dol", "dol_calc"), fun = validation_rule_27),
+  list(id = 28L, level = "event", event_types = "bsi",
+       context = c("los", "los_calc"), fun = validation_rule_28),
+  list(id = 29L, level = "event", event_types = "bsi",
+       context = "dol", fun = validation_rule_29),
+  list(id = 30L, level = "event", event_types = "bsi",
+       context = "dos", fun = validation_rule_30),
+  list(id = 31L, level = "event", event_types = "hap",
+       context = c("dol", "dol_calc"), fun = validation_rule_31),
+  list(id = 32L, level = "event", event_types = "hap",
+       context = c("los", "los_calc"), fun = validation_rule_32),
+  list(id = 33L, level = "event", event_types = "hap",
+       context = "dol", fun = validation_rule_33),
+  list(id = 34L, level = "event", event_types = "hap",
+       context = "dos", fun = validation_rule_34),
+  list(id = 35L, level = "event", event_types = "nec",
+       context = c("dol", "dol_calc"), fun = validation_rule_35),
+  list(id = 36L, level = "event", event_types = "nec",
+       context = c("los", "los_calc"), fun = validation_rule_36),
+  list(id = 37L, level = "event", event_types = "nec",
+       context = "dol", fun = validation_rule_37),
+  list(id = 38L, level = "event", event_types = "nec",
+       context = "dos", fun = validation_rule_38),
+  list(id = 39L, level = "event", event_types = "pro",
+       context = c("dol", "dol_calc"), fun = validation_rule_39),
+  list(id = 40L, level = "event", event_types = "pro",
+       context = c("los", "los_calc"), fun = validation_rule_40),
+  list(id = 41L, level = "event", event_types = "ssi",
+       context = c("dol", "dol_calc"), fun = validation_rule_41),
+  list(id = 42L, level = "event", event_types = "ssi",
+       context = c("los", "los_calc"), fun = validation_rule_42))
 
 # The level of each rule, named by rule id, and the event types an
 # event-level rule concerns; `check_exception_list()` holds a record's shape
@@ -96,6 +151,23 @@ validation_rules <- list(
     sprintf("Validation rule %d skipped: dataset lacks %s.", rule_id, what),
     namespace = "neoipcr")
   NULL
+}
+
+# Refuse a validation result whose `rules_skipped` attribute names a rule,
+# for a caller that must not read a pass with a rule left out as complete —
+# the import, whose full tiers give every rule its columns, so a skip there
+# is a dataset that is not what the pass needs.
+.assert_no_rule_skipped <- function(findings)
+{
+  skipped <- attr(findings, "rules_skipped")
+  if (length(skipped) > 0L)
+    rlang::abort(c(
+      "The validation pass could not run every rule on this dataset.",
+      x = sprintf("Rule(s) %s found no column to read; the log names it.",
+                  paste(skipped, collapse = ", ")),
+      i = "The pass needs the full enrollment and event tiers with every column they declare."),
+      class = "neoipcr_validation_rule_skipped")
+  invisible(findings)
 }
 
 .exception_keys <- function()
@@ -175,6 +247,85 @@ validation_rules <- list(
 #' @export
 validation_rule_ids <- function()
   vapply(validation_rules, \(r) r$id, integer(1))
+
+#' Context fields of the validation rules
+#'
+#' The names of the fields each rule records in a finding's `context`, as the
+#' "Context fields" section of [validate()] lists them. They are the contract
+#' a consumer's sentences are written against, so a consumer that keeps a
+#' template per rule checks its placeholders against this rather than against
+#' a copy of the table.
+#'
+#' @returns A list named by rule id, each element a character vector of field
+#'  names, empty for a rule that records none.
+#' @family validation
+#' @export
+validation_rule_context_fields <- function()
+  rlang::set_names(
+    lapply(validation_rules, \(r) r$context),
+    validation_rule_ids())
+
+# The summary of a validation pass: one row per rule that flagged or
+# exempted a record, with the rule's record kind and the distinct records
+# it removed and the exception list exempted from it — a record a rule
+# flags twice, as rule 20 does an event with two unknown pathogen names, is
+# one record — and one row per record kind (`rule_id` `NA`) with the
+# distinct records of that kind the findings concern: every finding
+# concerns its patient, a finding of an enrolment- or event-level rule also
+# concerns its enrolment, and a finding of an event-level rule also concerns
+# its event. The `patients` row is thus the
+# number of patients the pass removes, whatever level flagged them; the
+# orphan removal that follows the pass is not the pass's doing and may drop
+# more. A rule's record kind is the level the registry declares for it, so an
+# enrolment-level rule that names the form it compared still counts
+# enrolments, and its event is not among the events concerned. An exception
+# keeps a record from the rule it names, not from the others, so a record
+# exempted from one rule and flagged under another counts in both columns.
+# Every record kind has its totals row, at zero when nothing of that kind
+# was concerned.
+.validation_summary <- function(removed, exempted)
+{
+  kinds   <- c(patient = "patients", enrollment = "enrollments",
+               event = "events")
+  kind_of <- rlang::set_names(
+    unname(kinds[.rule_levels()]), as.character(validation_rule_ids()))
+
+  counts <- function(findings, name) {
+    f <- findings |>
+      dplyr::mutate(
+        record_kind = unname(kind_of[as.character(.data$rule_id)]))
+    f$record_key <- dplyr::case_when(
+      f$record_kind == "patients"    ~ f$patient_key,
+      f$record_kind == "enrollments" ~ f$enrollment_key,
+      .default = f$event_key)
+    dplyr::bind_rows(
+      f |>
+        dplyr::group_by(.data$rule_id, .data$record_kind) |>
+        dplyr::summarise(
+          !!name := dplyr::n_distinct(.data$record_key, na.rm = TRUE),
+          .groups = "drop"),
+      tibble::tibble(
+        rule_id     = NA_integer_,
+        record_kind = unname(kinds),
+        !!name := c(
+          dplyr::n_distinct(f$patient_key, na.rm = TRUE),
+          dplyr::n_distinct(
+            f$enrollment_key[f$record_kind != "patients"], na.rm = TRUE),
+          dplyr::n_distinct(
+            f$event_key[f$record_kind == "events"], na.rm = TRUE))))
+  }
+
+  dplyr::full_join(
+    counts(removed,  "n_removed"),
+    counts(exempted, "n_exempted"),
+    dplyr::join_by("rule_id", "record_kind")) |>
+    dplyr::mutate(
+      record_kind = factor(.data$record_kind, levels = unname(kinds)),
+      n_removed   = tidyr::replace_na(.data$n_removed, 0L),
+      n_exempted  = tidyr::replace_na(.data$n_exempted, 0L)) |>
+    dplyr::arrange(.data$record_kind, .data$rule_id) |>
+    dplyr::select("rule_id", "record_kind", "n_removed", "n_exempted")
+}
 
 #' Validate a NeoIPC dataset against the protocol's validation rules
 #'
@@ -313,8 +464,32 @@ validate <- function(x, rules = NULL, exceptions = NULL)
     dplyr::mutate(dplyr::across(
       c("rule_id", "patient_key", "enrollment_key", "event_key"),
       as.integer)) |>
-    dplyr::select(
-      "rule_id", "patient_key", "enrollment_key", "event_key", "context")
+    finalize_to_schema(
+      validation_finding_atoms, x$metadata$dataset_options)
+
+  # A finding carries the fields its rule's registry entry declares — the
+  # contract a consumer's sentences are written against — so a drift
+  # between a rule and its declaration surfaces here, not in a document.
+  .assert_declared_context(findings, validation_rule_context_fields())
+
   attr(findings, "rules_skipped") <- unname(skipped)
   findings
+}
+
+# Refuse findings whose context fields are not the ones `declared` names for
+# their rule, `declared` being a list by rule id as
+# `validation_rule_context_fields()` returns it.
+.assert_declared_context <- function(findings, declared)
+{
+  fields_of <- function(context)
+    if (is.null(names(context))) character() else names(context)
+  undeclared <- purrr::map2_lgl(
+    findings$rule_id, findings$context,
+    \(id, context) !setequal(fields_of(context), declared[[as.character(id)]]))
+  if (any(undeclared))
+    rlang::abort(c(
+      "A validation rule recorded context fields its registry entry does not declare.",
+      x = sprintf("Rule(s): %s.",
+                  paste(sort(unique(findings$rule_id[undeclared])), collapse = ", "))))
+  invisible(findings)
 }

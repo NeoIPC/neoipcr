@@ -227,3 +227,47 @@ test_that("assert_data_protection aborts when an IsTestunit row survives in a va
       ds = ds, include_custom_attributes = c("departments", "hospitals")),
     "IsTestunit")
 })
+
+
+# --- assert_serializable_dataset_options -----------------------------------
+
+test_that("assert_serializable_dataset_options refuses a data frame and, for reference data, a department filter", {
+  plain <- dhis2_dataset_options()
+  expect_invisible(neoipcr:::assert_serializable_dataset_options(
+    plain, allow_department_filter = FALSE))
+
+  listed <- dhis2_dataset_options(
+    include_invalid_patients = tibble::tibble(RULE_ID = 1L))
+  expect_error(
+    neoipcr:::assert_serializable_dataset_options(
+      listed, allow_department_filter = TRUE),
+    "data frame")
+  marked <- neoipcr:::serializable_dataset_options(
+    listed, keep_department_filter = TRUE)
+  expect_identical(marked$include_invalid_patients, "exception_list_applied")
+  expect_invisible(neoipcr:::assert_serializable_dataset_options(
+    marked, allow_department_filter = TRUE))
+
+  filtered <- dhis2_dataset_options(department_filter = "DEPT_01")
+  expect_error(
+    neoipcr:::assert_serializable_dataset_options(
+      filtered, allow_department_filter = FALSE),
+    "department filter")
+  expect_invisible(neoipcr:::assert_serializable_dataset_options(
+    filtered, allow_department_filter = TRUE))
+  marked <- neoipcr:::serializable_dataset_options(
+    filtered, keep_department_filter = FALSE)
+  expect_identical(marked$department_filter, "applied")
+  expect_invisible(neoipcr:::assert_serializable_dataset_options(
+    marked, allow_department_filter = FALSE))
+
+  # An empty filter applies nothing on import, so it leaves as no filter,
+  # with its element in place.
+  unfiltered <- dhis2_dataset_options(department_filter = character())
+  marked <- neoipcr:::serializable_dataset_options(
+    unfiltered, keep_department_filter = FALSE)
+  expect_true("department_filter" %in% names(marked))
+  expect_null(marked$department_filter)
+  expect_invisible(neoipcr:::assert_serializable_dataset_options(
+    marked, allow_department_filter = FALSE))
+})

@@ -1196,6 +1196,16 @@ make_test_ds <- function(
       include_enrollment = "full",
       include_event      = "full")
 
+  # The validation slots as the import leaves them after a pass that found
+  # nothing — the results empty, the summary its three totals rows at zero —
+  # where the options run the pass, else the 0×0 the schema gives; the
+  # import emits no other shape.
+  validation_results <- neoipcr:::compile_schema(
+    neoipcr:::validationResults_cols, metadata$dataset_options)
+  validation_summary <- if (ncol(validation_results) == 0L)
+    neoipcr:::compile_schema(neoipcr:::validationSummary_cols, metadata$dataset_options)
+  else neoipcr:::.validation_summary(validation_results, validation_results)
+
   # Empty tibbles with correct column names so rules can select columns
   # even when no data rows exist.
   base <- list(
@@ -1214,6 +1224,8 @@ make_test_ds <- function(
     substanceDays           = make_test_substance_days(integer(0)),
     infectiousAgentFindings = make_test_iaf(integer(0)),
     unknownPathogenNames    = make_test_unknown_pathogen_names(integer(0)),
+    validationResults       = validation_results,
+    validationSummary       = validation_summary,
     metadata                = structure(metadata, class = c("neoipcr_metadata", class(metadata))),
     .cache                  = new.env(parent = emptyenv())
   )
@@ -1265,3 +1277,11 @@ make_empty_calc_test_ds <- function() {
     enrollments = make_test_enrollments(0),
     events      = make_test_events(0))
 }
+
+# Hold a rule's findings to the context fields the registry declares for the
+# rule — the contract a consumer's templates are written against, which
+# `validate()` enforces on a pass. The rule tests call their rule directly,
+# so each detect case holds its findings to the declaration through this.
+expect_declared_context <- function(result)
+  testthat::expect_no_error(neoipcr:::.assert_declared_context(
+    result, neoipcr::validation_rule_context_fields()))

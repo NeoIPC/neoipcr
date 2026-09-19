@@ -33,6 +33,7 @@ test_that("rule 5 detects an admission event that is not completed", {
   # The enrolment's own status does not matter for the admission form.
   result <- neoipcr:::validation_rule_5(completeness_ds("adm", "ACTIVE", "ACTIVE"), NULL)
   expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
   expect_equal(result$rule_id, 5L)
   expect_equal(result$event_key, 1L)
   expect_named(result$context[[1]], "status")
@@ -63,6 +64,7 @@ test_that("rule 5 treats events without a status column as completed", {
 test_that("rule 6 detects an open surveillance-end form on a completed enrolment", {
   result <- neoipcr:::validation_rule_6(completeness_ds("end", "ACTIVE", "COMPLETED"), NULL)
   expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
   expect_equal(result$rule_id, 6L)
   expect_named(result$context[[1]], "status")
 })
@@ -112,6 +114,7 @@ for (entry in form_rules) {
     test_that(paste0("rule ", r, " detects an open ", t, " form on a completed enrolment"), {
       result <- f(completeness_ds(t, "ACTIVE", "COMPLETED"), NULL)
       expect_equal(nrow(result), 1L)
+      expect_declared_context(result)
       expect_equal(result$rule_id, r)
       expect_equal(result$event_key, 1L)
       expect_named(result$context[[1]], c("enrollment_status", "end_status", status_col))

@@ -4,7 +4,32 @@
 #'  server.
 #' @param dataset_options The options to use for the dataset configuration
 #'
-#' @returns A NeoIPC dataset.
+#' @returns A NeoIPC dataset. Its `validationResults` slot holds the findings
+#'  of the import's validation pass in the shape [validate()] returns, and
+#'  `validationSummary` counts them: one row per rule that flagged or
+#'  exempted a record, with the rule's record kind — `patients`,
+#'  `enrollments` or `events`, the level it is recorded on; see the table on
+#'  [validate()] — `n_removed`, the distinct records the rule flagged and the
+#'  import removed, and `n_exempted`, the distinct records the exception
+#'  list exempted from the rule; and one row per record kind, with `rule_id`
+#'  `NA`, counting the distinct records of that kind the findings concern:
+#'  every finding concerns its patient, a finding of an enrolment- or
+#'  event-level rule also concerns its enrolment, and a finding of an
+#'  event-level rule also concerns its event, so the `patients` row is the
+#'  number of patients the pass removed. An exception
+#'  keeps a record from the rule it names, not from the others: a record
+#'  exempted from one rule and flagged under another is removed all the
+#'  same and counts in both columns. Nor does it keep a record from the
+#'  dataset's shape, which the summary does not describe: a patient without
+#'  an enrolment exempted under rule 1 is exempted in the summary and stays
+#'  only with `include_unenrolled_patients` (see [dhis2_dataset_options()]),
+#'  and an enrolment without an admission form exempted under rule 26 is
+#'  exempted in the summary and always leaves with the orphan removal that
+#'  follows the pass, its patient with it when nothing else remains, since
+#'  the admission-form invariant stands aside only under
+#'  `include_invalid_patients = TRUE`, which runs no pass. Both slots are
+#'  0×0 when the pass does not run: with `include_invalid_patients = TRUE`,
+#'  or without patients.
 #' @export
 import_dhis2 <- function(
     connection_options = dhis2_connection_options(),
@@ -309,6 +334,11 @@ import_dhis2 <- function(
       substanceDays = substanceDays,
       infectiousAgentFindings = infectiousAgentFindings,
       unknownPathogenNames = unknownPathogenNames,
+      # The validation slots exist on every dataset in their schema's shape:
+      # their columns and no rows where the pass below runs and fills them,
+      # 0×0 where it does not.
+      validationResults = compile_schema(validationResults_cols, dataset_options),
+      validationSummary = compile_schema(validationSummary_cols, dataset_options),
       metadata = metadata,
       `.cache` = new.env(parent = emptyenv())),
     class = c("neoipcr_ds", "list"))
@@ -323,10 +353,24 @@ import_dhis2 <- function(
     else exceptions <- NULL
 
     v <- r |> validate(exceptions = exceptions)
-    # The dataset keeps the findings, not the run's bookkeeping: the full
-    # tiers this pass requires give every rule its columns.
+    # The full tiers this pass requires give every rule its columns, so a
+    # rule that could not run means the dataset is not what the pass needs;
+    # the import refuses it rather than storing a pass that reads as
+    # complete. The dataset then keeps the findings, not the run's
+    # bookkeeping.
+    .assert_no_rule_skipped(v)
     attr(v, "rules_skipped") <- NULL
+    # The findings the list exempted are the ones the pass makes without it
+    # and not with it; only the rules the list names can have any, so only
+    # those run again.
+    named <- if (is.null(exceptions)) integer() else unique(exceptions$rule_id)
+    exempted <- if (length(named) == 0L) v[0L, ] else
+      dplyr::anti_join(
+        r |> validate(rules = named),
+        v,
+        dplyr::join_by("rule_id", "patient_key", "enrollment_key", "event_key"))
     r$validationResults <- v
+    r$validationSummary <- .validation_summary(v, exempted)
     r$patients <- r$patients |>
       dplyr::anti_join(v, dplyr::join_by("patient_key"))
   }

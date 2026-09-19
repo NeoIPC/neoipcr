@@ -4,18 +4,23 @@
 \alias{calculate_reference_data}
 \title{Calculate a NeoIPC reference data set}
 \usage{
-calculate_reference_data(x, use_cache = TRUE, redact = TRUE)
+calculate_reference_data(x, use_cache = TRUE)
 }
 \arguments{
 \item{x}{The neoipcr_ds object containing the data}
 
 \item{use_cache}{Use the cache}
-
-\item{redact}{Redact potentially sensitive information}
 }
 \value{
 A NeoIPC reference data set
 }
 \description{
-Calculate a NeoIPC reference data set
+The \code{metadata$dataset_options} the result carries are a serializable copy
+of the dataset's: an exception list is replaced by the marker
+\code{"exception_list_applied"} and the department filter by \code{"applied"} — an
+empty filter, which the import does not apply, leaves as \code{NULL} — so
+reference data names neither the records a list exempted nor the
+departments it was built from. \code{validationSummary} is the dataset's
+validation summary (see \code{\link[=import_dhis2]{import_dhis2()}}); a dataset without it is
+refused.
 }

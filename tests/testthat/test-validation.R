@@ -24,6 +24,12 @@ test_that("validation_rule_ids is exported and lists the registry in order", {
   expect_true("export(validation_rule_ids)" %in% namespace)
   # Rule 16 is gone, so the ids keep their numbering with a gap at 16.
   expect_identical(neoipcr::validation_rule_ids(), c(1:15, 17:42))
+  expect_true("export(validation_rule_context_fields)" %in% namespace)
+  fields <- neoipcr::validation_rule_context_fields()
+  expect_identical(names(fields), as.character(neoipcr::validation_rule_ids()))
+  expect_identical(fields[["1"]], character())
+  expect_setequal(fields[["3"]], c("enrolledAt", "occurredAt"))
+  expect_setequal(fields[["20"]], c("index", "secondary_bsi", "name"))
 })
 
 # The populated fixture with its surveillance-end forms made consistent: the
@@ -149,12 +155,50 @@ test_that("validate always carries its five columns, whatever ran", {
                    integer(0))
 })
 
+test_that("a finding whose fields differ from the registry's declaration is refused", {
+  # The declaration is the contract consumers write against, so a rule that
+  # drifts from it must fail rather than reach a rendered document. The
+  # check validate() runs with the registry's declaration is exercised on
+  # its own, with a declaration that drops a field of rule 3.
+  findings <- neoipcr::validate(rule_3_flagged_ds(), rules = 3L)
+  declared <- neoipcr::validation_rule_context_fields()
+  expect_invisible(neoipcr:::.assert_declared_context(findings, declared))
+  declared[["3"]] <- "enrolledAt"
+  expect_error(
+    neoipcr:::.assert_declared_context(findings, declared),
+    "Rule\\(s\\): 3")
+  # A rule that declares no fields takes a finding without context.
+  none <- findings
+  none$rule_id <- 1L
+  none$context <- list(NULL)
+  expect_invisible(neoipcr:::.assert_declared_context(none, declared))
+})
+
+test_that("a pass that could not run a rule is refused where it must read as complete", {
+  # The import stores a pass without its `rules_skipped` bookkeeping, so it
+  # refuses one that skipped a rule rather than storing it as complete; the
+  # check is exercised on the result validate() returns, with and without
+  # a skipped rule recorded on it.
+  findings <- neoipcr::validate(rule_3_flagged_ds(), rules = 3L)
+  expect_identical(attr(findings, "rules_skipped"), integer())
+  expect_invisible(neoipcr:::.assert_no_rule_skipped(findings))
+  attr(findings, "rules_skipped") <- c(18L, 19L)
+  expect_error(
+    neoipcr:::.assert_no_rule_skipped(findings),
+    class = "neoipcr_validation_rule_skipped")
+  expect_error(
+    neoipcr:::.assert_no_rule_skipped(findings),
+    "18, 19")
+})
+
 test_that("validate carries a rule's values as a one-row tibble in context", {
   r <- neoipcr::validate(rule_3_flagged_ds(), rules = 3L)
   expect_equal(nrow(r), 1L)
   expect_s3_class(r$context[[1]], "tbl_df")
   expect_equal(nrow(r$context[[1]]), 1L)
   expect_named(r$context[[1]], c("enrolledAt", "occurredAt"))
+  expect_setequal(
+    names(r$context[[1]]), neoipcr::validation_rule_context_fields()[["3"]])
 })
 
 test_that("validate exempts records named in key form", {
