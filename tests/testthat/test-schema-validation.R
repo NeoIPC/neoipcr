@@ -9,8 +9,8 @@ test_that("the validation slots exist exactly when the validation pass runs", {
     for (invalid in list(FALSE, TRUE, tibble::tibble(RULE_ID = 3L))) {
       opts <- dhis2_dataset_options(
         include_patient = patient, include_invalid_patients = invalid)
-      results <- compile_schema(validationResults_cols, opts)
-      summary <- compile_schema(validationSummary_cols, opts)
+      results <- neoipcr:::compile_schema(neoipcr:::validationResults_cols, opts)
+      summary <- neoipcr:::compile_schema(neoipcr:::validationSummary_cols, opts)
       if (patient == "no" || isTRUE(invalid)) {
         expect_equal(ncol(results), 0L)
         expect_equal(ncol(summary), 0L)
@@ -48,7 +48,10 @@ test_that("validate returns the finding shape whatever the dataset's options say
   ds <- make_populated_test_ds()
   ds$metadata$dataset_options$include_invalid_patients <- TRUE
   expect_named(neoipcr::validate(ds), finding_cols)
-  expect_equal(ncol(compile_schema(validationResults_cols, ds$metadata$dataset_options)), 0L)
+  expect_equal(
+    ncol(neoipcr:::compile_schema(
+      neoipcr:::validationResults_cols, ds$metadata$dataset_options)),
+    0L)
 })
 
 test_that("the validation summary counts distinct records per rule and the records the findings concern per kind", {
@@ -93,7 +96,8 @@ test_that("the validation summary counts distinct records per rule and the recor
 })
 
 test_that("the validation summary of a pass with no findings has its totals rows at zero", {
-  empty <- compile_schema(validation_finding_atoms, dhis2_dataset_options())
+  empty <- neoipcr:::compile_schema(
+    neoipcr:::validation_finding_atoms, dhis2_dataset_options())
   s <- neoipcr:::.validation_summary(empty, empty)
   expect_equal(nrow(s), 3L)
   expect_true(all(is.na(s$rule_id)))

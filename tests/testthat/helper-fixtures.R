@@ -1200,10 +1200,11 @@ make_test_ds <- function(
   # nothing — the results empty, the summary its three totals rows at zero —
   # where the options run the pass, else the 0×0 the schema gives; the
   # import emits no other shape.
-  validation_results <- compile_schema(validationResults_cols, metadata$dataset_options)
+  validation_results <- neoipcr:::compile_schema(
+    neoipcr:::validationResults_cols, metadata$dataset_options)
   validation_summary <- if (ncol(validation_results) == 0L)
-    compile_schema(validationSummary_cols, metadata$dataset_options)
-  else .validation_summary(validation_results, validation_results)
+    neoipcr:::compile_schema(neoipcr:::validationSummary_cols, metadata$dataset_options)
+  else neoipcr:::.validation_summary(validation_results, validation_results)
 
   # Empty tibbles with correct column names so rules can select columns
   # even when no data rows exist.
