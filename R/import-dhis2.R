@@ -13,9 +13,10 @@
 #'  import removed, and `n_exempted`, the distinct records the exception
 #'  list exempted from the rule; and one row per record kind, with `rule_id`
 #'  `NA`, counting the distinct records of that kind the findings concern:
-#'  every finding its patient, a finding of an enrolment- or event-level
-#'  rule its enrolment, a finding of an event-level rule its event, so the
-#'  `patients` row is the number of patients the pass removed. An exception
+#'  every finding concerns its patient, a finding of an enrolment- or
+#'  event-level rule also concerns its enrolment, and a finding of an
+#'  event-level rule also concerns its event, so the `patients` row is the
+#'  number of patients the pass removed. An exception
 #'  keeps a record from the rule it names, not from the others: a record
 #'  exempted from one rule and flagged under another is removed all the
 #'  same and counts in both columns. Nor does it keep a record from the

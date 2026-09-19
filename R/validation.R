@@ -270,9 +270,10 @@ validation_rule_context_fields <- function()
 # it removed and the exception list exempted from it — a record a rule
 # flags twice, as rule 20 does an event with two unknown pathogen names, is
 # one record — and one row per record kind (`rule_id` `NA`) with the
-# distinct records of that kind the findings concern: every finding its
-# patient, a finding of an enrolment- or event-level rule its enrolment, a
-# finding of an event-level rule its event. The `patients` row is thus the
+# distinct records of that kind the findings concern: every finding
+# concerns its patient, a finding of an enrolment- or event-level rule also
+# concerns its enrolment, and a finding of an event-level rule also concerns
+# its event. The `patients` row is thus the
 # number of patients the pass removes, whatever level flagged them; the
 # orphan removal that follows the pass is not the pass's doing and may drop
 # more. A rule's record kind is the level the registry declares for it, so an

@@ -204,7 +204,8 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
 #' of the dataset's: an exception list is replaced by the marker
 #' `"exception_list_applied"`, while the department filter — the
 #' department's own — is kept. `validationSummary` is the dataset's
-#' validation summary (see [import_dhis2()]).
+#' validation summary (see [import_dhis2()]); a dataset without it is
+#' refused.
 #'
 #' @param x The neoipcr_ds object containing the data
 #' @param use_cache Use the cache
