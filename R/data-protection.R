@@ -133,27 +133,6 @@ assert_serializable_dataset_options <- function(opts, allow_department_filter)
   invisible(opts)
 }
 
-#' Assert that a dataset carries its validation summary
-#'
-#' A calculated dataset documents `validationSummary` as the summary of the
-#' dataset it was built from; a dataset saved before the slot existed has
-#' none, and the calculation refuses it rather than emitting `NULL` where a
-#' summary is promised.
-#'
-#' @param x A NeoIPC dataset.
-#' @param fn_name The calling function's name, for the message.
-#' @return `x`, invisibly.
-#' @noRd
-assert_validation_summary <- function(x, fn_name)
-{
-  if (is.null(x$validationSummary))
-    rlang::abort(c(
-      sprintf("%s() needs the dataset's validation summary, which it carries out.", fn_name),
-      "x" = "The dataset has no `validationSummary` slot.",
-      "i" = "Import the dataset again with this version of neoipcr; see `?import_dhis2`."))
-  invisible(x)
-}
-
 
 #' Assert that an org-unit attribute-values table is 0×0 unless the caller
 #' opted into that entity's attributes and the entity is present.

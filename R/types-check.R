@@ -147,3 +147,17 @@ assert_options_for <- function(x, required, fn_name) {
     rlang::set_names(violations, rep("x", length(violations))),
     "i" = "Re-import via `import_dhis2(dhis2_dataset_options(...))` with the required options set."))
 }
+
+# Assert that a dataset carries its validation summary. A calculated dataset
+# documents `validationSummary` as the summary of the dataset it was built
+# from; a dataset saved before the slot existed has none, and the
+# calculation refuses it rather than emitting `NULL` where a summary is
+# promised. `fn_name` names the caller in the message, as above.
+assert_validation_summary <- function(x, fn_name) {
+  if (is.null(x$validationSummary))
+    rlang::abort(c(
+      sprintf("%s() needs the dataset's validation summary, which it carries out.", fn_name),
+      "x" = "The dataset has no `validationSummary` slot.",
+      "i" = "Import the dataset again with this version of neoipcr; see `?import_dhis2`."))
+  invisible(x)
+}

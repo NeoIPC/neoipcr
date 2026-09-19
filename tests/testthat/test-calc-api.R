@@ -174,3 +174,16 @@ test_that("get_benchmark_data carries each dataset's validation summary under it
   expect_identical(benchmark$validationSummary$own, own$validationSummary)
   expect_identical(benchmark$validationSummary$ref, ref$validationSummary)
 })
+
+test_that("get_benchmark_data takes a calculated dataset without a validation summary", {
+  # A dataset serialized before the slot existed contributes no entry and
+  # is otherwise combined as before.
+  ds <- make_calc_test_ds()
+  own <- calculate_department_data(ds, use_cache = FALSE)
+  ref <- calculate_reference_data(ds, use_cache = FALSE)
+  ref$validationSummary <- NULL
+  benchmark <- get_benchmark_data(own = own, ref = ref)
+  expect_named(benchmark$validationSummary, "own")
+  expect_identical(benchmark$validationSummary$own, own$validationSummary)
+  expect_true("n_patients" %in% names(benchmark))
+})
