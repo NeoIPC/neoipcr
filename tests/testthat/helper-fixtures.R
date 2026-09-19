@@ -11,7 +11,7 @@
 # Valid values for the `include` parameter of read_test_metadata(): fixtures
 # merged only on request, so the baseline metadata graph stays what the
 # existing tests assume.
-.valid_inclusions <- c("org_unit_attributes")
+.valid_inclusions <- c("org_unit_attributes", "duplicate_tracked_entity_type")
 
 #' Read static JSON fixtures and return processed metadata.
 #'
@@ -71,6 +71,10 @@ read_test_metadata <- function(
 
     if ("tracked_entity_type" %in% exclude)
       prog$trackedEntityTypes <- NULL
+
+    if ("duplicate_tracked_entity_type" %in% include)
+      prog$trackedEntityTypes <- c(
+        prog$trackedEntityTypes, list(list(id = "TET_OTHER")))
 
     metadata <- utils::modifyList(metadata, prog)
   }

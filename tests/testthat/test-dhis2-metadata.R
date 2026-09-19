@@ -43,10 +43,13 @@ test_that("read_metadata aborts when program exists but id is missing", {
     class = "neoipcr_metadata_program_missing")
 })
 
-test_that("read_metadata aborts when the tracked-entity type is missing", {
+test_that("read_metadata requires exactly one NeoIPC Patient tracked-entity type", {
   expect_error(
     read_test_metadata(exclude = "tracked_entity_type"),
     class = "neoipcr_metadata_tracked_entity_type_missing")
+  expect_error(
+    read_test_metadata(include = "duplicate_tracked_entity_type"),
+    class = "neoipcr_metadata_tracked_entity_type_ambiguous")
   expect_identical(read_test_metadata()$trackedEntityTypeId, "TET_PATIENT")
 })
 

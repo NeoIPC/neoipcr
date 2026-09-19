@@ -461,10 +461,16 @@ read_metadata <- function(metadata, dataset_options)
   # is refused here rather than widened into silently.
   trackedEntityTypeId <- metadata$trackedEntityTypes |>
     unlist(use.names = FALSE)
-  if (length(trackedEntityTypeId) != 1L)
+  if (length(trackedEntityTypeId) == 0L)
     rlang::abort(
       "Invalid DHIS2 metadata. The NeoIPC Patient tracked-entity type is missing.",
       "neoipcr_metadata_tracked_entity_type_missing")
+  if (length(trackedEntityTypeId) > 1L)
+    rlang::abort(
+      sprintf(
+        "Invalid DHIS2 metadata. %d tracked-entity types are named NeoIPC Patient where exactly one is expected.",
+        length(trackedEntityTypeId)),
+      "neoipcr_metadata_tracked_entity_type_ambiguous")
   # `read_metadata_programStages()` now returns `list(public,
   # internal_map)`. `internal_map` is consumed by `read_events()` for
   # the raw programStage → event_type_key substitution regardless of
