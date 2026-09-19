@@ -554,3 +554,46 @@ test_that("apply_postfilter keeps a patient without enrolments only when the dat
   # patient alone keeps it in the hierarchy metadata.
   expect_true(1L %in% kept$metadata$departments$department_key)
 })
+
+test_that("apply_postfilter still prunes a patient whose enrolments the cascade removed when unenrolled patients are kept", {
+  ds <- make_populated_test_ds()
+  ds$metadata$dataset_options$include_unenrolled_patients <- TRUE
+  # Enrolment 1 loses its admission event and data, so the prefilter drops
+  # it; the patient arrived enrolled and must go with it rather than surface
+  # as unenrolled.
+  admission <- ds$events$event_key[
+    ds$events$enrollment_key == 1L & ds$events$event_type_key == "adm"]
+  ds$events        <- ds$events[!(ds$events$event_key %in% admission), ]
+  ds$admissionData <- ds$admissionData[
+    !(ds$admissionData$event_key %in% admission), ]
+
+  result <- neoipcr:::apply_postfilter(ds)
+  expect_false(1L %in% result$enrollments$enrollment_key)
+  expect_false(1L %in% result$patients$patient_key)
+})
+
+test_that("apply_postfilter keeps an enrolment without an admission form only when invalid patients are kept", {
+  without_admission <- function() {
+    ds <- make_populated_test_ds()
+    admission <- ds$events$event_key[
+      ds$events$enrollment_key == 1L & ds$events$event_type_key == "adm"]
+    ds$events        <- ds$events[!(ds$events$event_key %in% admission), ]
+    ds$admissionData <- ds$admissionData[
+      !(ds$admissionData$event_key %in% admission), ]
+    ds
+  }
+
+  # The invariant holds for an import that runs the validation pass, whether
+  # without exceptions or with a list of them.
+  ds <- without_admission()
+  ds$metadata$dataset_options$include_invalid_patients <- FALSE
+  expect_false(1L %in% neoipcr:::apply_postfilter(ds)$enrollments$enrollment_key)
+  ds$metadata$dataset_options$include_invalid_patients <- make_test_exceptions(26L)
+  expect_false(1L %in% neoipcr:::apply_postfilter(ds)$enrollments$enrollment_key)
+
+  # Skipping the pass asks for the records it would remove, and this is one.
+  ds$metadata$dataset_options$include_invalid_patients <- TRUE
+  kept <- neoipcr:::apply_postfilter(ds)
+  expect_true(1L %in% kept$enrollments$enrollment_key)
+  expect_true(1L %in% kept$patients$patient_key)
+})

@@ -457,8 +457,9 @@ read_metadata <- function(metadata, dataset_options)
   programId <- read_metadata_program_id(metadata)
   # The tracked-entity type is what an import of the unenrolled patients
   # requests by; without it that request would carry neither program nor
-  # type and read every tracked entity the session can see, so its absence
-  # is refused here rather than widened into silently.
+  # type, which the server refuses with a message that names neither the
+  # option nor the missing type, so its absence is refused here with one
+  # that does.
   trackedEntityTypeId <- metadata$trackedEntityTypes |>
     unlist(use.names = FALSE)
   if (length(trackedEntityTypeId) == 0L)

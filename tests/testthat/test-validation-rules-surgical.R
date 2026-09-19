@@ -136,6 +136,11 @@ test_that("rule 19 accepts a surgery from another enrolment of the same patient"
   expect_equal(nrow(neoipcr:::validation_rule_19(ds, NULL)), 0L)
 })
 
+test_that("rule 19 leaves an SSI without a date alone", {
+  expect_equal(nrow(neoipcr:::validation_rule_19(
+    rule_19_ds(NA_integer_), NULL)), 0L)
+})
+
 test_that("rule 19 honours exceptions", {
   result <- neoipcr:::validation_rule_19(rule_19_ds(35L), make_test_exceptions(19L, event_key = 2L))
   expect_equal(nrow(result), 0L)

@@ -180,6 +180,58 @@ test_that("import_dhis2 keeps a patient with no enrolment only when asked for th
   expect_equal(
     as.character(ds$patients$patient_id[ds$patients$patient_key == flagged$patient_key]),
     "PAT_3")
+
+  # Under the validation pass, rule 1 removes the patient before the orphan
+  # removal is reached; an exception naming it under rule 1 keeps it.
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(conn, import_test_opts(
+    include_unenrolled_patients = TRUE, include_invalid_patients = FALSE))
+  expect_false("PAT_3" %in% as.character(ds$patients$patient_id))
+  expect_true(1L %in% ds$validationResults$rule_id)
+
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  exceptions <- tibble::tibble(
+    RULE_ID           = 1L,
+    NEOIPC_PATIENT_ID = "PAT_3",
+    ENROLMENT_DATE    = as.Date(NA),
+    EVENT_TYPE        = NA_character_,
+    EVENT_DATE        = as.Date(NA))
+  ds <- import_dhis2(conn, import_test_opts(
+    include_unenrolled_patients = TRUE, include_invalid_patients = exceptions))
+  expect_true("PAT_3" %in% as.character(ds$patients$patient_id))
+  expect_false(1L %in% ds$validationResults$rule_id)
+})
+
+test_that("import_dhis2 keeps an enrolment without an admission form only when it skips the validation pass", {
+  # The second enrolment loses its only event, the admission.
+  fx <- import_test_fixtures()
+  events <- jsonlite::fromJSON(fx$events, simplifyVector = FALSE)
+  events$events <- Filter(function(e) e$enrollment != "ENR_2", events$events)
+  fx$events <- jsonlite::toJSON(events, auto_unbox = TRUE, null = "null")
+  conn <- dhis2_connection_options(
+    session_id = "test", hostname = "dhis2.example.org")
+
+  # Skipping the pass keeps the enrolment for a validate() on the dataset,
+  # which reports it under rule 26.
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(conn, import_test_opts())
+  expect_equal(nrow(ds$enrollments), 2L)
+  flagged <- validate(ds, rules = 26L)
+  expect_equal(nrow(flagged), 1L)
+  expect_equal(
+    as.character(ds$patients$patient_id[ds$patients$patient_key == flagged$patient_key]),
+    "PAT_2")
+
+  # Running the pass removes the patient on that finding, and the invariant
+  # drops the enrolment either way.
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(conn, import_test_opts(include_invalid_patients = FALSE))
+  expect_true(26L %in% ds$validationResults$rule_id)
+  expect_false("PAT_2" %in% as.character(ds$patients$patient_id))
 })
 
 # ---------------------------------------------------------------------------

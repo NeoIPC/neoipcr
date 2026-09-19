@@ -153,9 +153,10 @@ filter_countries <- function(
 #' Structure (post phase-c-audit):
 #'
 #' 1. **One-time prefilter** — neoipcr-specific enrollment invariants
-#'    (an enrollment only counts if it has a surveillance-end event
-#'    whose admission data is present; enrollments outside the filtered
-#'    country / department lists drop). Runs once before the cascade.
+#'    (an enrollment only counts if it has an admission form with data,
+#'    unless the dataset was requested with the records the validation
+#'    pass would remove; enrollments outside the filtered country /
+#'    department lists drop). Runs once before the cascade.
 #' 2. **Fixed-point cascade** — link-FK orphan cleanup (`patient_key`
 #'    / `enrollment_key` / `event_key`) + hierarchy-metadata upward
 #'    cascade with **per-hierarchy-key dynamic anchor selection**
@@ -175,8 +176,11 @@ filter_countries <- function(
 #'
 #' A patient with no enrollment is an orphan to the cascade unless the
 #' dataset was requested with `include_unenrolled_patients`: that option asks
-#' for exactly those records, so they stay for the caller to validate
-#' (rule 1) instead of being pruned with the enrollments they never had.
+#' for exactly the patients that arrive without one, so those stay for the
+#' caller to validate (rule 1) instead of being pruned with the enrollments
+#' they never had. They are recorded before the prefilter, so a patient that
+#' arrives with enrollments and loses them to a filter or to the cascade is
+#' pruned like any other and cannot surface as unenrolled.
 #'
 #' @param x A `neoipcr_ds` object.
 #' @return `x` with every tibble semi-joined / filtered per the
@@ -184,8 +188,13 @@ filter_countries <- function(
 #' @noRd
 apply_postfilter <- function(x)
 {
-  keep_unenrolled_patients <-
-    isTRUE(x$metadata$dataset_options$include_unenrolled_patients)
+  unenrolled_patients <- if (
+    isTRUE(x$metadata$dataset_options$include_unenrolled_patients) &&
+    "patient_key" %in% names(x$patients) &&
+    "patient_key" %in% names(x$enrollments))
+    setdiff(x$patients$patient_key, x$enrollments$patient_key)
+  else
+    integer()
 
   # Step 1: one-time dataset-driven enrollment prefilter.
   x <- .postfilter_prefilter_enrollments(x)
@@ -193,7 +202,7 @@ apply_postfilter <- function(x)
   # Step 2: fixed-point cascade.
   repeat {
     before <- .postfilter_row_counts(x)
-    x      <- .postfilter_pass(x, keep_unenrolled_patients)
+    x      <- .postfilter_pass(x, unenrolled_patients)
     after  <- .postfilter_row_counts(x)
     if (identical(before, after)) break
   }
@@ -220,31 +229,37 @@ apply_postfilter <- function(x)
 #
 # Three pieces, each guarded on column presence so link-privacy gates
 # (`"no"`) don't crash:
-#   a. Enrollments keep only the ones whose surveillance-end event is
-#      present AND whose admission data row is present.
+#   a. Enrollments keep only the ones that have an admission form with
+#      data — unless the dataset was requested with the records the
+#      validation pass would remove.
 #   b. Enrollments keep only NA-country or country-in-filtered-metadata.
 #   c. Enrollments keep only department-in-filtered-metadata.
 #
 # These propagate dataset-options-driven metadata narrowings (country
-# filter, department filter, surveillance-end-with-admission invariant)
-# down into enrollments. The cascade in Step 2 then carries the
-# narrowing through the rest of the fact and metadata tibbles.
+# filter, department filter, admission-form invariant) down into
+# enrollments. The cascade in Step 2 then carries the narrowing through
+# the rest of the fact and metadata tibbles.
 .postfilter_prefilter_enrollments <- function(x)
 {
   if (!("enrollment_key" %in% names(x$enrollments)))
     return(x)
 
-  # (a) surveillance-end-with-admission invariant.
-  if ("event_key" %in% names(x$events) &&
+  # (a) admission-form invariant: an enrollment without an admission form is
+  # what rule 26 reports, so `include_invalid_patients = TRUE`, which asks
+  # for the records the validation pass would remove, keeps it for a
+  # `validate()` on the returned dataset instead of dropping it here.
+  keep_invalid <- isTRUE(x$metadata$dataset_options$include_invalid_patients)
+  if (!keep_invalid &&
+      "event_key" %in% names(x$events) &&
       "enrollment_key" %in% names(x$events) &&
       "event_key" %in% names(x$admissionData)) {
-    surveillance_end_events <- x$events |>
+    non_end_events <- x$events |>
       dplyr::filter(.data$event_type_key != "end") |>
       dplyr::select("enrollment_key", "event_key")
-    se_with_admission <- surveillance_end_events |>
+    with_admission <- non_end_events |>
       dplyr::semi_join(x$admissionData, dplyr::join_by("event_key"))
     x$enrollments <- x$enrollments |>
-      dplyr::semi_join(se_with_admission, dplyr::join_by("enrollment_key"))
+      dplyr::semi_join(with_admission, dplyr::join_by("enrollment_key"))
   }
 
   # (b) NA-tolerant country-filter propagation.
@@ -276,9 +291,9 @@ apply_postfilter <- function(x)
 #
 # `apply_postfilter()` iterates this pass to a fixed point (no tibble
 # loses rows in a full pass).
-.postfilter_pass <- function(x, keep_unenrolled_patients = FALSE)
+.postfilter_pass <- function(x, unenrolled_patients = integer())
 {
-  x <- .postfilter_link_fk_cascade(x, keep_unenrolled_patients)
+  x <- .postfilter_link_fk_cascade(x, unenrolled_patients)
   x <- .postfilter_hierarchy_cascade(x)
   x
 }
@@ -289,7 +304,7 @@ apply_postfilter <- function(x)
 # Every join guarded on column presence on both sides so link-privacy
 # gates (`include_patient` / `include_enrollment` / `include_event`
 # = `"no"`) turn off the corresponding branch.
-.postfilter_link_fk_cascade <- function(x, keep_unenrolled_patients = FALSE)
+.postfilter_link_fk_cascade <- function(x, unenrolled_patients = integer())
 {
   # events ← enrollments (link FK).
   if ("enrollment_key" %in% names(x$events) &&
@@ -338,14 +353,16 @@ apply_postfilter <- function(x)
     x$enrollments <- x$enrollments |>
       dplyr::semi_join(x$patients, dplyr::join_by("patient_key"))
 
-  # Upward prune: patients with no surviving enrollment — unless the dataset
-  # was requested with the patients that have no enrollment at all, which
-  # this prune would otherwise remove wholesale.
-  if (!keep_unenrolled_patients &&
-      "patient_key" %in% names(x$patients) &&
-      "patient_key" %in% names(x$enrollments))
+  # Upward prune: patients with no surviving enrollment, except the ones
+  # that arrived without any when the dataset was requested with them.
+  if ("patient_key" %in% names(x$patients) &&
+      "patient_key" %in% names(x$enrollments)) {
+    enrolled <- x$enrollments$patient_key
     x$patients <- x$patients |>
-      dplyr::semi_join(x$enrollments, dplyr::join_by("patient_key"))
+      dplyr::filter(
+        .data$patient_key %in% enrolled |
+          .data$patient_key %in% unenrolled_patients)
+  }
 
   x
 }

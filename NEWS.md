@@ -50,12 +50,20 @@ section above it for the next changes.
   tell a rule that found nothing from one that never ran.
 * `import_dhis2()` refuses an instance that does not carry exactly one NeoIPC Patient tracked-entity
   type, naming whether it is missing or duplicated. An import of the unenrolled patients requests by
-  that type; without it the request carried neither program nor type and would have read every tracked
-  entity the session can see.
+  that type; without it the request carried neither program nor type, which DHIS2 refuses with a
+  message that names neither the option nor the missing type.
+* `include_invalid_patients = TRUE` now keeps the enrolments without an admission form in the returned
+  dataset. The orphan removal that follows an import dropped them as a dataset invariant before a
+  `validate()` on the returned dataset could report them under rule 26, so a consumer that skips the
+  pass in order to list the records it would remove never saw those; the invariant still holds for
+  every import that runs the pass.
 * `include_unenrolled_patients = TRUE` now keeps the patients with no enrolment in the returned
   dataset when enrollments are imported as well: the orphan removal that follows an import leaves them
   in place, where it used to prune them with the enrollments they never had, so a `validate()` on such
-  a dataset can flag them under rule 1. Without the option the removal is unchanged.
+  a dataset can flag them under rule 1. Only the patients that arrive without an enrolment are kept —
+  one that loses its enrolments to a filter is pruned as before — and they reach the dataset only
+  where the validation pass leaves them, with `include_invalid_patients = TRUE` or an exception naming
+  them under rule 1. Without the option the removal is unchanged.
 * An instance on which no organisation unit carries a custom-attribute value imports as no values. It
   used to fail the import: widening a response in which every org unit serializes an empty array
   delivers the column as logical `NA` rather than as a list, and the reader took that for one value

@@ -128,15 +128,25 @@ the NeoIPC core case eligibility criteria into the dataset.}
 \item{include_unenrolled_patients}{Include the NeoIPC patient records that
 are not enrolled in the surveillance program as well: they are requested
 by tracked-entity type rather than by program, and the removal of orphan
-records that follows an import leaves them in place. Without this option
-an import with enrollments removes every patient with no enrollment, the
-validation pass (rule 1) having flagged it first where it runs.}
+records that follows an import leaves in place the patients that arrive
+without an enrollment (one that arrives with enrollments and loses them
+to a filter is pruned like any other). They reach the returned dataset
+only where the validation pass leaves them: rule 1 flags a patient with
+no enrollment, so under \code{include_invalid_patients = FALSE} the pass
+removes it first, and it stays with \code{include_invalid_patients = TRUE}
+or an exception naming it under rule 1 — the pairing the Validation
+Report uses. Without this option an import with enrollments removes
+every patient with no enrollment, the validation pass having flagged it
+first where it runs.}
 
 \item{include_invalid_patients}{Include data from patient records that
 could have validation errors: \code{FALSE} (the default) removes them, \code{TRUE}
 skips the validation pass altogether, and a data frame of exception
 records — as \code{\link[=read_validation_exceptions]{read_validation_exceptions()}} returns it — keeps the named
-records despite the rule that flags them. An
+records despite the rule that flags them. \code{TRUE} also keeps the
+enrolments without an admission form, which the removal of orphan
+records after the import otherwise drops, so a \code{\link[=validate]{validate()}} on the
+returned dataset can report them under rule 26. An
 exception record carries \code{RULE_ID} (numeric), \code{NEOIPC_PATIENT_ID}
 (character), \code{ENROLMENT_DATE} and \code{EVENT_DATE} (\code{Date}), \code{EVENT_TYPE}
 (one of \code{adm}, \code{pro}, \code{bsi}, \code{nec}, \code{ssi}, \code{hap}, \code{end}, in any case),

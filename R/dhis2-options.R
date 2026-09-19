@@ -67,15 +67,25 @@
 #' @param include_unenrolled_patients Include the NeoIPC patient records that
 #'  are not enrolled in the surveillance program as well: they are requested
 #'  by tracked-entity type rather than by program, and the removal of orphan
-#'  records that follows an import leaves them in place. Without this option
-#'  an import with enrollments removes every patient with no enrollment, the
-#'  validation pass (rule 1) having flagged it first where it runs.
+#'  records that follows an import leaves in place the patients that arrive
+#'  without an enrollment (one that arrives with enrollments and loses them
+#'  to a filter is pruned like any other). They reach the returned dataset
+#'  only where the validation pass leaves them: rule 1 flags a patient with
+#'  no enrollment, so under `include_invalid_patients = FALSE` the pass
+#'  removes it first, and it stays with `include_invalid_patients = TRUE`
+#'  or an exception naming it under rule 1 — the pairing the Validation
+#'  Report uses. Without this option an import with enrollments removes
+#'  every patient with no enrollment, the validation pass having flagged it
+#'  first where it runs.
 #' @param include_test_data Include data from test departments into the dataset.
 #' @param include_invalid_patients Include data from patient records that
 #'  could have validation errors: `FALSE` (the default) removes them, `TRUE`
 #'  skips the validation pass altogether, and a data frame of exception
 #'  records — as [read_validation_exceptions()] returns it — keeps the named
-#'  records despite the rule that flags them. An
+#'  records despite the rule that flags them. `TRUE` also keeps the
+#'  enrolments without an admission form, which the removal of orphan
+#'  records after the import otherwise drops, so a [validate()] on the
+#'  returned dataset can report them under rule 26. An
 #'  exception record carries `RULE_ID` (numeric), `NEOIPC_PATIENT_ID`
 #'  (character), `ENROLMENT_DATE` and `EVENT_DATE` (`Date`), `EVENT_TYPE`
 #'  (one of `adm`, `pro`, `bsi`, `nec`, `ssi`, `hap`, `end`, in any case),

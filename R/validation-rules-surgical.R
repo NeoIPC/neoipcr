@@ -13,8 +13,10 @@ validation_rule_19 <- function(x, exceptions)
     return(.rule_skipped(
       19L, "the infection type on the SSI form and the implant flag on the surgery form"))
 
+  # An SSI without a date has no offset to judge: it is not outside any
+  # window, so it is left to the rules about the form itself.
   ssi_events <- x$events |>
-    dplyr::filter(.data$event_type_key == "ssi") |>
+    dplyr::filter(.data$event_type_key == "ssi", !is.na(.data$occurredAt)) |>
     dplyr::select("patient_key", "enrollment_key", "event_key",
                   "ssiOccurredAt" = "occurredAt") |>
     dplyr::inner_join(
