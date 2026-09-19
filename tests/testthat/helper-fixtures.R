@@ -1277,3 +1277,11 @@ make_empty_calc_test_ds <- function() {
     enrollments = make_test_enrollments(0),
     events      = make_test_events(0))
 }
+
+# Hold a rule's findings to the context fields the registry declares for the
+# rule — the contract a consumer's templates are written against, which
+# `validate()` enforces on a pass. The rule tests call their rule directly,
+# so each detect case holds its findings to the declaration through this.
+expect_declared_context <- function(result)
+  testthat::expect_no_error(neoipcr:::.assert_declared_context(
+    result, neoipcr::validation_rule_context_fields()))

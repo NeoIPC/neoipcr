@@ -33,6 +33,7 @@ rule_19_ds <- function(offset, infection_type = "1", implant = FALSE,
 test_that("rule 19 detects a superficial SSI after the 30-day window", {
   result <- neoipcr:::validation_rule_19(rule_19_ds(35L), NULL)
   expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
   expect_equal(result$rule_id, 19L)
   expect_equal(result$event_key, 2L)
   expect_named(result$context[[1]], "infection_type")
@@ -210,6 +211,7 @@ for (entry in ichi_rules) {
     test_that(paste0("rule ", r, " detects an invalid code in ", col), {
       result <- f(with_code("NOT A CODE"), NULL)
       expect_equal(nrow(result), 1L)
+      expect_declared_context(result)
       expect_equal(result$rule_id, r)
       expect_equal(result$event_key, 1L)
       expect_named(result$context[[1]], c("procedure_description", "procedure_code"))

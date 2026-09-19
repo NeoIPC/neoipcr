@@ -15,6 +15,7 @@ test_that("rule 1 detects patient without enrollment", {
   # Patient 2 has no enrollment
   result <- neoipcr:::validation_rule_1(ds, NULL)
   expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
   expect_equal(result$rule_id, 1L)
   expect_equal(result$patient_key, 2L)
   expect_equal(result$enrollment_key, NA_integer_)
@@ -57,6 +58,7 @@ rule_2_ds <- function(enrollment = "ACTIVE", end = "COMPLETED")
 test_that("rule 2 detects active enrollment with completed end event", {
   result <- neoipcr:::validation_rule_2(rule_2_ds(), NULL)
   expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
   expect_equal(result$rule_id, 2L)
   expect_equal(result$enrollment_key, 1L)
   # The finding names the end event that closed the record.
@@ -110,6 +112,7 @@ test_that("rule 17 detects overlapping enrollments for the same patient", {
   result <- neoipcr:::validation_rule_17(ds, NULL)
   # The overlap is found from both sides, one finding per enrolment.
   expect_equal(nrow(result), 2L)
+  expect_declared_context(result)
   expect_equal(unique(result$rule_id), 17L)
   expect_setequal(result$enrollment_key, c(1L, 2L))
   expect_true(all(is.na(result$event_key)))
@@ -255,6 +258,7 @@ rule_25_26_ds <- function(event_type, enrollment = "COMPLETED")
 test_that("rule 25 detects completed enrollment without end event", {
   result <- neoipcr:::validation_rule_25(rule_25_26_ds("adm"), NULL)
   expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
   expect_equal(result$rule_id, 25L)
   expect_equal(result$enrollment_key, 1L)
   expect_equal(result$event_key, NA_integer_)
@@ -284,6 +288,7 @@ test_that("rule 25 honours exceptions", {
 test_that("rule 26 detects completed enrollment without admission event", {
   result <- neoipcr:::validation_rule_26(rule_25_26_ds("end"), NULL)
   expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
   expect_equal(result$rule_id, 26L)
   expect_equal(result$enrollment_key, 1L)
   expect_null(result$context[[1]])

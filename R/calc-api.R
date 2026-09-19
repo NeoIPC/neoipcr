@@ -374,8 +374,9 @@ get_benchmark_data <- function(...) {
     # so it rides under the dataset's name rather than merged by suffix.
     # NEOIPC-PERMANENT(dataset-format): never drop the presence test. A
     # calculated dataset serialized before the slot existed carries none,
-    # and a file on disk outlives the code that wrote it; such a dataset
-    # gets no entry here and its consumer renders without the summary.
+    # and a file on disk outlives the code that wrote it, so no condition
+    # retires this; such a dataset gets no entry here, as the return value's
+    # documentation says, and its consumer renders without the summary.
     if ("validationSummary" %in% elements) {
       output$validationSummary[[ds_name]] <- ds$validationSummary
     }

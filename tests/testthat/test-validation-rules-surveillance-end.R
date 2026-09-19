@@ -26,6 +26,7 @@ test_that("rule 18 detects patient_days mismatch", {
   # enrollment Jan 1 → end Jan 11 → 1 + 10 = 11
   result <- neoipcr:::validation_rule_18(surveillance_end_ds(patient_days = 999L), NULL)
   expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
   expect_equal(result$rule_id, 18L)
   expect_equal(result$event_key, 2L)
   expect_named(result$context[[1]], c("patient_days", "patient_days_calculated"))
@@ -65,6 +66,7 @@ test_that("rule 21 detects substance days short of the antibiotic days", {
   result <- neoipcr:::validation_rule_21(
     surveillance_end_ds(ab_days = 5L, substance_days = c(2L, 2L)), NULL)
   expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
   expect_equal(result$rule_id, 21L)
   expect_equal(result$event_key, 2L)
   expect_named(result$context[[1]], c("ab_substance_days", "ab_days"))

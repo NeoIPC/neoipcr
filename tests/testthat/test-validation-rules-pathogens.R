@@ -33,6 +33,7 @@ test_that("rule 20 detects a finding recorded as the unknown pathogen, with its 
 test_that("rule 20 reports a missing name as NA", {
   result <- neoipcr:::validation_rule_20(pathogen_ds(pathogen_key = 0L), NULL)
   expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
   expect_true(is.na(result$context[[1]]$name))
 })
 

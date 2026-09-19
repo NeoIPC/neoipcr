@@ -54,6 +54,7 @@ for (entry in dol_rules) {
     test_that(paste0("rule ", r, " detects a ", t, " day of life that does not match the calculated value"), {
       result <- f(timing_ds(t, form = list(dol = 7L)), NULL)
       expect_equal(nrow(result), 1L)
+      expect_declared_context(result)
       expect_equal(result$rule_id, r)
       expect_equal(result$event_key, 2L)
       expect_named(result$context[[1]], c("dol", "dol_calc"))
@@ -121,6 +122,7 @@ for (entry in los_rules) {
     test_that(paste0("rule ", r, " detects a ", t, " day of occurrence that does not match the calculated value"), {
       result <- f(timing_ds(t, form = list(los = 9L)), NULL)
       expect_equal(nrow(result), 1L)
+      expect_declared_context(result)
       expect_equal(result$rule_id, r)
       expect_equal(result$event_key, 2L)
       expect_named(result$context[[1]], c("los", "los_calc"))
@@ -167,6 +169,7 @@ for (entry in early_dol_rules) {
     test_that(paste0("rule ", r, " detects a ", t, " event within the first three days of life"), {
       result <- f(timing_ds(t, form = list(dol = 2L)), NULL)
       expect_equal(nrow(result), 1L)
+      expect_declared_context(result)
       expect_equal(result$rule_id, r)
       expect_equal(result$event_key, 2L)
       expect_named(result$context[[1]], "dol")
@@ -214,6 +217,7 @@ for (entry in early_dos_rules) {
     test_that(paste0("rule ", r, " detects a ", t, " event on the second day after a (re-)admission"), {
       result <- f(timing_ds(t, form = list(los = 1L), admission = readmitted), NULL)
       expect_equal(nrow(result), 1L)
+      expect_declared_context(result)
       expect_equal(result$rule_id, r)
       expect_equal(result$event_key, 2L)
       expect_named(result$context[[1]], "dos")
