@@ -342,8 +342,9 @@ calculate_department_data <- function(x, use_cache = TRUE) {
 #'  `get_benchmark_data(own = x, ref = y)` yields `n_own` and `n_ref`
 #'
 #' @returns A neoipcr_bnch_ds. Each dataset's `metadata` and
-#'  `validationSummary` are carried under the dataset's name; the counts and
-#'  tables are merged with the names as column suffixes.
+#'  `validationSummary` are carried under the dataset's name — a dataset
+#'  serialized before the summary existed contributes no entry — and the
+#'  counts and tables are merged with the names as column suffixes.
 #' @export
 get_benchmark_data <- function(...) {
   x <- list(...)
@@ -368,6 +369,10 @@ get_benchmark_data <- function(...) {
     }
     # The validation summary is a dataset's own account, like its metadata,
     # so it rides under the dataset's name rather than merged by suffix.
+    # NEOIPC-PERMANENT(dataset-format): never drop the presence test. A
+    # calculated dataset serialized before the slot existed carries none,
+    # and a file on disk outlives the code that wrote it; such a dataset
+    # gets no entry here and its consumer renders without the summary.
     if ("validationSummary" %in% elements) {
       output$validationSummary[[ds_name]] <- ds$validationSummary
     }
