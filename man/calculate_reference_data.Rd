@@ -17,8 +17,10 @@ A NeoIPC reference data set
 \description{
 The \code{metadata$dataset_options} the result carries are a serializable copy
 of the dataset's: an exception list is replaced by the marker
-\code{"exception_list_applied"} and the department filter by \code{"applied"}, so
-reference data names neither the records a list kept nor the departments
-it was built from. \code{validationSummary} is the dataset's validation summary
-(see \code{\link[=import_dhis2]{import_dhis2()}}).
+\code{"exception_list_applied"} and the department filter by \code{"applied"} — an
+empty filter, which the import does not apply, leaves as \code{NULL} — so
+reference data names neither the records a list exempted nor the
+departments it was built from. \code{validationSummary} is the dataset's
+validation summary (see \code{\link[=import_dhis2]{import_dhis2()}}); a dataset without it is
+refused.
 }
