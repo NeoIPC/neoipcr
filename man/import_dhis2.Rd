@@ -31,13 +31,16 @@ rule its enrolment, a finding of an event-level rule its event, so the
 keeps a record from the rule it names, not from the others: a record
 exempted from one rule and flagged under another is removed all the
 same and counts in both columns. Nor does it keep a record from the
-dataset's shape, which the summary does not describe: an enrolment
-without an admission form exempted under rule 26, or a patient without
-an enrolment under rule 1, is exempted in the summary and still leaves
-with the orphan removal that follows the pass, its patient with it when
-nothing else remains, unless the option that keeps such records is set
-(see \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}). Both slots are 0×0 when the pass does
-not run: with \code{include_invalid_patients = TRUE}, or without patients.
+dataset's shape, which the summary does not describe: a patient without
+an enrolment exempted under rule 1 is exempted in the summary and stays
+only with \code{include_unenrolled_patients} (see \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}),
+and an enrolment without an admission form exempted under rule 26 is
+exempted in the summary and always leaves with the orphan removal that
+follows the pass, its patient with it when nothing else remains, since
+the admission-form invariant stands aside only under
+\code{include_invalid_patients = TRUE}, which runs no pass. Both slots are
+0×0 when the pass does not run: with \code{include_invalid_patients = TRUE},
+or without patients.
 }
 \description{
 Import data from a NeoIPC DHIS2 server

@@ -155,20 +155,23 @@ test_that("validate always carries its five columns, whatever ran", {
                    integer(0))
 })
 
-test_that("validate refuses a finding whose fields differ from the registry's declaration", {
+test_that("a finding whose fields differ from the registry's declaration is refused", {
   # The declaration is the contract consumers write against, so a rule that
-  # drifts from it must fail here rather than in a rendered document.
-  testthat::local_mocked_bindings(
-    validation_rule_context_fields = function() {
-      fields <- rlang::set_names(
-        lapply(neoipcr:::validation_rules, \(r) r$context),
-        neoipcr:::validation_rules |> vapply(\(r) r$id, integer(1)))
-      fields[["3"]] <- "enrolledAt"
-      fields
-    })
+  # drifts from it must fail rather than reach a rendered document. The
+  # check validate() runs with the registry's declaration is exercised on
+  # its own, with a declaration that drops a field of rule 3.
+  findings <- neoipcr::validate(rule_3_flagged_ds(), rules = 3L)
+  declared <- neoipcr::validation_rule_context_fields()
+  expect_invisible(neoipcr:::.assert_declared_context(findings, declared))
+  declared[["3"]] <- "enrolledAt"
   expect_error(
-    neoipcr::validate(rule_3_flagged_ds(), rules = 3L),
+    neoipcr:::.assert_declared_context(findings, declared),
     "Rule\\(s\\): 3")
+  # A rule that declares no fields takes a finding without context.
+  none <- findings
+  none$rule_id <- 1L
+  none$context <- list(NULL)
+  expect_invisible(neoipcr:::.assert_declared_context(none, declared))
 })
 
 test_that("validate carries a rule's values as a one-row tibble in context", {

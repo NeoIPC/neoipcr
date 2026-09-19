@@ -452,7 +452,17 @@ validate <- function(x, rules = NULL, exceptions = NULL)
   # A finding carries the fields its rule's registry entry declares — the
   # contract a consumer's sentences are written against — so a drift
   # between a rule and its declaration surfaces here, not in a document.
-  declared <- validation_rule_context_fields()
+  .assert_declared_context(findings, validation_rule_context_fields())
+
+  attr(findings, "rules_skipped") <- unname(skipped)
+  findings
+}
+
+# Refuse findings whose context fields are not the ones `declared` names for
+# their rule, `declared` being a list by rule id as
+# `validation_rule_context_fields()` returns it.
+.assert_declared_context <- function(findings, declared)
+{
   fields_of <- function(context)
     if (is.null(names(context))) character() else names(context)
   undeclared <- purrr::map2_lgl(
@@ -463,7 +473,5 @@ validate <- function(x, rules = NULL, exceptions = NULL)
       "A validation rule recorded context fields its registry entry does not declare.",
       x = sprintf("Rule(s): %s.",
                   paste(sort(unique(findings$rule_id[undeclared])), collapse = ", "))))
-
-  attr(findings, "rules_skipped") <- unname(skipped)
-  findings
+  invisible(findings)
 }

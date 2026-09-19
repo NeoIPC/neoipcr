@@ -176,8 +176,9 @@ test_that("get_benchmark_data carries each dataset's validation summary under it
 })
 
 test_that("get_benchmark_data takes a calculated dataset without a validation summary", {
-  # A dataset serialized before the slot existed contributes no entry and
-  # is otherwise combined as before.
+  # NEOIPC-PERMANENT(dataset-format): see get_benchmark_data(). A dataset
+  # serialized before the slot existed contributes no entry and is otherwise
+  # combined as before.
   ds <- make_calc_test_ds()
   own <- calculate_department_data(ds, use_cache = FALSE)
   ref <- calculate_reference_data(ds, use_cache = FALSE)
