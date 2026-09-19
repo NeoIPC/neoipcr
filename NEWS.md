@@ -19,11 +19,11 @@ section above it for the next changes.
 * A dataset carries the validation pass's findings in `validationResults` and their counts in
   `validationSummary`: per rule, the distinct records the import removed and the ones the exception
   list exempted from the rule, at the rule's record kind, and a totals row per record kind counting
-  the records the findings concern — the `patients` row is the number of patients the import removed.
+  the records the findings concern — the `patients` row is the number of patients the pass removed.
   Both slots exist on every dataset and are empty when the pass does not run.
-  `calculate_department_data()` and `calculate_reference_data()` carry the summary, and
-  `get_benchmark_data()` carries each dataset's under its name beside its metadata, so a report can
-  state what its data rests on.
+  `calculate_department_data()` and `calculate_reference_data()` carry the summary and refuse a
+  dataset without it, and `get_benchmark_data()` carries each dataset's under its name beside its
+  metadata, so a report can state what its data rests on.
 * A calculated dataset's options are fit to leave the package: an exception list is replaced by the
   marker `"exception_list_applied"`, and reference data replaces its department filter by `"applied"`,
   since the list carries patient ids and enrolment dates and the filter names the departments behind

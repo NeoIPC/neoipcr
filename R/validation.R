@@ -256,8 +256,9 @@ validation_rule_context_fields <- function()
 # distinct records of that kind the findings concern: every finding its
 # patient, a finding of an enrolment- or event-level rule its enrolment, a
 # finding of an event-level rule its event. The `patients` row is thus the
-# number of patients the import removes, whatever level flagged them. A
-# rule's record kind is the level the registry declares for it, so an
+# number of patients the pass removes, whatever level flagged them; the
+# orphan removal that follows the pass is not the pass's doing and may drop
+# more. A rule's record kind is the level the registry declares for it, so an
 # enrolment-level rule that names the form it compared still counts
 # enrolments, and its event is not among the events concerned. An exception
 # keeps a record from the rule it names, not from the others, so a record

@@ -15,16 +15,17 @@
 #'  `NA`, counting the distinct records of that kind the findings concern:
 #'  every finding its patient, a finding of an enrolment- or event-level
 #'  rule its enrolment, a finding of an event-level rule its event, so the
-#'  `patients` row is the number of patients the import removed. An
-#'  exception keeps a record from the rule it names, not from the others: a
-#'  record exempted from one rule and flagged under another is removed all
-#'  the same and counts in both columns. Nor does it keep a record from the
-#'  dataset's shape: an enrolment without an admission form exempted under
-#'  rule 26, or a patient without an enrolment under rule 1, is exempted in
-#'  the summary and still leaves with the orphan removal that follows the
-#'  pass, unless the option that keeps such records is set (see
-#'  [dhis2_dataset_options()]). Both slots are 0×0 when the pass does not
-#'  run: with `include_invalid_patients = TRUE`, or without patients.
+#'  `patients` row is the number of patients the pass removed. An exception
+#'  keeps a record from the rule it names, not from the others: a record
+#'  exempted from one rule and flagged under another is removed all the
+#'  same and counts in both columns. Nor does it keep a record from the
+#'  dataset's shape, which the summary does not describe: an enrolment
+#'  without an admission form exempted under rule 26, or a patient without
+#'  an enrolment under rule 1, is exempted in the summary and still leaves
+#'  with the orphan removal that follows the pass, its patient with it when
+#'  nothing else remains, unless the option that keeps such records is set
+#'  (see [dhis2_dataset_options()]). Both slots are 0×0 when the pass does
+#'  not run: with `include_invalid_patients = TRUE`, or without patients.
 #' @export
 import_dhis2 <- function(
     connection_options = dhis2_connection_options(),
@@ -348,10 +349,12 @@ import_dhis2 <- function(
 
     v <- r |> validate(exceptions = exceptions)
     # The findings the list exempted are the ones the pass makes without it
-    # and not with it.
-    exempted <- if (is.null(exceptions)) v[0L, ] else
+    # and not with it; only the rules the list names can have any, so only
+    # those run again.
+    named <- if (is.null(exceptions)) integer() else unique(exceptions$rule_id)
+    exempted <- if (length(named) == 0L) v[0L, ] else
       dplyr::anti_join(
-        r |> validate(),
+        r |> validate(rules = named),
         v,
         dplyr::join_by("rule_id", "patient_key", "enrollment_key", "event_key"))
     # The dataset keeps the findings, not the run's bookkeeping: the full

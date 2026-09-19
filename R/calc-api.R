@@ -24,6 +24,7 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
     include_enrollment = c("pseudo", "full"),
     include_event      = c("pseudo", "full")
   ), fn_name = "calculate_reference_data")
+  assert_validation_summary(x, fn_name = "calculate_reference_data")
 
   # `metadata$countries` is always a tibble under the three-mode schema
   # contract; gate on the key column instead of null-ness. Under "no" the
@@ -219,6 +220,7 @@ calculate_department_data <- function(x, use_cache = TRUE) {
     include_enrollment = c("pseudo", "full"),
     include_event      = c("pseudo", "full")
   ), fn_name = "calculate_department_data")
+  assert_validation_summary(x, fn_name = "calculate_department_data")
 
   rt <- x |>
     get_risk_time(use_cache = use_cache)

@@ -108,6 +108,15 @@ test_that("calculate_department_data aborts when dataset_options is NULL", {
     "import options")
 })
 
+test_that("the calculation functions abort on a dataset without a validation summary", {
+  # A dataset saved before the slot existed: the calculation refuses it
+  # rather than emitting `NULL` where a summary is promised.
+  ds <- make_calc_test_ds()
+  ds$validationSummary <- NULL
+  expect_error(calculate_department_data(ds), "validationSummary")
+  expect_error(calculate_reference_data(ds), "validationSummary")
+})
+
 
 # --- Validation summary and serializable options --------------------------
 
