@@ -48,7 +48,10 @@ section above it for the next changes.
 * `validate()` names the selected rules it could not run, for want of a column the dataset lacks, in
   the result's `rules_skipped` attribute, so a consumer stating which rules a result rests on can
   tell a rule that found nothing from one that never ran.
-* `include_unenrolled_patients = TRUE` now keeps the patients no enrolment refers to in the returned
+* `import_dhis2()` refuses an instance without the NeoIPC Patient tracked-entity type. An import of
+  the unenrolled patients requests by that type; without it the request carried neither program nor
+  type and would have read every tracked entity the session can see.
+* `include_unenrolled_patients = TRUE` now keeps the patients with no enrolment in the returned
   dataset when enrollments are imported as well: the orphan removal that follows an import leaves them
   in place, where it used to prune them with the enrollments they never had, so a `validate()` on such
   a dataset can flag them under rule 1. Without the option the removal is unchanged.

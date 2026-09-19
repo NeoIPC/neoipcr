@@ -129,8 +129,8 @@ the NeoIPC core case eligibility criteria into the dataset.}
 are not enrolled in the surveillance program as well: they are requested
 by tracked-entity type rather than by program, and the removal of orphan
 records that follows an import leaves them in place. Without this option
-an import with enrollments removes every patient no enrollment refers
-to, the validation pass (rule 1) having flagged it first where it runs.}
+an import with enrollments removes every patient with no enrollment, the
+validation pass (rule 1) having flagged it first where it runs.}
 
 \item{include_invalid_patients}{Include data from patient records that
 could have validation errors: \code{FALSE} (the default) removes them, \code{TRUE}
@@ -154,8 +154,8 @@ when more than one department was imported. An exception keeps a record
 from the validation pass, not from the shape of the dataset: a patient
 without any enrolment (rule 1) stays in the returned dataset only when
 \code{include_unenrolled_patients} asks for such patients; otherwise the
-removal of every patient no enrollment refers to that follows an import
-with enrollments takes it, and its exception only stops the pass from
+removal of every patient with no enrollment that follows an import with
+enrollments takes it, and its exception only stops the pass from
 reporting it. Validation is patient-anchored: with
 \code{include_patient = "no"} there is nothing to validate, the pass is
 skipped and a list is not read. When it does run — patients present and

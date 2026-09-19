@@ -97,5 +97,8 @@
         }
       ]
     }
+  ],
+  "trackedEntityTypes": [
+    { "id": "TET_PATIENT" }
   ]
 }

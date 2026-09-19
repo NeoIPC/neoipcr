@@ -173,7 +173,7 @@ filter_countries <- function(
 #' `country_key` retains **NA-tolerance** because test units have no
 #' country and must survive the cascade.
 #'
-#' A patient no enrollment refers to is an orphan to the cascade unless the
+#' A patient with no enrollment is an orphan to the cascade unless the
 #' dataset was requested with `include_unenrolled_patients`: that option asks
 #' for exactly those records, so they stay for the caller to validate
 #' (rule 1) instead of being pruned with the enrollments they never had.
@@ -339,8 +339,8 @@ apply_postfilter <- function(x)
       dplyr::semi_join(x$patients, dplyr::join_by("patient_key"))
 
   # Upward prune: patients with no surviving enrollment — unless the dataset
-  # was requested with the patients no enrollment refers to, which this
-  # prune would otherwise remove wholesale.
+  # was requested with the patients that have no enrollment at all, which
+  # this prune would otherwise remove wholesale.
   if (!keep_unenrolled_patients &&
       "patient_key" %in% names(x$patients) &&
       "patient_key" %in% names(x$enrollments))

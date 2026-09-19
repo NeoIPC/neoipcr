@@ -455,8 +455,16 @@ read_metadata <- function(metadata, dataset_options)
 {
   system <- read_metadata_system(metadata)
   programId <- read_metadata_program_id(metadata)
+  # The tracked-entity type is what an import of the unenrolled patients
+  # requests by; without it that request would carry neither program nor
+  # type and read every tracked entity the session can see, so its absence
+  # is refused here rather than widened into silently.
   trackedEntityTypeId <- metadata$trackedEntityTypes |>
     unlist(use.names = FALSE)
+  if (length(trackedEntityTypeId) != 1L)
+    rlang::abort(
+      "Invalid DHIS2 metadata. The NeoIPC Patient tracked-entity type is missing.",
+      "neoipcr_metadata_tracked_entity_type_missing")
   # `read_metadata_programStages()` now returns `list(public,
   # internal_map)`. `internal_map` is consumed by `read_events()` for
   # the raw programStage → event_type_key substitution regardless of

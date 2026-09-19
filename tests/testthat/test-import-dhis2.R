@@ -136,6 +136,52 @@ test_that("import_dhis2 makes no real HTTP call for an unmocked endpoint", {
   expect_error(import_dhis2(conn, import_test_opts()), "unmocked DHIS2 request")
 })
 
+# The tracked-entity request an import issued, parsed.
+tracked_entity_request <- function(urls)
+  httr2::url_parse(
+    Filter(function(u) grepl("/tracker/trackedEntities", u, fixed = TRUE), urls)[[1]])
+
+test_that("import_dhis2 keeps a patient with no enrolment only when asked for the unenrolled ones", {
+  # A third tracked entity with no enrollment, beside the two the fixture
+  # enrols. The mock serves it whatever the request asks, so the default
+  # import shows the orphan removal pruning it and the opt-in import shows
+  # the removal leaving it in place.
+  fx <- import_test_fixtures()
+  tes <- jsonlite::fromJSON(fx$trackedEntities, simplifyVector = FALSE)
+  unenrolled <- tes$trackedEntities[[1]]
+  unenrolled$trackedEntity <- "TE_3"
+  unenrolled$attributes[[1]]$value <- "PAT_3"
+  tes$trackedEntities <- c(tes$trackedEntities, list(unenrolled))
+  fx$trackedEntities <- jsonlite::toJSON(tes, auto_unbox = TRUE, null = "null")
+  conn <- dhis2_connection_options(
+    session_id = "test", hostname = "dhis2.example.org")
+
+  # By default the request goes by program and the patient does not survive.
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(conn, import_test_opts())
+  expect_setequal(as.character(ds$patients$patient_id), c("PAT_1", "PAT_2"))
+  request <- tracked_entity_request(m$urls())
+  expect_true("program" %in% names(request$query))
+  expect_false("trackedEntityType" %in% names(request$query))
+
+  # Asked for the unenrolled patients, the request goes by tracked-entity type
+  # and the patient reaches the dataset, where rule 1 is the one to flag it.
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(conn, import_test_opts(include_unenrolled_patients = TRUE))
+  expect_setequal(as.character(ds$patients$patient_id), c("PAT_1", "PAT_2", "PAT_3"))
+  expect_equal(nrow(ds$enrollments), 2L)
+  request <- tracked_entity_request(m$urls())
+  expect_true("trackedEntityType" %in% names(request$query))
+  expect_false("program" %in% names(request$query))
+  flagged <- validate(ds, rules = 1L)
+  expect_equal(nrow(flagged), 1L)
+  expect_equal(
+    as.character(ds$patients$patient_id[ds$patients$patient_key == flagged$patient_key]),
+    "PAT_3")
+})
+
 # ---------------------------------------------------------------------------
 # Compatibility matrix — every DHIS2 version the offline read path is driven
 # against. This set is deliberately WIDER than neoipcr_supported_versions():

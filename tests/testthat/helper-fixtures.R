@@ -4,7 +4,7 @@
 # Valid values for the `exclude` parameter of read_test_metadata()
 .valid_exclusions <- c(
   "system", "program", "program_id", "program_stages",
-  "stage_data_elements", "tracked_entity_attributes",
+  "stage_data_elements", "tracked_entity_attributes", "tracked_entity_type",
   "countries", "test_units", "antimicrobials"
 )
 
@@ -68,6 +68,9 @@ read_test_metadata <- function(
 
     if ("tracked_entity_attributes" %in% exclude)
       prog$programs[[1L]]$programTrackedEntityAttributes <- NULL
+
+    if ("tracked_entity_type" %in% exclude)
+      prog$trackedEntityTypes <- NULL
 
     metadata <- utils::modifyList(metadata, prog)
   }

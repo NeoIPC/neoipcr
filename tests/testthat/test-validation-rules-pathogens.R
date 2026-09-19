@@ -46,12 +46,11 @@ test_that("rule 20 honours exceptions", {
   expect_equal(nrow(result), 0L)
 })
 
-# NEOIPC-PERMANENT(dataset-format): this test guards a path that must never be
-# removed. A dataset serialized before the free-text pathogen names had a slot
-# of their own carries no `unknownPathogenNames`, and a file on disk outlives
-# the code that wrote it — so rule 20 skips such a dataset for good instead of
-# failing it. Delete this test only if that branch is deliberately being
-# dropped, which it should not be.
+# NEOIPC-PERMANENT(dataset-format): a dataset serialized before the free-text
+# pathogen names had a slot of their own carries no `unknownPathogenNames`,
+# and a file on disk outlives the code that wrote it — so rule 20 skips such a
+# dataset for good instead of failing it, and this test holds that branch in
+# place.
 test_that("rule 20 skips without a warning when the unknown pathogen names are absent", {
   ds <- pathogen_ds(pathogen_key = 0L)
   ds$unknownPathogenNames <- NULL

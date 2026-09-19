@@ -35,9 +35,9 @@ clean_ds <- function() {
   ds
 }
 
-# A dataset two rules flag: the admission event is dated a day after the
-# enrolment (rule 3, at the enrolment level), and the completed enrolment has
-# no surveillance-end event (rule 25).
+# A dataset that triggers two rules: its admission event is dated a day after
+# the enrolment (rule 3, at the enrolment level), and its completed enrolment
+# has no surveillance-end event (rule 25).
 rule_3_flagged_ds <- function()
   make_test_ds(
     patients    = make_test_patients(1),
