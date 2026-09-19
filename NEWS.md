@@ -28,7 +28,7 @@ section above it for the next changes.
   marker `"exception_list_applied"`, and reference data replaces its department filter by `"applied"`,
   since the list carries patient ids and enrolment dates and the filter names the departments behind
   the reference values. Both calculation functions refuse to emit a data frame in the options, and
-  `calculate_reference_data()` a department filter. The `redact` argument of
+  `calculate_reference_data()` refuses a department filter as well. The `redact` argument of
   `calculate_reference_data()` is gone with the replacement it switched.
 * The rule registry declares the context fields each rule records, `validation_rule_context_fields()`
   exports them, and `validate()` refuses a finding whose fields differ from the declaration, so a

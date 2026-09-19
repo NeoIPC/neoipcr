@@ -156,8 +156,8 @@ assert_options_for <- function(x, required, fn_name) {
 assert_validation_summary <- function(x, fn_name) {
   if (is.null(x$validationSummary))
     rlang::abort(c(
-      sprintf("%s() needs the dataset's validation summary, which it carries out.", fn_name),
-      "x" = "The dataset has no `validationSummary` slot.",
+      sprintf("%s() needs a dataset that carries its validation summary.", fn_name),
+      "x" = "`x$validationSummary` is NULL.",
       "i" = "Import the dataset again with this version of neoipcr; see `?import_dhis2`."))
   invisible(x)
 }
