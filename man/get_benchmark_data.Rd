@@ -17,7 +17,9 @@ to that dataset's column names in the resulting tables, so
 \code{get_benchmark_data(own = x, ref = y)} yields \code{n_own} and \code{n_ref}}
 }
 \value{
-A neoipcr_bnch_ds
+A neoipcr_bnch_ds. Each dataset's \code{metadata} and
+\code{validationSummary} are carried under the dataset's name; the counts and
+tables are merged with the names as column suffixes.
 }
 \description{
 Creates a NeoIPC benchmark data set from department report datasets and a

@@ -54,3 +54,21 @@ test_that("write_json emits NA as null", {
   parsed <- jsonlite::fromJSON(json)
   expect_null(parsed$value)
 })
+
+test_that("serialized reference metadata names neither the exception records nor the departments", {
+  ds <- make_calc_test_ds()
+  ds$metadata$dataset_options$department_filter <- "DEPT_ONLY"
+  ds$metadata$dataset_options$include_invalid_patients <- tibble::tibble(
+    RULE_ID           = 3L,
+    NEOIPC_PATIENT_ID = "PAT_LISTED",
+    ENROLMENT_DATE    = as.Date("2024-02-29"),
+    EVENT_TYPE        = NA_character_,
+    EVENT_DATE        = as.Date(NA))
+
+  json <- write_json(calculate_reference_data(ds, use_cache = FALSE)$metadata)
+
+  expect_false(grepl("PAT_LISTED", json, fixed = TRUE))
+  expect_false(grepl("2024-02-29", json, fixed = TRUE))
+  expect_false(grepl("DEPT_ONLY", json, fixed = TRUE))
+  expect_true(grepl("exception_list_applied", json, fixed = TRUE))
+})

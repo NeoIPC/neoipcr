@@ -93,6 +93,7 @@ completed, which is what the import's request filter made it.\tabular{lll}{
 Other validation:
 \code{\link[=read_validation_exceptions]{read_validation_exceptions()}},
 \code{\link[=resolve_validation_exceptions]{resolve_validation_exceptions()}},
+\code{\link[=validation_rule_context_fields]{validation_rule_context_fields()}},
 \code{\link[=validation_rule_ids]{validation_rule_ids()}}
 }
 \concept{validation}

@@ -107,3 +107,61 @@ test_that("calculate_department_data aborts when dataset_options is NULL", {
     calculate_department_data(ds),
     "import options")
 })
+
+
+# --- Validation summary and serializable options --------------------------
+
+test_that("the calculated datasets carry the validation summary and options fit to leave the package", {
+  ds <- make_calc_test_ds()
+  ds$metadata$dataset_options$department_filter <- "DEPT_01"
+  ds$metadata$dataset_options$include_invalid_patients <- tibble::tibble(
+    RULE_ID           = 3L,
+    NEOIPC_PATIENT_ID = "PAT_X",
+    ENROLMENT_DATE    = as.Date("2024-01-01"),
+    EVENT_TYPE        = NA_character_,
+    EVENT_DATE        = as.Date(NA))
+  # The fixture's summary is the shape of a pass that found nothing, which
+  # a list in the options leaves in place: the pass ran.
+  expect_equal(nrow(ds$validationSummary), 3L)
+
+  dept <- calculate_department_data(ds, use_cache = FALSE)
+  expect_identical(dept$validationSummary, ds$validationSummary)
+  expect_identical(
+    dept$metadata$dataset_options$include_invalid_patients,
+    "exception_list_applied")
+  # A department dataset keeps its own filter.
+  expect_identical(dept$metadata$dataset_options$department_filter, "DEPT_01")
+
+  ref <- calculate_reference_data(ds, use_cache = FALSE)
+  expect_identical(ref$validationSummary, ds$validationSummary)
+  expect_identical(
+    ref$metadata$dataset_options$include_invalid_patients,
+    "exception_list_applied")
+  expect_identical(ref$metadata$dataset_options$department_filter, "applied")
+  expect_false(any(vapply(ref$metadata$dataset_options, is.data.frame, logical(1))))
+})
+
+test_that("the calculation functions refuse to emit a data frame the markers do not cover", {
+  ds <- make_calc_test_ds()
+  ds$metadata$dataset_options$extra <- tibble::tibble(id = "PAT_X")
+  expect_error(calculate_department_data(ds, use_cache = FALSE), "data frame")
+  expect_error(calculate_reference_data(ds, use_cache = FALSE), "data frame")
+})
+
+test_that("an empty department filter leaves reference data as unfiltered, not as applied", {
+  ds <- make_calc_test_ds()
+  ds$metadata$dataset_options$department_filter <- character()
+  ref <- calculate_reference_data(ds, use_cache = FALSE)
+  expect_true("department_filter" %in% names(ref$metadata$dataset_options))
+  expect_null(ref$metadata$dataset_options$department_filter)
+})
+
+test_that("get_benchmark_data carries each dataset's validation summary under its name", {
+  ds <- make_calc_test_ds()
+  own <- calculate_department_data(ds, use_cache = FALSE)
+  ref <- calculate_reference_data(ds, use_cache = FALSE)
+  benchmark <- get_benchmark_data(own = own, ref = ref)
+  expect_named(benchmark$validationSummary, c("own", "ref"))
+  expect_identical(benchmark$validationSummary$own, own$validationSummary)
+  expect_identical(benchmark$validationSummary$ref, ref$validationSummary)
+})

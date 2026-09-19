@@ -15,5 +15,9 @@ calculate_department_data(x, use_cache = TRUE)
 A NeoIPC department report data set
 }
 \description{
-Calculate a NeoIPC department report data set
+The \code{metadata$dataset_options} the result carries are a serializable copy
+of the dataset's: an exception list is replaced by the marker
+\code{"exception_list_applied"}, while the department filter — the
+department's own — is kept. \code{validationSummary} is the dataset's
+validation summary (see \code{\link[=import_dhis2]{import_dhis2()}}).
 }

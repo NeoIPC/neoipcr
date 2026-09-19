@@ -24,6 +24,12 @@ test_that("validation_rule_ids is exported and lists the registry in order", {
   expect_true("export(validation_rule_ids)" %in% namespace)
   # Rule 16 is gone, so the ids keep their numbering with a gap at 16.
   expect_identical(neoipcr::validation_rule_ids(), c(1:15, 17:42))
+  expect_true("export(validation_rule_context_fields)" %in% namespace)
+  fields <- neoipcr::validation_rule_context_fields()
+  expect_identical(names(fields), as.character(neoipcr::validation_rule_ids()))
+  expect_identical(fields[["1"]], character())
+  expect_setequal(fields[["3"]], c("enrolledAt", "occurredAt"))
+  expect_setequal(fields[["20"]], c("index", "secondary_bsi", "name"))
 })
 
 # The populated fixture with its surveillance-end forms made consistent: the
@@ -149,12 +155,30 @@ test_that("validate always carries its five columns, whatever ran", {
                    integer(0))
 })
 
+test_that("validate refuses a finding whose fields differ from the registry's declaration", {
+  # The declaration is the contract consumers write against, so a rule that
+  # drifts from it must fail here rather than in a rendered document.
+  testthat::local_mocked_bindings(
+    validation_rule_context_fields = function() {
+      fields <- rlang::set_names(
+        lapply(neoipcr:::validation_rules, \(r) r$context),
+        neoipcr:::validation_rules |> vapply(\(r) r$id, integer(1)))
+      fields[["3"]] <- "enrolledAt"
+      fields
+    })
+  expect_error(
+    neoipcr::validate(rule_3_flagged_ds(), rules = 3L),
+    "Rule\\(s\\): 3")
+})
+
 test_that("validate carries a rule's values as a one-row tibble in context", {
   r <- neoipcr::validate(rule_3_flagged_ds(), rules = 3L)
   expect_equal(nrow(r), 1L)
   expect_s3_class(r$context[[1]], "tbl_df")
   expect_equal(nrow(r$context[[1]]), 1L)
   expect_named(r$context[[1]], c("enrolledAt", "occurredAt"))
+  expect_setequal(
+    names(r$context[[1]]), neoipcr::validation_rule_context_fields()[["3"]])
 })
 
 test_that("validate exempts records named in key form", {

@@ -235,3 +235,23 @@ dhis2_dataset_options <- function(
     # transparent to them.
   ), class = c("neoipcr_dhis2_dsopt", "list"))
 }
+
+# The copy of a dataset's options that a calculated dataset carries out of
+# the package. An exception list is a data frame of patient ids and enrolment
+# dates, and a department filter names the departments behind reference
+# values, so each is replaced by a marker saying it was applied: the
+# calculated dataset records that a list was used without carrying it, and
+# reference data records that it was filtered without saying to what. A
+# department dataset keeps its filter, which is its own department. The
+# import applies a filter only when it names a department, so an empty one
+# leaves as `NULL` rather than as the marker; the element stays in place,
+# which `$<-` with `NULL` would not do.
+serializable_dataset_options <- function(opts, keep_department_filter)
+{
+  if (is.data.frame(opts$include_invalid_patients))
+    opts$include_invalid_patients <- "exception_list_applied"
+  if (!keep_department_filter && !is.null(opts$department_filter))
+    opts["department_filter"] <- list(
+      if (length(opts$department_filter) > 0L) "applied")
+  opts
+}

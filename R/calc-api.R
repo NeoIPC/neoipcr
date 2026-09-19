@@ -1,12 +1,18 @@
 #' Calculate a NeoIPC reference data set
 #'
+#' The `metadata$dataset_options` the result carries are a serializable copy
+#' of the dataset's: an exception list is replaced by the marker
+#' `"exception_list_applied"` and the department filter by `"applied"`, so
+#' reference data names neither the records a list kept nor the departments
+#' it was built from. `validationSummary` is the dataset's validation summary
+#' (see [import_dhis2()]).
+#'
 #' @param x The neoipcr_ds object containing the data
 #' @param use_cache Use the cache
-#' @param redact Redact potentially sensitive information
 #'
 #' @returns A NeoIPC reference data set
 #' @export
-calculate_reference_data <- function(x, use_cache = TRUE, redact = TRUE) {
+calculate_reference_data <- function(x, use_cache = TRUE) {
   check_neoipcr_ds(x)
   # Three-valued gates all need to be non-"no" for the reference
   # pipeline: department grouping, per-patient / per-enrollment / per-
@@ -69,9 +75,9 @@ calculate_reference_data <- function(x, use_cache = TRUE, redact = TRUE) {
     stats::quantile(probs = quartile_probs) |>
     as.integer()
 
-  ds_opts <- x$metadata$dataset_options
-  if(redact && typeof(ds_opts$include_invalid_patients) != "logical")
-    ds_opts$include_invalid_patients <- "redacted"
+  ds_opts <- serializable_dataset_options(
+    x$metadata$dataset_options, keep_department_filter = FALSE)
+  assert_serializable_dataset_options(ds_opts, allow_department_filter = FALSE)
 
   n_infections <- dplyr::bind_rows(
     dplyr::bind_cols(
@@ -162,6 +168,7 @@ calculate_reference_data <- function(x, use_cache = TRUE, redact = TRUE) {
         q2 = sur_proc_q[2],
         q3 = sur_proc_q[3]),
       n_infections = n_infections,
+      validationSummary = x$validationSummary,
       usage_density_rate_table =
         get_usage_density_rate_table(x, use_cache),
       antibiotic_utilization_table =
@@ -189,6 +196,12 @@ calculate_reference_data <- function(x, use_cache = TRUE, redact = TRUE) {
 }
 
 #' Calculate a NeoIPC department report data set
+#'
+#' The `metadata$dataset_options` the result carries are a serializable copy
+#' of the dataset's: an exception list is replaced by the marker
+#' `"exception_list_applied"`, while the department filter — the
+#' department's own — is kept. `validationSummary` is the dataset's
+#' validation summary (see [import_dhis2()]).
 #'
 #' @param x The neoipcr_ds object containing the data
 #' @param use_cache Use the cache
@@ -255,11 +268,15 @@ calculate_department_data <- function(x, use_cache = TRUE) {
       get_infection_counts(group_cols = c("event_type_key"), use_cache = use_cache) |>
       dplyr::rename(inf_type = "event_type_key", total = "n"))
 
+  ds_opts <- serializable_dataset_options(
+    x$metadata$dataset_options, keep_department_filter = TRUE)
+  assert_serializable_dataset_options(ds_opts, allow_department_filter = TRUE)
+
   structure(
     list(
       metadata = list(
         calculated = lubridate::now("UTC"),
-        dataset_options = x$metadata$dataset_options,
+        dataset_options = ds_opts,
         data_up_to = x$metadata$system$date,
         effective_analysis_period = get_effective_analysis_period(x),
         hospitals = x$metadata$hospitals,
@@ -280,6 +297,7 @@ calculate_department_data <- function(x, use_cache = TRUE) {
       n_surgical_departments = sr$n_departments,
       n_surgical_procedures = list(total = sr$n_procedures),
       n_surgical_patients = list(total = sr$n_patients),
+      validationSummary = x$validationSummary,
       usage_density_rate_table = usage_density_rate_table,
       antibiotic_utilization_table =
         get_antibiotic_utilization_table(x, use_cache, include_quartiles = FALSE),
@@ -321,7 +339,9 @@ calculate_department_data <- function(x, use_cache = TRUE) {
 #'  to that dataset's column names in the resulting tables, so
 #'  `get_benchmark_data(own = x, ref = y)` yields `n_own` and `n_ref`
 #'
-#' @returns A neoipcr_bnch_ds
+#' @returns A neoipcr_bnch_ds. Each dataset's `metadata` and
+#'  `validationSummary` are carried under the dataset's name; the counts and
+#'  tables are merged with the names as column suffixes.
 #' @export
 get_benchmark_data <- function(...) {
   x <- list(...)
@@ -329,7 +349,8 @@ get_benchmark_data <- function(...) {
   ds_names = rlang::names2(x)
   output <- list(
     dataset_names = ds_names,
-    metadata = list())
+    metadata = list(),
+    validationSummary = list())
   suffixes = ds_names |>
     sapply(\(x)ifelse(x=="",x,paste0("_",x)), USE.NAMES = FALSE)
 
@@ -342,6 +363,11 @@ get_benchmark_data <- function(...) {
     # Extract metadata if present
     if ("metadata" %in% elements) {
       output$metadata[[ds_name]] <- ds$metadata
+    }
+    # The validation summary is a dataset's own account, like its metadata,
+    # so it rides under the dataset's name rather than merged by suffix.
+    if ("validationSummary" %in% elements) {
+      output$validationSummary[[ds_name]] <- ds$validationSummary
     }
 
     if ("n_departments" %in% elements) {

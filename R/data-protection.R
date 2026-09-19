@@ -98,6 +98,41 @@ assert_data_protection <- function(x, dataset_options)
   x
 }
 
+#' Assert that a dataset-options object is fit to leave the package inside a
+#' calculated dataset.
+#'
+#' No element may be a data frame: an exception list carries patient ids and
+#' enrolment dates. And unless the caller keeps it, `department_filter` may
+#' only be absent or the marker `serializable_dataset_options()` writes:
+#' reference data must not name the departments that fed its values. The
+#' calculation functions run this on the copy they emit, after the markers
+#' have been applied, so a new option that carries a data frame surfaces here
+#' rather than in a serialized file.
+#'
+#' @param opts A `dhis2_dataset_options` object as a calculated dataset emits
+#'  it.
+#' @param allow_department_filter Whether a department filter may be carried.
+#' @return `opts`, invisibly.
+#' @noRd
+assert_serializable_dataset_options <- function(opts, allow_department_filter)
+{
+  frames <- names(opts)[vapply(opts, is.data.frame, logical(1))]
+  if (length(frames) > 0L)
+    rlang::abort(c(
+      "A calculated dataset must not carry a data frame in its options.",
+      "x" = paste(frames, collapse = ", "),
+      "i" = "Replace it with a marker in `serializable_dataset_options()`."))
+
+  if (!allow_department_filter &&
+      !is.null(opts$department_filter) &&
+      !identical(opts$department_filter, "applied"))
+    rlang::abort(c(
+      "Reference data must not carry the department filter it was built from.",
+      "i" = "`serializable_dataset_options()` replaces it with the marker \"applied\"."))
+
+  invisible(opts)
+}
+
 
 #' Assert that an org-unit attribute-values table is 0×0 unless the caller
 #' opted into that entity's attributes and the entity is present.
