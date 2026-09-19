@@ -56,6 +56,10 @@ section above it for the next changes.
   dataset when enrollments are imported as well: the orphan removal that follows an import leaves them
   in place, where it used to prune them with the enrollments they never had, so a `validate()` on such
   a dataset can flag them under rule 1. Without the option the removal is unchanged.
+* An instance on which no organisation unit carries a custom-attribute value imports as no values. It
+  used to fail the import: widening a response in which every org unit serializes an empty array
+  delivers the column as logical `NA` rather than as a list, and the reader took that for one value
+  per org unit with nothing to read.
 * `import_dhis2()` reads the custom attributes an instance sets on its organisation units. The new
   `include_custom_attributes` option of `dhis2_dataset_options()` names the entities whose values to
   import (`"departments"`, `"hospitals"`); their values land typed by the attribute's DHIS2 value type

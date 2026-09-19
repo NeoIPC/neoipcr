@@ -259,10 +259,14 @@ empty_attribute_values <- function(key_col)
 # raw long form: `<key_col>`, `attribute` (the attribute UID) and `value`.
 # An org unit without values serializes an empty array, which
 # `unnest_longer()` drops; a response that omits the column altogether (a
-# fixture, or a request that did not ask for it) yields the empty shape.
+# fixture, or a request that did not ask for it) yields the empty shape, and
+# so does one in which every org unit's array is empty: `unnest_wider()`
+# then delivers the column as logical `NA` rather than as a list, which
+# `unnest_longer()` would keep as one row per org unit with nothing to widen.
 read_organisationUnit_attribute_values <- function(processed, key_col)
 {
-  if (!("attributeValues" %in% names(processed)))
+  if (!("attributeValues" %in% names(processed)) ||
+      !is.list(processed$attributeValues))
     return(empty_attribute_values(key_col))
 
   values <- processed |>

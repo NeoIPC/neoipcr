@@ -141,6 +141,20 @@ test_that("read_organisationUnit_attribute_values yields the empty shape when th
     "hospital_key")
   expect_named(empty, c("hospital_key", "attribute", "value"))
   expect_equal(nrow(empty), 0L)
+
+  # What the reader actually receives from a response in which every org unit
+  # serializes an empty array: widening the parsed units turns the column into
+  # logical NA, one per org unit, not into a list of empty lists.
+  widened <- tibble::tibble(units = list(
+    list(id = "OU_1", attributeValues = list()),
+    list(id = "OU_2", attributeValues = list()))) |>
+    tidyr::unnest_wider(1) |>
+    dplyr::mutate(hospital_key = 1:2)
+  expect_type(widened$attributeValues, "logical")
+  all_empty <- neoipcr:::read_organisationUnit_attribute_values(
+    widened, "hospital_key")
+  expect_named(all_empty, c("hospital_key", "attribute", "value"))
+  expect_equal(nrow(all_empty), 0L)
 })
 
 # --- readers: attribute values are split off, the list column stripped ---
