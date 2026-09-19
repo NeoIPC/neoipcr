@@ -1,4 +1,4 @@
-# Tests for R/validation-rules-dates.R — rules 3, 4, 12-16.
+# Tests for R/validation-rules-dates.R — rules 3, 4, 12-15.
 
 # --- Rule 3: admission event date differs from enrollment date ---
 
@@ -66,9 +66,10 @@ test_that("rule 4 honours exceptions", {
   expect_equal(nrow(result), 0L)
 })
 
-# --- Rules 12-16: infection/surgery event date outside the enrolment window ---
-# Rule 12=bsi, 13=nec, 14=hap, 15=pro, 16=ssi. The window runs from the later
-# of the enrolment date and the admission event to the surveillance-end event.
+# --- Rules 12-15: infection/surgery event date outside the enrolment window ---
+# Rule 12=bsi, 13=nec, 14=hap, 15=pro. The window runs from the later of the
+# enrolment date and the admission event to the surveillance-end event. A
+# surgical site infection is not held to it (see rule 19).
 
 window_ds <- function(event_type, event_date, admission_date = "2024-01-01")
   make_test_ds(
@@ -86,8 +87,7 @@ date_rules <- list(
   list(rule = 12L, type = "bsi", fun = neoipcr:::validation_rule_12),
   list(rule = 13L, type = "nec", fun = neoipcr:::validation_rule_13),
   list(rule = 14L, type = "hap", fun = neoipcr:::validation_rule_14),
-  list(rule = 15L, type = "pro", fun = neoipcr:::validation_rule_15),
-  list(rule = 16L, type = "ssi", fun = neoipcr:::validation_rule_16)
+  list(rule = 15L, type = "pro", fun = neoipcr:::validation_rule_15)
 )
 
 for (entry in date_rules) {

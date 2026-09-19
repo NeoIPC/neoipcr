@@ -57,11 +57,13 @@ validation_rule_4 <- function(x, exceptions)
       .keep = "none")
 }
 
-# Rules 12–16 share one shape: an infection or surgery event dated outside
+# Rules 12–15 share one shape: an infection or surgery event dated outside
 # the window of its enrolment, which runs from the later of the enrolment
 # date and the admission event to the surveillance-end event. The event's own
 # date travels under a type-specific name so the consumer's sentence can name
-# the form.
+# the form. A surgical site infection is not held to that window: it is
+# attributed to its procedure's follow-up period (rule 19), which may run past
+# the discharge and into a readmission.
 .rule_event_outside_enrolment <- function(x, exceptions, rule_id, event_type)
 {
   check_neoipcr_ds(x)
@@ -119,7 +121,3 @@ validation_rule_14 <- function(x, exceptions)
 # Find surgical procedure events dated outside the enrolment window.
 validation_rule_15 <- function(x, exceptions)
   .rule_event_outside_enrolment(x, exceptions, 15L, "pro")
-
-# Find surgical site infection events dated outside the enrolment window.
-validation_rule_16 <- function(x, exceptions)
-  .rule_event_outside_enrolment(x, exceptions, 16L, "ssi")

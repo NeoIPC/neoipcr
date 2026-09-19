@@ -62,7 +62,7 @@ enrolment date for an enrolment-level rule, and the event's type and date
 as well for an event-level rule, the type being one the rule concerns
 (rules 7, 12 and 27–30 sepsis, 8, 13 and 35–38 necrotizing enterocolitis,
 9, 14 and 31–34 pneumonia, 10, 15, 22–24, 39 and 40 surgical procedures,
-11, 16, 19, 41 and 42 surgical site infections, 20 any infection).
+11, 19, 41 and 42 surgical site infections, 20 any infection).
 Dates are \code{Date}, statuses factors, counts integers. A dataset imported
 without incomplete enrolments or events (\code{include_incomplete}) carries no
 \code{status} column for them; the rules then treat every such record as
@@ -74,7 +74,7 @@ completed, which is what the import's request filter made it.\tabular{lll}{
    4 \tab \code{enrollment_key} \tab \code{admOccurredAt}, \code{endOccurredAt} \cr
    5, 6 \tab \code{enrollment_key} \tab \code{status} \cr
    7, 8, 9, 10, 11 \tab \code{event_key} \tab \code{enrollment_status}, \code{end_status}, and the form's own status as \code{bsi_status}, \code{nec_status}, \code{hap_status}, \code{pro_status} or \code{ssi_status} \cr
-   12, 13, 14, 15, 16 \tab \code{event_key} \tab \code{enrolledAt}, \code{admOccurredAt}, \code{endOccurredAt}, and the event's date as \code{bsiOccurredAt}, \code{necOccurredAt}, \code{hapOccurredAt}, \code{proOccurredAt} or \code{ssiOccurredAt} \cr
+   12, 13, 14, 15 \tab \code{event_key} \tab \code{enrolledAt}, \code{admOccurredAt}, \code{endOccurredAt}, and the event's date as \code{bsiOccurredAt}, \code{necOccurredAt}, \code{hapOccurredAt} or \code{proOccurredAt} \cr
    17 \tab \code{enrollment_key} \tab \code{enrolledAt_this}, \code{endOccurredAt_this}, \code{enrolledAt_other}, \code{endOccurredAt_other} — one finding for each enrolment of an overlapping pair, naming the other's dates, so each overlap appears once from either side and an enrolment that overlaps two others appears twice \cr
    18 \tab \code{enrollment_key} \tab \code{patient_days}, \code{patient_days_calculated} \cr
    19 \tab \code{event_key} \tab \code{infection_type} \cr

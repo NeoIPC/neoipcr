@@ -1,7 +1,7 @@
 # Tests for R/validation.R — validate() orchestrator and validation_rules registry.
 
-test_that("validation_rules registry has 42 entries with an id, a level and a function each", {
-  expect_equal(length(neoipcr:::validation_rules), 42L)
+test_that("validation_rules registry has 41 entries with an id, a level and a function each", {
+  expect_equal(length(neoipcr:::validation_rules), 41L)
   for (entry in neoipcr:::validation_rules) {
     expect_true(all(c("id", "level", "fun") %in% names(entry)))
     expect_true(is.integer(entry$id))
@@ -22,7 +22,8 @@ test_that("validation_rules registry has 42 entries with an id, a level and a fu
 test_that("validation_rule_ids is exported and lists the registry in order", {
   namespace <- readLines(system.file("NAMESPACE", package = "neoipcr"))
   expect_true("export(validation_rule_ids)" %in% namespace)
-  expect_identical(neoipcr::validation_rule_ids(), 1:42)
+  # Rule 16 is gone, so the ids keep their numbering with a gap at 16.
+  expect_identical(neoipcr::validation_rule_ids(), c(1:15, 17:42))
 })
 
 # The populated fixture with its surveillance-end forms made consistent: the

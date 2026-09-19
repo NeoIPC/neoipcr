@@ -14,7 +14,14 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
-* `validate()` runs every one of the 42 validation rules, ported from the Validation Report's
+* Rule 16 is removed. It reported a surgical site infection form dated outside the time frame of its
+  enrolment, but a surgical site infection is attributed to its procedure's follow-up period, which may
+  run past the discharge and into a readmission — an infection date on or before the admission of the
+  enrolment it is recorded in, or after that enrolment's surveillance end, is legitimate as long as a
+  recorded procedure covers it, which rule 19 checks across a patient's enrolments. The rule ids now
+  run from 1 to 42 with a gap at 16; an exception list naming rule 16 is refused as naming an unknown
+  rule.
+* `validate()` runs every one of the 41 validation rules, ported from the Validation Report's
   implementation, which had been the only complete one. Rules 19, 20, 21, 27, 28, 30–37 and
   39–42 were placeholders that flagged nothing; rules 22–24 read a code list from a file the
   package cannot rely on and now check the ICHI code grammar with `is_valid_ichi_code()`; rule 17
