@@ -10,21 +10,35 @@ validate(x, rules = NULL, exceptions = NULL)
 \item{x}{A \code{neoipcr_ds} object imported with \code{include_patient} set to
 \code{"pseudo"} or \code{"full"} and \code{include_enrollment} and \code{include_event} set to
 \code{"full"}: the rules read the enrollments' patient link and the events'
-type, which the pseudonymized tiers do not carry.}
+type, which the pseudonymized tiers do not carry. An exception list in
+the form a user writes needs the patient id and a department tier on
+top, as \code{\link[=resolve_validation_exceptions]{resolve_validation_exceptions()}} describes.}
 
 \item{rules}{Integer vector of rule ids to run; \code{NULL} (the default) runs all
-of them.}
+of them. An id outside \code{\link[=validation_rule_ids]{validation_rule_ids()}} is an error.}
 
-\item{exceptions}{A tibble of records to exempt, with the columns \code{rule_id},
-\code{patient_key}, \code{enrollment_key} and \code{event_key} — the shape \code{\link[=import_dhis2]{import_dhis2()}}
-derives from a user-supplied exception list.}
+\item{exceptions}{The records to exempt from the rule that flags them:
+either the list a user writes, as \code{\link[=read_validation_exceptions]{read_validation_exceptions()}} returns
+it, or its resolved key form as \code{\link[=resolve_validation_exceptions]{resolve_validation_exceptions()}} returns
+it (\code{rule_id}, \code{patient_key}, \code{enrollment_key}, \code{event_key}). \code{NULL}
+exempts nothing.}
 }
 \value{
-A tibble with one row per flagged record: \code{rule_id}, the keys that
-identify the record (\code{patient_key}, \code{enrollment_key}, \code{event_key}; \code{NA}
-where a rule does not operate at that level) and \code{context}, a list column
-with the rule-specific values the finding refers to (\code{NULL} where the
-rule records none). Zero rows when nothing is flagged.
+A tibble with one row per finding — a flagged record, or for
+rule 17 one of the two enrolments of an overlapping pair: \code{rule_id};
+\code{patient_key}, \code{enrollment_key} and
+\code{event_key}, each naming the record the finding refers to at that level
+and \code{NA} where there is none (an enrolment-level rule that compared a
+form names that form's event, so a consumer can show the finding under
+it; the level a rule is recorded and exempted on is the one the table
+below names); and \code{context}, a list column holding a one-row tibble of
+the values the finding refers to (\code{NULL} where the rule records none).
+Zero rows when nothing is flagged. The result's \code{rules_skipped}
+attribute names the selected rules that could not run because the
+dataset lacks a column they read (an integer vector, empty when every
+rule ran); such a rule logs a warning and flags nothing, so a caller
+stating which rules a result rests on reads that attribute rather than
+the selection.
 }
 \description{
 Runs every registered validation rule, or the subset named in \code{rules}, over
@@ -33,3 +47,52 @@ it by default and removes the flagged patients from the dataset; call it
 directly on a dataset imported with \code{include_invalid_patients = TRUE} to see
 which records would be removed and why.
 }
+\details{
+A finding is data, never prose: the rule id, the keys that identify the
+record, and the values the rule compared. The sentence a reader sees is
+the consumer's, composed from the context fields listed below, so that it
+is written and translated where the document is rendered.
+}
+\section{Context fields}{
+
+Each rule records the fields below in \code{context}, identifies its finding
+by the key named as its level, and is exempted by an exception record
+written at that level: the patient alone for rule 1, the patient and the
+enrolment date for an enrolment-level rule, and the event's type and date
+as well for an event-level rule, the type being one the rule concerns
+(rules 7, 12 and 27–30 sepsis, 8, 13 and 35–38 necrotizing enterocolitis,
+9, 14 and 31–34 pneumonia, 10, 15, 22–24, 39 and 40 surgical procedures,
+11, 19, 41 and 42 surgical site infections, 20 any infection).
+Dates are \code{Date}, statuses factors, counts integers. A dataset imported
+without incomplete enrolments or events (\code{include_incomplete}) carries no
+\code{status} column for them; the rules then treat every such record as
+completed, which is what the import's request filter made it.\tabular{lll}{
+   Rules \tab Level \tab Context fields \cr
+   1 \tab \code{patient_key} \tab none \cr
+   2 \tab \code{enrollment_key} \tab none \cr
+   3 \tab \code{enrollment_key} \tab \code{enrolledAt}, \code{occurredAt} \cr
+   4 \tab \code{enrollment_key} \tab \code{admOccurredAt}, \code{endOccurredAt} \cr
+   5, 6 \tab \code{enrollment_key} \tab \code{status} \cr
+   7, 8, 9, 10, 11 \tab \code{event_key} \tab \code{enrollment_status}, \code{end_status}, and the form's own status as \code{bsi_status}, \code{nec_status}, \code{hap_status}, \code{pro_status} or \code{ssi_status} \cr
+   12, 13, 14, 15 \tab \code{event_key} \tab \code{enrolledAt}, \code{admOccurredAt}, \code{endOccurredAt}, and the event's date as \code{bsiOccurredAt}, \code{necOccurredAt}, \code{hapOccurredAt} or \code{proOccurredAt} \cr
+   17 \tab \code{enrollment_key} \tab \code{enrolledAt_this}, \code{endOccurredAt_this}, \code{enrolledAt_other}, \code{endOccurredAt_other} — one finding for each enrolment of an overlapping pair, naming the other's dates, so each overlap appears once from either side and an enrolment that overlaps two others appears twice \cr
+   18 \tab \code{enrollment_key} \tab \code{patient_days}, \code{patient_days_calculated} \cr
+   19 \tab \code{event_key} \tab \code{infection_type} \cr
+   20 \tab \code{event_key} \tab \code{index}, \code{secondary_bsi}, \code{name} \cr
+   21 \tab \code{enrollment_key} \tab \code{ab_substance_days}, \code{ab_days} \cr
+   22, 23, 24 \tab \code{event_key} \tab \code{procedure_description}, \code{procedure_code} \cr
+   25, 26 \tab \code{enrollment_key} \tab none \cr
+   27, 31, 35, 39, 41 \tab \code{event_key} \tab \code{dol}, \code{dol_calc} \cr
+   28, 32, 36, 40, 42 \tab \code{event_key} \tab \code{los}, \code{los_calc} \cr
+   29, 33, 37 \tab \code{event_key} \tab \code{dol} \cr
+   30, 34, 38 \tab \code{event_key} \tab \code{dos} \cr
+}
+}
+
+\seealso{
+Other validation:
+\code{\link[=read_validation_exceptions]{read_validation_exceptions()}},
+\code{\link[=resolve_validation_exceptions]{resolve_validation_exceptions()}},
+\code{\link[=validation_rule_ids]{validation_rule_ids()}}
+}
+\concept{validation}

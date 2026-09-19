@@ -73,6 +73,7 @@ Collate:
     'neoipcr-package.R'
     'pathogens.R'
     'scales.R'
+    'validation-exceptions.R'
     'schema-patients.R'
     'schema-enrollments.R'
     'schema-events.R'

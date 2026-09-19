@@ -14,6 +14,68 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+* Rule 16 is removed. It reported a surgical site infection form dated outside the time frame of its
+  enrolment, but a surgical site infection is attributed to its procedure's follow-up period, which may
+  run past the discharge and into a readmission — an infection date on or before the admission of the
+  enrolment it is recorded in, or after that enrolment's surveillance end, is legitimate as long as a
+  recorded procedure covers it, which rule 19 checks across a patient's enrolments. The rule ids now
+  run from 1 to 42 with a gap at 16; an exception list naming rule 16 is refused as naming an unknown
+  rule.
+* `validate()` runs every one of the 41 validation rules, ported from the Validation Report's
+  implementation, which had been the only complete one. Rules 19, 20, 21, 27, 28, 30–37 and
+  39–42 were placeholders that flagged nothing; rules 22–24 read a code list from a file the
+  package cannot rely on and now check the ICHI code grammar with `is_valid_ichi_code()`; rule 17
+  now enters an enrolment without a surveillance-end event into the overlap comparison as under
+  surveillance on its enrolment date, so it is found when that day falls inside another enrolment's
+  period or coincides with another open enrolment's start; rule 19 counts the procedure date as day
+  1 of the follow-up window, as the protocol does, so an infection on the procedure day is inside
+  the window and one 30 (or 90) days later is the first outside it, where the report's rule had
+  started the window the day after the procedure, it reads an implant flag that was not
+  recorded as no implant, and it places an infection whose type was not recorded by the windows
+  its implant flag allows rather than outside every window; and rules 7–11 flag an open infection or
+  surgery form whenever the enrolment *or* its surveillance-end form is completed, keyed on the
+  form's event. Every rule is exempted through the key its finding is recorded on.
+* `validate()` returns no prose. A finding's `context` is a one-row tibble of the values the rule
+  compared, named as the "Context fields" section of `?validate` lists them; the sentence a reader
+  sees belongs to the document that renders the finding, where it is written and translated. The
+  rule descriptions the package carried as unused message-catalogue entries are gone with the
+  formatters that held them.
+* `validate()` accepts the exception list in the form a user writes it as well as in key form, and
+  aborts on a rule id it does not know instead of running nothing. New exports:
+  `validation_rule_ids()`; `read_validation_exceptions()`, the CSV reader with the shape checks
+  `import_dhis2()` applies to `include_invalid_patients`; and `resolve_validation_exceptions()`,
+  the mapping of a list onto a dataset's keys, which also works on a returned dataset. A record is
+  written at the level of the rule it names (the patient alone, the enrolment, or an event of a
+  type the rule concerns) and is refused otherwise; it resolves as a whole — one whose enrolment
+  or event is not in the dataset exempts nothing — and is matched within its department whenever
+  the dataset carries the department codes. A `DEPARTMENT_CODE` column left empty throughout, the
+  single-department list in the six-column shape, counts as absent.
+* A removed patient's free-text pathogen names no longer survive in `unknownPathogenNames`: the
+  post-import cascade prunes them with the findings they belong to, whether the patient was removed
+  by the validation pass or by a filter.
+* `validate()` names the selected rules it could not run, for want of a column the dataset lacks, in
+  the result's `rules_skipped` attribute, so a consumer stating which rules a result rests on can
+  tell a rule that found nothing from one that never ran.
+* `import_dhis2()` refuses an instance that does not carry exactly one NeoIPC Patient tracked-entity
+  type, naming whether it is missing or duplicated. An import of the unenrolled patients requests by
+  that type; without it the request carried neither program nor type, which DHIS2 refuses with a
+  message that names neither the option nor the missing type.
+* `include_invalid_patients = TRUE` now keeps the enrolments without an admission form in the returned
+  dataset. The orphan removal that follows an import dropped them as a dataset invariant before a
+  `validate()` on the returned dataset could report them under rule 26, so a consumer that skips the
+  pass in order to list the records it would remove never saw those; the invariant still holds for
+  every import that runs the pass.
+* `include_unenrolled_patients = TRUE` now keeps the patients with no enrolment in the returned
+  dataset when enrollments are imported as well: the orphan removal that follows an import leaves them
+  in place, where it used to prune them with the enrollments they never had, so a `validate()` on such
+  a dataset can flag them under rule 1. Only the patients that arrive without an enrolment are kept —
+  one that loses its enrolments to a filter is pruned as before — and they reach the dataset only
+  where the validation pass leaves them, with `include_invalid_patients = TRUE` or an exception naming
+  them under rule 1. Without the option the removal is unchanged.
+* An instance on which no organisation unit carries a custom-attribute value imports as no values. It
+  used to fail the import: widening a response in which every org unit serializes an empty array
+  delivers the column as logical `NA` rather than as a list, and the reader took that for one value
+  per org unit with nothing to read.
 * `import_dhis2()` reads the custom attributes an instance sets on its organisation units. The new
   `include_custom_attributes` option of `dhis2_dataset_options()` names the entities whose values to
   import (`"departments"`, `"hospitals"`); their values land typed by the attribute's DHIS2 value type

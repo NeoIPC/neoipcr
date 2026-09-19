@@ -136,6 +136,104 @@ test_that("import_dhis2 makes no real HTTP call for an unmocked endpoint", {
   expect_error(import_dhis2(conn, import_test_opts()), "unmocked DHIS2 request")
 })
 
+# The tracked-entity request an import issued, parsed.
+tracked_entity_request <- function(urls)
+  httr2::url_parse(
+    Filter(function(u) grepl("/tracker/trackedEntities", u, fixed = TRUE), urls)[[1]])
+
+test_that("import_dhis2 keeps a patient with no enrolment only when asked for the unenrolled ones", {
+  # A third tracked entity with no enrollment, beside the two the fixture
+  # enrols. The mock serves it whatever the request asks, so the default
+  # import shows the orphan removal pruning it and the opt-in import shows
+  # the removal leaving it in place.
+  fx <- import_test_fixtures()
+  tes <- jsonlite::fromJSON(fx$trackedEntities, simplifyVector = FALSE)
+  unenrolled <- tes$trackedEntities[[1]]
+  unenrolled$trackedEntity <- "TE_3"
+  unenrolled$attributes[[1]]$value <- "PAT_3"
+  tes$trackedEntities <- c(tes$trackedEntities, list(unenrolled))
+  fx$trackedEntities <- jsonlite::toJSON(tes, auto_unbox = TRUE, null = "null")
+  conn <- dhis2_connection_options(
+    session_id = "test", hostname = "dhis2.example.org")
+
+  # By default the request goes by program and the patient does not survive.
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(conn, import_test_opts())
+  expect_setequal(as.character(ds$patients$patient_id), c("PAT_1", "PAT_2"))
+  request <- tracked_entity_request(m$urls())
+  expect_true("program" %in% names(request$query))
+  expect_false("trackedEntityType" %in% names(request$query))
+
+  # Asked for the unenrolled patients, the request goes by tracked-entity type
+  # and the patient reaches the dataset, where rule 1 is the one to flag it.
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(conn, import_test_opts(include_unenrolled_patients = TRUE))
+  expect_setequal(as.character(ds$patients$patient_id), c("PAT_1", "PAT_2", "PAT_3"))
+  expect_equal(nrow(ds$enrollments), 2L)
+  request <- tracked_entity_request(m$urls())
+  expect_true("trackedEntityType" %in% names(request$query))
+  expect_false("program" %in% names(request$query))
+  flagged <- validate(ds, rules = 1L)
+  expect_equal(nrow(flagged), 1L)
+  expect_equal(
+    as.character(ds$patients$patient_id[ds$patients$patient_key == flagged$patient_key]),
+    "PAT_3")
+
+  # Under the validation pass, rule 1 removes the patient before the orphan
+  # removal is reached; an exception naming it under rule 1 keeps it.
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(conn, import_test_opts(
+    include_unenrolled_patients = TRUE, include_invalid_patients = FALSE))
+  expect_false("PAT_3" %in% as.character(ds$patients$patient_id))
+  expect_true(1L %in% ds$validationResults$rule_id)
+
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  exceptions <- tibble::tibble(
+    RULE_ID           = 1L,
+    NEOIPC_PATIENT_ID = "PAT_3",
+    ENROLMENT_DATE    = as.Date(NA),
+    EVENT_TYPE        = NA_character_,
+    EVENT_DATE        = as.Date(NA))
+  ds <- import_dhis2(conn, import_test_opts(
+    include_unenrolled_patients = TRUE, include_invalid_patients = exceptions))
+  expect_true("PAT_3" %in% as.character(ds$patients$patient_id))
+  expect_false(1L %in% ds$validationResults$rule_id)
+})
+
+test_that("import_dhis2 keeps an enrolment without an admission form only when it skips the validation pass", {
+  # The second enrolment loses its only event, the admission.
+  fx <- import_test_fixtures()
+  events <- jsonlite::fromJSON(fx$events, simplifyVector = FALSE)
+  events$events <- Filter(function(e) e$enrollment != "ENR_2", events$events)
+  fx$events <- jsonlite::toJSON(events, auto_unbox = TRUE, null = "null")
+  conn <- dhis2_connection_options(
+    session_id = "test", hostname = "dhis2.example.org")
+
+  # Skipping the pass keeps the enrolment for a validate() on the dataset,
+  # which reports it under rule 26.
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(conn, import_test_opts())
+  expect_equal(nrow(ds$enrollments), 2L)
+  flagged <- validate(ds, rules = 26L)
+  expect_equal(nrow(flagged), 1L)
+  expect_equal(
+    as.character(ds$patients$patient_id[ds$patients$patient_key == flagged$patient_key]),
+    "PAT_2")
+
+  # Running the pass removes the patient on that finding, and the invariant
+  # drops the enrolment either way.
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(conn, import_test_opts(include_invalid_patients = FALSE))
+  expect_true(26L %in% ds$validationResults$rule_id)
+  expect_false("PAT_2" %in% as.character(ds$patients$patient_id))
+})
+
 # ---------------------------------------------------------------------------
 # Compatibility matrix — every DHIS2 version the offline read path is driven
 # against. This set is deliberately WIDER than neoipcr_supported_versions():
@@ -815,6 +913,18 @@ test_that("import_dhis2 keeps the records an exception list names", {
   httr2::local_mocked_responses(m$mock)
   kept <- import_dhis2(test_conn(), import_test_opts(
     include_department       = "full",
+    include_invalid_patients = flagged |> dplyr::mutate(DEPARTMENT_CODE = "DEPT_01")))
+  expect_setequal(as.character(kept$patients$patient_id), c("PAT_1", "PAT_2"))
+  expect_equal(nrow(kept$validationResults), 0L)
+
+  # The import resolves the list under the pseudo tier too, since it holds
+  # the department codes while it runs. (A returned pseudo dataset that
+  # still holds several departments cannot resolve the list again; the
+  # resolver's own tests cover that refusal.)
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  kept <- import_dhis2(test_conn(), import_test_opts(
+    include_department       = "pseudo",
     include_invalid_patients = flagged |> dplyr::mutate(DEPARTMENT_CODE = "DEPT_01")))
   expect_setequal(as.character(kept$patients$patient_id), c("PAT_1", "PAT_2"))
   expect_equal(nrow(kept$validationResults), 0L)

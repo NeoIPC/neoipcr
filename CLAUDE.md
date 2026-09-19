@@ -82,7 +82,7 @@ The `R/` directory follows a deliberate structure established by the neoipcr fil
 - **`import-*.R`** — user-facing import orchestrators. One per data source (currently only `import-dhis2.R`; a future Excel source would be `import-excel.R`).
 - **`dhis2-*.R`** — DHIS2-specific internals (connection, metadata, readers). These have no non-DHIS2 equivalent.
 - **`calc-api.R`** — exported pipeline entry points. **`calc-tables.R`** — exported table/figure builders. **`calc-rates.R`** — internal rate/count computers. **`calc-denominators.R`** — internal risk-time/population denominators. Each is a layer in the epidemiological analysis pipeline; new functions go in the layer they belong to.
-- **`validation-rules-*.R`** — one file per validation domain. The `validation_rules` registry list and `validate()` orchestrator stay in `validation.R`.
+- **`validation-rules-*.R`** — one file per validation domain. The `validation_rules` registry list and `validate()` orchestrator stay in `validation.R`; the exception list's reader and resolver live in `validation-exceptions.R`.
 - **`data-protection.R`** — single-purpose file for the data-protection guardian (`assert_data_protection()`). Do not add unrelated functions here.
 
 #### Function placement
@@ -142,9 +142,10 @@ The `R/` directory follows a deliberate structure established by the neoipcr fil
 | `R/data-protection.R` | `assert_data_protection()` — the authoritative data-protection guardian. Asserts three invariant families under the schema contract (hierarchy keys, metadata companion columns, attribute-value opt-in); no scrubs remain after phase-b-event-details. |
 | `R/filter.R` | `filter_*` family + `apply_postfilter` (incl. pruning the attribute-value leaves) |
 | **Validation** | |
-| `R/validation.R` | `validation_rules` registry list + the exported `validate()` orchestrator |
+| `R/validation.R` | `validation_rules` registry list, the exported `validate()` orchestrator and `validation_rule_ids()`, the per-rule exception helper the rules anti-join on, and the event-type → form-data slot map the rule families read |
+| `R/validation-exceptions.R` | The exception list: its record columns, the shape check `import_dhis2()` shares with the exported reader `read_validation_exceptions()` (types, event vocabulary, rule ids that exist), and `resolve_validation_exceptions()`, which maps a list onto a dataset's keys (from the import's internal department map while it exists, else from `metadata$departments`) — a record resolves as a whole or to `NA` throughout, and is matched within its department whenever the codes are at hand |
 | `R/validation-rules-enrollment.R` | Rules 1, 2, 17, 25, 26 — enrollment lifecycle |
-| `R/validation-rules-dates.R` | Rules 3, 4, 12–16 — date consistency |
+| `R/validation-rules-dates.R` | Rules 3, 4, 12–15 — date consistency |
 | `R/validation-rules-completeness.R` | Rules 5–11 — form completion |
 | `R/validation-rules-surgical.R` | Rules 19, 22–24 — surgical procedure validation |
 | `R/validation-rules-surveillance-end.R` | Rules 18, 21 — surveillance-end consistency |
@@ -290,8 +291,9 @@ Test files mirror source files: `R/foo.R` -> `tests/testthat/test-foo.R`.
 | `tests/testthat/test-dhis2-connect.R` | `dhis2_connection_options()`, `get_auth_data()`, `read_token()`, `get_password()` |
 | `tests/testthat/test-data-protection.R` | `assert_data_protection()` — happy-path (schema-compliant ds passes) and failure-path (reader regression leaks a forbidden column → abort) coverage, incl. the attribute-value opt-in and the `IsTestunit`-row assertions; pure-assertion guardian post phase-b-event-details |
 | `tests/testthat/test-data-protection-complete.R` | Option-matrix coverage: iterates every `include_*` gate (hierarchy, link-privacy, user, timestamps, deleted, the custom-attribute opt-in) under every value against a schema-compliant ds, verifying the guardian passes. Maximally-restrictive smoke test. |
-| `tests/testthat/test-validation.R` | `validate()` orchestrator (exported, visible return), rule registry |
-| `tests/testthat/test-validation-rules-*.R` | Per-domain rule tests (42 rules; 34 skip-wrapped stubs for unmigrated rules) |
+| `tests/testthat/test-validation.R` | `validate()` orchestrator (exported, visible return, zero rows on consistent data, rule selection, the five-column shape whatever ran), rule registry, and exemption in key form and in the user's form |
+| `tests/testthat/test-validation-rules-*.R` | Per-domain rule tests: a detect / no-detect / exception triad for each of the 41 rules, the context field names each rule emits, the window and join boundaries (second patient, several procedures, shared dates), missing values on a form, and the skip-without-warning path of every rule that guards a column |
+| `tests/testthat/test-validation-exceptions.R` | `read_validation_exceptions()` (column types, missing file or column, ragged rows, values that do not parse, rule ids that exist — each raised under its documented class) and `resolve_validation_exceptions()` (one and several departments, department-code matching, whole-record resolution, the tiers it needs) |
 | `tests/testthat/test-calc-api.R` | `calculate_department_data()` integration: structure, counts, table presence |
 | `tests/testthat/test-calc-tables.R` | The `get_*_table()` + figure data builders, with numerical spot-checks; `get_cumulative_incidence_table()` window semantics (in-window infections only, a patient admitted twice counted once, empty windows, the other department's infections excluded) |
 | `tests/testthat/test-pathogens.R` | `get_pathogen_taxonomy()`, `get_pathogen_list()`, synonym resolution |

@@ -34,51 +34,16 @@ import_dhis2 <- function(
         dataset_options$include_enrollment, dataset_options$include_event),
       i = "Import both with \"full\", or set `include_invalid_patients = TRUE` to keep every patient unvalidated."),
       class = "neoipcr_validation_needs_facts")
-  # An exception list is mapped onto the imported records by the columns
-  # below and by the patients' ids, which only the full patient tier
+  # An exception list is mapped onto the imported records by its record
+  # columns and by the patients' ids, which only the full patient tier
   # carries; a list without them would fail inside that mapping, after every
   # request was made. Without patients the pass does not run and the list is
   # not read, so it is not checked either.
   if (dataset_options$include_patient != "no" &&
       !rlang::is_bool(dataset_options$include_invalid_patients)) {
-    missing_cols <- setdiff(
-      .exception_list_cols, names(dataset_options$include_invalid_patients))
-    if (!is.data.frame(dataset_options$include_invalid_patients) ||
-        length(missing_cols) > 0L)
-      rlang::abort(c(
-        "`include_invalid_patients` must be `TRUE`, `FALSE` or a data frame of exception records.",
-        x = if (is.data.frame(dataset_options$include_invalid_patients))
-              paste0("Missing column(s): ", paste(missing_cols, collapse = ", "), ".")
-            else
-              paste0("Got ", obj_type_friendly(dataset_options$include_invalid_patients), "."),
-        i = paste0("An exception record carries ", paste(.exception_list_cols, collapse = ", "),
-                   " (and DEPARTMENT_CODE when more than one department is imported).")),
-        class = "neoipcr_invalid_exception_list")
-    # The columns join onto the imported records, so they must be of the
-    # types those carry: `Date` dates (a `POSIXct` does join — vctrs casts
-    # the `Date` side to midnight — but one with a time of day silently
-    # matches nothing), a
-    # numeric rule id, a character patient id, and an event type from the
-    # stage vocabulary (case does not matter; `NA` names an enrollment-level
-    # record together with an `NA` event date).
-    ex <- dataset_options$include_invalid_patients
-    event_types <- tolower(as.character(ex$EVENT_TYPE))
-    wrong <- c(
-      if (!inherits(ex$ENROLMENT_DATE, "Date")) "`ENROLMENT_DATE` is not a `Date`",
-      if (!inherits(ex$EVENT_DATE, "Date")) "`EVENT_DATE` is not a `Date`",
-      if (!is.numeric(ex$RULE_ID)) "`RULE_ID` is not numeric",
-      if (!is.character(ex$NEOIPC_PATIENT_ID)) "`NEOIPC_PATIENT_ID` is not character",
-      if ("DEPARTMENT_CODE" %in% names(ex) && !is.character(ex$DEPARTMENT_CODE))
-        "`DEPARTMENT_CODE` is not character",
-      if (!all(is.na(event_types) | event_types %in% .exception_event_types))
-        paste0("`EVENT_TYPE` outside ", paste(.exception_event_types, collapse = "/"), " or `NA`"),
-      if (inherits(ex$EVENT_DATE, "Date") && any(is.na(event_types) != is.na(ex$EVENT_DATE)))
-        "`EVENT_TYPE` and `EVENT_DATE` not both set or both `NA` (an enrollment-level record has neither)")
-    if (length(wrong) > 0L)
-      rlang::abort(c(
-        "An exception list's columns must be of the types the records join on.",
-        rlang::set_names(wrong, rep("x", length(wrong)))),
-        class = "neoipcr_invalid_exception_list")
+    dataset_options$include_invalid_patients <- check_exception_list(
+      dataset_options$include_invalid_patients,
+      "`include_invalid_patients` must be `TRUE`, `FALSE` or a data frame of exception records.")
     if (dataset_options$include_patient != "full")
       rlang::abort(c(
         "An exception list needs the full patient tier: its records are matched by patient id.",
@@ -102,11 +67,12 @@ import_dhis2 <- function(
 
   # The metadata read settles the department count: with more than one
   # department an exception list's records join on the department code as
-  # well (see `transform_user_exceptions()`), so a list without it is refused
-  # here, before the tracker requests.
+  # well (see `resolve_validation_exceptions()`), so a list without it is
+  # refused here, before the tracker requests. A count of zero is a filter
+  # that matched nothing, which is diagnosed as such below.
   if (dataset_options$include_patient != "no" && validation_requested &&
       !rlang::is_bool(dataset_options$include_invalid_patients) &&
-      !is_single_department(list(metadata = metadata)) &&
+      nrow(metadata$.departments_internal_map) > 1L &&
       !("DEPARTMENT_CODE" %in% names(dataset_options$include_invalid_patients)))
     rlang::abort(c(
       "The exception list needs `DEPARTMENT_CODE` when more than one department is imported.",
@@ -352,11 +318,14 @@ import_dhis2 <- function(
   if(dataset_options$include_patient != "no" && validation_requested)
   {
     if(!rlang::is_bool(dataset_options$include_invalid_patients))
-      exceptions <- dataset_options$include_invalid_patients |>
-        transform_user_exceptions(r)
+      exceptions <- resolve_validation_exceptions(
+        r, dataset_options$include_invalid_patients)
     else exceptions <- NULL
 
     v <- r |> validate(exceptions = exceptions)
+    # The dataset keeps the findings, not the run's bookkeeping: the full
+    # tiers this pass requires give every rule its columns.
+    attr(v, "rules_skipped") <- NULL
     r$validationResults <- v
     r$patients <- r$patients |>
       dplyr::anti_join(v, dplyr::join_by("patient_key"))
@@ -367,7 +336,7 @@ import_dhis2 <- function(
 
   # Strip orchestrator-internal lookups — they are not part of the
   # public `neoipcr_metadata` shape. Must happen after
-  # transform_user_exceptions (uses .departments_internal_map) and
+  # resolve_validation_exceptions (uses .departments_internal_map) and
   # apply_postfilter.
   # Hierarchy order: metadata → fact entities
   r$metadata$.wb_country_map               <- NULL
@@ -506,76 +475,6 @@ dhis2_request <- function(connection_options)
     httr2::req_auth_basic(
       username = connection_options$username,
       password = connection_options$password)
-}
-
-# How many departments the import holds, read from the orchestrator-internal
-# map while it exists: the public tibble is the schema's 0×0 gate result
-# under `include_department = "no"`, which says nothing about the count.
-is_single_department <- function(ds)
-{
-  departments <- ds$metadata$.departments_internal_map
-  if (is.null(departments))
-    departments <- ds$metadata$departments
-  nrow(departments) == 1L
-}
-
-# The columns an exception record must carry to be mapped onto the imported
-# records (see `transform_user_exceptions()`); `DEPARTMENT_CODE` joins in
-# addition when more than one department is imported.
-.exception_list_cols <- c(
-  "RULE_ID", "NEOIPC_PATIENT_ID", "ENROLMENT_DATE", "EVENT_TYPE", "EVENT_DATE")
-
-# The event types an exception record may name, as `transform_user_exceptions()`
-# levels them.
-.exception_event_types <- c("adm", "pro", "bsi", "nec", "ssi", "hap", "end")
-
-# Whether `include_invalid_patients` carries an exception list rather than a
-# switch. The full patient tier keeps `patient_id` whenever it does, whatever
-# `patient_columns` says, so the list can be matched; `import_dhis2()`
-# requires that tier for a list.
-has_exception_list <- function(dataset_options)
-  is.data.frame(dataset_options$include_invalid_patients)
-
-transform_user_exceptions <- function(ex, ds)
-{
-  ex <- ex |>
-    dplyr::mutate(
-      event_type_key = factor(
-        tolower(.data$EVENT_TYPE),
-        levels = .exception_event_types),
-      .keep = "unused")
-
-  if(is_single_department(ds))
-    ex <- ex |>
-      dplyr::left_join(
-        ds$patients |>
-          dplyr::select("patient_key","patient_id"),
-        dplyr::join_by("NEOIPC_PATIENT_ID"=="patient_id")) |>
-      dplyr::left_join(
-        ds$enrollments |>
-          dplyr::select("patient_key","enrollment_key","enrolledAt"),
-        dplyr::join_by("patient_key","ENROLMENT_DATE"=="enrolledAt"))
-  else
-    ex <- ex |>
-      dplyr::inner_join(
-        ds$metadata$.departments_internal_map |>
-          dplyr::select("department_key", "code"),
-        dplyr::join_by("DEPARTMENT_CODE" == "code")) |>
-      dplyr::left_join(
-        ds$patients |>
-          dplyr::select("department_key","patient_key","patient_id"),
-        dplyr::join_by("department_key","NEOIPC_PATIENT_ID"=="patient_id")) |>
-      dplyr::left_join(
-        ds$enrollments |>
-          dplyr::select("department_key","patient_key","enrollment_key","enrolledAt"),
-        dplyr::join_by("department_key","patient_key","ENROLMENT_DATE"=="enrolledAt"))
-
-  ex |>
-    dplyr::left_join(
-      ds$events |>
-        dplyr::select("event_key","enrollment_key","event_type_key","occurredAt"),
-      dplyr::join_by("enrollment_key","event_type_key","EVENT_DATE"=="occurredAt")) |>
-    dplyr::select("rule_id"="RULE_ID",tidyselect::any_of("department_key"),"patient_key","enrollment_key","event_key")
 }
 
 add_key_column <- function(table, key_name = "key")

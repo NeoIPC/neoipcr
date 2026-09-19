@@ -1,351 +1,123 @@
-# Find admission events where the event date differs from the enrolment date.
+# Find enrolments whose admission event is dated differently from the
+# enrolment itself.
 validation_rule_3 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(3L),
-    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
-      dplyr::select(
-        tidyselect::any_of(c("hospital_key","department_key","patient_key")),
-        "enrollment_key","enrolledAt") |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "adm") |>
-          dplyr::select("enrollment_key","occurredAt"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::filter(.data$enrolledAt != .data$occurredAt) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key")),"enrollment_key","enrolledAt","occurredAt")) |>
-    dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt"))) |>
-    dplyr::summarise(
-      context = list(
-        list(
-          enrolledAt = .data$enrolledAt,
-          occurredAt = .data$occurredAt)))
-
-  if(!is.null(exceptions))
-    r <- r |>
+  x$enrollments |>
+    dplyr::select("patient_key", "enrollment_key", "enrolledAt") |>
+    dplyr::inner_join(
+      x$events |>
+        dplyr::filter(.data$event_type_key == "adm") |>
+        dplyr::select("enrollment_key", "event_key", "occurredAt"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::filter(.data$enrolledAt != .data$occurredAt) |>
     dplyr::anti_join(
-      exceptions,
-      dplyr::join_by("rule_id","enrollment_key"))
-
-  return(r)
+      .rule_exceptions(exceptions, 3L),
+      dplyr::join_by("enrollment_key")) |>
+    tidyr::nest(context = c("enrolledAt", "occurredAt")) |>
+    dplyr::mutate(
+      rule_id        = 3L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = .data$event_key,
+      context        = .data$context,
+      .keep = "none")
 }
 
-# Find enrolments where the admission date and the surveillance end date are the
-# same.
+# Find enrolments whose surveillance-end event is dated before the admission
+# event.
 validation_rule_4 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(4L),
-    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
-      dplyr::select(
-        tidyselect::any_of(c("hospital_key","department_key","patient_key")),
-        "enrollment_key") |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "adm") |>
-          dplyr::select("enrollment_key","admOccurredAt"="occurredAt"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "end") |>
-          dplyr::select("enrollment_key","endOccurredAt"="occurredAt"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::filter(.data$endOccurredAt < .data$admOccurredAt) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key")),"enrollment_key","admOccurredAt","endOccurredAt")) |>
-    dplyr::group_by(dplyr::across(!c("admOccurredAt","endOccurredAt"))) |>
-    dplyr::summarise(
-      context = list(
-        list(
-          admOccurredAt = .data$admOccurredAt,
-          endOccurredAt = .data$endOccurredAt)))
-
-  if(!is.null(exceptions))
-    r <- r |>
+  x$enrollments |>
+    dplyr::select("patient_key", "enrollment_key") |>
+    dplyr::inner_join(
+      x$events |>
+        dplyr::filter(.data$event_type_key == "adm") |>
+        dplyr::select("enrollment_key", "admOccurredAt" = "occurredAt"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::inner_join(
+      x$events |>
+        dplyr::filter(.data$event_type_key == "end") |>
+        dplyr::select("enrollment_key", "event_key", "endOccurredAt" = "occurredAt"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::filter(.data$endOccurredAt < .data$admOccurredAt) |>
     dplyr::anti_join(
-      exceptions,
-      dplyr::join_by("rule_id","enrollment_key"))
-
-  return(r)
+      .rule_exceptions(exceptions, 4L),
+      dplyr::join_by("enrollment_key")) |>
+    tidyr::nest(context = c("admOccurredAt", "endOccurredAt")) |>
+    dplyr::mutate(
+      rule_id        = 4L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = .data$event_key,
+      context        = .data$context,
+      .keep = "none")
 }
 
-# Find sepsis events whose event date is not between the enrollment date and the
-# event date of the surveillance end event.
+# Rules 12–15 share one shape: an infection or surgery event dated outside
+# the window of its enrolment, which runs from the later of the enrolment
+# date and the admission event to the surveillance-end event. The event's own
+# date travels under a type-specific name so the consumer's sentence can name
+# the form. A surgical site infection is not held to that window: it is
+# attributed to its procedure's follow-up period (rule 19), which may run past
+# the discharge and into a readmission.
+.rule_event_outside_enrolment <- function(x, exceptions, rule_id, event_type)
+{
+  check_neoipcr_ds(x)
+  id <- rule_id
+  date_col <- paste0(event_type, "OccurredAt")
+
+  x$enrollments |>
+    dplyr::select("patient_key", "enrollment_key", "enrolledAt") |>
+    dplyr::inner_join(
+      x$events |>
+        dplyr::filter(.data$event_type_key == "adm") |>
+        dplyr::select("enrollment_key", "admOccurredAt" = "occurredAt"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::inner_join(
+      x$events |>
+        dplyr::filter(.data$event_type_key == "end") |>
+        dplyr::select("enrollment_key", "endOccurredAt" = "occurredAt"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::inner_join(
+      x$events |>
+        dplyr::filter(.data$event_type_key == event_type) |>
+        dplyr::select("enrollment_key", "event_key", "eventOccurredAt" = "occurredAt"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::filter(.data$eventOccurredAt < .data$enrolledAt |
+                  .data$eventOccurredAt < .data$admOccurredAt |
+                  .data$eventOccurredAt > .data$endOccurredAt) |>
+    dplyr::anti_join(
+      .rule_exceptions(exceptions, id),
+      dplyr::join_by("event_key")) |>
+    dplyr::rename_with(\(nm) date_col, .cols = "eventOccurredAt") |>
+    tidyr::nest(context = c(
+      "enrolledAt", "admOccurredAt", "endOccurredAt",
+      tidyselect::all_of(date_col))) |>
+    dplyr::mutate(
+      rule_id        = id,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = .data$event_key,
+      context        = .data$context,
+      .keep = "none")
+}
+
+# Find sepsis events dated outside the enrolment window.
 validation_rule_12 <- function(x, exceptions)
-{
-  check_neoipcr_ds(x)
+  .rule_event_outside_enrolment(x, exceptions, 12L, "bsi")
 
-  r <- dplyr::bind_cols(
-    rule_id = c(12L),
-    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
-      dplyr::select(
-        tidyselect::any_of(c("hospital_key","department_key","patient_key")),
-        "enrollment_key","enrolledAt") |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "adm") |>
-          dplyr::select("enrollment_key","occurredAt"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "end") |>
-          dplyr::select("enrollment_key","occurredAt"),
-        dplyr::join_by("enrollment_key"),
-        suffix = c(".adm",".end")) |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "bsi") |>
-          dplyr::select("event_key","enrollment_key","occurredAt.bsi"="occurredAt"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::filter(.data$occurredAt.bsi < .data$enrolledAt |
-                      .data$occurredAt.bsi < .data$occurredAt.adm |
-                      .data$occurredAt.bsi > .data$occurredAt.end) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.bsi")) |>
-    dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.bsi"))) |>
-    dplyr::summarise(
-      context = list(
-        list(
-          enrolledAt = .data$enrolledAt,
-          occurredAt.adm = .data$occurredAt.adm,
-          occurredAt.end = .data$occurredAt.end,
-          occurredAt.bsi = .data$occurredAt.bsi)))
-
-  if(!is.null(exceptions))
-    r <- r |>
-    dplyr::anti_join(
-      exceptions,
-      dplyr::join_by("rule_id","event_key"))
-
-  return(r)
-}
-
-# Find NEC events whose event date is not between the enrollment date and the
-# event date of the surveillance end event.
+# Find necrotizing enterocolitis events dated outside the enrolment window.
 validation_rule_13 <- function(x, exceptions)
-{
-  check_neoipcr_ds(x)
+  .rule_event_outside_enrolment(x, exceptions, 13L, "nec")
 
-  r <- dplyr::bind_cols(
-    rule_id = c(13L),
-    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
-      dplyr::select(
-        tidyselect::any_of(c("hospital_key","department_key","patient_key")),
-        "enrollment_key","enrolledAt") |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "adm") |>
-          dplyr::select("enrollment_key","occurredAt"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "end") |>
-          dplyr::select("enrollment_key","occurredAt"),
-        dplyr::join_by("enrollment_key"),
-        suffix = c(".adm",".end")) |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "nec") |>
-          dplyr::select("event_key","enrollment_key","occurredAt.nec"="occurredAt"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::filter(.data$occurredAt.nec < .data$enrolledAt |
-                      .data$occurredAt.nec < .data$occurredAt.adm |
-                      .data$occurredAt.nec > .data$occurredAt.end) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.nec")) |>
-    dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.nec"))) |>
-    dplyr::summarise(
-      context = list(
-        list(
-          enrolledAt = .data$enrolledAt,
-          occurredAt.adm = .data$occurredAt.adm,
-          occurredAt.end = .data$occurredAt.end,
-          occurredAt.nec = .data$occurredAt.nec)))
-
-  if(!is.null(exceptions))
-    r <- r |>
-    dplyr::anti_join(
-      exceptions,
-      dplyr::join_by("rule_id","event_key"))
-
-  return(r)
-}
-
-# Find pneumonia events whose event date is not between the enrollment date and
-# the event date of the surveillance end event.
+# Find pneumonia events dated outside the enrolment window.
 validation_rule_14 <- function(x, exceptions)
-{
-  check_neoipcr_ds(x)
+  .rule_event_outside_enrolment(x, exceptions, 14L, "hap")
 
-  r <- dplyr::bind_cols(
-    rule_id = c(14L),
-    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
-      dplyr::select(
-        tidyselect::any_of(c("hospital_key","department_key","patient_key")),
-        "enrollment_key","enrolledAt") |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "adm") |>
-          dplyr::select("enrollment_key","occurredAt"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "end") |>
-          dplyr::select("enrollment_key","occurredAt"),
-        dplyr::join_by("enrollment_key"),
-        suffix = c(".adm",".end")) |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "hap") |>
-          dplyr::select("event_key","enrollment_key","occurredAt.hap"="occurredAt"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::filter(.data$occurredAt.hap < .data$enrolledAt |
-                      .data$occurredAt.hap < .data$occurredAt.adm |
-                      .data$occurredAt.hap > .data$occurredAt.end) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.hap")) |>
-    dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.hap"))) |>
-    dplyr::summarise(
-      context = list(
-        list(
-          enrolledAt = .data$enrolledAt,
-          occurredAt.adm = .data$occurredAt.adm,
-          occurredAt.end = .data$occurredAt.end,
-          occurredAt.hap = .data$occurredAt.hap)))
-
-  if(!is.null(exceptions))
-    r <- r |>
-    dplyr::anti_join(
-      exceptions,
-      dplyr::join_by("rule_id","event_key"))
-
-  return(r)
-}
-
-# Find surgical procedure events whose event date is not between the enrollment
-# date and the event date of the surveillance end event.
+# Find surgical procedure events dated outside the enrolment window.
 validation_rule_15 <- function(x, exceptions)
-{
-  check_neoipcr_ds(x)
-
-  r <- dplyr::bind_cols(
-    rule_id = c(15L),
-    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
-      dplyr::select(
-        tidyselect::any_of(c("hospital_key","department_key","patient_key")),
-        "enrollment_key","enrolledAt") |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "adm") |>
-          dplyr::select("enrollment_key","occurredAt"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "end") |>
-          dplyr::select("enrollment_key","occurredAt"),
-        dplyr::join_by("enrollment_key"),
-        suffix = c(".adm",".end")) |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "pro") |>
-          dplyr::select("event_key","enrollment_key","occurredAt.pro"="occurredAt"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::filter(.data$occurredAt.pro < .data$enrolledAt |
-                      .data$occurredAt.pro < .data$occurredAt.adm |
-                      .data$occurredAt.pro > .data$occurredAt.end) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.pro")) |>
-    dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.pro"))) |>
-    dplyr::summarise(
-      context = list(
-        list(
-          enrolledAt = .data$enrolledAt,
-          occurredAt.adm = .data$occurredAt.adm,
-          occurredAt.end = .data$occurredAt.end,
-          occurredAt.pro = .data$occurredAt.pro)))
-
-  if(!is.null(exceptions))
-    r <- r |>
-    dplyr::anti_join(
-      exceptions,
-      dplyr::join_by("rule_id","event_key"))
-
-  return(r)
-}
-
-# Find SSI events whose event date is not between the enrollment date and the
-# event date of the surveillance end event.
-validation_rule_16 <- function(x, exceptions)
-{
-  check_neoipcr_ds(x)
-
-  r <- dplyr::bind_cols(
-    rule_id = c(16L),
-    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
-      dplyr::select(
-        tidyselect::any_of(c("hospital_key","department_key","patient_key")),
-        "enrollment_key","enrolledAt") |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "adm") |>
-          dplyr::select("enrollment_key","occurredAt"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "end") |>
-          dplyr::select("enrollment_key","occurredAt"),
-        dplyr::join_by("enrollment_key"),
-        suffix = c(".adm",".end")) |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "ssi") |>
-          dplyr::select("event_key","enrollment_key","occurredAt.ssi"="occurredAt"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::filter(.data$occurredAt.ssi < .data$enrolledAt |
-                      .data$occurredAt.ssi < .data$occurredAt.adm |
-                      .data$occurredAt.ssi > .data$occurredAt.end) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key")),"enrollment_key","event_key","enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.ssi")) |>
-    dplyr::group_by(dplyr::across(!c("enrolledAt","occurredAt.adm","occurredAt.end","occurredAt.ssi"))) |>
-    dplyr::summarise(
-      context = list(
-        list(
-          enrolledAt = .data$enrolledAt,
-          occurredAt.adm = .data$occurredAt.adm,
-          occurredAt.end = .data$occurredAt.end,
-          occurredAt.ssi = .data$occurredAt.ssi)))
-
-  if(!is.null(exceptions))
-    r <- r |>
-    dplyr::anti_join(
-      exceptions,
-      dplyr::join_by("rule_id","event_key"))
-
-  return(r)
-}
+  .rule_event_outside_enrolment(x, exceptions, 15L, "pro")

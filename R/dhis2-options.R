@@ -64,13 +64,28 @@
 #'  into the dataset.
 #' @param include_ineligible_patients Include data from patients that don't meet
 #'  the NeoIPC core case eligibility criteria into the dataset.
-#' @param include_unenrolled_patients Include data from unenrolled NeoIPC
-#'  patient records into the dataset.
+#' @param include_unenrolled_patients Include the NeoIPC patient records that
+#'  are not enrolled in the surveillance program as well: they are requested
+#'  by tracked-entity type rather than by program, and the removal of orphan
+#'  records that follows an import leaves in place the patients that arrive
+#'  without an enrollment (one that arrives with enrollments and loses them
+#'  to a filter is pruned like any other). They reach the returned dataset
+#'  only where the validation pass leaves them: rule 1 flags a patient with
+#'  no enrollment, so under `include_invalid_patients = FALSE` the pass
+#'  removes it first, and it stays with `include_invalid_patients = TRUE`
+#'  or an exception naming it under rule 1 — the pairing the Validation
+#'  Report uses. Without this option an import with enrollments removes
+#'  every patient with no enrollment, the validation pass having flagged it
+#'  first where it runs.
 #' @param include_test_data Include data from test departments into the dataset.
 #' @param include_invalid_patients Include data from patient records that
 #'  could have validation errors: `FALSE` (the default) removes them, `TRUE`
 #'  skips the validation pass altogether, and a data frame of exception
-#'  records keeps the named records despite the rule that flags them. An
+#'  records — as [read_validation_exceptions()] returns it — keeps the named
+#'  records despite the rule that flags them. `TRUE` also keeps the
+#'  enrolments without an admission form, which the removal of orphan
+#'  records after the import otherwise drops, so a [validate()] on the
+#'  returned dataset can report them under rule 26. An
 #'  exception record carries `RULE_ID` (numeric), `NEOIPC_PATIENT_ID`
 #'  (character), `ENROLMENT_DATE` and `EVENT_DATE` (`Date`), `EVENT_TYPE`
 #'  (one of `adm`, `pro`, `bsi`, `nec`, `ssi`, `hap`, `end`, in any case),
@@ -79,7 +94,18 @@
 #'  `EVENT_TYPE` and `EVENT_DATE`. The records are matched by patient id
 #'  within their department, so a list needs `include_patient = "full"`
 #'  (which then keeps `patient_id` whatever `patient_columns` says) and
-#'  `include_department` not `"no"`. Validation is patient-anchored: with
+#'  `include_department` not `"no"`. The import resolves the list under
+#'  either remaining department tier, since it holds the department codes
+#'  while it runs; the returned dataset carries them under the full tier
+#'  only, so resolving the same list on it with
+#'  [resolve_validation_exceptions()] needs `include_department = "full"`
+#'  when more than one department was imported. An exception keeps a record
+#'  from the validation pass, not from the shape of the dataset: a patient
+#'  without any enrolment (rule 1) stays in the returned dataset only when
+#'  `include_unenrolled_patients` asks for such patients; otherwise the
+#'  removal of every patient with no enrollment that follows an import with
+#'  enrollments takes it, and its exception only stops the pass from
+#'  reporting it. Validation is patient-anchored: with
 #'  `include_patient = "no"` there is nothing to validate, the pass is
 #'  skipped and a list is not read. When it does run — patients present and
 #'  this option not `TRUE` — it needs `include_enrollment` and

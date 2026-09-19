@@ -4,14 +4,14 @@
 # Valid values for the `exclude` parameter of read_test_metadata()
 .valid_exclusions <- c(
   "system", "program", "program_id", "program_stages",
-  "stage_data_elements", "tracked_entity_attributes",
+  "stage_data_elements", "tracked_entity_attributes", "tracked_entity_type",
   "countries", "test_units", "antimicrobials"
 )
 
 # Valid values for the `include` parameter of read_test_metadata(): fixtures
 # merged only on request, so the baseline metadata graph stays what the
 # existing tests assume.
-.valid_inclusions <- c("org_unit_attributes")
+.valid_inclusions <- c("org_unit_attributes", "duplicate_tracked_entity_type")
 
 #' Read static JSON fixtures and return processed metadata.
 #'
@@ -68,6 +68,13 @@ read_test_metadata <- function(
 
     if ("tracked_entity_attributes" %in% exclude)
       prog$programs[[1L]]$programTrackedEntityAttributes <- NULL
+
+    if ("tracked_entity_type" %in% exclude)
+      prog$trackedEntityTypes <- NULL
+
+    if ("duplicate_tracked_entity_type" %in% include)
+      prog$trackedEntityTypes <- c(
+        prog$trackedEntityTypes, list(list(id = "TET_OTHER")))
 
     metadata <- utils::modifyList(metadata, prog)
   }
@@ -1206,6 +1213,7 @@ make_test_ds <- function(
     ssiData                 = make_test_ssi_data(integer(0)),
     substanceDays           = make_test_substance_days(integer(0)),
     infectiousAgentFindings = make_test_iaf(integer(0)),
+    unknownPathogenNames    = make_test_unknown_pathogen_names(integer(0)),
     metadata                = structure(metadata, class = c("neoipcr_metadata", class(metadata))),
     .cache                  = new.env(parent = emptyenv())
   )
@@ -1216,6 +1224,18 @@ make_test_ds <- function(
 
   structure(base, class = c("neoipcr_ds", "list"))
 }
+
+# Key-form exception records for one rule, as `validate()` hands them to the
+# rules: every key column present, `NA` where the record has none.
+make_test_exceptions <- function(rule_id,
+                                 patient_key    = NA_integer_,
+                                 enrollment_key = NA_integer_,
+                                 event_key      = NA_integer_)
+  tibble::tibble(
+    rule_id        = as.integer(rule_id),
+    patient_key    = as.integer(patient_key),
+    enrollment_key = as.integer(enrollment_key),
+    event_key      = as.integer(event_key))
 
 
 # Empty calc pipeline fixture: neoipcr_ds with 0 patients/enrollments/events

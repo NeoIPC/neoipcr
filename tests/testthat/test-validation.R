@@ -1,41 +1,90 @@
 # Tests for R/validation.R — validate() orchestrator and validation_rules registry.
 
-test_that("validation_rules registry has 42 entries", {
-  expect_equal(length(neoipcr:::validation_rules), 42L)
-})
-
-test_that("validation_rules registry entries have correct structure", {
+test_that("validation_rules registry has 41 entries with an id, a level and a function each", {
+  expect_equal(length(neoipcr:::validation_rules), 41L)
   for (entry in neoipcr:::validation_rules) {
+    expect_true(all(c("id", "level", "fun") %in% names(entry)))
     expect_true(is.integer(entry$id))
+    expect_true(entry$level %in% c("patient", "enrollment", "event"))
+    # An event-level rule names the event types it concerns; no other does.
+    expect_equal("event_types" %in% names(entry), entry$level == "event")
+    if (entry$level == "event")
+      expect_true(all(entry$event_types %in% neoipcr:::.exception_event_types))
     expect_true(is.function(entry$fun))
-    expect_true(is.function(entry$formatter))
   }
+  levels <- neoipcr:::.rule_levels()
+  expect_equal(unname(levels["1"]), "patient")
+  expect_equal(unname(levels["3"]), "enrollment")
+  expect_equal(unname(levels["12"]), "event")
+  expect_equal(neoipcr:::.rule_event_types(20L), c("bsi", "nec", "hap", "ssi"))
 })
 
-test_that("validate returns zero-row tibble on clean data", {
+test_that("validation_rule_ids is exported and lists the registry in order", {
+  namespace <- readLines(system.file("NAMESPACE", package = "neoipcr"))
+  expect_true("export(validation_rule_ids)" %in% namespace)
+  # Rule 16 is gone, so the ids keep their numbering with a gap at 16.
+  expect_identical(neoipcr::validation_rule_ids(), c(1:15, 17:42))
+})
+
+# The populated fixture with its surveillance-end forms made consistent: the
+# patient days as the enrolment dates and end events imply them, and no
+# antibiotic days for the substance days to fall short of.
+clean_ds <- function() {
   ds <- make_populated_test_ds()
-  result <- neoipcr:::validate(ds)
+  ds$surveillanceEndData$patient_days <- 15L
+  ds$surveillanceEndData$ab_days      <- 0L
+  ds
+}
+
+# A dataset that triggers two rules: its admission event is dated a day after
+# the enrolment (rule 3, at the enrolment level), and its completed enrolment
+# has no surveillance-end event (rule 25).
+rule_3_flagged_ds <- function()
+  make_test_ds(
+    patients    = make_test_patients(1),
+    enrollments = make_test_enrollments(1,
+      patient_keys = 1L,
+      enrolledAt = as.Date("2024-01-01")),
+    events = make_test_events(1,
+      enrollment_keys = 1L,
+      patient_keys    = 1L,
+      event_type_keys = "adm",
+      occurredAt = as.Date("2024-01-02")))
+
+test_that("validate returns a zero-row tibble on consistent data", {
+  result <- neoipcr::validate(clean_ds())
   expect_s3_class(result, "tbl_df")
-  # Clean data should have zero or few violations (rule 1 won't fire
-  # because all patients have enrollments in make_populated_test_ds)
-  expect_true("rule_id" %in% names(result))
+  expect_equal(nrow(result), 0L)
+  expect_named(result, c("rule_id", "patient_key", "enrollment_key", "event_key", "context"))
 })
 
-test_that("validate runs only specified rules", {
-  ds <- make_populated_test_ds()
-  result <- neoipcr:::validate(ds, rules = c(1L))
-  expect_s3_class(result, "tbl_df")
-  # Result should only contain rule_id == 1 (or be empty)
-  if (nrow(result) > 0L)
-    expect_true(all(result$rule_id == 1L))
+test_that("validate runs only the rules named", {
+  ds <- rule_3_flagged_ds()
+  expect_setequal(neoipcr::validate(ds)$rule_id, c(3L, 25L))
+  result <- neoipcr::validate(ds, rules = 3L)
+  expect_equal(result$rule_id, 3L)
 })
 
-test_that("validate result has expected columns", {
+test_that("validate refuses a rule id it does not know", {
   ds <- make_populated_test_ds()
-  result <- neoipcr:::validate(ds)
-  possible_cols <- c("rule_id", "patient_key", "enrollment_key",
-                     "event_key", "context")
-  expect_true(all(names(result) %in% possible_cols))
+  expect_error(
+    neoipcr::validate(ds, rules = 99L),
+    class = "neoipcr_unknown_validation_rule")
+  expect_error(
+    neoipcr::validate(ds, rules = c(1L, 43L)),
+    regexp = "43")
+  expect_error(
+    neoipcr::validate(ds, rules = 1.5),
+    class = "neoipcr_unknown_validation_rule")
+  expect_error(
+    neoipcr::validate(ds, rules = "1"),
+    class = "neoipcr_unknown_validation_rule")
+  # An infinite id is refused outright, not cast to `NA` with a warning
+  # first: the first condition signalled is the classed error.
+  cnd <- rlang::catch_cnd(neoipcr::validate(ds, rules = Inf))
+  expect_s3_class(cnd, "neoipcr_unknown_validation_rule")
+  # A double that is a whole number names a rule.
+  expect_s3_class(neoipcr::validate(ds, rules = 1), "tbl_df")
 })
 
 test_that("validate is exported and returns its result visibly", {
@@ -72,21 +121,152 @@ test_that("validate always carries its five columns, whatever ran", {
   expect_named(r, shape)
   expect_type(r$context, "list")
   expect_named(neoipcr::validate(ds), shape)
-  # Rule 2 skips itself on this dataset (no status columns) and returns
-  # nothing; the shape still holds, with zero rows.
+  # Every enrolment in this dataset is completed, so rule 2 finds no active
+  # one; the shape still holds, with zero rows.
   r <- neoipcr::validate(ds, rules = 2L)
   expect_named(r, shape)
   expect_equal(nrow(r), 0L)
   expect_type(r$rule_id, "integer")
-  # Rule 3 returns a grouped tibble; the grouping and its variables do not
-  # leak, the keys are integer, and the class is a plain tibble.
+  # Rule 3 nests its context; the keys are integer, and the class is a plain
+  # tibble.
   r <- neoipcr::validate(ds, rules = 3L)
   expect_named(r, shape)
   expect_false(dplyr::is_grouped_df(r))
   expect_type(r$enrollment_key, "integer")
   expect_identical(class(r), c("tbl_df", "tbl", "data.frame"))
-  # A rule id nobody has runs nothing.
-  r <- neoipcr::validate(ds, rules = 99L)
+  # A rule that skips itself for want of a column contributes nothing; the
+  # shape still holds, and the result names the rule it could not run.
+  skipping <- ds
+  skipping$surveillanceEndData$patient_days <- NULL
+  r <- neoipcr::validate(skipping, rules = 18L)
   expect_named(r, shape)
   expect_equal(nrow(r), 0L)
+  expect_identical(attr(r, "rules_skipped"), 18L)
+  r <- neoipcr::validate(skipping, rules = c(3L, 18L))
+  expect_identical(attr(r, "rules_skipped"), 18L)
+  # A run in which every selected rule ran says so with an empty vector.
+  expect_identical(attr(neoipcr::validate(ds, rules = 18L), "rules_skipped"),
+                   integer(0))
+})
+
+test_that("validate carries a rule's values as a one-row tibble in context", {
+  r <- neoipcr::validate(rule_3_flagged_ds(), rules = 3L)
+  expect_equal(nrow(r), 1L)
+  expect_s3_class(r$context[[1]], "tbl_df")
+  expect_equal(nrow(r$context[[1]]), 1L)
+  expect_named(r$context[[1]], c("enrolledAt", "occurredAt"))
+})
+
+test_that("validate exempts records named in key form", {
+  ds <- rule_3_flagged_ds()
+  expect_equal(nrow(neoipcr::validate(ds, rules = 3L)), 1L)
+  # The key an exception is matched on is the rule's level; a record on
+  # another level, or for another rule, exempts nothing.
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = 3L, enrollment_key = 1L))), 0L)
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = 4L, enrollment_key = 1L))), 1L)
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = 3L, event_key = 1L))), 1L)
+})
+
+test_that("validate resolves an exception list written in the user's form", {
+  ds <- rule_3_flagged_ds()
+  ds$metadata$departments <- make_test_metadata_departments(n = 1)
+  written <- tibble::tibble(
+    RULE_ID           = 3L,
+    NEOIPC_PATIENT_ID = "PAT_1",
+    ENROLMENT_DATE    = as.Date("2024-01-01"),
+    EVENT_TYPE        = NA_character_,
+    EVENT_DATE        = as.Date(NA))
+  expect_equal(nrow(neoipcr::validate(ds, rules = 3L, exceptions = written)), 0L)
+  # A record naming a patient the dataset does not hold exempts nothing.
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L,
+    exceptions = written |> dplyr::mutate(NEOIPC_PATIENT_ID = "PAT_9"))), 1L)
+  # Rule 3 is recorded on the enrolment, so a record for it that names an
+  # event is written at the wrong level and refused rather than resolved.
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = written |>
+        dplyr::mutate(EVENT_TYPE = "adm", EVENT_DATE = as.Date("2024-01-02"))),
+    regexp = "level",
+    class = "neoipcr_invalid_exception_list")
+})
+
+test_that("validate refuses exceptions that are neither form", {
+  ds <- rule_3_flagged_ds()
+  expect_error(
+    neoipcr::validate(ds, exceptions = tibble::tibble(patient_key = 1L)),
+    class = "neoipcr_invalid_exception_list")
+  expect_error(
+    neoipcr::validate(ds, exceptions = "PAT_1"),
+    class = "neoipcr_invalid_exception_list")
+  # A key-form record without any record key could name nothing and is
+  # refused rather than carried along; an empty key-form table is fine.
+  expect_error(
+    neoipcr::validate(ds, rules = 3L, exceptions = tibble::tibble(rule_id = 3L)),
+    regexp = "patient_key",
+    class = "neoipcr_invalid_exception_list")
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = integer()))), 1L)
+})
+
+test_that("validate checks a key-form list as it checks the written form", {
+  ds <- rule_3_flagged_ds()
+  # A rule id no rule carries, or a key that is not an integer, is refused
+  # rather than carried along as an exception that exempts nothing.
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = 99L, enrollment_key = 1L)),
+    regexp = "99",
+    class = "neoipcr_invalid_exception_list")
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = 3L, enrollment_key = "1")),
+    regexp = "enrollment_key",
+    class = "neoipcr_invalid_exception_list")
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = NA_integer_, enrollment_key = 1L)),
+    class = "neoipcr_invalid_exception_list")
+  # A fraction would be truncated onto another record's key, an infinity
+  # onto `NA`; both are refused rather than cast.
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = 3L, enrollment_key = 1.5)),
+    regexp = "enrollment_key",
+    class = "neoipcr_invalid_exception_list")
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = 3L, enrollment_key = Inf)),
+    class = "neoipcr_invalid_exception_list")
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = Inf, enrollment_key = 1L)),
+    class = "neoipcr_invalid_exception_list")
+  # A whole number beyond R's integer range, or `NaN`, would become `NA` in
+  # the cast.
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = 3L, enrollment_key = 2147483648)),
+    regexp = "enrollment_key",
+    class = "neoipcr_invalid_exception_list")
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = 3L, enrollment_key = NaN)),
+    regexp = "enrollment_key",
+    class = "neoipcr_invalid_exception_list")
+  # An `NA` of a type that cannot be bound onto the integer keys is refused
+  # under the same class; a bare `NA` is accepted.
+  expect_error(
+    neoipcr::validate(ds, rules = 3L,
+      exceptions = tibble::tibble(rule_id = 3L, enrollment_key = 1L, event_key = NA_character_)),
+    regexp = "event_key",
+    class = "neoipcr_invalid_exception_list")
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = 3L, enrollment_key = 1L, event_key = NA))), 0L)
+  # Whole-number doubles are integers in disguise and are accepted.
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = 3, enrollment_key = 1))), 0L)
 })

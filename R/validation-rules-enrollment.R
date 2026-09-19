@@ -1,202 +1,145 @@
-# Find patient records without enrollment.
+# Find patient records without an enrolment.
 validation_rule_1 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(1L),
-    .with_hierarchy_context(x$patients, x$metadata$departments) |>
-      dplyr::select(
-        tidyselect::any_of(c("hospital_key", "department_key")),
-        "patient_key") |>
-      dplyr::anti_join(
-        x$enrollments,
-        dplyr::join_by("patient_key")) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key"))))
-
-  if(!is.null(exceptions))
-    r <- r |>
+  x$patients |>
+    dplyr::select("patient_key") |>
     dplyr::anti_join(
-      exceptions,
-      dplyr::join_by("rule_id","patient_key"))
-
-  return(r)
+      x$enrollments,
+      dplyr::join_by("patient_key")) |>
+    dplyr::anti_join(
+      .rule_exceptions(exceptions, 1L),
+      dplyr::join_by("patient_key")) |>
+    dplyr::mutate(
+      rule_id        = 1L,
+      patient_key    = .data$patient_key,
+      enrollment_key = NA_integer_,
+      event_key      = NA_integer_,
+      context        = list(NULL),
+      .keep = "none")
 }
 
-# Find enrollments where the surveillance end event is completed but the
-# admission event is still open.
+# Find active enrolments whose surveillance-end event is completed.
 validation_rule_2 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  if(!"status" %in% names(x$enrollments) || !"status" %in% names(x$events))
-  {
-    logger::log_warn(
-      "Validation rule 2 skipped: dataset lacks the enrolment status and the event status.",
-      namespace = "neoipcr")
-    return()
-  }
-
-  r <- dplyr::bind_cols(
-    rule_id = c(2L),
-    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
-      dplyr::select(
-        tidyselect::any_of(c("hospital_key", "department_key")),
-        "patient_key",
-        "enrollment_key",
-        "enrollment_status" = "status") |>
-      dplyr::inner_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "end") |>
-          dplyr::select(
-            "enrollment_key",
-            "event_status" = "status"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::filter(.data$enrollment_status == "ACTIVE" & .data$event_status == "COMPLETED") |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key",
-            "enrollment_key"))))
-
-  if(!is.null(exceptions))
-    r <- r |>
+  .with_status(x$enrollments, .enrollment_status_levels) |>
+    dplyr::filter(.data$status == "ACTIVE") |>
+    dplyr::select("patient_key", "enrollment_key") |>
+    dplyr::inner_join(
+      .with_status(x$events, .event_status_levels) |>
+        dplyr::filter(.data$event_type_key == "end" &
+                      .data$status == "COMPLETED") |>
+        dplyr::select("enrollment_key", "event_key"),
+      dplyr::join_by("enrollment_key")) |>
     dplyr::anti_join(
-      exceptions,
-      dplyr::join_by("rule_id","enrollment_key"))
-
-  return(r)
+      .rule_exceptions(exceptions, 2L),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::mutate(
+      rule_id        = 2L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = .data$event_key,
+      context        = list(NULL),
+      .keep = "none")
 }
 
-# Find overlapping enrolments (an enrolment's enrolment date or surveillance end
-# date is in the interval between the enrolment data and the surveillance end
-# date of another enrolment).
+# Find enrolments of one patient whose surveillance periods overlap. A
+# period runs from the enrolment date to the surveillance-end event, both
+# days included. An enrolment without a surveillance-end event, or whose
+# end event carries no date, is known to be under surveillance on its
+# enrolment date only, so that day is its period: it is found when the day
+# falls inside another enrolment's period, and two such enrolments are found
+# when they share the day.
 validation_rule_17 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  intervals <- .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
-    dplyr::select(
-      tidyselect::any_of(
-        c("hospital_key","department_key")),
-      "patient_key","enrollment_key","enrolledAt") |>
-    dplyr::inner_join(
+  intervals <- x$enrollments |>
+    dplyr::select("patient_key", "enrollment_key", "enrolledAt") |>
+    dplyr::left_join(
       x$events |>
         dplyr::filter(.data$event_type_key == "end") |>
-        dplyr::select("enrollment_key","event_key","occurredAt"),
+        dplyr::select("enrollment_key", "endOccurredAt" = "occurredAt"),
       dplyr::join_by("enrollment_key")) |>
     dplyr::mutate(
       surveillanceInterval = lubridate::interval(
         .data$enrolledAt,
-        .data$occurredAt),
-      .keep = "unused")
+        dplyr::coalesce(.data$endOccurredAt, .data$enrolledAt)))
 
-  r <- dplyr::bind_cols(
-    rule_id = c(17L),
-    intervals |>
-      dplyr::inner_join(
-        intervals,
-        dplyr::join_by("patient_key"),
-        relationship = "many-to-many") |>
-      dplyr::filter(
-        .data$enrollment_key.x != .data$enrollment_key.y &
-          (lubridate::int_overlaps(
-            .data$surveillanceInterval.x,
-            .data$surveillanceInterval.y) |
-             lubridate::int_start(
-               .data$surveillanceInterval.x) ==
-             lubridate::int_start(
-               .data$surveillanceInterval.y))) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key.x",
-            "department_key.x"
-            )),"patient_key","enrollment_key.x","enrollment_key.y","surveillanceInterval.x","surveillanceInterval.y")) |>
-    dplyr::rename_with(
-      ~ stringr::str_extract(.x,"^[^\\.]*"),
-      !tidyselect::any_of(
-        c("surveillanceInterval.x","surveillanceInterval.y","enrollment_key.y"))) |>
-    dplyr::group_by(dplyr::across(!c("surveillanceInterval.x","surveillanceInterval.y","enrollment_key.y"))) |>
-    dplyr::summarise(
-      context = list(
-        list(
-          surveillanceInterval.x = .data$surveillanceInterval.x,
-          surveillanceInterval.y = .data$surveillanceInterval.y,
-          enrollment_key.y = .data$enrollment_key.y)),
-      .groups = "drop")
-
-  if(!is.null(exceptions))
-    r <- r |>
+  intervals |>
+    dplyr::inner_join(
+      intervals,
+      dplyr::join_by("patient_key"),
+      relationship = "many-to-many",
+      suffix = c("_this", "_other")) |>
+    dplyr::filter(
+      .data$enrollment_key_this != .data$enrollment_key_other &
+        lubridate::int_overlaps(
+          .data$surveillanceInterval_this,
+          .data$surveillanceInterval_other)) |>
+    dplyr::select(!c("surveillanceInterval_this", "surveillanceInterval_other")) |>
     dplyr::anti_join(
-      exceptions,
-      dplyr::join_by("rule_id","enrollment_key"))
-
-  return(r)
+      .rule_exceptions(exceptions, 17L),
+      dplyr::join_by("enrollment_key_this" == "enrollment_key")) |>
+    tidyr::nest(context = c(
+      "enrolledAt_this", "endOccurredAt_this",
+      "enrolledAt_other", "endOccurredAt_other")) |>
+    dplyr::mutate(
+      rule_id        = 17L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key_this,
+      event_key      = NA_integer_,
+      context        = .data$context,
+      .keep = "none")
 }
 
-# Find completed enrollments without surveillance end event.
+# Find completed enrolments without a surveillance-end event.
 validation_rule_25 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(25L),
-    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
-      dplyr::filter(
-        dplyr::if_all(
-          tidyselect::any_of("status"),
-          ~ .x == "COMPLETED")) |>
-      dplyr::anti_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "end"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key")),"enrollment_key"))
-
-  if(!is.null(exceptions))
-    r <- r |>
+  .with_status(x$enrollments, .enrollment_status_levels) |>
+    dplyr::filter(.data$status == "COMPLETED") |>
+    dplyr::select("patient_key", "enrollment_key") |>
     dplyr::anti_join(
-      exceptions,
-      dplyr::join_by("rule_id","enrollment_key"))
-
-  return(r)
+      x$events |>
+        dplyr::filter(.data$event_type_key == "end"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::anti_join(
+      .rule_exceptions(exceptions, 25L),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::mutate(
+      rule_id        = 25L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = NA_integer_,
+      context        = list(NULL),
+      .keep = "none")
 }
 
-# Find completed enrollments without admission event.
+# Find completed enrolments without an admission event.
 validation_rule_26 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
 
-  r <- dplyr::bind_cols(
-    rule_id = c(26L),
-    .with_hierarchy_context(x$enrollments, x$metadata$departments) |>
-      dplyr::filter(
-        dplyr::if_all(
-          tidyselect::any_of("status"),
-          ~ .x == "COMPLETED")) |>
-      dplyr::anti_join(
-        x$events |>
-          dplyr::filter(.data$event_type_key == "adm"),
-        dplyr::join_by("enrollment_key")) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("hospital_key",
-            "department_key",
-            "patient_key")),"enrollment_key"))
-
-  if(!is.null(exceptions))
-    r <- r |>
+  .with_status(x$enrollments, .enrollment_status_levels) |>
+    dplyr::filter(.data$status == "COMPLETED") |>
+    dplyr::select("patient_key", "enrollment_key") |>
     dplyr::anti_join(
-      exceptions,
-      dplyr::join_by("rule_id","enrollment_key"))
-
-  return(r)
+      x$events |>
+        dplyr::filter(.data$event_type_key == "adm"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::anti_join(
+      .rule_exceptions(exceptions, 26L),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::mutate(
+      rule_id        = 26L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = NA_integer_,
+      context        = list(NULL),
+      .keep = "none")
 }

@@ -16,12 +16,12 @@
 
 **Phase 1 exit-criterion checklist.** All items ticked — every decision below surfaces in §10 for PI resolution; content is ready for Phase 2 to consume once D-A…D-H are resolved.
 
-- [x] All 27 `export()` lines in [NAMESPACE](NAMESPACE) have a row in §3 with eight columns populated.
+- [x] All 32 `export()` lines in [NAMESPACE](NAMESPACE) have a row in §3 with eight columns populated.
 - [x] All 3 `S3method()` entries have a row in §3 with dispatch class recorded.
 - [x] Each of the four custom classes (`neoipcr_ds`, `neoipcr_rep_ds`, `neoipcr_ref_ds`, `neoipcr_tbl_sr_ref`) has a §4 subsection with constructor site, columns, invariants, and pointer to the relevant `R/schema-*.R`.
 - [x] The `_iaf` / `_sbd` / `_udr` subclasses each have a §4 row (§4.5) under the post-task-1.2 names with an explicit "depends on task 1.2" callout. Three additional subclasses surfaced and are flagged in §3.2 for task 1.2 expansion.
 - [x] Every helper from the Phase 2 sketch of the task file appears in §5 (46 rows) with target `R/*.R` file + signature. Rejected promotions listed in §5.2 with rationale.
-- [x] Every `gettext` / `gettextf` call site in `R/` appears in §6's classified call-site table. F-class + B-class (13 sites) individually enumerated in §6.1.1; M-class (60 sites) aggregated by file in §6.1.2 with explicit counts and a single shared migration action.
+- [x] Every `gettext` / `gettextf` call site in `R/` appears in §6's classified call-site table. F-class + B-class (13 sites) individually enumerated in §6.1.1; M-class (14 sites) aggregated by file in §6.1.2 with explicit counts and a single shared migration action.
 - [x] §6 states the architectural split (messages vs. data) as a decision, not a proposal — §6.5, governed by D-H (§10.8) for PI confirmation.
 - [x] §6 cites 5 established R-ecosystem precedents — §6.4 (countrycode, Writing R Extensions, scales, rlang/cli, potools).
 - [x] The unified locale-resolution chain is stated in §6.7 and referenced from relevant decisions in §10.
@@ -62,7 +62,7 @@
 
 ## §3. Public surface inventory
 
-All 27 `export()` entries + 3 `S3method()` entries from [NAMESPACE](NAMESPACE).
+All 32 `export()` entries + 3 `S3method()` entries from [NAMESPACE](NAMESPACE).
 
 Where a row's return-class slug is scheduled for rename by task 1.2 (the class-slug rename), the current slug is given first and the candidate post-rename name in a parenthetical. Slug-rename scheme in task 1.2 is labelled "suggestions, not commitments" — this note does not pin the scheme, it cross-references it.
 
@@ -98,6 +98,11 @@ Where a row's return-class slug is scheduled for rename by task 1.2 (the class-s
 | 28 | `neoipcr_log_config` | [R/log.R](R/log.R) | `(verbosity = NULL)` | the applied `logger` threshold, invisibly | external-stable | stable | — | Sets this package's `"neoipcr"` logger-namespace threshold from `quiet` / `normal` / `verbose` / `debug`; with no argument it re-reads `NEOIPC_LOG_LEVEL`. Carries the `neoipcr_` prefix under the §9.3 rule-5 exception. |
 | 29 | `neoipcr_supported_versions` | [R/import-dhis2.R](R/import-dhis2.R) | `()` | `list(dhis2, metadata_package)` | external-stable | stable | — | Introspection: the DHIS2 releases verified against a live server and the supported metadata-package range; `import_dhis2()` warns on a server outside them. Carries the `neoipcr_` prefix under the §9.3 rule-5 exception. |
 | 30 | `write_json` | [R/json.R](R/json.R) | `(x, file = NULL, pretty = FALSE)` | JSON string (invisible when `file` is given) | internal-stable | experimental | — | Plain-JSON serializer for consumers in other languages (the .NET reporting service); a deliberately narrow first cut with no redaction of its own. |
+| 31 | `get_cumulative_incidence_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, ...)` | tibble | external-stable | experimental | — | The share of patients (or admissions) admitted to a department within a calendar window who acquired an infection within that window, with a Wilson interval. |
+| 32 | `validate` | [R/validation.R](R/validation.R) | `(x, rules = NULL, exceptions = NULL)` | tibble (`rule_id`, `patient_key`, `enrollment_key`, `event_key`, `context`) | external-stable | experimental | — | The 41 validation rules over a dataset; a finding is data (keys and a one-row `context` tibble), never prose. Aborts on a rule id it does not know. |
+| 33 | `validation_rule_ids` | [R/validation.R](R/validation.R) | `()` | integer vector | external-stable | experimental | — | The registry's rule ids, for consumers that let a user choose rules or keep a catalogue of rule descriptions. |
+| 34 | `read_validation_exceptions` | [R/validation-exceptions.R](R/validation-exceptions.R) | `(path)` | tibble (`RULE_ID`, `NEOIPC_PATIENT_ID`, `ENROLMENT_DATE`, `EVENT_TYPE`, `EVENT_DATE`, optional `DEPARTMENT_CODE`) | external-stable | experimental | — | The exception-list CSV reader with the shape checks `import_dhis2()` applies; every defect is `neoipcr_invalid_exception_list`. |
+| 35 | `resolve_validation_exceptions` | [R/validation-exceptions.R](R/validation-exceptions.R) | `(x, exceptions)` | tibble (`rule_id` + keys) | external-stable | experimental | — | Maps a written list onto a dataset's keys, as a whole per record; `validate()` calls it itself. |
 
 ### §3.1. Naming patterns and inconsistencies (A1 findings, feed into §9)
 
@@ -263,7 +268,7 @@ All four **depend on task 1.2**. See §3.2 for additional classes (`neoipcr_bnch
 | # | Helper | Current location(s) | LOC | Target `R/*.R` | Proposed signature | Exp? | Deps | Blocking |
 |---|--------|---------------------|-----|----------------|---------------------|------|------|----------|
 | 1–4 | `logInfo`, `logVerbose`, `logDebug`, `logWarn` | [common/logging.R:147–161](https://github.com/NeoIPC/Surveillance-Toolkit/blob/5e74901ae1919816f349608f38bb904db84c347b/reports/common/logging.R#L147-L161) | 3 each | — | `log<Level>(..., namespace)` → `logger::log_*()` | — | logger | **Superseded.** They left the two Generate scripts for the shared `common/logging.R` and are now thin wrappers over the `logger` package, which already supplies the level, namespace and threshold semantics a promotion would have had to build; `logError` joined the set with that move. neoipcr ships `R/log.R` with the exported `neoipcr_log_config()`, and both sides map `quiet`/`normal`/`verbose`/`debug` onto logger's `WARN`/`INFO`/`DEBUG`/`TRACE` from `NEOIPC_LOG_LEVEL`, so the verbosity-state caveat this row raised is discharged at both ends. |
-| 5 | `get_validation_exceptions` | [common/helpers.R:294–303](https://github.com/NeoIPC/Surveillance-Toolkit/blob/5e74901ae1919816f349608f38bb904db84c347b/reports/common/helpers.R#L294-L303) | 10 | `R/format.R` (or `R/validation.R`) | `get_validation_exceptions(path) → tibble \| FALSE` | Y | readr (already) | — |
+| 5 | `get_validation_exceptions` | [common/helpers.R:294–303](https://github.com/NeoIPC/Surveillance-Toolkit/blob/5e74901ae1919816f349608f38bb904db84c347b/reports/common/helpers.R#L294-L303) | 10 | `R/validation-exceptions.R` — landed as `read_validation_exceptions()`; the report helper still reads the CSV itself, and its move to delegating (keeping only the absent-file → `FALSE` semantic) is the Surveillance-Toolkit side of this row | `read_validation_exceptions(path) → tibble` | Y | readr (already) | — |
 | 6 | `parse_locales` | [common/helpers.R:27–76](https://github.com/NeoIPC/Surveillance-Toolkit/blob/5e74901ae1919816f349608f38bb904db84c347b/reports/common/helpers.R#L27-L76) | 50 | `R/strings.R` | `parse_locales(x) → list(language, territory, codeset, modifier)` | Y | base | Foundation of cascade. |
 | 7 | `get_string_resources` | [common/helpers.R:105–180](https://github.com/NeoIPC/Surveillance-Toolkit/blob/5e74901ae1919816f349608f38bb904db84c347b/reports/common/helpers.R#L105-L180) | 76 | `R/strings.R` | `get_string_resources(localeObj) → list` | Y | yaml | Central to all report localization; feeds the data-label layer per D-H. |
 | 8 | `get_localised_path` | [common/helpers.R:255–269](https://github.com/NeoIPC/Surveillance-Toolkit/blob/5e74901ae1919816f349608f38bb904db84c347b/reports/common/helpers.R#L255-L269) | 15 | `R/strings.R` | `get_localised_path(file_name, language, territory) → character` | Y | base | — |
@@ -355,16 +360,16 @@ Already present: `dplyr`, `lubridate`, `rlang`, `readr`, `stringr`, `tidyr`, `ti
 
 ### §6.1. Current-state summary
 
-**Scope of the problem is narrower than feared.** Audit A4a enumerated 73 `gettext()` / `gettextf()` call sites across this package's `R/`:
+**Scope of the problem is narrower than feared.** Audit A4a enumerated 73 `gettext()` / `gettextf()` call sites across this package's `R/`; 46 of them, the validation-rule descriptions in `R/validation.R`, have since been deleted with the formatter closures that held them, leaving 27:
 
 | Classification | Count | Locations |
 |---|---|---|
-| M — Message (error/warning/diagnostic shown to a human operator) | 60 | [R/dhis2-connect.R](R/dhis2-connect.R) (14), [R/validation.R](R/validation.R) (46) |
+| M — Message (error/warning/diagnostic shown to a human operator) | 14 | [R/dhis2-connect.R](R/dhis2-connect.R) (14) |
 | C — Column header | 0 | — |
 | F — Factor-level label | 11 | All in [R/calc-procedure-categories.R:215–231](R/calc-procedure-categories.R#L215-L231) (`get_procedure_category_pretty()`; the eleventh, at :231, is the `NEOIPC-PERMANENT(dataset-format)` recode of the pre-`-ize` category spelling) |
 | D — DHIS2-display passthrough (redundant wrap) | 0 | — |
 | B — Bug (multi-arg `gettext` with silently dropped args) | 2 | [R/calc-api.R:843](R/calc-api.R#L843) and [R/calc-procedure-categories.R:45](R/calc-procedure-categories.R#L45) |
-| **Total** | **73** | — |
+| **Total** | **27** | — |
 
 Two corrections to the A4 problem-statement in the plan file:
 
@@ -395,14 +400,15 @@ The 13 non-M sites each need distinct treatment in Phase 2, so they're individua
 
 The 11 F-class calls at lines 215–231 also require removing the `Sys.getlocale("LC_MESSAGES")` fallback at [R/calc-procedure-categories.R:14](R/calc-procedure-categories.R#L14), in the `pretty` branch of `get_procedure_categories()` — the accessor pattern honours the resolution chain via the explicit `locale` argument instead.
 
-#### §6.1.2. M-class call sites (aggregated by file — 60 total)
+#### §6.1.2. M-class call sites (aggregated by file — 14 total)
 
-All 60 M-class sites have the same migration action: **stay on `gettext` / `gettextf`**. Aggregated by file:
+All 14 M-class sites have the same migration action: **stay on `gettext` / `gettextf`**. Aggregated by file:
 
 | File | M-class count | Surrounding functions | Notes |
 |------|---------------|----------------------|-------|
 | [R/dhis2-connect.R:72–137](R/dhis2-connect.R#L72-L137) | 14 | `read_token`, `get_password`, `get_auth_data` | Token validation + 5-step auth chain error messages. |
-| [R/validation.R:6–460](R/validation.R#L6-L460) | 46 | `validation_rules` formatter closures (rules 1–42) | One per rule body plus a few fragments (e.g., SSI severity at rule 19). The per-rule short-circuit handlers in `R/validation-rules-*.R` log through `logger::log_warn()` and carry no `gettext` call. Nothing invokes the closures today: `validate()` reads only `$id` and `$fun`, and the Validation Report builds its problem text from its own `_formatters.qmd`, so their strings are extracted into the catalog but never emitted. |
+
+`R/validation.R` carries none: `validate()` returns data — the rule id, the keys of the record a finding refers to and a one-row `context` tibble of the values the rule compared — and the sentence a reader sees is composed and translated by the document that renders it (the Validation Report's string resources). The formatter closures that once wrapped a description per rule in `gettext` were deleted with the port of the rules, together with the catalogue entries they produced. The exception list is public API alongside: `read_validation_exceptions()` reads the user's CSV, `resolve_validation_exceptions()` maps it onto a dataset's keys, and `validation_rule_ids()` lists the registry for consumers that keep a catalogue of rule descriptions.
 
 No individual-line enumeration needed — every site stays on gettext, catalog is regenerated post-migration (see §6.6).
 
@@ -431,10 +437,10 @@ All of these `display*` values are **preserved only when the relevant `include_*
 | # | Package / source | Mechanism demonstrated | Concrete example | Applicability to neoipcr |
 |---|------------------|------------------------|------------------|--------------------------|
 | 1 | **[`countrycode`](https://github.com/vincentarelbundock/countrycode)** | Locale-as-column-selector on taxonomy tibbles. Data is English-canonical; labels live in separate `country.name.en`, `country.name.de`, `country.name.fr` columns of the `codelist` tibble. Accessor takes a `destination` parameter and reads the appropriate column. | `codelist` (~600 rows) with ~30 locale-keyed columns, e.g. `country.name.en` / `country.name.de` / `country.name.fr`. No gettext wraps around row values. | Directly applicable to the 11 F-class calls. `get_procedure_category_pretty()` migrates to a `procedure_category_labels` tibble in `sysdata.Rda` with `label_en` / `label_de` columns, served by `get_procedure_category_labels(locale = NULL)`. neoipcr's own `get_pathogen_taxonomy()` already uses this idiom — we extend it. |
-| 2 | **"Writing R Extensions", § Translations** (R-core / CRAN manual) | Establishes that `gettext` / `gettextf` are for messages shown to users (errors, warnings, diagnostics). Data-layer labels (column names, factor levels, taxonomy terms) are not in scope for PO catalogs — they're part of the package's data contract. | The manual enumerates the set of `gettext`-wrapped user-facing messages and explicitly does not place factor labels, taxonomy tables, or column headers in that set. | Validates the split. The 60 M-class calls (validation errors, auth diagnostics) stay on `gettext/gettextf`; the 11 F-class calls migrate to locale-keyed columns per #1 above. |
+| 2 | **"Writing R Extensions", § Translations** (R-core / CRAN manual) | Establishes that `gettext` / `gettextf` are for messages shown to users (errors, warnings, diagnostics). Data-layer labels (column names, factor levels, taxonomy terms) are not in scope for PO catalogs — they're part of the package's data contract. | The manual enumerates the set of `gettext`-wrapped user-facing messages and explicitly does not place factor labels, taxonomy tables, or column headers in that set. | Validates the split. The 14 M-class calls (auth diagnostics) stay on `gettext/gettextf`; the 11 F-class calls migrate to locale-keyed columns per #1 above. |
 | 3 | **[`scales`](https://scales.r-lib.org)** (tidyverse) | Separates formatter construction from locale consumption. `scales::label_date()`, `scales::label_number()`, `scales::label_currency()` take format strings and locale hints as **explicit parameters**; they do not consult `Sys.getlocale()` silently at definition time. | `scales::label_date(format = "%b %d", locale = "de")` — caller is responsible for passing the locale. | Informs the unified resolution chain (§6.7). Every neoipcr entry point that produces localized output accepts an explicit `locale` argument that wins over `opts$locale`, which wins over `Sys.getlocale("LC_MESSAGES")`, which wins over `"en"`. |
 | 4 | **[`rlang`](https://rlang.r-lib.org)** + **[`cli`](https://cli.r-lib.org)** (tidyverse) | Class-tagged condition system: `rlang::abort()` / `cli::cli_abort()` / `cli::cli_warn()` attach a class to the condition; error handlers and tests dispatch on the class, not on the human-readable message. Translation of the message is **orthogonal** — it happens via gettext if you want it, but the class is what programs check. | `rlang::abort(class = "neoipcr_missing_token", message = gettext("…"))`. Tests assert on `class`, not on the translated string. | **Does not force a decision for Phase 1.** neoipcr can stay on `stop(gettext(...))` or migrate to `rlang::abort()` independently of the M/F split. Migration recommended but out of scope here — filed as a Phase 2/3 follow-up task if adopted. |
-| 5 | **[`potools`](https://cran.r-project.org/package=potools)** | Package-scoped message catalogs. `potools::create_catalog()` extracts every `gettext(...)` call from `R/` and writes a single `.pot`; translators add `.po` files. `potools` does not split catalogs by message class — the split happens **at the source level** before extraction. | `potools::create_catalog()` → `po/R-<pkg>.pot`. Data-layer labels (taxonomy tibbles in `sysdata.Rda`) are not scanned because they're not `gettext` calls. | Confirms D-G (single `R-neoipcr.pot`). Once the 11 F-class calls migrate out of `gettext`, the catalog shrinks to the entries of the 60 M-class call sites — no clutter from data labels, unless the `:45` rewrite keeps its two column headers on `gettext` (§6.5 row B), which would add exactly those two. |
+| 5 | **[`potools`](https://cran.r-project.org/package=potools)** | Package-scoped message catalogs. `potools::create_catalog()` extracts every `gettext(...)` call from `R/` and writes a single `.pot`; translators add `.po` files. `potools` does not split catalogs by message class — the split happens **at the source level** before extraction. | `potools::create_catalog()` → `po/R-<pkg>.pot`. Data-layer labels (taxonomy tibbles in `sysdata.Rda`) are not scanned because they're not `gettext` calls. | Confirms D-G (single `R-neoipcr.pot`). Once the 11 F-class calls migrate out of `gettext`, the catalog shrinks to the entries of the 14 M-class call sites — no clutter from data labels, unless the `:45` rewrite keeps its two column headers on `gettext` (§6.5 row B), which would add exactly those two. |
 
 **Mainstream consensus.** Five sources converge on: (i) `gettext` is for user-facing messages only; (ii) data labels live in locale-keyed columns or equivalent structured data (not in PO catalogs); (iii) locale selection is explicit (parameter or resolver), never implicit from `Sys.getlocale()` alone; (iv) a single `.pot` per package is standard. neoipcr is already close on (i), (iii-partial), and (iv); the M/F split is what brings it into (ii).
 
@@ -453,7 +459,7 @@ Nothing is in both tracks.
 
 | Class | Count | Mechanism under new architecture |
 |---|---|---|
-| **M** — Message | 60 | Stay on `gettext` / `gettextf`. No call-site change in Phase 2 (other than the `Sys.getlocale` cleanup in §6.7's locale chain). `R-neoipcr.pot` regenerated after the F-class calls exit. |
+| **M** — Message | 14 | Stay on `gettext` / `gettextf`. No call-site change in Phase 2 (other than the `Sys.getlocale` cleanup in §6.7's locale chain). `R-neoipcr.pot` regenerated after the F-class calls exit. |
 | **C** — Column header | 0 | None exist today. If new entry points add column headers, they use the YAML resource cascade (via `get_string_resources()` promoted in §5 row 7), not `gettext`. |
 | **F** — Factor-level label | 11 | Migrate to package data. All 11 are procedure-category labels in [R/calc-procedure-categories.R:215–231](R/calc-procedure-categories.R#L215-L231). Target: the `procedure_category_labels` tibble proposed in §7 row 2, served by a new `get_procedure_category_labels(locale = NULL)`. Migration is the only non-trivial code change in Phase 2. |
 | **D** — DHIS2-display passthrough | 0 | None exist today. Entry points already consume DHIS2's `display*` fields directly (see §6.3). Document this pattern in every public entry point's roxygen. |
@@ -472,7 +478,7 @@ labels <- get_procedure_category_labels(locale = opts$locale)  # explicit arg wi
 # or: labels <- get_procedure_category_labels()  # resolution chain kicks in
 ```
 
-**What this looks like to a translator.** `R-neoipcr.pot` covers the 60 M-class call sites after migration (down from 73 call sites, after removing the 11 F-class calls and the 2 B-class bug rewrites), all of them operator-facing messages — though the 46 in `validation.R` sit in formatter closures nothing invokes today, so only the 14 in `dhis2-connect.R` are currently emitted — plus the two column-header calls if the `:45` rewrite keeps them on `gettext` rather than moving them to the YAML cascade. Its entry count differs from the call count, because a `gettext()` call may carry several strings and duplicates collapse to one entry. On today's tree the multi-string calls are the two B-class calls at `calc-api.R:843` and `calc-procedure-categories.R:45`; one of the three collapsed duplicates is the header repeated across those two calls and another is the label repeated in the F-class recodes at `calc-procedure-categories.R:224` / `:231`, so the migration removes both together with the calls; afterwards only the identical message at `dhis2-connect.R:104` and `:134` separates the two counts, whichever form the `:45` rewrite takes. Procedure-category labels are translated in the YAML / CSV under Surveillance-Toolkit's metadata/ (out of scope for this note; §7 row 2 coordinates with A5b).
+**What this looks like to a translator.** `R-neoipcr.pot` covers the 14 M-class call sites after migration (down from 27 call sites, after removing the 11 F-class calls and the 2 B-class bug rewrites; the 46 validation-rule descriptions left the catalogue with the formatter closures that held them), all of them operator-facing messages, plus the two column-header calls if the `:45` rewrite keeps them on `gettext` rather than moving them to the YAML cascade. Its entry count differs from the call count, because a `gettext()` call may carry several strings and duplicates collapse to one entry. On today's tree the multi-string calls are the two B-class calls at `calc-api.R:843` and `calc-procedure-categories.R:45`; one of the three collapsed duplicates is the header repeated across those two calls and another is the label repeated in the F-class recodes at `calc-procedure-categories.R:224` / `:231`, so the migration removes both together with the calls; afterwards only the identical message at `dhis2-connect.R:104` and `:134` separates the two counts, whichever form the `:45` rewrite takes. Procedure-category labels are translated in the YAML / CSV under Surveillance-Toolkit's metadata/ (out of scope for this note; §7 row 2 coordinates with A5b).
 
 ### §6.6. Migration plan for Phase 2
 
@@ -482,7 +488,6 @@ labels <- get_procedure_category_labels(locale = opts$locale)  # explicit arg wi
 | `R/calc-procedure-categories.R:45` | B | Fix to two separate `gettext` calls *or* move to YAML cascade (decide alongside string-resources promotion, §5 row 7). |
 | [R/calc-procedure-categories.R:215–231](R/calc-procedure-categories.R#L215-L231) (11 calls) | F → data-layer | Replace with reads from `procedure_category_labels` tibble. `get_procedure_category_pretty()` becomes `get_procedure_category_labels(locale = NULL)`; locale-resolution chain applied; the `"to_be_categorised"` recode at :231 stays as a code the lookup accepts. Remove the `Sys.getlocale("LC_MESSAGES")` fallback at line 14 of `get_procedure_categories()`. |
 | `R/dhis2-connect.R` (14 calls) | M | No action required. Stay as-is. Optionally document the behaviour of `gettext` falling back to English when the catalog lookup fails — useful for vignette writers. |
-| `R/validation.R` (46 calls) | M | No action. Stay on `gettext/gettextf`. |
 
 **Phase 2 sequencing.** The migration has exactly one non-trivial step: create `procedure_category_labels`, populate it, rewrite `get_procedure_category_pretty()` to read from it, delete the 11 `gettext` lines. Everything else is either "do nothing" (M-class) or a two-line bugfix (B-class). Estimate: half a day of work plus PO catalog regeneration.
 
@@ -927,7 +932,7 @@ Each subsection states the question, the recommendation with rationale, and a "P
 
 ### §10.1. D-A. Audience tier per public-surface symbol
 
-**Question.** For each of the 30 public-surface symbols in §3 — 27 `export()` entries and 3 `S3method()` entries — which audience tier applies? External-stable (documented for data scientists / researchers / clinicians as part of the stable public API) or internal-stable (stable for the NeoIPC internal pipeline but not primarily targeted at external users)? The lifecycle — stable or experimental (API may change, warn external users) — is §3's separate column, on top of the tier.
+**Question.** For each of the 35 public-surface symbols in §3 — 32 `export()` entries and 3 `S3method()` entries — which audience tier applies? External-stable (documented for data scientists / researchers / clinicians as part of the stable public API) or internal-stable (stable for the NeoIPC internal pipeline but not primarily targeted at external users)? The lifecycle — stable or experimental (API may change, warn external users) — is §3's separate column, on top of the tier.
 
 **Recommendation.** Accept the tier column proposed in §3 as the default assignment. Key assignments, counted over that column:
 
@@ -1011,7 +1016,7 @@ We're already touching one of the three for the prefix-unification rename, and p
 
 **Recommendation.** Single catalog. Matches `potools` convention (§6.4 row 5), matches R's own convention, matches the current state. Splitting catalogs creates a coordination burden for translators with no operational benefit.
 
-**Rationale.** After the F-class migration (§6.5), the catalog shrinks to the entries of the 60 M-class call sites — plus the two column headers if the `:45` rewrite keeps them on `gettext` — well within a single-file size. No need to complicate.
+**Rationale.** After the F-class migration (§6.5), the catalog shrinks to the entries of the 14 M-class call sites — plus the two column headers if the `:45` rewrite keeps them on `gettext` — well within a single-file size. No need to complicate.
 
 **PI resolution:** _pending_
 

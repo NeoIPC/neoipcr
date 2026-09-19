@@ -257,6 +257,19 @@ test_that("apply_postfilter removes orphaned admission data", {
   expect_equal(nrow(result$surveillanceEndData), 0L)
 })
 
+test_that("apply_postfilter removes the pathogen names of removed findings", {
+  # The free-text names hang off the findings by `agent_finding_key`; a
+  # finding removed with its event takes its name with it, so nothing of a
+  # removed patient's pathogens survives.
+  ds <- make_populated_test_ds(
+    infectiousAgentFindings = make_test_iaf(c(1L, 2L)),
+    unknownPathogenNames    = make_test_unknown_pathogen_names(c(1L, 2L)))
+  ds$patients <- ds$patients[ds$patients$patient_key != 1L, ]
+  result <- neoipcr:::apply_postfilter(ds)
+  expect_equal(result$infectiousAgentFindings$agent_finding_key, 2L)
+  expect_equal(result$unknownPathogenNames$agent_finding_key, 2L)
+})
+
 test_that("apply_postfilter cascades metadata removal", {
   ds <- make_populated_test_ds()
   # Keep only enrollments in department 1
@@ -522,4 +535,65 @@ test_that("apply_postfilter tolerates absent or 0x0 attribute-value tables", {
   expect_no_error(neoipcr:::apply_postfilter(ds))
   ds$metadata$departmentAttributeValues <- tibble::tibble()
   expect_no_error(neoipcr:::apply_postfilter(ds))
+})
+
+test_that("apply_postfilter keeps a patient without enrolments only when the dataset asked for them", {
+  ds <- make_populated_test_ds()
+  # Take patient 1's enrollments away; the patient row itself stays.
+  ds$enrollments <- ds$enrollments[ds$enrollments$patient_key != 1L, ]
+
+  pruned <- neoipcr:::apply_postfilter(ds)
+  expect_false(1L %in% pruned$patients$patient_key)
+
+  ds$metadata$dataset_options$include_unenrolled_patients <- TRUE
+  kept <- neoipcr:::apply_postfilter(ds)
+  expect_true(1L %in% kept$patients$patient_key)
+  expect_false(1L %in% kept$enrollments$patient_key)
+  expect_false(1L %in% kept$events$patient_key)
+  # Nothing but the patient row refers to department 1 any more, and the
+  # patient alone keeps it in the hierarchy metadata.
+  expect_true(1L %in% kept$metadata$departments$department_key)
+})
+
+test_that("apply_postfilter still prunes a patient whose enrolments the cascade removed when unenrolled patients are kept", {
+  ds <- make_populated_test_ds()
+  ds$metadata$dataset_options$include_unenrolled_patients <- TRUE
+  # Enrolment 1 loses its admission event and data, so the prefilter drops
+  # it; the patient arrived enrolled and must go with it rather than surface
+  # as unenrolled.
+  admission <- ds$events$event_key[
+    ds$events$enrollment_key == 1L & ds$events$event_type_key == "adm"]
+  ds$events        <- ds$events[!(ds$events$event_key %in% admission), ]
+  ds$admissionData <- ds$admissionData[
+    !(ds$admissionData$event_key %in% admission), ]
+
+  result <- neoipcr:::apply_postfilter(ds)
+  expect_false(1L %in% result$enrollments$enrollment_key)
+  expect_false(1L %in% result$patients$patient_key)
+})
+
+test_that("apply_postfilter keeps an enrolment without an admission form only when invalid patients are kept", {
+  without_admission <- function() {
+    ds <- make_populated_test_ds()
+    admission <- ds$events$event_key[
+      ds$events$enrollment_key == 1L & ds$events$event_type_key == "adm"]
+    ds$events        <- ds$events[!(ds$events$event_key %in% admission), ]
+    ds$admissionData <- ds$admissionData[
+      !(ds$admissionData$event_key %in% admission), ]
+    ds
+  }
+
+  # The invariant holds for an import that runs the validation pass, whether
+  # without exceptions or with a list of them.
+  ds <- without_admission()
+  ds$metadata$dataset_options$include_invalid_patients <- FALSE
+  expect_false(1L %in% neoipcr:::apply_postfilter(ds)$enrollments$enrollment_key)
+  ds$metadata$dataset_options$include_invalid_patients <- make_test_exceptions(26L)
+  expect_false(1L %in% neoipcr:::apply_postfilter(ds)$enrollments$enrollment_key)
+
+  # Skipping the pass asks for the records it would remove, and this is one.
+  ds$metadata$dataset_options$include_invalid_patients <- TRUE
+  kept <- neoipcr:::apply_postfilter(ds)
+  expect_true(1L %in% kept$enrollments$enrollment_key)
+  expect_true(1L %in% kept$patients$patient_key)
 })

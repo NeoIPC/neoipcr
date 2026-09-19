@@ -1,239 +1,139 @@
+# neoipcr Translation Template File.
+# Copyright (C) 2026 The NeoIPC Project Consortium
+# This file is distributed under the same license as the neoipcr package.
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: neoipcr 0.0.0.9000\n"
-"POT-Creation-Date: 2026-07-31 18:23\n"
+"Project-Id-Version: neoipcr 0.0.0.9001\n"
+"Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
+"POT-Creation-Date: 2026-09-18 14:12+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+#: R/calc-api.R:843
+#: R/calc-procedure-categories.R:45
 msgid "Procedure category"
 msgstr ""
 
+#: R/calc-api.R:843
 msgid "N"
 msgstr ""
 
+#: R/calc-api.R:843
 msgid "Pooled"
 msgstr ""
 
+#: R/calc-api.R:843
 msgid "Q1"
 msgstr ""
 
+#: R/calc-api.R:843
 msgid "Q2"
 msgstr ""
 
+#: R/calc-api.R:843
 msgid "Q3"
 msgstr ""
 
+#: R/calc-procedure-categories.R:45
 msgid "Procedure code"
 msgstr ""
 
+#: R/calc-procedure-categories.R:215
 msgid "Overall"
 msgstr ""
 
+#: R/calc-procedure-categories.R:216
 msgid "Abdominal surgery"
 msgstr ""
 
+#: R/calc-procedure-categories.R:217
 msgid "Neurosurgery"
 msgstr ""
 
+#: R/calc-procedure-categories.R:218
 msgid "Inguinal hernia surgery"
 msgstr ""
 
+#: R/calc-procedure-categories.R:219
 msgid "Cardiac- / large vessel surgery"
 msgstr ""
 
+#: R/calc-procedure-categories.R:220
 msgid "Lung- / pleural space- / thoracic surgery"
 msgstr ""
 
+#: R/calc-procedure-categories.R:221
 msgid "Oesophageal surgery"
 msgstr ""
 
+#: R/calc-procedure-categories.R:222
 msgid "Other"
 msgstr ""
 
+#: R/calc-procedure-categories.R:223
 msgid "Not a surgical procedure"
 msgstr ""
 
+#: R/calc-procedure-categories.R:224
+#: R/calc-procedure-categories.R:231
 msgid "Not yet categorized"
 msgstr ""
 
+#: R/dhis2-connect.R:85
 msgid "Invalid DHIS2 personal access token."
 msgstr ""
 
+#: R/dhis2-connect.R:94
 msgid "No password found"
 msgstr ""
 
+#: R/dhis2-connect.R:95
 msgid "NEOIPC_DHIS2_USER is set but NEOIPC_DHIS2_PASSWORD is not."
 msgstr ""
 
+#: R/dhis2-connect.R:96
 msgid "Set the NEOIPC_DHIS2_PASSWORD environment variable, or use a personal access token (NEOIPC_DHIS2_TOKEN) instead."
 msgstr ""
 
+#: R/dhis2-connect.R:97
 msgid "Interactive password prompting is only available in interactive R sessions."
 msgstr ""
 
-msgid "Please enter your password for %s:"
+#: R/dhis2-connect.R:100
+msgid "Please enter your password for %s: "
 msgstr ""
 
+#: R/dhis2-connect.R:103
 msgid "No password provided"
 msgstr ""
 
+#: R/dhis2-connect.R:104
+#: R/dhis2-connect.R:134
 msgid "Please provide username and password, a personal access token or a session id to authenticate to DHIS2."
 msgstr ""
 
+#: R/dhis2-connect.R:124
 msgid "No authentication credentials found"
 msgstr ""
 
+#: R/dhis2-connect.R:125
 msgid "Set the NEOIPC_DHIS2_TOKEN, NEOIPC_DHIS2_SESSION_ID, or NEOIPC_DHIS2_USER environment variable."
 msgstr ""
 
+#: R/dhis2-connect.R:126
 msgid "Interactive username/password prompting is only available in interactive R sessions."
 msgstr ""
 
-msgid "Please enter your username for %s:"
+#: R/dhis2-connect.R:130
+msgid "Please enter your username for %s: "
 msgstr ""
 
+#: R/dhis2-connect.R:133
 msgid "No username provided"
-msgstr ""
-
-msgid "The patient record does not have an enrolment."
-msgstr ""
-
-msgid "The patient record has a completed surveillance end form but the enrolment is still active."
-msgstr ""
-
-msgid "The admission date in the admission form (%s) differs from the admission date in the enrolment (%s)."
-msgstr ""
-
-msgid "The date of the end of the surveillance (%s) is earlier than the date of admission on the admission form (%s)."
-msgstr ""
-
-msgid "The patient record's admission form is not completed (status is '%s')."
-msgstr ""
-
-msgid "The patient record has a completed enrolment but the surveillance end form is not completed (status is '%s')."
-msgstr ""
-
-msgid "The patient record has a completed enrolment or surveillance end form but a sepsis form is not completed (enrolment status is '%s', surveillance end form status is '%s', sepsis form status is '%s')."
-msgstr ""
-
-msgid "The patient record has a completed enrolment or surveillance end form but a necrotizing enterocolitis form is not completed (enrolment status is '%s', surveillance end form status is '%s', necrotizing enterocolitis form status is '%s')."
-msgstr ""
-
-msgid "The patient record has a completed enrolment or surveillance end form but a pneumonia form is not completed (enrolment status is '%s', surveillance end form status is '%s', pneumonia form status is '%s')."
-msgstr ""
-
-msgid "The patient record has a completed enrolment or surveillance end form but a surgical procedure form is not completed (enrolment status is '%s', surveillance end form status is '%s', surgical procedure form status is '%s')."
-msgstr ""
-
-msgid "The patient record has a completed enrolment or surveillance end form but a surgical site infection form is not completed (enrolment status is '%s', surveillance end form status is '%s', surgical site infection form status is '%s')."
-msgstr ""
-
-msgid "The patient record contains a sepsis form with an infection date that is not within the time frame of a documented enrolment (admission date in the enrolment '%s', admission date in the admission form is '%s', surveillance end date is '%s', sepsis date is '%s')."
-msgstr ""
-
-msgid "The patient record contains a necrotizing enterocolitis form with an infection date that is not within the time frame of a documented enrolment (admission date in the enrolment '%s', admission date in the admission form is '%s', surveillance end date is '%s', necrotizing enterocolitis date is '%s')."
-msgstr ""
-
-msgid "The patient record contains a pneumonia form with an infection date that is not within the time frame of a documented enrolment (admission date in the enrolment '%s', admission date in the admission form is '%s', surveillance end date is '%s', pneumonia date is '%s')."
-msgstr ""
-
-msgid "The patient record contains a surgical procedure form with an infection date that is not within the time frame of a documented enrolment (admission date in the enrolment '%s', admission date in the admission form is '%s', surveillance end date is '%s', surgical procedure date is '%s')."
-msgstr ""
-
-msgid "The patient record contains a surgical site infection form with an infection date that is not within the time frame of a documented enrolment (admission date in the enrolment '%s', admission date in the admission form is '%s', surveillance end date is '%s', surgical site infection date is '%s')."
-msgstr ""
-
-msgid "The patient record contains an enrolment with a time interval that overlaps with that of another enrolment (this enrolment has an interval from %s to %s and the other enrolment has an interval from %s to %s)."
-msgstr ""
-
-msgid "The number of patient days (%s) does not match the calculated value (%s)."
-msgstr ""
-
-msgid "superficial incisional SSI"
-msgstr ""
-
-msgid "deep incisional SSI"
-msgstr ""
-
-msgid "organ/space SSI"
-msgstr ""
-
-msgid "The surgical site infection (%s) did not occur during the follow-up period of a recorded surgical procedure."
-msgstr ""
-
-msgid "causing secondary sepsis"
-msgstr ""
-
-msgid "The pathogen manually entered as pathogen %i%s ('%s') cannot be assigned."
-msgstr ""
-
-msgid "The sum of all antibiotic substance days (%i) is less than the total number of antibiotic days (%i)."
-msgstr ""
-
-msgid "The surgical procedure ('%s') has an invalid ICHE code ('%s') as the main procedure code."
-msgstr ""
-
-msgid "The surgical procedure ('%s') has an invalid ICHE code ('%s') as the first side procedure code."
-msgstr ""
-
-msgid "The surgical procedure ('%s') has an invalid ICHE code ('%s') as the second side procedure code."
-msgstr ""
-
-msgid "The patient record has a completed enrolment but no surveillance end form."
-msgstr ""
-
-msgid "The patient record has a completed enrolment but no admission form."
-msgstr ""
-
-msgid "The day of life stored in the sepsis form (%i) does not match the calculated value (%i)."
-msgstr ""
-
-msgid "The day of occurrence after admission stored in the sepsis form (%i) does not match the calculated value (%i)."
-msgstr ""
-
-msgid "The sepsis occurred within the first 3 days of life (day of life is %i)."
-msgstr ""
-
-msgid "The sepsis occurred within the first two days of hospitalization of a referred or (re-)admitted patient (day of hospitalization is %i)."
-msgstr ""
-
-msgid "The day of life stored in the pneumonia form (%i) does not match the calculated value (%i)."
-msgstr ""
-
-msgid "The day of occurrence after admission stored in the pneumonia form (%i) does not match the calculated value (%i)."
-msgstr ""
-
-msgid "The pneumonia occurred within the first 3 days of life (day of life is %i)."
-msgstr ""
-
-msgid "The pneumonia occurred within the first two days of hospitalization of a referred or (re-)admitted patient (day of hospitalization is %i)."
-msgstr ""
-
-msgid "The day of life stored in the necrotizing enterocolitis form (%i) does not match the calculated value (%i)."
-msgstr ""
-
-msgid "The day of occurrence after admission stored in the necrotizing enterocolitis form (%i) does not match the calculated value (%i)."
-msgstr ""
-
-msgid "The necrotizing enterocolitis occurred within the first 3 days of life (day of life is %i)."
-msgstr ""
-
-msgid "The necrotizing enterocolitis occurred within the first two days of hospitalization of a referred or (re-)admitted patient (day of hospitalization is %i)."
-msgstr ""
-
-msgid "The day of life stored in the surgical procedure form (%i) does not match the calculated value (%i)."
-msgstr ""
-
-msgid "The day of occurrence after admission stored in the surgical procedure form (%i) does not match the calculated value (%i)."
-msgstr ""
-
-msgid "The day of life stored in the surgical site infection form (%i) does not match the calculated value (%i)."
-msgstr ""
-
-msgid "The day of occurrence after admission stored in the surgical site infection form (%i) does not match the calculated value (%i)."
 msgstr ""
