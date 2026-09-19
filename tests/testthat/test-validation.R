@@ -174,6 +174,23 @@ test_that("a finding whose fields differ from the registry's declaration is refu
   expect_invisible(neoipcr:::.assert_declared_context(none, declared))
 })
 
+test_that("a pass that could not run a rule is refused where it must read as complete", {
+  # The import stores a pass without its `rules_skipped` bookkeeping, so it
+  # refuses one that skipped a rule rather than storing it as complete; the
+  # check is exercised on the result validate() returns, with and without
+  # a skipped rule recorded on it.
+  findings <- neoipcr::validate(rule_3_flagged_ds(), rules = 3L)
+  expect_identical(attr(findings, "rules_skipped"), integer())
+  expect_invisible(neoipcr:::.assert_no_rule_skipped(findings))
+  attr(findings, "rules_skipped") <- c(18L, 19L)
+  expect_error(
+    neoipcr:::.assert_no_rule_skipped(findings),
+    class = "neoipcr_validation_rule_skipped")
+  expect_error(
+    neoipcr:::.assert_no_rule_skipped(findings),
+    "18, 19")
+})
+
 test_that("validate carries a rule's values as a one-row tibble in context", {
   r <- neoipcr::validate(rule_3_flagged_ds(), rules = 3L)
   expect_equal(nrow(r), 1L)

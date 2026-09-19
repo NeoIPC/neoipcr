@@ -155,6 +155,8 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 | `substanceDays` | `neoipcr_sbd` | `neoipcr_substance_day` | [R/schema-event-data.R](R/schema-event-data.R) → `substanceDays_cols` |
 | `infectiousAgentFindings` | `neoipcr_iaf` | `neoipcr_agent_finding` | [R/schema-event-data.R](R/schema-event-data.R) → `findings_cols` |
 | `unknownPathogenNames` | *(currently unclassed — intentional, awaiting task 1.2)* | `neoipcr_unknown_pathogen_name` | [R/schema-event-data.R](R/schema-event-data.R) → `unknownPathogenNames_cols` |
+| `validationResults` | *(unclassed tibble — the five columns `validate()` returns)* | — | [R/schema-validation.R](R/schema-validation.R) → `validationResults_cols` |
+| `validationSummary` | *(unclassed tibble — `rule_id`, `record_kind`, `n_removed`, `n_exempted`)* | — | [R/schema-validation.R](R/schema-validation.R) → `validationSummary_cols` |
 | `metadata` | `neoipcr_metadata` | `neoipcr_metadata` *(keep)* | [R/schema-orgunits.R](R/schema-orgunits.R) + [R/dhis2-metadata-reference.R](R/dhis2-metadata-reference.R) |
 | `.cache` | (environment) | — | [R/cache.R](R/cache.R) |
 
@@ -165,6 +167,7 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 - **Foreign-key invariants**: `patients ← enrollments ← events` chain on integer keys (`patient_key`, `enrollment_key`, `event_key`) — never on DHIS2 UIDs (see CLAUDE.md § "Joining tibbles").
 - **Redundant hierarchy keys**: `department_key`, `hospital_key`, `country_key`, `world_bank_class_key` appear directly on `patients`, `enrollments`, and `events` — chain-breakable per CLAUDE.md § "Redundant foreign keys".
 - **Conditional companion gates**: user fields gate on `include_user`; timestamps gate on `include_timestamps`; deletion flag gates on `include_deleted`; DHIS2 IDs gate on `include_dhis2_ids`.
+- **Validation slots**: `validationResults` and `validationSummary` are populated exactly when the import's validation pass ran — patients imported and `include_invalid_patients` not `TRUE` — and 0×0 otherwise; an import whose pass could not run a rule aborts (`neoipcr_validation_rule_skipped`) rather than storing a pass that reads as complete. Shape documented on `?import_dhis2`.
 
 **Predicates**: `is_neoipcr_ds()`, `check_neoipcr_ds()`, plus the compound guards `check_neoipcr_ds_or_rep_ds()`, `check_neoipcr_ds_or_ref_ds()` — all in [R/types-check.R](R/types-check.R).
 
@@ -178,7 +181,8 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 
 **Member tibbles**:
 
-- `metadata` — list: `calculated` (timestamp), `dataset_options`, `data_up_to`, `effective_analysis_period`, `hospitals`, `departments`, `countries`.
+- `metadata` — list: `calculated` (timestamp), `dataset_options` (the serializable copy: an exception list replaced by `"exception_list_applied"`, the department's own filter kept), `data_up_to`, `effective_analysis_period`, `hospitals`, `departments`, `countries`.
+- `validationSummary` — the imported dataset's summary (§4.1), carried verbatim; the calculation refuses a dataset without it.
 - `birth_weight_figure`, `gestational_age_figure` — histogram tibbles for figures.
 - `n_departments`, `n_patients`, `n_enrollments`, `n_patient_days` — summary counts.
 - `n_surgical_departments`, `n_surgical_patients`, `n_surgical_procedures` — surgery-specific counts.
@@ -205,6 +209,7 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 
 - Every result table gains `q1`, `q2`, `q3` (25th / 50th / 75th percentiles of department-level rates).
 - Tables for which bootstrap CIs are computed gain `q1_ci_lower` / `q1_ci_upper` / `q2_ci_lower` / `q2_ci_upper` / `q3_ci_lower` / `q3_ci_upper`.
+- `metadata$dataset_options$department_filter` is the marker `"applied"` (or `NULL` for an empty filter), never the department codes; the emitted copy is asserted to name no department. `validationSummary` is carried as in §4.2.
 
 **Invariants** (in addition to §4.2):
 

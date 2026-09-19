@@ -351,6 +351,13 @@ import_dhis2 <- function(
     else exceptions <- NULL
 
     v <- r |> validate(exceptions = exceptions)
+    # The full tiers this pass requires give every rule its columns, so a
+    # rule that could not run means the dataset is not what the pass needs;
+    # the import refuses it rather than storing a pass that reads as
+    # complete. The dataset then keeps the findings, not the run's
+    # bookkeeping.
+    .assert_no_rule_skipped(v)
+    attr(v, "rules_skipped") <- NULL
     # The findings the list exempted are the ones the pass makes without it
     # and not with it; only the rules the list names can have any, so only
     # those run again.
@@ -360,9 +367,6 @@ import_dhis2 <- function(
         r |> validate(rules = named),
         v,
         dplyr::join_by("rule_id", "patient_key", "enrollment_key", "event_key"))
-    # The dataset keeps the findings, not the run's bookkeeping: the full
-    # tiers this pass requires give every rule its columns.
-    attr(v, "rules_skipped") <- NULL
     r$validationResults <- v
     r$validationSummary <- .validation_summary(v, exempted)
     r$patients <- r$patients |>

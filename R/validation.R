@@ -153,6 +153,23 @@ validation_rules <- list(
   NULL
 }
 
+# Refuse a validation result whose `rules_skipped` attribute names a rule,
+# for a caller that must not read a pass with a rule left out as complete —
+# the import, whose full tiers give every rule its columns, so a skip there
+# is a dataset that is not what the pass needs.
+.assert_no_rule_skipped <- function(findings)
+{
+  skipped <- attr(findings, "rules_skipped")
+  if (length(skipped) > 0L)
+    rlang::abort(c(
+      "The validation pass could not run every rule on this dataset.",
+      x = sprintf("Rule(s) %s found no column to read; the log names it.",
+                  paste(skipped, collapse = ", ")),
+      i = "The pass needs the full enrollment and event tiers with every column they declare."),
+      class = "neoipcr_validation_rule_skipped")
+  invisible(findings)
+}
+
 .exception_keys <- function()
   tibble::tibble(
     rule_id        = integer(),
