@@ -334,8 +334,9 @@ import_dhis2 <- function(
       substanceDays = substanceDays,
       infectiousAgentFindings = infectiousAgentFindings,
       unknownPathogenNames = unknownPathogenNames,
-      # The validation slots exist on every dataset; both are 0×0 until the
-      # pass below fills them, and stay so when it does not run.
+      # The validation slots exist on every dataset in their schema's shape:
+      # their columns and no rows where the pass below runs and fills them,
+      # 0×0 where it does not.
       validationResults = compile_schema(validationResults_cols, dataset_options),
       validationSummary = compile_schema(validationSummary_cols, dataset_options),
       metadata = metadata,

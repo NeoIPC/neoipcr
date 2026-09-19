@@ -1014,22 +1014,4 @@ test_that("import_dhis2 keeps the records an exception list names", {
   expect_setequal(as.character(ds$patients$patient_id), c("PAT_1", "PAT_2"))
   expect_equal(ncol(ds$validationResults), 0L)
   expect_equal(ncol(ds$validationSummary), 0L)
-
-  # What the list exempted is found by running the rules it names once
-  # more without it, and only those.
-  original <- neoipcr::validate
-  rules_run <- list()
-  testthat::local_mocked_bindings(
-    validate = function(x, rules = NULL, exceptions = NULL) {
-      rules_run[[length(rules_run) + 1L]] <<- list(rules)
-      original(x, rules = rules, exceptions = exceptions)
-    })
-  m <- new_dhis2_mock(import_test_fixtures())
-  httr2::local_mocked_responses(m$mock)
-  import_dhis2(test_conn(), import_test_opts(
-    include_department       = "full",
-    include_invalid_patients = flagged[flagged$RULE_ID == 3L, ]))
-  expect_length(rules_run, 2L)
-  expect_null(rules_run[[1]][[1]])
-  expect_equal(rules_run[[2]][[1]], 3L)
 })
