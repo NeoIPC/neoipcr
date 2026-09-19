@@ -16,7 +16,7 @@
 
 **Phase 1 exit-criterion checklist.** All items ticked — every decision below surfaces in §10 for PI resolution; content is ready for Phase 2 to consume once D-A…D-H are resolved.
 
-- [x] All 32 `export()` lines in [NAMESPACE](NAMESPACE) have a row in §3 with eight columns populated.
+- [x] All 33 `export()` lines in [NAMESPACE](NAMESPACE) have a row in §3 with eight columns populated.
 - [x] All 3 `S3method()` entries have a row in §3 with dispatch class recorded.
 - [x] Each of the four custom classes (`neoipcr_ds`, `neoipcr_rep_ds`, `neoipcr_ref_ds`, `neoipcr_tbl_sr_ref`) has a §4 subsection with constructor site, columns, invariants, and pointer to the relevant `R/schema-*.R`.
 - [x] The `_iaf` / `_sbd` / `_udr` subclasses each have a §4 row (§4.5) under the post-task-1.2 names with an explicit "depends on task 1.2" callout. Three additional subclasses surfaced and are flagged in §3.2 for task 1.2 expansion.
@@ -62,18 +62,18 @@
 
 ## §3. Public surface inventory
 
-All 32 `export()` entries + 3 `S3method()` entries from [NAMESPACE](NAMESPACE).
+All 33 `export()` entries + 3 `S3method()` entries from [NAMESPACE](NAMESPACE).
 
 Where a row's return-class slug is scheduled for rename by task 1.2 (the class-slug rename), the current slug is given first and the candidate post-rename name in a parenthetical. Slug-rename scheme in task 1.2 is labelled "suggestions, not commitments" — this note does not pin the scheme, it cross-references it.
 
 | # | Symbol | File | Signature sketch | Returns class | Audience tier | Lifecycle | Rename proposal | Notes |
 |---|--------|------|------------------|---------------|---------------|-----------|-----------------|-------|
-| 1 | `import_dhis2` | [R/import-dhis2.R](R/import-dhis2.R) | `(connection_options, dataset_options)` | `neoipcr_ds` | external-stable | stable | — | Core entry point; invokes the 5-step auth chain. |
+| 1 | `import_dhis2` | [R/import-dhis2.R](R/import-dhis2.R) | `(connection_options, dataset_options)` | `neoipcr_ds` | external-stable | stable | — | Core entry point; invokes the 5-step auth chain. The dataset carries the validation pass's findings (`validationResults`) and their per-rule and per-kind counts (`validationSummary`), 0×0 when no pass ran. |
 | 2 | `dhis2_connection_options` | [R/dhis2-connect.R](R/dhis2-connect.R) | `(token, username, session_id, scheme, hostname, port, path)` | `neoipcr_dhis2_conopt` (→ `neoipcr_dhis2_connection_options`) | external-stable | stable | — | Auth entry; documents auth fallback chain. |
 | 3 | `dhis2_dataset_options` | [R/dhis2-options.R](R/dhis2-options.R) | `(..., translate = TRUE, locale = NULL)` | `neoipcr_dhis2_dsopt` (→ `neoipcr_dhis2_dataset_options`) | external-stable | stable | — | Data-protection gates + locale entry point. |
-| 4 | `calculate_reference_data` | [R/calc-api.R](R/calc-api.R) | `(x, use_cache = TRUE, redact = TRUE)` | `neoipcr_ref_ds` (→ `neoipcr_reference_ds`) | internal-stable | stable | — | Reference-Report entry. |
-| 5 | `calculate_department_data` | [R/calc-api.R](R/calc-api.R) | `(x, use_cache = TRUE)` | `neoipcr_rep_ds` (→ `neoipcr_report_ds`) | internal-stable | stable | — | Partner-Report entry. |
-| 6 | `get_benchmark_data` | [R/calc-api.R](R/calc-api.R) | `(...)` | `neoipcr_bnch_ds` *(not in task 1.2 rename scope — see §3.2)* | internal-stable | stable | — (D-C: rename withdrawn — function combines pre-computed datasets, doesn't calculate) | Side-by-side stitcher with one CI fix-up; not a calculator. Roxygen at [calc-api.R:313](R/calc-api.R#L313) says "Creates ... from ...". |
+| 4 | `calculate_reference_data` | [R/calc-api.R](R/calc-api.R) | `(x, use_cache = TRUE)` | `neoipcr_ref_ds` (→ `neoipcr_reference_ds`) | internal-stable | stable | — | Reference-Report entry. Carries `validationSummary` and a serializable copy of the options: the exception list and the department filter replaced by markers, asserted before emission. Refuses a dataset without the summary. |
+| 5 | `calculate_department_data` | [R/calc-api.R](R/calc-api.R) | `(x, use_cache = TRUE)` | `neoipcr_rep_ds` (→ `neoipcr_report_ds`) | internal-stable | stable | — | Partner-Report entry. Carries `validationSummary`; the exception list is replaced by a marker, the department's own filter kept. Refuses a dataset without the summary. |
+| 6 | `get_benchmark_data` | [R/calc-api.R](R/calc-api.R) | `(...)` | `neoipcr_bnch_ds` *(not in task 1.2 rename scope — see §3.2)* | internal-stable | stable | — (D-C: rename withdrawn — function combines pre-computed datasets, doesn't calculate) | Side-by-side stitcher with one CI fix-up; not a calculator. Roxygen at [calc-api.R:313](R/calc-api.R#L313) says "Creates ... from ...". Each dataset's `metadata` and `validationSummary` ride under the dataset's name. |
 | 7 | `pretty_names` | [R/calc-api.R](R/calc-api.R) | `(x, ...)` (S3 generic) | varies | internal-stable | experimental | — | S3 generic. |
 | 8 | `pretty_names.default` | [R/calc-api.R](R/calc-api.R) | `(x, ...)` | identity on `x` | internal-stable | experimental | — | Default method. |
 | 9 | `pretty_names.neoipcr_tbl_sr_ref` | [R/calc-api.R](R/calc-api.R) | `(x, ...)` | `neoipcr_tbl_sr_ref` (→ `neoipcr_surgery_rate_table_ref` — candidate) | internal-stable | experimental | — | Translates column/row names; contains the multi-arg `gettext` bug (A4a B-1). |
@@ -103,6 +103,7 @@ Where a row's return-class slug is scheduled for rename by task 1.2 (the class-s
 | 33 | `validation_rule_ids` | [R/validation.R](R/validation.R) | `()` | integer vector | external-stable | experimental | — | The registry's rule ids, for consumers that let a user choose rules or keep a catalogue of rule descriptions. |
 | 34 | `read_validation_exceptions` | [R/validation-exceptions.R](R/validation-exceptions.R) | `(path)` | tibble (`RULE_ID`, `NEOIPC_PATIENT_ID`, `ENROLMENT_DATE`, `EVENT_TYPE`, `EVENT_DATE`, optional `DEPARTMENT_CODE`) | external-stable | experimental | — | The exception-list CSV reader with the shape checks `import_dhis2()` applies; every defect is `neoipcr_invalid_exception_list`. |
 | 35 | `resolve_validation_exceptions` | [R/validation-exceptions.R](R/validation-exceptions.R) | `(x, exceptions)` | tibble (`rule_id` + keys) | external-stable | experimental | — | Maps a written list onto a dataset's keys, as a whole per record; `validate()` calls it itself. |
+| 36 | `validation_rule_context_fields` | [R/validation.R](R/validation.R) | `()` | named list of character vectors | external-stable | experimental | — | The context field names each rule records, per rule id, as the registry declares them; the contract a consumer's sentence templates are checked against. `validate()` refuses a finding whose fields differ from the declaration. |
 
 ### §3.1. Naming patterns and inconsistencies (A1 findings, feed into §9)
 
@@ -408,7 +409,7 @@ All 14 M-class sites have the same migration action: **stay on `gettext` / `gett
 |------|---------------|----------------------|-------|
 | [R/dhis2-connect.R:72–137](R/dhis2-connect.R#L72-L137) | 14 | `read_token`, `get_password`, `get_auth_data` | Token validation + 5-step auth chain error messages. |
 
-`R/validation.R` carries none: `validate()` returns data — the rule id, the keys of the record a finding refers to and a one-row `context` tibble of the values the rule compared — and the sentence a reader sees is composed and translated by the document that renders it (the Validation Report's string resources). The formatter closures that once wrapped a description per rule in `gettext` were deleted with the port of the rules, together with the catalogue entries they produced. The exception list is public API alongside: `read_validation_exceptions()` reads the user's CSV, `resolve_validation_exceptions()` maps it onto a dataset's keys, and `validation_rule_ids()` lists the registry for consumers that keep a catalogue of rule descriptions.
+`R/validation.R` carries none: `validate()` returns data — the rule id, the keys of the record a finding refers to and a one-row `context` tibble of the values the rule compared — and the sentence a reader sees is composed and translated by the document that renders it (the Validation Report's string resources). The formatter closures that once wrapped a description per rule in `gettext` were deleted with the port of the rules, together with the catalogue entries they produced. The exception list is public API alongside: `read_validation_exceptions()` reads the user's CSV, `resolve_validation_exceptions()` maps it onto a dataset's keys, `validation_rule_ids()` lists the registry for consumers that keep a catalogue of rule descriptions, and `validation_rule_context_fields()` names the fields each rule records, so a consumer checks its templates' placeholders against the package rather than against a copied table.
 
 No individual-line enumeration needed — every site stays on gettext, catalog is regenerated post-migration (see §6.6).
 
@@ -932,13 +933,13 @@ Each subsection states the question, the recommendation with rationale, and a "P
 
 ### §10.1. D-A. Audience tier per public-surface symbol
 
-**Question.** For each of the 35 public-surface symbols in §3 — 32 `export()` entries and 3 `S3method()` entries — which audience tier applies? External-stable (documented for data scientists / researchers / clinicians as part of the stable public API) or internal-stable (stable for the NeoIPC internal pipeline but not primarily targeted at external users)? The lifecycle — stable or experimental (API may change, warn external users) — is §3's separate column, on top of the tier.
+**Question.** For each of the 36 public-surface symbols in §3 — 33 `export()` entries and 3 `S3method()` entries — which audience tier applies? External-stable (documented for data scientists / researchers / clinicians as part of the stable public API) or internal-stable (stable for the NeoIPC internal pipeline but not primarily targeted at external users)? The lifecycle — stable or experimental (API may change, warn external users) — is §3's separate column, on top of the tier.
 
 **Recommendation.** Accept the tier column proposed in §3 as the default assignment. Key assignments, counted over that column:
 
-- **external-stable (11):** `import_dhis2`, `dhis2_connection_options`, `dhis2_dataset_options`, `neoipc_poisson_ci`, `neoipc_wilson_ci`, `bootstrap_quantile_ci`, `get_pathogen_taxonomy`, `is_valid_ichi_code`, `print.neoipcr_dhis2_conopt`, `neoipcr_log_config`, `neoipcr_supported_versions`.
+- **external-stable (17):** `import_dhis2`, `dhis2_connection_options`, `dhis2_dataset_options`, `neoipc_poisson_ci`, `neoipc_wilson_ci`, `bootstrap_quantile_ci`, `get_pathogen_taxonomy`, `is_valid_ichi_code`, `print.neoipcr_dhis2_conopt`, `neoipcr_log_config`, `neoipcr_supported_versions`, `get_cumulative_incidence_table`, and the validation surface — `validate`, `validation_rule_ids`, `validation_rule_context_fields`, `read_validation_exceptions`, `resolve_validation_exceptions`.
 - **internal-stable (19):** the 12 `get_*_table` builders, both `calculate_*_data` pipeline entries, `get_benchmark_data` (pre-rename), `pretty_names` with its two methods, `write_json`.
-- **Lifecycle `experimental` (6), across both tiers:** `bootstrap_quantile_ci` (not yet integrated into the rate-table pipeline) and `is_valid_ichi_code` (syntax-only validator; the full-code bundling task is in flight), both external-stable; `pretty_names` + its two methods (the S3 generic is unstable; the B-class bug at [calc-api.R:843](R/calc-api.R#L843) confirms it) and `write_json` (a deliberately narrow first cut — plain lists, scalars, character vectors and dates — without a reading companion), all internal-stable.
+- **Lifecycle `experimental` (12), across both tiers:** `bootstrap_quantile_ci` (not yet integrated into the rate-table pipeline), `is_valid_ichi_code` (syntax-only validator; the full-code bundling task is in flight), `get_cumulative_incidence_table` and the five validation-surface symbols (their shapes settle with the reports that consume them), all external-stable; `pretty_names` + its two methods (the S3 generic is unstable; the B-class bug at [calc-api.R:843](R/calc-api.R#L843) confirms it) and `write_json` (a deliberately narrow first cut — plain lists, scalars, character vectors and dates — without a reading companion), all internal-stable.
 
 **Rationale.** External-stable tier covers functions that appear in all five reports AND are documented in the auth chain / data-protection section of CLAUDE.md (the auth and dataset-options trio), plus standalone statistical utilities (`neoipc_*_ci`, `bootstrap_quantile_ci`), plus the widely-used taxonomy accessor and the ICHI validator, plus the two package-configuration and introspection entry points any caller may need before importing. Everything internal-stable is load-bearing for the NeoIPC pipeline but not primarily targeted at external users — Phase 5 vignettes can expose them progressively. Everything experimental has a specific reason flagged in §3.
 
