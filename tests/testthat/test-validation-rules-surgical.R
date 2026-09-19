@@ -7,10 +7,13 @@ ssi_type <- function(x)
 
 # One patient, one enrolment; a surgery on 2024-01-01 (event key 1) and an
 # SSI `offset` days later (event key 2). `surgery = FALSE` leaves the patient
-# without any procedure.
-rule_19_ds <- function(offset, infection_type = "1", implant = FALSE, surgery = TRUE) {
+# without any procedure; `surgery_dated = FALSE` leaves the procedure without
+# a date.
+rule_19_ds <- function(offset, infection_type = "1", implant = FALSE,
+                       surgery = TRUE, surgery_dated = TRUE) {
   types <- c(if (surgery) "pro", "ssi")
   dates <- as.Date("2024-01-01") + c(if (surgery) 0L, offset)
+  if (surgery && !surgery_dated) dates[1] <- NA
   n <- length(types)
   make_test_ds(
     patients    = make_test_patients(1),
@@ -139,6 +142,24 @@ test_that("rule 19 accepts a surgery from another enrolment of the same patient"
 test_that("rule 19 leaves an SSI without a date alone", {
   expect_equal(nrow(neoipcr:::validation_rule_19(
     rule_19_ds(NA_integer_), NULL)), 0L)
+})
+
+test_that("rule 19 places an SSI of unknown type by the windows its implant flag allows", {
+  # Inside 30 days every window covers it, whatever the type would be.
+  expect_equal(nrow(neoipcr:::validation_rule_19(
+    rule_19_ds(10L, infection_type = NA), NULL)), 0L)
+  # Beyond 30 days only the implant window can, and only with an implant.
+  expect_equal(nrow(neoipcr:::validation_rule_19(
+    rule_19_ds(40L, infection_type = NA, implant = FALSE), NULL)), 1L)
+  expect_equal(nrow(neoipcr:::validation_rule_19(
+    rule_19_ds(40L, infection_type = NA, implant = TRUE), NULL)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_19(
+    rule_19_ds(100L, infection_type = NA, implant = TRUE), NULL)), 1L)
+})
+
+test_that("rule 19 treats a surgery without a date as covering nothing", {
+  expect_equal(nrow(neoipcr:::validation_rule_19(
+    rule_19_ds(10L, surgery_dated = FALSE), NULL)), 1L)
 })
 
 test_that("rule 19 honours exceptions", {

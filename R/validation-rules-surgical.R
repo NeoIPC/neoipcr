@@ -41,13 +41,20 @@ validation_rule_19 <- function(x, exceptions)
       surgery_events,
       dplyr::join_by("patient_key"),
       relationship = "many-to-many") |>
+    # A procedure covers an infection from its own day for 30 days whatever
+    # the infection's type, and for 90 days when an implant was inserted and
+    # the infection is not superficial. An infection whose type was not
+    # recorded takes the longer window where the implant allows it: the
+    # missing type is a completeness problem, not a reason to place the
+    # infection outside a window it may well be in. A procedure without a
+    # date covers nothing, since no window can be placed on it.
     dplyr::mutate(
       ssi_offset = as.integer(.data$ssiOccurredAt - .data$surgeryOccurredAt),
       covered    = tidyr::replace_na(
         .data$ssi_offset >= 0L & (
-          (.data$infection_type == "1" & .data$ssi_offset < 30L) |
-          (.data$infection_type != "1" &  .data$implant & .data$ssi_offset < 90L) |
-          (.data$infection_type != "1" & !.data$implant & .data$ssi_offset < 30L)),
+          .data$ssi_offset < 30L |
+          (.data$implant & .data$ssi_offset < 90L &
+             (is.na(.data$infection_type) | .data$infection_type != "1"))),
         FALSE)) |>
     dplyr::group_by(
       .data$patient_key, .data$enrollment_key, .data$event_key,

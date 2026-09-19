@@ -23,8 +23,9 @@ section above it for the next changes.
   period or coincides with another open enrolment's start; rule 19 counts the procedure date as day
   1 of the follow-up window, as the protocol does, so an infection on the procedure day is inside
   the window and one 30 (or 90) days later is the first outside it, where the report's rule had
-  started the window the day after the procedure, and it reads an implant flag that was not
-  recorded as no implant; and rules 7–11 flag an open infection or
+  started the window the day after the procedure, it reads an implant flag that was not
+  recorded as no implant, and it places an infection whose type was not recorded by the windows
+  its implant flag allows rather than outside every window; and rules 7–11 flag an open infection or
   surgery form whenever the enrolment *or* its surveillance-end form is completed, keyed on the
   form's event. Every rule is exempted through the key its finding is recorded on.
 * `validate()` returns no prose. A finding's `context` is a one-row tibble of the values the rule
