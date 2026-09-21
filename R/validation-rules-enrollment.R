@@ -143,3 +143,65 @@ validation_rule_26 <- function(x, exceptions)
       context        = list(NULL),
       .keep = "none")
 }
+
+# Find enrolments still active more than `.open_enrolment_max_days` after
+# their enrolment date, measured against `as_of`, that have no
+# surveillance-end event. An enrolment date the record lacks yields no age
+# and no finding.
+validation_rule_43 <- function(x, exceptions, as_of)
+{
+  check_neoipcr_ds(x)
+
+  .with_status(x$enrollments, .enrollment_status_levels) |>
+    dplyr::filter(.data$status == "ACTIVE") |>
+    dplyr::select("patient_key", "enrollment_key", "enrolledAt") |>
+    dplyr::anti_join(
+      x$events |>
+        dplyr::filter(.data$event_type_key == "end"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::mutate(days_open = .days_open(.data$enrolledAt, as_of)) |>
+    dplyr::filter(.data$days_open > .open_enrolment_max_days) |>
+    dplyr::anti_join(
+      .rule_exceptions(exceptions, 43L),
+      dplyr::join_by("enrollment_key")) |>
+    tidyr::nest(context = c("enrolledAt", "days_open")) |>
+    dplyr::mutate(
+      rule_id        = 43L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = NA_integer_,
+      context        = .data$context,
+      .keep = "none")
+}
+
+# Find enrolments still active more than `.open_enrolment_max_days` after
+# their enrolment date, measured against `as_of`, whose surveillance-end
+# event exists but is not completed. The finding carries that event and its
+# status.
+validation_rule_44 <- function(x, exceptions, as_of)
+{
+  check_neoipcr_ds(x)
+
+  .with_status(x$enrollments, .enrollment_status_levels) |>
+    dplyr::filter(.data$status == "ACTIVE") |>
+    dplyr::select("patient_key", "enrollment_key", "enrolledAt") |>
+    dplyr::inner_join(
+      .with_status(x$events, .event_status_levels) |>
+        dplyr::filter(.data$event_type_key == "end" &
+                      .data$status != "COMPLETED") |>
+        dplyr::select("enrollment_key", "event_key", "status"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::mutate(days_open = .days_open(.data$enrolledAt, as_of)) |>
+    dplyr::filter(.data$days_open > .open_enrolment_max_days) |>
+    dplyr::anti_join(
+      .rule_exceptions(exceptions, 44L),
+      dplyr::join_by("enrollment_key")) |>
+    tidyr::nest(context = c("enrolledAt", "days_open", "status")) |>
+    dplyr::mutate(
+      rule_id        = 44L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = .data$event_key,
+      context        = .data$context,
+      .keep = "none")
+}

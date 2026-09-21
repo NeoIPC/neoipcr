@@ -14,6 +14,17 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+# neoipcr 0.0.0.9003
+
+* Two rules question an enrolment left open long after its admission: rule 43 an active enrolment
+  without a surveillance-end form, rule 44 one whose surveillance-end form is not completed, both once
+  the enrolment date lies more than 180 days before the date the data was read — the DHIS2 server date
+  the import records on `metadata$system$date`, or the new `as_of` argument of `validate()`. A stay that
+  long is exceptional, so such a record is most often one nobody closed once the infant left; the infant
+  may still be admitted, in which case the finding is to be ignored, and an exception record keeps the
+  enrolment out of the findings while the stay lasts. A completed-only import carries no active
+  enrolments, so the import's own pass is unchanged; a dataset without a server date runs every other
+  rule and refuses these two. The rules now number 43.
 * An exception record for an enrolment-level rule that compares a form — rules 3 and 5 the admission
   form, 2, 4, 6, 18 and 21 the surveillance-end form — may name that form's type and date, as a reader
   of the Validation Report writes it from the form the finding is shown on, or leave them empty; both

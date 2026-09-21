@@ -4,7 +4,7 @@
 \alias{validate}
 \title{Validate a NeoIPC dataset against the protocol's validation rules}
 \usage{
-validate(x, rules = NULL, exceptions = NULL)
+validate(x, rules = NULL, exceptions = NULL, as_of = NULL)
 }
 \arguments{
 \item{x}{A \code{neoipcr_ds} object imported with \code{include_patient} set to
@@ -22,6 +22,13 @@ either the list a user writes, as \code{\link[=read_validation_exceptions]{read_
 it, or its resolved key form as \code{\link[=resolve_validation_exceptions]{resolve_validation_exceptions()}} returns
 it (\code{rule_id}, \code{patient_key}, \code{enrollment_key}, \code{event_key}). \code{NULL}
 exempts nothing.}
+
+\item{as_of}{The date the data was read, a \code{Date}, against which rules 43
+and 44 measure how long an enrolment has been open; \code{NULL} (the default)
+takes the DHIS2 server date the import recorded on
+\code{metadata$system$date}. A dataset carrying neither cannot run those two
+rules, which is an error of class \code{neoipcr_validation_needs_facts} when
+one of them is selected; the other rules do not read the date.}
 }
 \value{
 A tibble with one row per finding — a flagged record, or for
@@ -67,12 +74,21 @@ enrolment-level rule that compares a form carries that form's event on
 its finding, so a document shows the finding on the form; a record for
 such a rule may name that form's type and date as well, or leave them
 empty, and is refused naming any other type (rules 3 and 5 the admission
-form, 2, 4, 6, 18 and 21 the surveillance-end form; 17, 25 and 26 carry
-no event).
+form, 2, 4, 6, 18, 21 and 44 the surveillance-end form; 17, 25, 26 and 43
+carry no event).
 Dates are \code{Date}, statuses factors, counts integers. A dataset imported
 without incomplete enrolments or events (\code{include_incomplete}) carries no
 \code{status} column for them; the rules then treat every such record as
-completed, which is what the import's request filter made it.\tabular{lll}{
+completed, which is what the import's request filter made it.
+
+Rules 43 and 44 question an enrolment still active more than 180 days
+after its enrolment date, measured against \code{as_of}: 43 one without a
+surveillance-end form, 44 one whose surveillance-end form is not
+completed. A neonatal stay that long is exceptional, so such a record is
+most often one nobody closed once the infant left; but the infant may
+still be admitted, in which case the finding is to be ignored, and an
+exception record keeps the enrolment out of the findings while the stay
+lasts. \code{days_open} is the whole days from the enrolment date to \code{as_of}.\tabular{lll}{
    Rules \tab Level \tab Context fields \cr
    1 \tab \code{patient_key} \tab none \cr
    2 \tab \code{enrollment_key} \tab none \cr
@@ -92,6 +108,8 @@ completed, which is what the import's request filter made it.\tabular{lll}{
    28, 32, 36, 40, 42 \tab \code{event_key} \tab \code{los}, \code{los_calc} \cr
    29, 33, 37 \tab \code{event_key} \tab \code{dol} \cr
    30, 34, 38 \tab \code{event_key} \tab \code{dos} \cr
+   43 \tab \code{enrollment_key} \tab \code{enrolledAt}, \code{days_open} \cr
+   44 \tab \code{enrollment_key} \tab \code{enrolledAt}, \code{days_open}, \code{status} \cr
 }
 }
 

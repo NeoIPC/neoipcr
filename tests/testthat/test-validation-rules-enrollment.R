@@ -313,3 +313,117 @@ test_that("rule 26 honours exceptions", {
     rule_25_26_ds("end"), make_test_exceptions(26L, enrollment_key = 1L))
   expect_equal(nrow(result), 0L)
 })
+
+# --- Rules 43 and 44: enrolment still open long after its enrolment date ---
+
+open_enrolment_as_of <- as.Date("2025-01-01")
+
+# One patient enrolled `days_before` the reference date, with a completed
+# admission event and a surveillance-end event of the given status, or none.
+open_enrolment_ds <- function(days_before, enrollment = "ACTIVE", end = NULL) {
+  events <- if (is.null(end))
+    make_test_events(1,
+      enrollment_keys = 1L,
+      patient_keys    = 1L,
+      event_type_keys = "adm",
+      status = event_status("COMPLETED"))
+  else
+    make_test_events(1,
+      enrollment_keys = 1L,
+      patient_keys    = 1L,
+      event_type_keys = "end",
+      status = event_status(end))
+  make_test_ds(
+    patients    = make_test_patients(1),
+    enrollments = make_test_enrollments(1,
+      patient_keys = 1L,
+      enrolledAt = open_enrolment_as_of - days_before,
+      status = enrollment_status(enrollment)),
+    events = events)
+}
+
+event_status <- function(x)
+  factor(x, levels = c("ACTIVE", "COMPLETED", "VISITED", "SCHEDULE", "OVERDUE", "SKIPPED"))
+
+test_that("rule 43 detects an active enrolment without an end event long after its enrolment date", {
+  result <- neoipcr:::validation_rule_43(open_enrolment_ds(181), NULL, open_enrolment_as_of)
+  expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
+  expect_equal(result$rule_id, 43L)
+  expect_equal(result$enrollment_key, 1L)
+  expect_true(is.na(result$event_key))
+  expect_equal(result$context[[1]]$enrolledAt, open_enrolment_as_of - 181)
+  expect_equal(result$context[[1]]$days_open, 181L)
+})
+
+test_that("rule 43 questions an enrolment only past the threshold", {
+  expect_equal(nrow(neoipcr:::validation_rule_43(open_enrolment_ds(180), NULL, open_enrolment_as_of)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_43(open_enrolment_ds(181), NULL, open_enrolment_as_of)), 1L)
+  # The same enrolment measured against an earlier reading is not yet due.
+  expect_equal(nrow(neoipcr:::validation_rule_43(open_enrolment_ds(181), NULL, open_enrolment_as_of - 10)), 0L)
+})
+
+test_that("rule 43 returns no rows for a completed enrolment or one with an end event", {
+  expect_equal(nrow(neoipcr:::validation_rule_43(open_enrolment_ds(400, "COMPLETED"), NULL, open_enrolment_as_of)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_43(open_enrolment_ds(400, "CANCELLED"), NULL, open_enrolment_as_of)), 0L)
+  # An end event of any status is rule 2's or 44's concern, not this one's.
+  expect_equal(nrow(neoipcr:::validation_rule_43(open_enrolment_ds(400, end = "ACTIVE"), NULL, open_enrolment_as_of)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_43(open_enrolment_ds(400, end = "COMPLETED"), NULL, open_enrolment_as_of)), 0L)
+})
+
+test_that("rule 43 treats enrolments without a status column as completed", {
+  ds <- open_enrolment_ds(400)
+  ds$enrollments$status <- NULL
+  expect_no_warning(result <- neoipcr:::validation_rule_43(ds, NULL, open_enrolment_as_of))
+  expect_equal(nrow(result), 0L)
+})
+
+test_that("rule 43 honours exceptions", {
+  result <- neoipcr:::validation_rule_43(
+    open_enrolment_ds(400), make_test_exceptions(43L, enrollment_key = 1L), open_enrolment_as_of)
+  expect_equal(nrow(result), 0L)
+})
+
+test_that("rule 44 detects an active enrolment with an open end event long after its enrolment date", {
+  ds <- open_enrolment_ds(200, end = "ACTIVE")
+  result <- neoipcr:::validation_rule_44(ds, NULL, open_enrolment_as_of)
+  expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
+  expect_declared_form(result, ds)
+  expect_equal(result$rule_id, 44L)
+  expect_equal(result$enrollment_key, 1L)
+  # The finding names the end event that is still open.
+  expect_equal(result$event_key, 1L)
+  expect_equal(as.character(result$context[[1]]$status), "ACTIVE")
+  expect_equal(result$context[[1]]$days_open, 200L)
+})
+
+test_that("rule 44 questions an enrolment only past the threshold", {
+  expect_equal(nrow(neoipcr:::validation_rule_44(open_enrolment_ds(180, end = "ACTIVE"), NULL, open_enrolment_as_of)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_44(open_enrolment_ds(181, end = "ACTIVE"), NULL, open_enrolment_as_of)), 1L)
+})
+
+test_that("rule 44 returns no rows when the end event is completed, the enrolment is not active, or there is no end event", {
+  # A completed end event on an active enrolment is rule 2's finding.
+  expect_equal(nrow(neoipcr:::validation_rule_44(open_enrolment_ds(400, end = "COMPLETED"), NULL, open_enrolment_as_of)), 0L)
+  # An open end event on a completed enrolment is rule 6's.
+  expect_equal(nrow(neoipcr:::validation_rule_44(open_enrolment_ds(400, "COMPLETED", end = "ACTIVE"), NULL, open_enrolment_as_of)), 0L)
+  # No end event at all is rule 43's.
+  expect_equal(nrow(neoipcr:::validation_rule_44(open_enrolment_ds(400), NULL, open_enrolment_as_of)), 0L)
+})
+
+test_that("rule 44 treats records without a status column as completed", {
+  ds <- open_enrolment_ds(400, end = "ACTIVE")
+  ds$enrollments$status <- NULL
+  expect_no_warning(result <- neoipcr:::validation_rule_44(ds, NULL, open_enrolment_as_of))
+  expect_equal(nrow(result), 0L)
+  ds <- open_enrolment_ds(400, end = "ACTIVE")
+  ds$events$status <- NULL
+  expect_equal(nrow(neoipcr:::validation_rule_44(ds, NULL, open_enrolment_as_of)), 0L)
+})
+
+test_that("rule 44 honours exceptions", {
+  result <- neoipcr:::validation_rule_44(
+    open_enrolment_ds(400, end = "ACTIVE"), make_test_exceptions(44L, enrollment_key = 1L), open_enrolment_as_of)
+  expect_equal(nrow(result), 0L)
+})

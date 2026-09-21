@@ -1,7 +1,7 @@
 # Tests for R/validation.R — validate() orchestrator and validation_rules registry.
 
-test_that("validation_rules registry has 41 entries with an id, a level and a function each", {
-  expect_equal(length(neoipcr:::validation_rules), 41L)
+test_that("validation_rules registry has 43 entries with an id, a level and a function each", {
+  expect_equal(length(neoipcr:::validation_rules), 43L)
   for (entry in neoipcr:::validation_rules) {
     expect_true(all(c("id", "level", "fun") %in% names(entry)))
     expect_true(is.integer(entry$id))
@@ -29,13 +29,43 @@ test_that("validation_rules registry has 41 entries with an id, a level and a fu
   expect_equal(neoipcr:::.rule_event_types(18L), "end")
   expect_null(neoipcr:::.rule_event_types(17L))
   expect_null(neoipcr:::.rule_event_types(25L))
+  expect_null(neoipcr:::.rule_event_types(43L))
+  expect_equal(neoipcr:::.rule_event_types(44L), "end")
+  # Only the rules that measure an enrolment's age take the reference date.
+  dated <- vapply(neoipcr:::validation_rules, \(r) isTRUE(r$dated), logical(1))
+  expect_equal(neoipcr::validation_rule_ids()[dated], c(43L, 44L))
+})
+
+test_that("validate measures an open enrolment against the import's server date, or as_of", {
+  # The fixture metadata reads the server date 2024-11-08.
+  ds <- make_test_ds(
+    patients    = make_test_patients(1),
+    enrollments = make_test_enrollments(1,
+      patient_keys = 1L,
+      enrolledAt = as.Date("2024-01-01"),
+      status = factor("ACTIVE", levels = c("ACTIVE", "COMPLETED", "CANCELLED"))),
+    events = make_test_events(1,
+      enrollment_keys = 1L,
+      patient_keys    = 1L,
+      event_type_keys = "adm"))
+  result <- neoipcr::validate(ds, rules = 43L)
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$context[[1]]$days_open,
+               as.integer(as.Date("2024-11-08") - as.Date("2024-01-01")))
+  # An explicit reading stands in for the recorded one.
+  expect_equal(nrow(neoipcr::validate(ds, rules = 43L, as_of = as.Date("2024-03-01"))), 0L)
+  expect_error(neoipcr::validate(ds, rules = 43L, as_of = "2024-03-01"), "as_of")
+  # Without either the dated rules cannot run; the other rules still do.
+  ds$metadata$system <- NULL
+  expect_error(neoipcr::validate(ds, rules = 43L), class = "neoipcr_validation_needs_facts")
+  expect_equal(nrow(neoipcr::validate(ds, rules = c(3L, 25L))), 0L)
 })
 
 test_that("validation_rule_ids is exported and lists the registry in order", {
   namespace <- readLines(system.file("NAMESPACE", package = "neoipcr"))
   expect_true("export(validation_rule_ids)" %in% namespace)
   # Rule 16 is gone, so the ids keep their numbering with a gap at 16.
-  expect_identical(neoipcr::validation_rule_ids(), c(1:15, 17:42))
+  expect_identical(neoipcr::validation_rule_ids(), c(1:15, 17:44))
   expect_true("export(validation_rule_context_fields)" %in% namespace)
   fields <- neoipcr::validation_rule_context_fields()
   expect_identical(names(fields), as.character(neoipcr::validation_rule_ids()))
@@ -89,8 +119,8 @@ test_that("validate refuses a rule id it does not know", {
     neoipcr::validate(ds, rules = 99L),
     class = "neoipcr_unknown_validation_rule")
   expect_error(
-    neoipcr::validate(ds, rules = c(1L, 43L)),
-    regexp = "43")
+    neoipcr::validate(ds, rules = c(1L, 45L)),
+    regexp = "45")
   expect_error(
     neoipcr::validate(ds, rules = 1.5),
     class = "neoipcr_unknown_validation_rule")
