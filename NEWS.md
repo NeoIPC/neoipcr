@@ -14,6 +14,13 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+* An exception record for an enrolment-level rule that compares a form — rules 3 and 5 the admission
+  form, 2, 4, 6, 18 and 21 the surveillance-end form — may name that form's type and date, as a reader
+  of the Validation Report writes it from the form the finding is shown on, or leave them empty; both
+  exempt the enrolment. A record naming any other form is still refused, as is one naming an event for
+  a rule that carries none. `resolve_validation_exceptions()` carries the form's event key on such a
+  record.
+
 # neoipcr 0.0.0.9002
 
 * A dataset carries the validation pass's findings in `validationResults` and their counts in

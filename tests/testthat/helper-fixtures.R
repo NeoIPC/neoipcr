@@ -1285,3 +1285,13 @@ make_empty_calc_test_ds <- function() {
 expect_declared_context <- function(result)
   testthat::expect_no_error(neoipcr:::.assert_declared_context(
     result, neoipcr::validation_rule_context_fields()))
+
+# The form the registry says an enrolment-level rule shows its finding on
+# is the type of the event every finding of the rule carries; an exception
+# record naming that form is accepted on the strength of the declaration,
+# so the declaration is checked against the rule's own output.
+expect_declared_form <- function(result, ds) {
+  declared <- neoipcr:::.rule_event_types(result$rule_id[1])
+  carried  <- ds$events$event_type_key[match(result$event_key, ds$events$event_key)]
+  testthat::expect_equal(unique(as.character(carried)), declared)
+}

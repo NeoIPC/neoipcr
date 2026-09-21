@@ -56,9 +56,11 @@ rule_2_ds <- function(enrollment = "ACTIVE", end = "COMPLETED")
       status = event_status(end)))
 
 test_that("rule 2 detects active enrollment with completed end event", {
-  result <- neoipcr:::validation_rule_2(rule_2_ds(), NULL)
+  ds <- rule_2_ds()
+  result <- neoipcr:::validation_rule_2(ds, NULL)
   expect_equal(nrow(result), 1L)
   expect_declared_context(result)
+  expect_declared_form(result, ds)
   expect_equal(result$rule_id, 2L)
   expect_equal(result$enrollment_key, 1L)
   # The finding names the end event that closed the record.

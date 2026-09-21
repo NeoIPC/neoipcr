@@ -30,10 +30,11 @@ and the reporting tools exchange. Its columns are \code{RULE_ID},
 the "Context fields" section of \code{\link[=validate]{validate()}} lists it: for rule 1 the
 patient alone, with \code{ENROLMENT_DATE}, \code{EVENT_TYPE} and \code{EVENT_DATE} empty;
 for an enrolment-level rule the patient and \code{ENROLMENT_DATE}, with the
-event columns empty; for an event-level rule the event's type (one the
-rule concerns) and date as well. \code{DEPARTMENT_CODE} may be absent, or left
-empty throughout, when the list covers a single department. Dates are read
-in ISO 8601 form.
+event columns empty or, where the rule shows its finding on a form,
+naming that form's type and date; for an event-level rule the event's
+type (one the rule concerns) and date as well. \code{DEPARTMENT_CODE} may be
+absent, or left empty throughout, when the list covers a single
+department. Dates are read in ISO 8601 form.
 }
 \seealso{
 Other validation:

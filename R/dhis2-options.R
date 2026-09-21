@@ -91,7 +91,8 @@
 #'  (one of `adm`, `pro`, `bsi`, `nec`, `ssi`, `hap`, `end`, in any case),
 #'  and `DEPARTMENT_CODE` when more than one department is imported; a
 #'  record a rule flags at the enrollment level carries `NA` for both
-#'  `EVENT_TYPE` and `EVENT_DATE`. The records are matched by patient id
+#'  `EVENT_TYPE` and `EVENT_DATE`, or, where the rule shows its finding on
+#'  a form, that form's type and date. The records are matched by patient id
 #'  within their department, so a list needs `include_patient = "full"`
 #'  (which then keeps `patient_id` whatever `patient_columns` says) and
 #'  `include_department` not `"no"`. The import resolves the list under

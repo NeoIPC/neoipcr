@@ -52,6 +52,27 @@ test_that("read_validation_exceptions accepts a list without department codes", 
   expect_equal(nrow(ex), 2L)
 })
 
+test_that("read_validation_exceptions reads a record naming the form its rule's finding shows", {
+  # Rules 5 and 18 are recorded on the enrolment but shown on the admission
+  # and surveillance-end forms, which is how a reader of the report writes
+  # them.
+  rows <- tibble::tibble(
+    RULE_ID           = c("5", "18"),
+    DEPARTMENT_CODE   = c("", ""),
+    NEOIPC_PATIENT_ID = c("PAT_1", "PAT_1"),
+    ENROLMENT_DATE    = c("2024-01-01", "2024-01-01"),
+    EVENT_TYPE        = c("ADM", "END"),
+    EVENT_DATE        = c("2024-01-01", "2024-01-20"))
+  ex <- neoipcr::read_validation_exceptions(write_exception_csv(rows))
+  expect_equal(ex$RULE_ID, c(5L, 18L))
+  expect_equal(ex$EVENT_TYPE, c("ADM", "END"))
+  expect_error(
+    neoipcr::read_validation_exceptions(
+      write_exception_csv(rows |> dplyr::mutate(EVENT_TYPE = c("END", "ADM")))),
+    regexp = "rule\\(s\\) 5, 18 do not concern",
+    class = "neoipcr_invalid_exception_list")
+})
+
 test_that("read_validation_exceptions is the shape import_dhis2 accepts", {
   path <- write_exception_csv(exception_rows())
   ex <- neoipcr::read_validation_exceptions(path)
@@ -254,8 +275,18 @@ test_that("resolve_validation_exceptions refuses a record written at another lev
   # Rule 1 concerns the patient alone.
   refuse(written_exceptions()[3, ] |> dplyr::mutate(ENROLMENT_DATE = as.Date("2024-01-01")),
          "ENROLMENT_DATE")
-  # Rule 3 is recorded on the enrolment, not on the admission event.
+  # Rule 3 is recorded on the enrolment and shows its finding on the
+  # admission form, so a record for it may name that form but no other.
   refuse(written_exceptions()[1, ] |>
+           dplyr::mutate(EVENT_TYPE = "bsi", EVENT_DATE = as.Date("2024-01-06")),
+         "concern")
+  # Rule 25 compares enrolments alone and is recorded on no event.
+  refuse(written_exceptions()[1, ] |>
+           dplyr::mutate(RULE_ID = 25L, EVENT_TYPE = "adm", EVENT_DATE = as.Date("2024-01-01")),
+         "EVENT_TYPE")
+  # Rule 1 concerns the patient alone, whether the record names an
+  # enrolment or an event.
+  refuse(written_exceptions()[3, ] |>
            dplyr::mutate(EVENT_TYPE = "adm", EVENT_DATE = as.Date("2024-01-01")),
          "EVENT_TYPE")
   # Rule 12 is recorded on a sepsis event and needs one named.
@@ -264,9 +295,27 @@ test_that("resolve_validation_exceptions refuses a record written at another lev
          "EVENT_TYPE")
   refuse(written_exceptions()[2, ] |> dplyr::mutate(EVENT_TYPE = "hap"), "12")
   # The message names the rules concerned.
-  refuse(written_exceptions() |> dplyr::mutate(EVENT_TYPE = c("adm", "bsi", NA),
+  refuse(written_exceptions() |> dplyr::mutate(EVENT_TYPE = c("end", "bsi", NA),
                                               EVENT_DATE = as.Date(c("2024-01-01", "2024-01-06", NA))),
          "rule\\(s\\) 3")
+})
+
+test_that("resolve_validation_exceptions lets an enrolment-level record name its rule's form", {
+  ds <- resolvable_ds()
+  # Rule 3 shows its finding on the admission form: a record naming that
+  # form resolves the event as well, and still carries the enrolment key
+  # the rule reads.
+  named <- written_exceptions()[1, ] |>
+    dplyr::mutate(EVENT_TYPE = "ADM", EVENT_DATE = as.Date("2024-01-01"))
+  keys <- neoipcr::resolve_validation_exceptions(ds, named)
+  expect_equal(keys$enrollment_key, 1L)
+  expect_equal(keys$event_key, 1L)
+  # The record resolves as a whole: a form date the dataset does not hold
+  # exempts nothing, not even the enrolment it names correctly.
+  keys <- neoipcr::resolve_validation_exceptions(
+    ds, named |> dplyr::mutate(EVENT_DATE = as.Date("2024-01-02")))
+  expect_true(is.na(keys$enrollment_key))
+  expect_true(is.na(keys$event_key))
 })
 
 test_that("resolve_validation_exceptions resolves a record to every dataset record it fits", {
