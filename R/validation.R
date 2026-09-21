@@ -113,11 +113,11 @@ validation_rules <- list(
        fun = validation_rule_44))
 
 # How long an enrolment may stay active after its enrolment date before
-# rules 43 and 44 question it. A neonatal stay past half a year is
+# rules 43 and 44 question it. A neonatal stay past four months is
 # exceptional, so an enrolment still open then is most often a record nobody
 # closed once the infant left — though it may still be admitted, which is
 # why a finding asks for a look and an exception record keeps a genuine stay.
-.open_enrolment_max_days <- 180L
+.open_enrolment_max_days <- 120L
 
 # The whole days from an enrolment date to the reference date.
 .days_open <- function(enrolled_at, as_of)
@@ -439,7 +439,7 @@ validation_rule_context_fields <- function()
 #' `status` column for them; the rules then treat every such record as
 #' completed, which is what the import's request filter made it.
 #'
-#' Rules 43 and 44 question an enrolment still active more than 180 days
+#' Rules 43 and 44 question an enrolment still active more than 120 days
 #' after its enrolment date, measured against `as_of`: 43 one without a
 #' surveillance-end form, 44 one whose surveillance-end form is not
 #' completed. A neonatal stay that long is exceptional, so such a record is

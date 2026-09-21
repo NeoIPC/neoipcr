@@ -18,7 +18,7 @@ section above it for the next changes.
 
 * Two rules question an enrolment left open long after its admission: rule 43 an active enrolment
   without a surveillance-end form, rule 44 one whose surveillance-end form is not completed, both once
-  the enrolment date lies more than 180 days before the date the data was read — the DHIS2 server date
+  the enrolment date lies more than 120 days before the date the data was read — the DHIS2 server date
   the import records on `metadata$system$date`, or the new `as_of` argument of `validate()`. A stay that
   long is exceptional, so such a record is most often one nobody closed once the infant left; the infant
   may still be admitted, in which case the finding is to be ignored, and an exception record keeps the

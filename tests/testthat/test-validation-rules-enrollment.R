@@ -346,21 +346,21 @@ event_status <- function(x)
   factor(x, levels = c("ACTIVE", "COMPLETED", "VISITED", "SCHEDULE", "OVERDUE", "SKIPPED"))
 
 test_that("rule 43 detects an active enrolment without an end event long after its enrolment date", {
-  result <- neoipcr:::validation_rule_43(open_enrolment_ds(181), NULL, open_enrolment_as_of)
+  result <- neoipcr:::validation_rule_43(open_enrolment_ds(121), NULL, open_enrolment_as_of)
   expect_equal(nrow(result), 1L)
   expect_declared_context(result)
   expect_equal(result$rule_id, 43L)
   expect_equal(result$enrollment_key, 1L)
   expect_true(is.na(result$event_key))
-  expect_equal(result$context[[1]]$enrolledAt, open_enrolment_as_of - 181)
-  expect_equal(result$context[[1]]$days_open, 181L)
+  expect_equal(result$context[[1]]$enrolledAt, open_enrolment_as_of - 121)
+  expect_equal(result$context[[1]]$days_open, 121L)
 })
 
 test_that("rule 43 questions an enrolment only past the threshold", {
-  expect_equal(nrow(neoipcr:::validation_rule_43(open_enrolment_ds(180), NULL, open_enrolment_as_of)), 0L)
-  expect_equal(nrow(neoipcr:::validation_rule_43(open_enrolment_ds(181), NULL, open_enrolment_as_of)), 1L)
+  expect_equal(nrow(neoipcr:::validation_rule_43(open_enrolment_ds(120), NULL, open_enrolment_as_of)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_43(open_enrolment_ds(121), NULL, open_enrolment_as_of)), 1L)
   # The same enrolment measured against an earlier reading is not yet due.
-  expect_equal(nrow(neoipcr:::validation_rule_43(open_enrolment_ds(181), NULL, open_enrolment_as_of - 10)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_43(open_enrolment_ds(121), NULL, open_enrolment_as_of - 10)), 0L)
 })
 
 test_that("rule 43 returns no rows for a completed enrolment or one with an end event", {
@@ -399,8 +399,8 @@ test_that("rule 44 detects an active enrolment with an open end event long after
 })
 
 test_that("rule 44 questions an enrolment only past the threshold", {
-  expect_equal(nrow(neoipcr:::validation_rule_44(open_enrolment_ds(180, end = "ACTIVE"), NULL, open_enrolment_as_of)), 0L)
-  expect_equal(nrow(neoipcr:::validation_rule_44(open_enrolment_ds(181, end = "ACTIVE"), NULL, open_enrolment_as_of)), 1L)
+  expect_equal(nrow(neoipcr:::validation_rule_44(open_enrolment_ds(120, end = "ACTIVE"), NULL, open_enrolment_as_of)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_44(open_enrolment_ds(121, end = "ACTIVE"), NULL, open_enrolment_as_of)), 1L)
 })
 
 test_that("rule 44 returns no rows when the end event is completed, the enrolment is not active, or there is no end event", {

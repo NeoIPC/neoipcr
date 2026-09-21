@@ -81,7 +81,7 @@ without incomplete enrolments or events (\code{include_incomplete}) carries no
 \code{status} column for them; the rules then treat every such record as
 completed, which is what the import's request filter made it.
 
-Rules 43 and 44 question an enrolment still active more than 180 days
+Rules 43 and 44 question an enrolment still active more than 120 days
 after its enrolment date, measured against \code{as_of}: 43 one without a
 surveillance-end form, 44 one whose surveillance-end form is not
 completed. A neonatal stay that long is exceptional, so such a record is
