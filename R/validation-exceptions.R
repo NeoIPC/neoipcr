@@ -8,10 +8,11 @@
 #' the "Context fields" section of [validate()] lists it: for rule 1 the
 #' patient alone, with `ENROLMENT_DATE`, `EVENT_TYPE` and `EVENT_DATE` empty;
 #' for an enrolment-level rule the patient and `ENROLMENT_DATE`, with the
-#' event columns empty; for an event-level rule the event's type (one the
-#' rule concerns) and date as well. `DEPARTMENT_CODE` may be absent, or left
-#' empty throughout, when the list covers a single department. Dates are read
-#' in ISO 8601 form.
+#' event columns empty or, where the rule shows its finding on a form,
+#' naming that form's type and date; for an event-level rule the event's
+#' type (one the rule concerns) and date as well. `DEPARTMENT_CODE` may be
+#' absent, or left empty throughout, when the list covers a single
+#' department. Dates are read in ISO 8601 form.
 #'
 #' @param path Path to the CSV file.
 #'
@@ -114,7 +115,9 @@ read_validation_exceptions <- function(path)
 #'  `event_key` (`department_key` too when the records were matched by
 #'  department code): one row per record, or one per dataset record it fits.
 #'  `rule_id` is kept on every row; the keys are `NA` throughout where a
-#'  record did not resolve, and `NA` below its rule's level otherwise.
+#'  record did not resolve, and otherwise `NA` below the level the record
+#'  is written at — an enrolment-level record that names its rule's form
+#'  carries the event's key too.
 #' @family validation
 #' @export
 resolve_validation_exceptions <- function(x, exceptions)
@@ -185,9 +188,9 @@ has_exception_list <- function(dataset_options)
 # against the records' dates), a rule id that names a registered rule, a patient id and a
 # department code (where the column is present) on every record — a blank
 # one would match nothing and exempt nothing in silence — and an event type
-# from the stage vocabulary (case does not matter; `NA` names an
-# enrolment-level record together with an `NA` event date, and a record that
-# names an event names its enrolment date too). `header` opens the message,
+# from the stage vocabulary (case does not matter; the type and the event
+# date are both `NA` or both set, and a record that names an event names
+# its enrolment date too). `header` opens the message,
 # since the same shape is refused from an option and from a file.
 check_exception_list <- function(ex, header)
 {
@@ -284,16 +287,23 @@ check_exception_list <- function(ex, header)
 # not written at the level of the rule they name, as `validation_rules`
 # declares it, each as a sentence naming the rule ids concerned. A record
 # at another level would resolve keys its rule never joins on and exempt
-# nothing, or name an event of a type the rule does not look at.
+# nothing, or name an event of a type the rule does not look at. The one
+# latitude is the form an enrolment-level finding is shown on: a record
+# may name it, since the rule keys on the enrolment either way.
 .record_level_problems <- function(ex, event_types)
 {
   ids <- ex$RULE_ID
   level <- unname(.rule_levels()[as.character(ids)])
   has_enrolment <- !is.na(ex$ENROLMENT_DATE)
   has_event     <- !is.na(event_types)
+  # The types a record for the rule may name: what an event-level rule
+  # concerns, or the form an enrolment-level rule shows its finding on. A
+  # rule with none is recorded on no event at all.
+  allowed <- lapply(ids, .rule_event_types)
+  names_no_form <- has_event & lengths(allowed) == 0L
   type_fits <- vapply(
     seq_along(ids),
-    \(i) !has_event[i] || event_types[i] %in% .rule_event_types(ids[i]),
+    \(i) !has_event[i] || names_no_form[i] || event_types[i] %in% allowed[[i]],
     logical(1))
   rules_where <- function(cond)
     paste(sort(unique(ids[cond])), collapse = ", ")
@@ -304,9 +314,9 @@ check_exception_list <- function(ex, header)
     if (any(level != "patient" & !has_enrolment))
       sprintf("rule(s) %s are recorded on the enrolment or an event: their records name `ENROLMENT_DATE`",
               rules_where(level != "patient" & !has_enrolment)),
-    if (any(level != "event" & has_event))
+    if (any(names_no_form))
       sprintf("rule(s) %s are not recorded on an event: their records leave `EVENT_TYPE` and `EVENT_DATE` empty",
-              rules_where(level != "event" & has_event)),
+              rules_where(names_no_form)),
     if (any(level == "event" & !has_event))
       sprintf("rule(s) %s are recorded on an event: their records name `EVENT_TYPE` and `EVENT_DATE`",
               rules_where(level == "event" & !has_event)),

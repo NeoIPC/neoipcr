@@ -152,7 +152,8 @@ exception record carries \code{RULE_ID} (numeric), \code{NEOIPC_PATIENT_ID}
 (one of \code{adm}, \code{pro}, \code{bsi}, \code{nec}, \code{ssi}, \code{hap}, \code{end}, in any case),
 and \code{DEPARTMENT_CODE} when more than one department is imported; a
 record a rule flags at the enrollment level carries \code{NA} for both
-\code{EVENT_TYPE} and \code{EVENT_DATE}. The records are matched by patient id
+\code{EVENT_TYPE} and \code{EVENT_DATE}, or, where the rule shows its finding on
+a form, that form's type and date. The records are matched by patient id
 within their department, so a list needs \code{include_patient = "full"}
 (which then keeps \code{patient_id} whatever \code{patient_columns} says) and
 \code{include_department} not \code{"no"}. The import resolves the list under

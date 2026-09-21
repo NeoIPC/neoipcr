@@ -1,8 +1,10 @@
 # The registry of validation rules, in id order. Each entry names the rule,
 # the level its finding is recorded on — the key a finding is identified by
-# and an exception record is matched on — the event types an event-level
-# rule concerns, the fields the rule records in a finding's `context`, and
-# the function that implements it. A finding is data — keys and the values a
+# and an exception record is matched on — the event types a finding may
+# name (the types an event-level rule concerns; for an enrolment-level rule
+# the form its finding is shown on, which a record may name or leave
+# empty), the fields the rule records in a finding's `context`, and the
+# function that implements it. A finding is data — keys and the values a
 # rule compared — never a sentence: the prose belongs to whichever document
 # renders the finding, where it can be localized, and the declared fields
 # are the contract its sentences are written against; `validate()` refuses
@@ -16,15 +18,15 @@
 validation_rules <- list(
   list(id = 1L,  level = "patient",    context = character(),
        fun = validation_rule_1),
-  list(id = 2L,  level = "enrollment", context = character(),
-       fun = validation_rule_2),
-  list(id = 3L,  level = "enrollment", context = c("enrolledAt", "occurredAt"),
-       fun = validation_rule_3),
-  list(id = 4L,  level = "enrollment", context = c("admOccurredAt", "endOccurredAt"),
-       fun = validation_rule_4),
-  list(id = 5L,  level = "enrollment", context = "status",
+  list(id = 2L,  level = "enrollment", event_types = "end",
+       context = character(), fun = validation_rule_2),
+  list(id = 3L,  level = "enrollment", event_types = "adm",
+       context = c("enrolledAt", "occurredAt"), fun = validation_rule_3),
+  list(id = 4L,  level = "enrollment", event_types = "end",
+       context = c("admOccurredAt", "endOccurredAt"), fun = validation_rule_4),
+  list(id = 5L,  level = "enrollment", event_types = "adm", context = "status",
        fun = validation_rule_5),
-  list(id = 6L,  level = "enrollment", context = "status",
+  list(id = 6L,  level = "enrollment", event_types = "end", context = "status",
        fun = validation_rule_6),
   list(id = 7L,  level = "event", event_types = "bsi",
        context = .completion_fields("bsi"), fun = validation_rule_7),
@@ -48,14 +50,14 @@ validation_rules <- list(
        context = c("enrolledAt_this", "endOccurredAt_this",
                    "enrolledAt_other", "endOccurredAt_other"),
        fun = validation_rule_17),
-  list(id = 18L, level = "enrollment",
+  list(id = 18L, level = "enrollment", event_types = "end",
        context = c("patient_days", "patient_days_calculated"),
        fun = validation_rule_18),
   list(id = 19L, level = "event", event_types = "ssi",
        context = "infection_type", fun = validation_rule_19),
   list(id = 20L, level = "event", event_types = c("bsi", "nec", "hap", "ssi"),
        context = c("index", "secondary_bsi", "name"), fun = validation_rule_20),
-  list(id = 21L, level = "enrollment",
+  list(id = 21L, level = "enrollment", event_types = "end",
        context = c("ab_substance_days", "ab_days"), fun = validation_rule_21),
   list(id = 22L, level = "event", event_types = "pro",
        context = c("procedure_description", "procedure_code"),
@@ -103,9 +105,9 @@ validation_rules <- list(
   list(id = 42L, level = "event", event_types = "ssi",
        context = c("los", "los_calc"), fun = validation_rule_42))
 
-# The level of each rule, named by rule id, and the event types an
-# event-level rule concerns; `check_exception_list()` holds a record's shape
-# to its rule's level through these.
+# The level of each rule, named by rule id, and the event types a rule's
+# finding may name; `check_exception_list()` holds a record's shape to its
+# rule's level through these.
 .rule_levels <- function()
   rlang::set_names(
     vapply(validation_rules, \(r) r$level, character(1)),
@@ -182,8 +184,9 @@ validation_rules <- list(
 # key of its level — so a record that is `NA` there exempts nothing. A
 # record in the user's form is written at its rule's level, which
 # `check_exception_list()` enforces, so once it has resolved it carries that
-# key; a key form built by hand may name another level and then exempts
-# nothing.
+# key — with the event's key too when it named the form an enrolment-level
+# finding is shown on, which the anti-join does not read; a key form built
+# by hand may name another level and then exempts nothing.
 .rule_exceptions <- function(exceptions, rule_id)
 {
   if (is.null(exceptions))
@@ -378,7 +381,13 @@ validation_rule_context_fields <- function()
 #' as well for an event-level rule, the type being one the rule concerns
 #' (rules 7, 12 and 27–30 sepsis, 8, 13 and 35–38 necrotizing enterocolitis,
 #' 9, 14 and 31–34 pneumonia, 10, 15, 22–24, 39 and 40 surgical procedures,
-#' 11, 19, 41 and 42 surgical site infections, 20 any infection).
+#' 11, 19, 41 and 42 surgical site infections, 20 any infection). An
+#' enrolment-level rule that compares a form carries that form's event on
+#' its finding, so a document shows the finding on the form; a record for
+#' such a rule may name that form's type and date as well, or leave them
+#' empty, and is refused naming any other type (rules 3 and 5 the admission
+#' form, 2, 4, 6, 18 and 21 the surveillance-end form; 17, 25 and 26 carry
+#' no event).
 #' Dates are `Date`, statuses factors, counts integers. A dataset imported
 #' without incomplete enrolments or events (`include_incomplete`) carries no
 #' `status` column for them; the rules then treat every such record as

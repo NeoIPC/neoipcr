@@ -62,7 +62,13 @@ enrolment date for an enrolment-level rule, and the event's type and date
 as well for an event-level rule, the type being one the rule concerns
 (rules 7, 12 and 27–30 sepsis, 8, 13 and 35–38 necrotizing enterocolitis,
 9, 14 and 31–34 pneumonia, 10, 15, 22–24, 39 and 40 surgical procedures,
-11, 19, 41 and 42 surgical site infections, 20 any infection).
+11, 19, 41 and 42 surgical site infections, 20 any infection). An
+enrolment-level rule that compares a form carries that form's event on
+its finding, so a document shows the finding on the form; a record for
+such a rule may name that form's type and date as well, or leave them
+empty, and is refused naming any other type (rules 3 and 5 the admission
+form, 2, 4, 6, 18 and 21 the surveillance-end form; 17, 25 and 26 carry
+no event).
 Dates are \code{Date}, statuses factors, counts integers. A dataset imported
 without incomplete enrolments or events (\code{include_incomplete}) carries no
 \code{status} column for them; the rules then treat every such record as

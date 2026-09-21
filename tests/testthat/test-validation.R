@@ -6,10 +6,16 @@ test_that("validation_rules registry has 41 entries with an id, a level and a fu
     expect_true(all(c("id", "level", "fun") %in% names(entry)))
     expect_true(is.integer(entry$id))
     expect_true(entry$level %in% c("patient", "enrollment", "event"))
-    # An event-level rule names the event types it concerns; no other does.
-    expect_equal("event_types" %in% names(entry), entry$level == "event")
+    # An event-level rule names the event types it concerns; an
+    # enrolment-level rule names the form its finding is shown on, or none;
+    # the patient-level rule names none.
     if (entry$level == "event")
-      expect_true(all(entry$event_types %in% neoipcr:::.exception_event_types))
+      expect_true(length(entry$event_types) > 0L)
+    if (entry$level == "enrollment")
+      expect_true(length(entry$event_types) <= 1L)
+    if (entry$level == "patient")
+      expect_false("event_types" %in% names(entry))
+    expect_true(all(entry$event_types %in% neoipcr:::.exception_event_types))
     expect_true(is.function(entry$fun))
   }
   levels <- neoipcr:::.rule_levels()
@@ -17,6 +23,12 @@ test_that("validation_rules registry has 41 entries with an id, a level and a fu
   expect_equal(unname(levels["3"]), "enrollment")
   expect_equal(unname(levels["12"]), "event")
   expect_equal(neoipcr:::.rule_event_types(20L), c("bsi", "nec", "hap", "ssi"))
+  # The enrolment-level rules that compare a form name it; the ones that
+  # compare enrolments alone name none.
+  expect_equal(neoipcr:::.rule_event_types(5L), "adm")
+  expect_equal(neoipcr:::.rule_event_types(18L), "end")
+  expect_null(neoipcr:::.rule_event_types(17L))
+  expect_null(neoipcr:::.rule_event_types(25L))
 })
 
 test_that("validation_rule_ids is exported and lists the registry in order", {
@@ -228,12 +240,19 @@ test_that("validate resolves an exception list written in the user's form", {
   expect_equal(nrow(neoipcr::validate(
     ds, rules = 3L,
     exceptions = written |> dplyr::mutate(NEOIPC_PATIENT_ID = "PAT_9"))), 1L)
-  # Rule 3 is recorded on the enrolment, so a record for it that names an
-  # event is written at the wrong level and refused rather than resolved.
+  # Rule 3 is recorded on the enrolment and shows its finding on the
+  # admission form: a record naming that form, as a reader of the report
+  # writes it, exempts the enrolment like one leaving the event empty.
+  expect_equal(nrow(neoipcr::validate(
+    ds, rules = 3L,
+    exceptions = written |>
+      dplyr::mutate(EVENT_TYPE = "adm", EVENT_DATE = as.Date("2024-01-02")))), 0L)
+  # Naming another form is written at the wrong level and refused rather
+  # than resolved.
   expect_error(
     neoipcr::validate(ds, rules = 3L,
       exceptions = written |>
-        dplyr::mutate(EVENT_TYPE = "adm", EVENT_DATE = as.Date("2024-01-02"))),
+        dplyr::mutate(EVENT_TYPE = "end", EVENT_DATE = as.Date("2024-01-02"))),
     regexp = "level",
     class = "neoipcr_invalid_exception_list")
 })

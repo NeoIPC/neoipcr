@@ -15,9 +15,11 @@ rule_3_ds <- function(admission_date)
       occurredAt = as.Date(admission_date)))
 
 test_that("rule 3 detects admission date != enrollment date", {
-  result <- neoipcr:::validation_rule_3(rule_3_ds("2024-01-02"), NULL)
+  ds <- rule_3_ds("2024-01-02")
+  result <- neoipcr:::validation_rule_3(ds, NULL)
   expect_equal(nrow(result), 1L)
   expect_declared_context(result)
+  expect_declared_form(result, ds)
   expect_equal(result$rule_id, 3L)
   expect_equal(result$enrollment_key, 1L)
   expect_equal(result$event_key, 1L)
@@ -49,9 +51,11 @@ rule_4_ds <- function(admission_date, end_date)
       occurredAt = as.Date(c(admission_date, end_date))))
 
 test_that("rule 4 detects end date before admission date", {
-  result <- neoipcr:::validation_rule_4(rule_4_ds("2024-01-10", "2024-01-05"), NULL)
+  ds <- rule_4_ds("2024-01-10", "2024-01-05")
+  result <- neoipcr:::validation_rule_4(ds, NULL)
   expect_equal(nrow(result), 1L)
   expect_declared_context(result)
+  expect_declared_form(result, ds)
   expect_equal(result$rule_id, 4L)
   # The finding names the end event.
   expect_equal(result$event_key, 2L)
