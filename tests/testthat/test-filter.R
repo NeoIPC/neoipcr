@@ -39,8 +39,8 @@ test_that("filter_enrollments_by_surveillance_end keeps the enrolments ended wit
     surveillance_end_from = as.Date("2024-02-01"),
     surveillance_end_to = as.Date("2024-02-28"))
   expect_equal(result$enrollment_key, 3L)
-  # A window no end falls in leaves nothing, the enrolments without an end
-  # event included.
+  # A window no end falls in leaves nothing: the enrolments without an end
+  # event, active ones among them, are left out under any bound.
   result <- neoipcr:::filter_enrollments_by_surveillance_end(
     period_enrollments(), period_events(),
     surveillance_end_from = as.Date("2025-01-01"),

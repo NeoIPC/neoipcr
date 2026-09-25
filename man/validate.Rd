@@ -97,7 +97,10 @@ A dataset imported with the enrolments that are not completed but only
 the completed events holds no end form that is not completed, so on it a
 missing form and an open one look alike; rule 43 is skipped on that shape
 (named in \code{rules_skipped}), and an import of that shape with the
-validation pass on refuses.\tabular{lll}{
+validation pass on refuses. A dataset imported with a surveillance-end
+date filter holds no active enrolment, a stay that has not ended having
+ended in no window, so the two rules find nothing on it; a consumer that
+wants the open stays judged sets no period.\tabular{lll}{
    Rules \tab Level \tab Context fields \cr
    1 \tab \code{patient_key} \tab none \cr
    2 \tab \code{enrollment_key} \tab none \cr

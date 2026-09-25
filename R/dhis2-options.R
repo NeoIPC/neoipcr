@@ -3,8 +3,9 @@
 #' @param surveillance_end_from The earliest surveillance-end date of the
 #'  enrolments to include: an enrolment is included when its surveillance-end
 #'  form is dated on or after it. With either bound set, an enrolment without
-#'  a surveillance-end form is left out, an active one included, and so is a
-#'  patient whose enrolments are all left out — one that arrived without any
+#'  a surveillance-end form — an active one among them — is left out, since a
+#'  stay that has not ended has not ended in any window; and so is a patient
+#'  whose enrolments are all left out, while one that arrived without any
 #'  stays for rule 1. The enrolments left out are outside the period, not
 #'  invalid, so the validation pass neither sees nor counts them; an overlap
 #'  between a stay in the period and one that ended outside it (rule 17) is

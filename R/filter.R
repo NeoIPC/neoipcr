@@ -112,8 +112,10 @@ narrow_to_surveillance_period <- function(
 # kept when it has a surveillance-end event dated on or after
 # `surveillance_end_from` and on or before `surveillance_end_to`, whichever
 # bounds are set. With either bound set, an enrolment without a
-# surveillance-end event has no date to fall in the window and is left out,
-# an active one included. No bound leaves the enrolments as they are.
+# surveillance-end event — an active one among them — has no date to fall in
+# the window and is left out: a stay that has not ended has not ended in any
+# window, and a consumer that wants the open stays sets no period. No bound
+# leaves the enrolments as they are.
 filter_enrollments_by_surveillance_end <- function(
     enrollments,
     events,

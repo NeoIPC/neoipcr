@@ -22,9 +22,10 @@ section above it for the next changes.
   forms dated outside the window and keep their enrolments, so the pass then met every out-of-period
   enrolment without its end form: it removed those patients under rule 25, counted them as invalid in
   `validationSummary`, and removed a patient's stays inside the period as well whenever another stay of
-  the patient ended outside it. With either bound set, an enrolment without a surveillance-end form is
-  left out, an active one included, since it has no date to fall in the window; rule 43 therefore no
-  longer stands aside under the filter. An overlap between a stay in the period and one that ended
+  the patient ended outside it. With either bound set, an enrolment without a surveillance-end form —
+  an active one among them — is left out, since a stay that has not ended has not ended in any window;
+  a consumer that wants the open stays sets no period, and rule 43 no longer stands aside under the
+  filter. An overlap between a stay in the period and one that ended
   outside it (rule 17) is a finding the pass no longer sees under a period, the other stay being gone
   before it runs.
 
