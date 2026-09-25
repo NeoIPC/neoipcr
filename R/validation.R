@@ -134,26 +134,33 @@ validation_rules <- list(
 .rule_event_types <- function(rule_id)
   validation_rules[[match(rule_id, validation_rule_ids())]]$event_types
 
+# `as_of` is a single `Date` or nothing; a caller is told so whatever rules
+# it selected, rather than only when one of them reads the date.
+.check_as_of <- function(as_of)
+{
+  if (!is.null(as_of) &&
+      (!inherits(as_of, "Date") || length(as_of) != 1L || is.na(as_of)))
+    rlang::abort("`as_of` must be a single `Date`.")
+}
+
 # The date the dated rules measure a record's age against: `as_of` when the
-# caller gives one, else the DHIS2 server date the import recorded on
-# `metadata$system$date`, taken as a calendar date in UTC, so a dataset
-# serialized and validated later measures against the day its data was
-# read rather than the day it is looked at. A dataset carrying neither
-# cannot run those rules.
+# caller gives one, else the calendar day of the DHIS2 server's own clock
+# when the data was read, which the import records on
+# `metadata$system$server_date` — the calendar the enrolment dates are on,
+# so that the age is whole days on one calendar. A dataset restored from a
+# serialization carries that day as text, which reads back as the same
+# `Date`. A dataset carrying neither cannot run those rules.
 .reference_date <- function(x, as_of = NULL)
 {
-  if (!is.null(as_of)) {
-    if (!inherits(as_of, "Date") || length(as_of) != 1L || is.na(as_of))
-      rlang::abort("`as_of` must be a single `Date`.")
+  if (!is.null(as_of))
     return(as_of)
-  }
-  stamp <- x$metadata$system$date
+  stamp <- x$metadata$system$server_date
   if (is.null(stamp) || length(stamp) != 1L || is.na(stamp))
     rlang::abort(c(
       "The age of an open enrolment is measured against the date the data was read, which this dataset does not carry.",
-      i = "An import records it on `metadata$system$date`; pass `as_of` to `validate()` otherwise."),
+      i = "An import records it on `metadata$system$server_date`; pass `as_of` to `validate()` otherwise."),
       class = "neoipcr_validation_needs_facts")
-  if (inherits(stamp, "POSIXt")) as.Date(stamp, tz = "UTC") else as.Date(stamp)
+  as.Date(stamp)
 }
 
 # The dataset slot that carries each infection or surgery event type's form
@@ -398,10 +405,13 @@ validation_rule_context_fields <- function()
 #'  exempts nothing.
 #' @param as_of The date the data was read, a `Date`, against which rules 43
 #'  and 44 measure how long an enrolment has been open; `NULL` (the default)
-#'  takes the DHIS2 server date the import recorded on
-#'  `metadata$system$date`. A dataset carrying neither cannot run those two
-#'  rules, which is an error of class `neoipcr_validation_needs_facts` when
-#'  one of them is selected; the other rules do not read the date.
+#'  takes the calendar day of the DHIS2 server's own clock when the import
+#'  read the data, recorded on `metadata$system$server_date` — the calendar
+#'  the enrolment dates are on. A dataset carrying neither cannot run those
+#'  two rules, which is an error of class `neoipcr_validation_needs_facts`
+#'  when one of them is selected — the default selection included; the other
+#'  rules do not read the date. A value that is not a single `Date` is an
+#'  error whatever rules are selected.
 #'
 #' @returns A tibble with one row per finding — a flagged record, or for
 #'  rule 17 one of the two enrolments of an overlapping pair: `rule_id`;
@@ -508,7 +518,8 @@ validate <- function(x, rules = NULL, exceptions = NULL, as_of = NULL)
   # result rests on needs the ids, so they ride along as an attribute.
   selected <- Filter(\(r) is.null(rules) || r$id %in% rules, validation_rules)
   # The reference date is resolved only when a dated rule is selected, so a
-  # dataset without one still runs every other rule.
+  # dataset without one still runs a selection that leaves those rules out.
+  .check_as_of(as_of)
   dated <- vapply(selected, \(r) isTRUE(r$dated), logical(1))
   if (any(dated))
     as_of <- .reference_date(x, as_of)

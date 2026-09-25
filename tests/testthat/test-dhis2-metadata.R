@@ -126,6 +126,18 @@ test_that("read_metadata parses system metadata correctly", {
     uuid::as.UUID("72c2bd70-573a-4d69-8bc3-f7bb431bdc23"))
   expect_equal(metadata$system$rev, "3fcd748")
   expect_equal(metadata$system$version, as.numeric_version("2.40.3.2"))
+  expect_equal(metadata$system$server_date, as.Date("2024-11-08"))
+})
+
+test_that("read_metadata_system takes the server's calendar day from the stamp, not the instant's UTC day", {
+  # Half an hour past midnight on a server one hour east of UTC: the instant
+  # still falls on the previous day in UTC, the server's own calendar has
+  # turned — and the enrolment dates are on the server's calendar.
+  system <- neoipcr:::read_metadata_system(list(system = list(
+    id = "72c2bd70-573a-4d69-8bc3-f7bb431bdc23", rev = "x", version = "2.40.3.2",
+    date = "2025-01-01T00:30:00.000+0100")))
+  expect_equal(system$date, readr::parse_datetime("2024-12-31T23:30:00Z"))
+  expect_equal(system$server_date, as.Date("2025-01-01"))
 })
 
 test_that("read_metadata parses program id", {

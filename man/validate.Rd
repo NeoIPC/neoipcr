@@ -25,10 +25,13 @@ exempts nothing.}
 
 \item{as_of}{The date the data was read, a \code{Date}, against which rules 43
 and 44 measure how long an enrolment has been open; \code{NULL} (the default)
-takes the DHIS2 server date the import recorded on
-\code{metadata$system$date}. A dataset carrying neither cannot run those two
-rules, which is an error of class \code{neoipcr_validation_needs_facts} when
-one of them is selected; the other rules do not read the date.}
+takes the calendar day of the DHIS2 server's own clock when the import
+read the data, recorded on \code{metadata$system$server_date} — the calendar
+the enrolment dates are on. A dataset carrying neither cannot run those
+two rules, which is an error of class \code{neoipcr_validation_needs_facts}
+when one of them is selected — the default selection included; the other
+rules do not read the date. A value that is not a single \code{Date} is an
+error whatever rules are selected.}
 }
 \value{
 A tibble with one row per finding — a flagged record, or for

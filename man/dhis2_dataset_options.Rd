@@ -146,7 +146,11 @@ records — as \code{\link[=read_validation_exceptions]{read_validation_exceptio
 records despite the rule that flags them. \code{TRUE} also keeps the
 enrolments without an admission form, which the removal of orphan
 records after the import otherwise drops, so a \code{\link[=validate]{validate()}} on the
-returned dataset can report them under rule 26. An
+returned dataset can report them under rule 26. With active enrolments
+requested (\code{include_incomplete}), the pass also removes a patient whose
+enrolment rules 43 and 44 question for having stayed open more than 120
+days, a genuine long stay included, unless an exception record names
+it. An
 exception record carries \code{RULE_ID} (numeric), \code{NEOIPC_PATIENT_ID}
 (character), \code{ENROLMENT_DATE} and \code{EVENT_DATE} (\code{Date}), \code{EVENT_TYPE}
 (one of \code{adm}, \code{pro}, \code{bsi}, \code{nec}, \code{ssi}, \code{hap}, \code{end}, in any case),

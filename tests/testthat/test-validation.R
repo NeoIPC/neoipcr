@@ -54,9 +54,16 @@ test_that("validate measures an open enrolment against the import's server date,
                as.integer(as.Date("2024-11-08") - as.Date("2024-01-01")))
   # An explicit reading stands in for the recorded one.
   expect_equal(nrow(neoipcr::validate(ds, rules = 43L, as_of = as.Date("2024-03-01"))), 0L)
+  # A value that is not a Date is refused whether or not a selected rule reads it.
   expect_error(neoipcr::validate(ds, rules = 43L, as_of = "2024-03-01"), "as_of")
-  # Without either the dated rules cannot run; the other rules still do.
+  expect_error(neoipcr::validate(ds, rules = 3L, as_of = "2024-03-01"), "as_of")
+  # A dataset restored from a serialization carries the day as text.
+  ds$metadata$system$server_date <- "2024-11-08"
+  expect_equal(nrow(neoipcr::validate(ds, rules = 43L)), 1L)
+  # Without either the dated rules cannot run, the default selection included;
+  # a selection that leaves them out still does.
   ds$metadata$system <- NULL
+  expect_error(neoipcr::validate(ds), class = "neoipcr_validation_needs_facts")
   expect_error(neoipcr::validate(ds, rules = 43L), class = "neoipcr_validation_needs_facts")
   expect_equal(nrow(neoipcr::validate(ds, rules = c(3L, 25L))), 0L)
 })

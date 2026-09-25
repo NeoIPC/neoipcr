@@ -18,15 +18,19 @@ section above it for the next changes.
 
 * Two rules question an enrolment left open long after its admission: rule 43 an active enrolment
   without a surveillance-end form, rule 44 one whose surveillance-end form is not completed, both once
-  the enrolment date lies more than 120 days before the date the data was read — the DHIS2 server date
-  the import records on `metadata$system$date`, or the new `as_of` argument of `validate()`. A stay that
+  the enrolment date lies more than 120 days before the date the data was read — the calendar day of
+  the DHIS2 server's own clock, which the import now records on `metadata$system$server_date` beside
+  the instant on `metadata$system$date`, or the new `as_of` argument of `validate()`. A stay that
   long is exceptional, so such a record is most often one nobody closed once the infant left; the infant
   may still be admitted, in which case the finding is to be ignored, and an exception record keeps the
   enrolment out of the findings while the stay lasts. A completed-only import carries no active
-  enrolments, so the import's own pass is unchanged; a dataset without a server date runs every other
-  rule and refuses these two. The rules now number 43.
+  enrolments, so the import's own pass is unchanged; an import that requests active enrolments with the
+  pass on now removes a patient whose enrolment these rules question, a genuine long stay included,
+  unless an exception record names it. A dataset without a server date refuses a `validate()` whose
+  selection holds either rule, the default selection included; a selection without them still runs.
+  The rules now number 43.
 * An exception record for an enrolment-level rule that compares a form — rules 3 and 5 the admission
-  form, 2, 4, 6, 18 and 21 the surveillance-end form — may name that form's type and date, as a reader
+  form, 2, 4, 6, 18, 21 and 44 the surveillance-end form — may name that form's type and date, as a reader
   of the Validation Report writes it from the form the finding is shown on, or leave them empty; both
   exempt the enrolment. A record naming any other form is still refused, as is one naming an event for
   a rule that carries none. `resolve_validation_exceptions()` carries the form's event key on such a

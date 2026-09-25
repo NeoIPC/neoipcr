@@ -146,8 +146,7 @@ validation_rule_26 <- function(x, exceptions)
 
 # Find enrolments still active more than `.open_enrolment_max_days` after
 # their enrolment date, measured against `as_of`, that have no
-# surveillance-end event. An enrolment date the record lacks yields no age
-# and no finding.
+# surveillance-end event.
 validation_rule_43 <- function(x, exceptions, as_of)
 {
   check_neoipcr_ds(x)
