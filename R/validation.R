@@ -147,9 +147,8 @@ validation_rules <- list(
 # caller gives one, else the calendar day of the DHIS2 server's own clock
 # when the data was read, which the import records on
 # `metadata$system$server_date` — the calendar the enrolment dates are on,
-# so that the age is whole days on one calendar. A dataset restored from a
-# serialization carries that day as text, which reads back as the same
-# `Date`. A dataset carrying neither cannot run those rules.
+# so that the age is whole days on one calendar. A dataset carrying neither
+# cannot run those rules.
 .reference_date <- function(x, as_of = NULL)
 {
   if (!is.null(as_of))
@@ -160,6 +159,10 @@ validation_rules <- list(
       "The age of an open enrolment is measured against the date the data was read, which this dataset does not carry.",
       i = "An import records it on `metadata$system$server_date`; pass `as_of` to `validate()` otherwise."),
       class = "neoipcr_validation_needs_facts")
+  # NEOIPC-PERMANENT(dataset-format): never replace this conversion by a
+  # class check. A dataset restored from a serialization carries the day as
+  # text, and such a file outlives every version of this package; refusing
+  # the text would refuse the open-enrolment rules on every one of them.
   as.Date(stamp)
 }
 

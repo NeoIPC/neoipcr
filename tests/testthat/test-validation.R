@@ -57,7 +57,8 @@ test_that("validate measures an open enrolment against the import's server date,
   # A value that is not a Date is refused whether or not a selected rule reads it.
   expect_error(neoipcr::validate(ds, rules = 43L, as_of = "2024-03-01"), "as_of")
   expect_error(neoipcr::validate(ds, rules = 3L, as_of = "2024-03-01"), "as_of")
-  # A dataset restored from a serialization carries the day as text.
+  # NEOIPC-PERMANENT(dataset-format): see `.reference_date()`. A dataset
+  # restored from a serialization carries the day as text.
   ds$metadata$system$server_date <- "2024-11-08"
   expect_equal(nrow(neoipcr::validate(ds, rules = 43L)), 1L)
   # With the events' status left out beside active enrolments, rule 43 is

@@ -161,7 +161,7 @@ validation_rule_43 <- function(x, exceptions, as_of)
   # events none is that shape.
   if ("status" %in% names(x$enrollments) && !("status" %in% names(x$events)))
     return(.rule_skipped(
-      43L, "the events that are not completed, among which an active enrolment's end form may be"))
+      43L, "the events' status column, so an end form that is not completed is absent from it like a missing one"))
 
   .with_status(x$enrollments, .enrollment_status_levels) |>
     dplyr::filter(.data$status == "ACTIVE") |>
