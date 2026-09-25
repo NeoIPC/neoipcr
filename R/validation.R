@@ -466,9 +466,12 @@ validation_rule_context_fields <- function()
 #' missing form and an open one look alike; rule 43 is skipped on that shape
 #' (named in `rules_skipped`), and an import of that shape with the
 #' validation pass on refuses. A dataset imported with a surveillance-end
-#' date filter holds no active enrolment, a stay that has not ended having
-#' ended in no window, so the two rules find nothing on it; a consumer that
-#' wants the open stays judged sets no period.
+#' date filter holds no active enrolment without a surveillance-end form,
+#' such a stay having ended in no window, so rule 43 finds nothing on it,
+#' while an active enrolment whose surveillance-end form is dated in the
+#' window stays for rules 2 and 44; a consumer that wants the open stays
+#' judged sets no period. A tier without the enrolments' link to their
+#' events is not narrowed by the period at all.
 #'
 #' | Rules | Level | Context fields |
 #' |---|---|---|
