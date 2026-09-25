@@ -94,12 +94,16 @@ still be admitted, in which case the finding is to be ignored, and an
 exception record keeps the enrolment out of the findings while the stay
 lasts. \code{days_open} is the whole days from the enrolment date to \code{as_of}.
 A dataset imported with the enrolments that are not completed but only
-the completed events holds no end form that is not completed, and one
-imported with a surveillance-end date filter holds none dated outside
-its window, so on either a missing form and one the dataset does not hold
-look alike; rule 43 is skipped on such a dataset (named in
-\code{rules_skipped}), and an import of that shape with the validation pass on
-refuses.\tabular{lll}{
+the completed events holds no end form that is not completed, so on it a
+missing form and an open one look alike; rule 43 is skipped on that shape
+(named in \code{rules_skipped}), and an import of that shape with the
+validation pass on refuses. A dataset imported with a surveillance-end
+date filter holds no active enrolment without a surveillance-end form,
+such a stay having ended in no window, so rule 43 finds nothing on it,
+while an active enrolment whose surveillance-end form is dated in the
+window stays for rules 2 and 44; a consumer that wants the open stays
+judged sets no period. A tier without the enrolments' link to their
+events is not narrowed by the period at all.\tabular{lll}{
    Rules \tab Level \tab Context fields \cr
    1 \tab \code{patient_key} \tab none \cr
    2 \tab \code{enrollment_key} \tab none \cr

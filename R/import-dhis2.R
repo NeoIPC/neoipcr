@@ -258,13 +258,26 @@ import_dhis2 <- function(
   events <- events_result$public
   metadata$.events_internal_map <- events_result$internal_map
 
+  # The reporting period narrows the dataset to the enrolments whose
+  # surveillance ended in it, together with their events and the patients
+  # they leave enrolled, before the form data is read and before the
+  # validation pass: the pass then sees neither an out-of-period enrolment
+  # stripped of its end form nor a patient stripped of every enrolment, and
+  # reports neither as invalid. The form-data readers below follow the
+  # event map, so narrowing it to the kept events narrows them.
+  narrowed <- narrow_to_surveillance_period(
+    patients, enrollments, events,
+    dataset_options$surveillance_end_from,
+    dataset_options$surveillance_end_to)
+  patients    <- narrowed$patients
+  enrollments <- narrowed$enrollments
+  events      <- narrowed$events
+  if ("event_key" %in% names(events))
+    metadata$.events_internal_map <- metadata$.events_internal_map |>
+      dplyr::semi_join(events, dplyr::join_by("event_key"))
+
   admissionData <- read_event_data(
     events_raw, metadata$.events_internal_map, metadata, dataset_options, "adm")
-
-  events <- events |>
-    filter_surveillance_ends(
-      dataset_options$surveillance_end_from,
-      dataset_options$surveillance_end_to)
 
   admissionData <- admissionData |>
     filter_admissions(dataset_options$include_ineligible_patients)

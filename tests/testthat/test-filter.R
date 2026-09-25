@@ -1,60 +1,95 @@
 # Tests for R/filter.R — dataset filtering and orphan removal.
 # Uses make_populated_test_ds() from helper-fixtures.R.
 
-# --- filter_surveillance_ends (internal) ---
+# --- filter_enrollments_by_surveillance_end (internal) ---
 
-test_that("filter_surveillance_ends with both NULL returns input unchanged", {
-  events <- make_test_events(
-    n = 4,
-    enrollment_keys = 1:4, patient_keys = 1:4,
-    event_type_keys = c("adm", "end", "bsi", "end"),
-    occurredAt = as.Date(c("2024-01-01", "2024-01-15",
-      "2024-01-08", "2024-02-15")))
-  result <- neoipcr:::filter_surveillance_ends(events, NULL, NULL)
-  expect_equal(nrow(result), 4L)
+# Five enrolments: 1 and 5 have no surveillance-end event, 2, 3 and 4 have
+# one dated in January, February and March.
+period_enrollments <- function() make_test_enrollments(5, patient_keys = 1:5)
+period_events <- function() make_test_events(
+  n = 6,
+  enrollment_keys = c(1L, 2L, 3L, 4L, 5L, 2L), patient_keys = c(1L, 2L, 3L, 4L, 5L, 2L),
+  event_type_keys = c("adm", "end", "end", "end", "bsi", "adm"),
+  occurredAt = as.Date(c("2024-01-01", "2024-01-15", "2024-02-15", "2024-03-20",
+                         "2024-01-05", "2024-01-02")))
+
+test_that("filter_enrollments_by_surveillance_end with both NULL returns the enrolments unchanged", {
+  result <- neoipcr:::filter_enrollments_by_surveillance_end(
+    period_enrollments(), period_events(), NULL, NULL)
+  expect_equal(result$enrollment_key, 1:5)
 })
 
-test_that("filter_surveillance_ends filters only 'end' events by from date", {
-  events <- make_test_events(
-    n = 4,
-    enrollment_keys = 1:4, patient_keys = 1:4,
-    event_type_keys = c("adm", "end", "bsi", "end"),
-    occurredAt = as.Date(c("2024-01-01", "2024-01-15",
-      "2024-01-08", "2024-02-15")))
-  result <- neoipcr:::filter_surveillance_ends(
-    events, surveillance_end_from = as.Date("2024-02-01"))
-  # adm + bsi kept (not "end"); only end on 2024-02-15 passes (>= 2024-02-01)
-  expect_equal(nrow(result), 3L)
-  end_rows <- result[result$event_type_key == "end", ]
-  expect_equal(nrow(end_rows), 1L)
+test_that("filter_enrollments_by_surveillance_end keeps the enrolments ended on or after the from date", {
+  result <- neoipcr:::filter_enrollments_by_surveillance_end(
+    period_enrollments(), period_events(), surveillance_end_from = as.Date("2024-02-15"))
+  # The bound is inclusive; an enrolment without an end event has no date
+  # to fall in the window and is left out.
+  expect_equal(result$enrollment_key, c(3L, 4L))
 })
 
-test_that("filter_surveillance_ends filters only 'end' events by to date", {
-  events <- make_test_events(
-    n = 4,
-    enrollment_keys = 1:4, patient_keys = 1:4,
-    event_type_keys = c("adm", "end", "bsi", "end"),
-    occurredAt = as.Date(c("2024-01-01", "2024-01-15",
-      "2024-01-08", "2024-02-15")))
-  result <- neoipcr:::filter_surveillance_ends(
-    events, surveillance_end_to = as.Date("2024-01-31"))
-  # adm + bsi kept; only end on 2024-01-15 passes (<= 2024-01-31)
-  expect_equal(nrow(result), 3L)
+test_that("filter_enrollments_by_surveillance_end keeps the enrolments ended on or before the to date", {
+  result <- neoipcr:::filter_enrollments_by_surveillance_end(
+    period_enrollments(), period_events(), surveillance_end_to = as.Date("2024-02-15"))
+  expect_equal(result$enrollment_key, c(2L, 3L))
 })
 
-test_that("filter_surveillance_ends filters by both from and to", {
-  events <- make_test_events(
-    n = 5,
-    enrollment_keys = 1:5, patient_keys = 1:5,
-    event_type_keys = c("adm", "end", "end", "end", "bsi"),
-    occurredAt = as.Date(c("2024-01-01", "2024-01-10",
-      "2024-02-15", "2024-03-20", "2024-01-05")))
-  result <- neoipcr:::filter_surveillance_ends(
-    events,
+test_that("filter_enrollments_by_surveillance_end keeps the enrolments ended within both bounds", {
+  result <- neoipcr:::filter_enrollments_by_surveillance_end(
+    period_enrollments(), period_events(),
     surveillance_end_from = as.Date("2024-02-01"),
     surveillance_end_to = as.Date("2024-02-28"))
-  # adm + bsi kept (2); only end on 2024-02-15 in range (1)
-  expect_equal(nrow(result), 3L)
+  expect_equal(result$enrollment_key, 3L)
+  # A window no end falls in leaves nothing: the enrolments without an end
+  # event, active ones among them, are left out under any bound.
+  result <- neoipcr:::filter_enrollments_by_surveillance_end(
+    period_enrollments(), period_events(),
+    surveillance_end_from = as.Date("2025-01-01"),
+    surveillance_end_to = as.Date("2025-12-31"))
+  expect_equal(nrow(result), 0L)
+})
+
+# --- narrow_to_surveillance_period (internal) ---
+
+test_that("narrow_to_surveillance_period leaves out the enrolments, events and patients outside the period", {
+  result <- neoipcr:::narrow_to_surveillance_period(
+    make_test_patients(5), period_enrollments(), period_events(),
+    surveillance_end_from = as.Date("2024-02-01"))
+  expect_equal(result$enrollments$enrollment_key, c(3L, 4L))
+  # The events of the enrolments left out go with them.
+  expect_equal(sort(result$events$enrollment_key), c(3L, 4L))
+  # A patient whose every enrolment is left out goes too.
+  expect_equal(result$patients$patient_key, c(3L, 4L))
+})
+
+test_that("narrow_to_surveillance_period keeps a patient that arrived without an enrolment", {
+  # Patient 6 has no enrolment: the period cannot say anything about it,
+  # and rule 1 is the one to report it.
+  result <- neoipcr:::narrow_to_surveillance_period(
+    make_test_patients(6), period_enrollments(), period_events(),
+    surveillance_end_to = as.Date("2024-01-31"))
+  expect_equal(result$patients$patient_key, c(2L, 6L))
+})
+
+test_that("narrow_to_surveillance_period reads the enrolled patients off the events when the enrolments carry no patient link", {
+  enrollments <- period_enrollments() |> dplyr::select(!"patient_key")
+  result <- neoipcr:::narrow_to_surveillance_period(
+    make_test_patients(5), enrollments, period_events(),
+    surveillance_end_from = as.Date("2024-02-01"))
+  expect_equal(result$patients$patient_key, c(3L, 4L))
+})
+
+test_that("narrow_to_surveillance_period leaves a tier without the enrolment link on the events unchanged", {
+  patients <- make_test_patients(2)
+  events <- period_events() |> dplyr::select(!"enrollment_key")
+  result <- neoipcr:::narrow_to_surveillance_period(
+    patients, tibble::tibble(), events, surveillance_end_from = as.Date("2024-02-01"))
+  expect_identical(result$patients, patients)
+  expect_identical(result$events, events)
+  expect_equal(ncol(result$enrollments), 0L)
+  # No bound leaves everything as it is.
+  result <- neoipcr:::narrow_to_surveillance_period(patients, period_enrollments(), period_events())
+  expect_identical(result$enrollments, period_enrollments())
+  expect_identical(result$patients, patients)
 })
 
 # --- filter_admissions (internal) ---
@@ -233,6 +268,25 @@ test_that("filter_dataset(opts) with country_filter narrows countries", {
     include_ineligible_patients = TRUE)
   result <- neoipcr:::filter_dataset(ds, opts, remove_orphans = FALSE)
   expect_true(all(as.character(result$metadata$countries$code) == pre[1]))
+})
+
+test_that("filter_dataset(opts) with a period leaves out the stays outside it and the patients they leave unenrolled", {
+  # The populated fixture ends its three enrolments on 2024-01-15, -16 and
+  # -17, one per patient.
+  ds <- make_populated_test_ds()
+  opts <- dhis2_dataset_options(
+    surveillance_end_from       = as.Date("2024-01-16"),
+    include_ineligible_patients = TRUE)
+  result <- neoipcr:::filter_dataset(ds, opts, remove_orphans = FALSE)
+  expect_equal(result$enrollments$enrollment_key, c(2L, 3L))
+  expect_setequal(result$events$enrollment_key, c(2L, 3L))
+  expect_equal(result$patients$patient_key, c(2L, 3L))
+  # Patient 1 had a stay and keeps none: it is not an unenrolled patient for
+  # the cascade to keep, whatever the dataset was requested with.
+  ds$metadata$dataset_options$include_unenrolled_patients <- TRUE
+  result <- neoipcr:::filter_dataset(ds, opts, remove_orphans = TRUE)
+  expect_false(1L %in% result$patients$patient_key)
+  expect_equal(nrow(neoipcr::validate(result, rules = 1L)), 0L)
 })
 
 # --- apply_postfilter (internal) ---
