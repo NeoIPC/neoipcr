@@ -1065,3 +1065,112 @@ test_that("import_dhis2 runs the open-enrolment rules on the active enrolments i
     include_invalid_patients = TRUE))
   expect_identical(attr(neoipcr::validate(ds, rules = 43L), "rules_skipped"), 43L)
 })
+
+test_that("import_dhis2 narrows a reporting period to the enrolments that ended in it, before the pass", {
+  # The mock with surveillance-end forms, a readmission and an unenrolled
+  # patient: the first patient's first stay ended in January and a second
+  # stay, admitted and ended in February, on the day of its enrolment; the
+  # second patient's stay ended in March; a third patient arrived without
+  # any enrolment. A period from February holds the readmission and the
+  # second patient's stay; the January stay is outside it, and being outside
+  # the period is not a finding.
+  with_period <- function(fx) {
+    te <- jsonlite::fromJSON(fx$trackedEntities, simplifyVector = FALSE)
+    unenrolled <- te$trackedEntities[[1L]]
+    unenrolled$trackedEntity <- "TE_3"
+    unenrolled$attributes[[1L]]$value <- "PAT_3"
+    te$trackedEntities <- c(te$trackedEntities, list(unenrolled))
+    fx$trackedEntities <- as.character(jsonlite::toJSON(te, auto_unbox = TRUE, null = "null"))
+    md <- jsonlite::fromJSON(fx$metadata, simplifyVector = FALSE)
+    md$programs[[1L]]$programStages <- c(md$programs[[1L]]$programStages, list(list(
+      id = "SurvEndStg1", name = "Surveillance-End", displayName = "Surveillance-End",
+      displayFormName = "Surveillance-End", displayDescription = "",
+      programStageDataElements = list())))
+    fx$metadata <- as.character(jsonlite::toJSON(md, auto_unbox = TRUE, null = "null"))
+    enr <- jsonlite::fromJSON(fx$enrollments, simplifyVector = FALSE)
+    readmission <- enr$enrollments[[1L]]
+    readmission$enrollment <- "ENR_3"
+    readmission$enrolledAt <- "2024-02-10T12:00:00.000"
+    enr$enrollments <- c(enr$enrollments, list(readmission))
+    fx$enrollments <- as.character(jsonlite::toJSON(enr, auto_unbox = TRUE, null = "null"))
+    ev <- jsonlite::fromJSON(fx$events, simplifyVector = FALSE)
+    end_of <- function(id, enrollment, entity, day) list(
+      event = id, programStage = "SurvEndStg1", enrollment = enrollment,
+      trackedEntity = entity, occurredAt = paste0(day, "T12:00:00.000"),
+      followup = FALSE, orgUnit = "OU_DEPT_1", dataValues = list())
+    readmission_adm <- ev$events[[1L]]
+    readmission_adm$event <- "EVT_5"
+    readmission_adm$enrollment <- "ENR_3"
+    readmission_adm$occurredAt <- "2024-02-10T12:00:00.000"
+    ev$events <- c(ev$events, list(
+      end_of("EVT_3", "ENR_1", "TE_1", "2024-01-20"),
+      end_of("EVT_4", "ENR_2", "TE_2", "2024-03-01"),
+      readmission_adm,
+      end_of("EVT_6", "ENR_3", "TE_1", "2024-02-20")))
+    fx$events <- as.character(jsonlite::toJSON(ev, auto_unbox = TRUE, null = "null"))
+    fx
+  }
+
+  m <- new_dhis2_mock(with_period(import_test_fixtures()))
+  httr2::local_mocked_responses(m$mock)
+  from_february <- as.Date("2024-02-01")
+  from_march    <- as.Date("2024-03-01")
+
+  # Without the pass: both enrolled patients, each with the stay that ended
+  # in the period, and the events of those stays only; the third patient,
+  # who arrived without any enrolment, is pruned as unenrolled unless the
+  # dataset was requested with such patients.
+  ds <- import_dhis2(test_conn(), import_test_opts(surveillance_end_from = from_february))
+  expect_setequal(as.character(ds$patients$patient_id), c("PAT_1", "PAT_2"))
+  expect_equal(nrow(ds$enrollments), 2L)
+  expect_setequal(as.character(ds$enrollments$enrolledAt), c("2024-02-10", "2024-01-05"))
+  expect_equal(nrow(ds$events), 4L)
+  expect_equal(nrow(ds$admissionData), 2L)
+  # Nothing in the period lacks its end form.
+  expect_equal(nrow(neoipcr::validate(ds, rules = 25L)), 0L)
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    surveillance_end_from = from_february, include_unenrolled_patients = TRUE))
+  expect_setequal(as.character(ds$patients$patient_id), c("PAT_1", "PAT_2", "PAT_3"))
+  # A period only the second patient's stay falls in: the first patient had
+  # stays and keeps none, so it goes; the third never had one and stays.
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    surveillance_end_from = from_march, include_unenrolled_patients = TRUE))
+  expect_setequal(as.character(ds$patients$patient_id), c("PAT_2", "PAT_3"))
+  expect_equal(nrow(ds$enrollments), 1L)
+
+  # With the pass: rule 3 flags the second patient, whose admission form is
+  # dated a day after the enrolment, rule 1 the third, and nothing else; the
+  # first patient stays with the readmission, the January stay having been
+  # outside the period rather than invalid.
+  removed <- import_dhis2(test_conn(), import_test_opts(
+    surveillance_end_from    = from_february,
+    include_invalid_patients = FALSE))
+  expect_equal(as.character(removed$patients$patient_id), "PAT_1")
+  expect_equal(nrow(removed$enrollments), 1L)
+  expect_setequal(removed$validationResults$rule_id, c(1L, 3L))
+  per_rule <- removed$validationSummary[!is.na(removed$validationSummary$rule_id), ]
+  expect_equal(per_rule$rule_id, c(1L, 3L))
+  expect_equal(per_rule$n_removed, c(1L, 1L))
+  totals <- removed$validationSummary[is.na(removed$validationSummary$rule_id), ]
+  expect_equal(totals$n_removed, c(2L, 1L, 0L))
+  # Under the March period the first patient is outside it, not invalid:
+  # the pass counts the same two findings and no more.
+  removed <- import_dhis2(test_conn(), import_test_opts(
+    surveillance_end_from    = from_march,
+    include_invalid_patients = FALSE))
+  expect_equal(nrow(removed$patients), 0L)
+  per_rule <- removed$validationSummary[!is.na(removed$validationSummary$rule_id), ]
+  expect_equal(per_rule$rule_id, c(1L, 3L))
+  expect_equal(per_rule$n_removed, c(1L, 1L))
+
+  # A tier without enrolments has nothing the period can select by and
+  # imports as without one; one whose enrolments carry no patient link reads
+  # the enrolled patients off the events.
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_enrollment = "no", surveillance_end_from = from_february))
+  expect_equal(nrow(ds$patients), 3L)
+  expect_equal(ncol(ds$enrollments), 0L)
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_enrollment = "pseudo", surveillance_end_from = from_march))
+  expect_setequal(as.character(ds$patients$patient_id), c("PAT_2", "PAT_3"))
+})

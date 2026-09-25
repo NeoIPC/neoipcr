@@ -27,10 +27,17 @@ filter_dataset <- function(x, dataset_options, remove_orphans = TRUE)
 {
   opts <- dataset_options
 
-  x$events <- x$events |>
-    filter_surveillance_ends(
-      opts$surveillance_end_from,
-      opts$surveillance_end_to)
+  # The period narrows the patients as well as the enrolments here, before
+  # `apply_postfilter()` records which patients arrived unenrolled: left to
+  # the cascade, a patient whose every stay ended outside the period would
+  # be recorded as one that never had a stay and kept as such.
+  narrowed <- narrow_to_surveillance_period(
+    x$patients, x$enrollments, x$events,
+    opts$surveillance_end_from,
+    opts$surveillance_end_to)
+  x$patients    <- narrowed$patients
+  x$enrollments <- narrowed$enrollments
+  x$events      <- narrowed$events
 
   x$admissionData <- x$admissionData |>
     filter_admissions(opts$include_ineligible_patients)
@@ -53,39 +60,80 @@ filter_dataset <- function(x, dataset_options, remove_orphans = TRUE)
   return(x)
 }
 
-filter_surveillance_ends <- function(
+# Narrow a dataset to its reporting period: the enrolments whose
+# surveillance ended in the window (`filter_enrollments_by_surveillance_end()`),
+# the events of those enrolments, and the patients they leave enrolled. A
+# patient that arrived without any enrolment is not the period's to drop —
+# the validation pass reports it under rule 1 and the post-filter prunes it,
+# as without a period — so the patients narrowed are the ones that had an
+# enrolment and keep none. Which patients are enrolled is read off the
+# enrolments where they link to patients, else off the events (the pseudo
+# enrolment tier carries no patient link, the full event tier does). No
+# bound, or a tier without the enrolment link on the events, leaves all three
+# as they are: there is then nothing the period can select by. The form data
+# of the events left out is the caller's to prune.
+narrow_to_surveillance_period <- function(
+    patients,
+    enrollments,
+    events,
+    surveillance_end_from = NULL,
+    surveillance_end_to = NULL)
+{
+  unchanged <- list(patients = patients, enrollments = enrollments, events = events)
+  if((is.null(surveillance_end_from) && is.null(surveillance_end_to)) ||
+     !("enrollment_key" %in% names(enrollments)) ||
+     !("enrollment_key" %in% names(events)))
+    return(unchanged)
+
+  enrolled_patients <- function(enrollments, events) {
+    if ("patient_key" %in% names(enrollments)) unique(enrollments$patient_key)
+    else if ("patient_key" %in% names(events)) unique(events$patient_key)
+    else NULL
+  }
+  enrolled_before <- enrolled_patients(enrollments, events)
+
+  enrollments <- enrollments |>
+    filter_enrollments_by_surveillance_end(
+      events, surveillance_end_from, surveillance_end_to)
+  events <- events |>
+    dplyr::semi_join(enrollments, dplyr::join_by("enrollment_key"))
+
+  enrolled_after <- enrolled_patients(enrollments, events)
+  if (!is.null(enrolled_before) && "patient_key" %in% names(patients))
+    patients <- patients |>
+      dplyr::filter(
+        .data$patient_key %in% enrolled_after |
+          !(.data$patient_key %in% enrolled_before))
+
+  list(patients = patients, enrollments = enrollments, events = events)
+}
+
+# The enrolments whose surveillance ended in the window: an enrolment is
+# kept when it has a surveillance-end event dated on or after
+# `surveillance_end_from` and on or before `surveillance_end_to`, whichever
+# bounds are set. With either bound set, an enrolment without a
+# surveillance-end event has no date to fall in the window and is left out,
+# an active one included. No bound leaves the enrolments as they are.
+filter_enrollments_by_surveillance_end <- function(
+    enrollments,
     events,
     surveillance_end_from = NULL,
     surveillance_end_to = NULL)
 {
   if(is.null(surveillance_end_from) && is.null(surveillance_end_to))
-    return(events)
+    return(enrollments)
 
-  if(is.null(surveillance_end_from))
-    dplyr::bind_rows(
-      events |>
-        dplyr::filter(.data$event_type_key != "end"),
-      events |>
-        dplyr::filter(
-          .data$event_type_key == "end" &
-            .data$occurredAt <= surveillance_end_to))
-  else if(is.null(surveillance_end_to))
-    dplyr::bind_rows(
-      events |>
-        dplyr::filter(.data$event_type_key != "end"),
-      events |>
-        dplyr::filter(
-          .data$event_type_key == "end" &
-            .data$occurredAt >= surveillance_end_from))
-  else
-    dplyr::bind_rows(
-      events |>
-        dplyr::filter(.data$event_type_key != "end"),
-      events |>
-        dplyr::filter(
-          .data$event_type_key == "end" &
-            .data$occurredAt >= surveillance_end_from &
-            .data$occurredAt <= surveillance_end_to))
+  ends <- events |>
+    dplyr::filter(.data$event_type_key == "end")
+  if(!is.null(surveillance_end_from))
+    ends <- ends |>
+      dplyr::filter(.data$occurredAt >= surveillance_end_from)
+  if(!is.null(surveillance_end_to))
+    ends <- ends |>
+      dplyr::filter(.data$occurredAt <= surveillance_end_to)
+
+  enrollments |>
+    dplyr::semi_join(ends, dplyr::join_by("enrollment_key"))
 }
 
 filter_admissions <- function(

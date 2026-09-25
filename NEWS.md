@@ -14,6 +14,20 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+# neoipcr 0.0.0.9004
+
+* The surveillance-end date filter (`surveillance_end_from`, `surveillance_end_to`) selects the
+  enrolments whose surveillance ended in the window and leaves the others out with their forms, before
+  the validation pass, as records outside the period rather than invalid ones. It used to drop the end
+  forms dated outside the window and keep their enrolments, so the pass then met every out-of-period
+  enrolment without its end form: it removed those patients under rule 25, counted them as invalid in
+  `validationSummary`, and removed a patient's stays inside the period as well whenever another stay of
+  the patient ended outside it. With either bound set, an enrolment without a surveillance-end form is
+  left out, an active one included, since it has no date to fall in the window; rule 43 therefore no
+  longer stands aside under the filter. An overlap between a stay in the period and one that ended
+  outside it (rule 17) is a finding the pass no longer sees under a period, the other stay being gone
+  before it runs.
+
 # neoipcr 0.0.0.9003
 
 * Two rules question an enrolment left open long after its admission: rule 43 an active enrolment

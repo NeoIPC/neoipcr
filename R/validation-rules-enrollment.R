@@ -162,14 +162,6 @@ validation_rule_43 <- function(x, exceptions, as_of)
   if ("status" %in% names(x$enrollments) && !("status" %in% names(x$events)))
     return(.rule_skipped(
       43L, "the events' status column, so an end form that is not completed is absent from it like a missing one"))
-  # The import's surveillance-end date filter drops the end forms dated
-  # outside its window and keeps their enrolments, so on such a dataset too
-  # an end form is absent whether it is missing or merely out of range.
-  opts <- x$metadata$dataset_options
-  if ("status" %in% names(x$enrollments) &&
-      (!is.null(opts$surveillance_end_from) || !is.null(opts$surveillance_end_to)))
-    return(.rule_skipped(
-      43L, "the end forms dated outside its surveillance-end window, so an end form there is absent like a missing one"))
 
   .with_status(x$enrollments, .enrollment_status_levels) |>
     dplyr::filter(.data$status == "ACTIVE") |>

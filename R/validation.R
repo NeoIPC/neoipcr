@@ -462,12 +462,10 @@ validation_rule_context_fields <- function()
 #' exception record keeps the enrolment out of the findings while the stay
 #' lasts. `days_open` is the whole days from the enrolment date to `as_of`.
 #' A dataset imported with the enrolments that are not completed but only
-#' the completed events holds no end form that is not completed, and one
-#' imported with a surveillance-end date filter holds none dated outside
-#' its window, so on either a missing form and one the dataset does not hold
-#' look alike; rule 43 is skipped on such a dataset (named in
-#' `rules_skipped`), and an import of that shape with the validation pass on
-#' refuses.
+#' the completed events holds no end form that is not completed, so on it a
+#' missing form and an open one look alike; rule 43 is skipped on that shape
+#' (named in `rules_skipped`), and an import of that shape with the
+#' validation pass on refuses.
 #'
 #' | Rules | Level | Context fields |
 #' |---|---|---|

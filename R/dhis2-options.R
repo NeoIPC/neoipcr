@@ -1,9 +1,19 @@
 #' Configure the DHIS2 dataset
 #'
-#' @param surveillance_end_from The earliest surveillance end date of patient
-#'  records to include into the dataset.
-#' @param surveillance_end_to The latest surveillance end date of patient
-#'  records to include into the dataset.
+#' @param surveillance_end_from The earliest surveillance-end date of the
+#'  enrolments to include: an enrolment is included when its surveillance-end
+#'  form is dated on or after it. With either bound set, an enrolment without
+#'  a surveillance-end form is left out, an active one included, and so is a
+#'  patient whose enrolments are all left out — one that arrived without any
+#'  stays for rule 1. The enrolments left out are outside the period, not
+#'  invalid, so the validation pass neither sees nor counts them; an overlap
+#'  between a stay in the period and one that ended outside it (rule 17) is
+#'  not visible to the pass either. The bounds select by the enrolments'
+#'  link to their events, so a tier without it (`include_enrollment` or
+#'  `include_event` at `"no"`) leaves them without effect.
+#' @param surveillance_end_to The latest surveillance-end date of the
+#'  enrolments to include: an enrolment is included when its surveillance-end
+#'  form is dated on or before it.
 #' @param birth_weight_from The lowest birth weight (in grams) of patient
 #'  records to include into the dataset.
 #' @param birth_weight_to The highest birth weight (in grams) of patient
@@ -90,9 +100,8 @@
 #'  enrolment rules 43 and 44 question for having stayed open more than 120
 #'  days, a genuine long stay included, unless an exception record names
 #'  it; and it refuses such an import that leaves out the events that are
-#'  not completed or filters the surveillance-end dates, since on that
-#'  dataset rule 43 cannot tell a missing end form from one it does not
-#'  hold. An
+#'  not completed, since on that dataset rule 43 cannot tell a missing end
+#'  form from one that is open. An
 #'  exception record carries `RULE_ID` (numeric), `NEOIPC_PATIENT_ID`
 #'  (character), `ENROLMENT_DATE` and `EVENT_DATE` (`Date`), `EVENT_TYPE`
 #'  (one of `adm`, `pro`, `bsi`, `nec`, `ssi`, `hap`, `end`, in any case),
