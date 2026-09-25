@@ -10,8 +10,9 @@
 #'  invalid, so the validation pass neither sees nor counts them; an overlap
 #'  between a stay in the period and one that ended outside it (rule 17) is
 #'  not visible to the pass either. The bounds select by the enrolments'
-#'  link to their events, so a tier without it (`include_enrollment` or
-#'  `include_event` at `"no"`) leaves them without effect.
+#'  link to their events, so a tier without it — `include_enrollment` at
+#'  `"no"`, or `include_event` below `"full"`, whose events carry no link —
+#'  leaves them without effect and the dataset as it is.
 #' @param surveillance_end_to The latest surveillance-end date of the
 #'  enrolments to include: an enrolment is included when its surveillance-end
 #'  form is dated on or before it.

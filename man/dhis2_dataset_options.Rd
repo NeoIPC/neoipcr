@@ -48,8 +48,9 @@ stays for rule 1. The enrolments left out are outside the period, not
 invalid, so the validation pass neither sees nor counts them; an overlap
 between a stay in the period and one that ended outside it (rule 17) is
 not visible to the pass either. The bounds select by the enrolments'
-link to their events, so a tier without it (\code{include_enrollment} or
-\code{include_event} at \code{"no"}) leaves them without effect.}
+link to their events, so a tier without it — \code{include_enrollment} at
+\code{"no"}, or \code{include_event} below \code{"full"}, whose events carry no link —
+leaves them without effect and the dataset as it is.}
 
 \item{surveillance_end_to}{The latest surveillance-end date of the
 enrolments to include: an enrolment is included when its surveillance-end
