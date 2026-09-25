@@ -27,11 +27,12 @@ exempts nothing.}
 and 44 measure how long an enrolment has been open; \code{NULL} (the default)
 takes the calendar day of the DHIS2 server's own clock when the import
 read the data, recorded on \code{metadata$system$server_date} — the calendar
-the enrolment dates are on. A dataset carrying neither cannot run those
-two rules, which is an error of class \code{neoipcr_validation_needs_facts}
-when one of them is selected — the default selection included; the other
-rules do not read the date. A value that is not a single \code{Date} is an
-error whatever rules are selected.}
+the enrolment dates are on. A dataset that records no such day, validated
+without \code{as_of}, cannot run those two rules: that is an error of class
+\code{neoipcr_validation_needs_facts} when either of them is selected, the
+default selection included, while a selection that leaves both out runs
+without a date. A value that is not a single \code{Date} is an error whatever
+rules are selected.}
 }
 \value{
 A tibble with one row per finding — a flagged record, or for
@@ -91,7 +92,12 @@ completed. A neonatal stay that long is exceptional, so such a record is
 most often one nobody closed once the infant left; but the infant may
 still be admitted, in which case the finding is to be ignored, and an
 exception record keeps the enrolment out of the findings while the stay
-lasts. \code{days_open} is the whole days from the enrolment date to \code{as_of}.\tabular{lll}{
+lasts. \code{days_open} is the whole days from the enrolment date to \code{as_of}.
+A dataset imported with the enrolments that are not completed but only
+the completed events holds no end form that is not completed, so on it a
+missing form and an open one look alike; rule 43 is skipped on that shape
+(named in \code{rules_skipped}), and an import of that shape with the
+validation pass on refuses.\tabular{lll}{
    Rules \tab Level \tab Context fields \cr
    1 \tab \code{patient_key} \tab none \cr
    2 \tab \code{enrollment_key} \tab none \cr

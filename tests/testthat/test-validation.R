@@ -60,6 +60,13 @@ test_that("validate measures an open enrolment against the import's server date,
   # A dataset restored from a serialization carries the day as text.
   ds$metadata$system$server_date <- "2024-11-08"
   expect_equal(nrow(neoipcr::validate(ds, rules = 43L)), 1L)
+  # With the events' status left out beside active enrolments, rule 43 is
+  # among the rules skipped; rule 44 reads the completed-only events as such.
+  without_event_status <- ds
+  without_event_status$events$status <- NULL
+  skipped <- neoipcr::validate(without_event_status, rules = c(43L, 44L))
+  expect_equal(nrow(skipped), 0L)
+  expect_identical(attr(skipped, "rules_skipped"), 43L)
   # Without either the dated rules cannot run, the default selection included;
   # a selection that leaves them out still does.
   ds$metadata$system <- NULL

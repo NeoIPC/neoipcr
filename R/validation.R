@@ -214,7 +214,7 @@ validation_rules <- list(
       "The validation pass could not run every rule on this dataset.",
       x = sprintf("Rule(s) %s found no column to read; the log names it.",
                   paste(skipped, collapse = ", ")),
-      i = "The pass needs the full enrollment and event tiers with every column they declare."),
+      i = "The pass needs the full enrollment and event tiers with every column they declare, and the events that are not completed whenever the enrolments that are not completed are requested."),
       class = "neoipcr_validation_rule_skipped")
   invisible(findings)
 }
@@ -407,11 +407,12 @@ validation_rule_context_fields <- function()
 #'  and 44 measure how long an enrolment has been open; `NULL` (the default)
 #'  takes the calendar day of the DHIS2 server's own clock when the import
 #'  read the data, recorded on `metadata$system$server_date` — the calendar
-#'  the enrolment dates are on. A dataset carrying neither cannot run those
-#'  two rules, which is an error of class `neoipcr_validation_needs_facts`
-#'  when one of them is selected — the default selection included; the other
-#'  rules do not read the date. A value that is not a single `Date` is an
-#'  error whatever rules are selected.
+#'  the enrolment dates are on. A dataset that records no such day, validated
+#'  without `as_of`, cannot run those two rules: that is an error of class
+#'  `neoipcr_validation_needs_facts` when either of them is selected, the
+#'  default selection included, while a selection that leaves both out runs
+#'  without a date. A value that is not a single `Date` is an error whatever
+#'  rules are selected.
 #'
 #' @returns A tibble with one row per finding — a flagged record, or for
 #'  rule 17 one of the two enrolments of an overlapping pair: `rule_id`;
@@ -457,6 +458,11 @@ validation_rule_context_fields <- function()
 #' still be admitted, in which case the finding is to be ignored, and an
 #' exception record keeps the enrolment out of the findings while the stay
 #' lasts. `days_open` is the whole days from the enrolment date to `as_of`.
+#' A dataset imported with the enrolments that are not completed but only
+#' the completed events holds no end form that is not completed, so on it a
+#' missing form and an open one look alike; rule 43 is skipped on that shape
+#' (named in `rules_skipped`), and an import of that shape with the
+#' validation pass on refuses.
 #'
 #' | Rules | Level | Context fields |
 #' |---|---|---|

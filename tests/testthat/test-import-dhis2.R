@@ -1015,3 +1015,53 @@ test_that("import_dhis2 keeps the records an exception list names", {
   expect_equal(ncol(ds$validationResults), 0L)
   expect_equal(ncol(ds$validationSummary), 0L)
 })
+
+test_that("import_dhis2 runs the open-enrolment rules on the active enrolments it requests", {
+  # The mock's first enrolment made active: dated 2024-01-01, it is 312 days
+  # old on the fixture's server date and has no end form, which is rule 43's
+  # finding on an active enrolment and rule 25's on the completed second one.
+  # Both admission events are dated a day after their enrolment, so rule 3
+  # flags both patients as before.
+  with_active <- function(fx, event_status = TRUE) {
+    enr <- jsonlite::fromJSON(fx$enrollments, simplifyVector = FALSE)
+    enr$enrollments[[1L]]$status <- "ACTIVE"
+    enr$enrollments[[2L]]$status <- "COMPLETED"
+    fx$enrollments <- as.character(jsonlite::toJSON(enr, auto_unbox = TRUE, null = "null"))
+    if (event_status) {
+      ev <- jsonlite::fromJSON(fx$events, simplifyVector = FALSE)
+      ev$events <- lapply(ev$events, function(e) { e$status <- "COMPLETED"; e })
+      fx$events <- as.character(jsonlite::toJSON(ev, auto_unbox = TRUE, null = "null"))
+    }
+    fx
+  }
+
+  m <- new_dhis2_mock(with_active(import_test_fixtures()))
+  httr2::local_mocked_responses(m$mock)
+  removed <- import_dhis2(test_conn(), import_test_opts(
+    include_incomplete       = c("enrollments", "events"),
+    include_invalid_patients = FALSE))
+  expect_equal(nrow(removed$patients), 0L)
+  per_rule <- removed$validationSummary[!is.na(removed$validationSummary$rule_id), ]
+  expect_equal(per_rule$rule_id, c(3L, 25L, 43L))
+  expect_equal(per_rule$n_removed, c(2L, 1L, 1L))
+  finding <- removed$validationResults[removed$validationResults$rule_id == 43L, ]
+  expect_equal(nrow(finding), 1L)
+  expect_equal(finding$context[[1L]]$days_open,
+               as.integer(as.Date("2024-11-08") - as.Date("2024-01-01")))
+
+  # Requested with the active enrolments but only the completed events, the
+  # dataset holds no open end form, so a missing one and an open one look
+  # alike on it: the pass cannot run rule 43, and the import refuses with it.
+  m <- new_dhis2_mock(with_active(import_test_fixtures(), event_status = FALSE))
+  httr2::local_mocked_responses(m$mock)
+  expect_error(
+    import_dhis2(test_conn(), import_test_opts(
+      include_incomplete       = "enrollments",
+      include_invalid_patients = FALSE)),
+    class = "neoipcr_validation_rule_skipped")
+  # Without the pass the import succeeds, and a later pass names the rule.
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_incomplete       = "enrollments",
+    include_invalid_patients = TRUE))
+  expect_identical(attr(neoipcr::validate(ds, rules = 43L), "rules_skipped"), 43L)
+})

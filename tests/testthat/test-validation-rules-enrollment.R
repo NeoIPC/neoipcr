@@ -371,6 +371,20 @@ test_that("rule 43 treats enrolments without a status column as completed", {
   ds$enrollments$status <- NULL
   expect_no_warning(result <- neoipcr:::validation_rule_43(ds, NULL, open_enrolment_as_of))
   expect_equal(nrow(result), 0L)
+  # A dataset without either status column is a completed-only import, on
+  # which nothing is active.
+  ds$events$status <- NULL
+  expect_no_warning(result <- neoipcr:::validation_rule_43(ds, NULL, open_enrolment_as_of))
+  expect_equal(nrow(result), 0L)
+})
+
+test_that("rule 43 skips a dataset with active enrolments but only completed events", {
+  # The import left out the events that are not completed, so an open end
+  # form is absent like a missing one: the rule cannot tell its finding from
+  # rule 44's and says so instead of reporting the form missing.
+  ds <- open_enrolment_ds(400)
+  ds$events$status <- NULL
+  expect_null(neoipcr:::validation_rule_43(ds, NULL, open_enrolment_as_of))
 })
 
 test_that("rule 43 honours exceptions", {

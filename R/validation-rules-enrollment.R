@@ -151,6 +151,16 @@ validation_rule_43 <- function(x, exceptions, as_of)
 {
   check_neoipcr_ds(x)
 
+  # An import that requested active enrolments but only completed events
+  # left out an end form that is not completed, so on such a dataset the
+  # form is absent whether it is missing or merely open — this rule's
+  # finding or rule 44's, which the dataset cannot tell apart. The status
+  # columns say what was requested: the enrolments carrying one and the
+  # events none is that shape.
+  if ("status" %in% names(x$enrollments) && !("status" %in% names(x$events)))
+    return(.rule_skipped(
+      43L, "the events that are not completed, among which an active enrolment's end form may be"))
+
   .with_status(x$enrollments, .enrollment_status_levels) |>
     dplyr::filter(.data$status == "ACTIVE") |>
     dplyr::select("patient_key", "enrollment_key", "enrolledAt") |>
