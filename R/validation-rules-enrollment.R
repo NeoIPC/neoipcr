@@ -146,7 +146,9 @@ validation_rule_26 <- function(x, exceptions)
 
 # Find enrolments still active more than `.open_enrolment_max_days` after
 # their enrolment date, measured against `as_of`, that have no
-# surveillance-end event.
+# surveillance-end event. Skips itself on a dataset that carries the
+# enrolments' status but not the events', where an end form that is not
+# completed is absent like a missing one.
 validation_rule_43 <- function(x, exceptions, as_of)
 {
   check_neoipcr_ds(x)
