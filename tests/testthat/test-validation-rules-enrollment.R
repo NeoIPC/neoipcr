@@ -387,6 +387,21 @@ test_that("rule 43 skips a dataset with active enrolments but only completed eve
   expect_null(neoipcr:::validation_rule_43(ds, NULL, open_enrolment_as_of))
 })
 
+test_that("rule 43 skips a dataset whose surveillance-end filter dropped end forms", {
+  # The import's date filter drops the end forms outside its window and
+  # keeps their enrolments, so an end form there is absent like a missing
+  # one; a completed-only import under the filter has no active enrolment
+  # to question and runs.
+  ds <- open_enrolment_ds(400)
+  ds$metadata$dataset_options$surveillance_end_to <- as.Date("2024-12-31")
+  expect_null(neoipcr:::validation_rule_43(ds, NULL, open_enrolment_as_of))
+  ds$metadata$dataset_options$surveillance_end_to <- NULL
+  ds$metadata$dataset_options$surveillance_end_from <- as.Date("2024-01-01")
+  expect_null(neoipcr:::validation_rule_43(ds, NULL, open_enrolment_as_of))
+  ds$enrollments$status <- NULL
+  expect_equal(nrow(neoipcr:::validation_rule_43(ds, NULL, open_enrolment_as_of)), 0L)
+})
+
 test_that("rule 43 honours exceptions", {
   result <- neoipcr:::validation_rule_43(
     open_enrolment_ds(400), make_test_exceptions(43L, enrollment_key = 1L), open_enrolment_as_of)

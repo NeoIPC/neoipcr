@@ -57,19 +57,19 @@ test_that("read_validation_exceptions reads a record naming the form its rule's 
   # and surveillance-end forms, which is how a reader of the report writes
   # them.
   rows <- tibble::tibble(
-    RULE_ID           = c("5", "18"),
-    DEPARTMENT_CODE   = c("", ""),
-    NEOIPC_PATIENT_ID = c("PAT_1", "PAT_1"),
-    ENROLMENT_DATE    = c("2024-01-01", "2024-01-01"),
-    EVENT_TYPE        = c("ADM", "END"),
-    EVENT_DATE        = c("2024-01-01", "2024-01-20"))
+    RULE_ID           = c("5", "18", "44"),
+    DEPARTMENT_CODE   = c("", "", ""),
+    NEOIPC_PATIENT_ID = c("PAT_1", "PAT_1", "PAT_1"),
+    ENROLMENT_DATE    = c("2024-01-01", "2024-01-01", "2024-01-01"),
+    EVENT_TYPE        = c("ADM", "END", "END"),
+    EVENT_DATE        = c("2024-01-01", "2024-01-20", "2024-01-20"))
   ex <- neoipcr::read_validation_exceptions(write_exception_csv(rows))
-  expect_equal(ex$RULE_ID, c(5L, 18L))
-  expect_equal(ex$EVENT_TYPE, c("ADM", "END"))
+  expect_equal(ex$RULE_ID, c(5L, 18L, 44L))
+  expect_equal(ex$EVENT_TYPE, c("ADM", "END", "END"))
   expect_error(
     neoipcr::read_validation_exceptions(
-      write_exception_csv(rows |> dplyr::mutate(EVENT_TYPE = c("END", "ADM")))),
-    regexp = "rule\\(s\\) 5, 18 do not concern",
+      write_exception_csv(rows |> dplyr::mutate(EVENT_TYPE = c("END", "ADM", "ADM")))),
+    regexp = "rule\\(s\\) 5, 18, 44 do not concern",
     class = "neoipcr_invalid_exception_list")
 })
 
@@ -316,6 +316,33 @@ test_that("resolve_validation_exceptions lets an enrolment-level record name its
     ds, named |> dplyr::mutate(EVENT_DATE = as.Date("2024-01-02")))
   expect_true(is.na(keys$enrollment_key))
   expect_true(is.na(keys$event_key))
+})
+
+test_that("resolve_validation_exceptions lets a rule 44 record name the surveillance-end form", {
+  # Rule 44 shows its finding on the end form that is not completed, so a
+  # record may name that form and resolves its event; one naming the
+  # admission form instead is refused.
+  ds <- resolvable_ds()
+  ds$events <- make_test_events(3,
+    enrollment_keys = c(1L, 1L, 1L),
+    patient_keys    = c(1L, 1L, 1L),
+    event_type_keys = c("adm", "bsi", "end"),
+    occurredAt = as.Date(c("2024-01-01", "2024-01-06", "2024-01-20")))
+  named <- written_exceptions()[1, ] |>
+    dplyr::mutate(RULE_ID = 44L, EVENT_TYPE = "END", EVENT_DATE = as.Date("2024-01-20"))
+  keys <- neoipcr::resolve_validation_exceptions(ds, named)
+  expect_equal(keys$rule_id, 44L)
+  expect_equal(keys$enrollment_key, 1L)
+  expect_equal(keys$event_key, 3L)
+  keys <- neoipcr::resolve_validation_exceptions(
+    ds, named |> dplyr::mutate(EVENT_TYPE = NA_character_, EVENT_DATE = as.Date(NA)))
+  expect_equal(keys$enrollment_key, 1L)
+  expect_true(is.na(keys$event_key))
+  expect_error(
+    neoipcr::resolve_validation_exceptions(
+      ds, named |> dplyr::mutate(EVENT_TYPE = "ADM", EVENT_DATE = as.Date("2024-01-01"))),
+    regexp = "concern",
+    class = "neoipcr_invalid_exception_list")
 })
 
 test_that("resolve_validation_exceptions resolves a record to every dataset record it fits", {

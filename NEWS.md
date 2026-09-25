@@ -27,9 +27,10 @@ section above it for the next changes.
   enrolments, so the import's own pass is unchanged; an import that requests active enrolments with the
   pass on now removes a patient whose enrolment these rules question, a genuine long stay included,
   unless an exception record names it. An import that requests the enrolments that are not completed
-  but only the completed events holds no end form that is not completed, so a missing form and an open
-  one look alike on it: rule 43 is skipped on that shape, and an import of that shape with the pass on
-  refuses. A dataset without a server date refuses a `validate()` whose selection holds either rule,
+  but only the completed events holds no end form that is not completed, and one that filters the
+  surveillance-end dates holds none outside its window, so on either a missing form and one the dataset
+  does not hold look alike: rule 43 is skipped on such a dataset, and an import of that shape with the
+  pass on refuses. A dataset without a server date refuses a `validate()` whose selection holds either rule,
   the default selection included; a selection without them still runs. The rules now number 43.
 * An exception record for an enrolment-level rule that compares a form — rules 3 and 5 the admission
   form, 2, 4, 6, 18, 21 and 44 the surveillance-end form — may name that form's type and date, as a reader
