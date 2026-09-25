@@ -8,10 +8,19 @@ read_metadata_system <- function(metadata)
   version <- as.numeric_version(system$version)
   warn_if_unsupported_dhis2(version)
 
+  # The stamp is the server's wall clock with its zone offset
+  # (`yyyy-MM-dd'T'HH:mm:ss.SSSZ`). `date` is the instant it denotes;
+  # `server_date` is the calendar day the server's own clock showed, the first
+  # ten characters — the calendar the enrolment and event dates are on, which
+  # DHIS2 writes as wall-clock time without an offset. The instant's UTC day
+  # is a day short of it for a server east of UTC exporting before its own
+  # midnight has passed in UTC, so an age measured in days is taken on this
+  # calendar, not the instant's.
   list(id = uuid::as.UUID(system$id),
        version = version,
        rev = system$rev,
-       date = readr::parse_datetime(system$date))
+       date = readr::parse_datetime(system$date),
+       server_date = readr::parse_date(stringr::str_sub(system$date, end = 10)))
 }
 
 read_metadata_program_id <- function(metadata)

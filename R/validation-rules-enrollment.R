@@ -143,3 +143,84 @@ validation_rule_26 <- function(x, exceptions)
       context        = list(NULL),
       .keep = "none")
 }
+
+# Find enrolments still active more than `.open_enrolment_max_days` after
+# their enrolment date, measured against `as_of`, that have no
+# surveillance-end event. Skips itself on a dataset that carries the
+# enrolments' status but not the events', where an end form that is not
+# completed is absent like a missing one.
+validation_rule_43 <- function(x, exceptions, as_of)
+{
+  check_neoipcr_ds(x)
+
+  # An import that requested active enrolments but only completed events
+  # left out an end form that is not completed, so on such a dataset the
+  # form is absent whether it is missing or merely open — this rule's
+  # finding or rule 44's, which the dataset cannot tell apart. The status
+  # columns say what was requested: the enrolments carrying one and the
+  # events none is that shape.
+  if ("status" %in% names(x$enrollments) && !("status" %in% names(x$events)))
+    return(.rule_skipped(
+      43L, "the events' status column, so an end form that is not completed is absent from it like a missing one"))
+  # The import's surveillance-end date filter drops the end forms dated
+  # outside its window and keeps their enrolments, so on such a dataset too
+  # an end form is absent whether it is missing or merely out of range.
+  opts <- x$metadata$dataset_options
+  if ("status" %in% names(x$enrollments) &&
+      (!is.null(opts$surveillance_end_from) || !is.null(opts$surveillance_end_to)))
+    return(.rule_skipped(
+      43L, "the end forms dated outside its surveillance-end window, so an end form there is absent like a missing one"))
+
+  .with_status(x$enrollments, .enrollment_status_levels) |>
+    dplyr::filter(.data$status == "ACTIVE") |>
+    dplyr::select("patient_key", "enrollment_key", "enrolledAt") |>
+    dplyr::anti_join(
+      x$events |>
+        dplyr::filter(.data$event_type_key == "end"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::mutate(days_open = .days_open(.data$enrolledAt, as_of)) |>
+    dplyr::filter(.data$days_open > .open_enrolment_max_days) |>
+    dplyr::anti_join(
+      .rule_exceptions(exceptions, 43L),
+      dplyr::join_by("enrollment_key")) |>
+    tidyr::nest(context = c("enrolledAt", "days_open")) |>
+    dplyr::mutate(
+      rule_id        = 43L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = NA_integer_,
+      context        = .data$context,
+      .keep = "none")
+}
+
+# Find enrolments still active more than `.open_enrolment_max_days` after
+# their enrolment date, measured against `as_of`, whose surveillance-end
+# event exists but is not completed. The finding carries that event and its
+# status.
+validation_rule_44 <- function(x, exceptions, as_of)
+{
+  check_neoipcr_ds(x)
+
+  .with_status(x$enrollments, .enrollment_status_levels) |>
+    dplyr::filter(.data$status == "ACTIVE") |>
+    dplyr::select("patient_key", "enrollment_key", "enrolledAt") |>
+    dplyr::inner_join(
+      .with_status(x$events, .event_status_levels) |>
+        dplyr::filter(.data$event_type_key == "end" &
+                      .data$status != "COMPLETED") |>
+        dplyr::select("enrollment_key", "event_key", "status"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::mutate(days_open = .days_open(.data$enrolledAt, as_of)) |>
+    dplyr::filter(.data$days_open > .open_enrolment_max_days) |>
+    dplyr::anti_join(
+      .rule_exceptions(exceptions, 44L),
+      dplyr::join_by("enrollment_key")) |>
+    tidyr::nest(context = c("enrolledAt", "days_open", "status")) |>
+    dplyr::mutate(
+      rule_id        = 44L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = .data$event_key,
+      context        = .data$context,
+      .keep = "none")
+}

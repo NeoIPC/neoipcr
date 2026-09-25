@@ -3,8 +3,10 @@
 # and an exception record is matched on — the event types a finding may
 # name (the types an event-level rule concerns; for an enrolment-level rule
 # the form its finding is shown on, which a record may name or leave
-# empty), the fields the rule records in a finding's `context`, and the
-# function that implements it. A finding is data — keys and the values a
+# empty), the fields the rule records in a finding's `context`, the
+# function that implements it, and `dated` on a rule that measures a
+# record's age against the date the data was read, which `validate()` then
+# passes as a third argument. A finding is data — keys and the values a
 # rule compared — never a sentence: the prose belongs to whichever document
 # renders the finding, where it can be localized, and the declared fields
 # are the contract its sentences are written against; `validate()` refuses
@@ -103,7 +105,23 @@ validation_rules <- list(
   list(id = 41L, level = "event", event_types = "ssi",
        context = c("dol", "dol_calc"), fun = validation_rule_41),
   list(id = 42L, level = "event", event_types = "ssi",
-       context = c("los", "los_calc"), fun = validation_rule_42))
+       context = c("los", "los_calc"), fun = validation_rule_42),
+  list(id = 43L, level = "enrollment", dated = TRUE,
+       context = c("enrolledAt", "days_open"), fun = validation_rule_43),
+  list(id = 44L, level = "enrollment", event_types = "end", dated = TRUE,
+       context = c("enrolledAt", "days_open", "status"),
+       fun = validation_rule_44))
+
+# How long an enrolment may stay active after its enrolment date before
+# rules 43 and 44 question it. A neonatal stay past four months is
+# exceptional, so an enrolment still open then is most often a record nobody
+# closed once the infant left — though it may still be admitted, which is
+# why a finding asks for a look and an exception record keeps a genuine stay.
+.open_enrolment_max_days <- 120L
+
+# The whole days from an enrolment date to the reference date.
+.days_open <- function(enrolled_at, as_of)
+  as.integer(as_of - enrolled_at)
 
 # The level of each rule, named by rule id, and the event types a rule's
 # finding may name; `check_exception_list()` holds a record's shape to its
@@ -115,6 +133,38 @@ validation_rules <- list(
 
 .rule_event_types <- function(rule_id)
   validation_rules[[match(rule_id, validation_rule_ids())]]$event_types
+
+# `as_of` is a single `Date` or nothing; a caller is told so whatever rules
+# it selected, rather than only when one of them reads the date.
+.check_as_of <- function(as_of)
+{
+  if (!is.null(as_of) &&
+      (!inherits(as_of, "Date") || length(as_of) != 1L || is.na(as_of)))
+    rlang::abort("`as_of` must be a single `Date`.")
+}
+
+# The date the dated rules measure a record's age against: `as_of` when the
+# caller gives one, else the calendar day of the DHIS2 server's own clock
+# when the data was read, which the import records on
+# `metadata$system$server_date` — the calendar the enrolment dates are on,
+# so that the age is whole days on one calendar. A dataset carrying neither
+# cannot run those rules.
+.reference_date <- function(x, as_of = NULL)
+{
+  if (!is.null(as_of))
+    return(as_of)
+  stamp <- x$metadata$system$server_date
+  if (is.null(stamp) || length(stamp) != 1L || is.na(stamp))
+    rlang::abort(c(
+      "The age of an open enrolment is measured against the date the data was read, which this dataset does not carry.",
+      i = "An import records it on `metadata$system$server_date`; pass `as_of` to `validate()` otherwise."),
+      class = "neoipcr_validation_needs_facts")
+  # NEOIPC-PERMANENT(dataset-format): never replace this conversion by a
+  # class check. A dataset restored from a serialization carries the day as
+  # text, and such a file outlives every version of this package; refusing
+  # the text would refuse the open-enrolment rules on every one of them.
+  as.Date(stamp)
+}
 
 # The dataset slot that carries each infection or surgery event type's form
 # data, for the rule families that run once per type.
@@ -167,7 +217,7 @@ validation_rules <- list(
       "The validation pass could not run every rule on this dataset.",
       x = sprintf("Rule(s) %s found no column to read; the log names it.",
                   paste(skipped, collapse = ", ")),
-      i = "The pass needs the full enrollment and event tiers with every column they declare."),
+      i = "The pass needs the full enrollment and event tiers with every column they declare, and the events that are not completed whenever the enrolments that are not completed are requested."),
       class = "neoipcr_validation_rule_skipped")
   invisible(findings)
 }
@@ -356,6 +406,16 @@ validation_rule_context_fields <- function()
 #'  it, or its resolved key form as [resolve_validation_exceptions()] returns
 #'  it (`rule_id`, `patient_key`, `enrollment_key`, `event_key`). `NULL`
 #'  exempts nothing.
+#' @param as_of The date the data was read, a `Date`, against which rules 43
+#'  and 44 measure how long an enrolment has been open; `NULL` (the default)
+#'  takes the calendar day of the DHIS2 server's own clock when the import
+#'  read the data, recorded on `metadata$system$server_date` — the calendar
+#'  the enrolment dates are on. A dataset that records no such day, validated
+#'  without `as_of`, cannot run those two rules: that is an error of class
+#'  `neoipcr_validation_needs_facts` when either of them is selected, the
+#'  default selection included, while a selection that leaves both out runs
+#'  without a date. A value that is not a single `Date` is an error whatever
+#'  rules are selected.
 #'
 #' @returns A tibble with one row per finding — a flagged record, or for
 #'  rule 17 one of the two enrolments of an overlapping pair: `rule_id`;
@@ -386,12 +446,28 @@ validation_rule_context_fields <- function()
 #' its finding, so a document shows the finding on the form; a record for
 #' such a rule may name that form's type and date as well, or leave them
 #' empty, and is refused naming any other type (rules 3 and 5 the admission
-#' form, 2, 4, 6, 18 and 21 the surveillance-end form; 17, 25 and 26 carry
-#' no event).
+#' form, 2, 4, 6, 18, 21 and 44 the surveillance-end form; 17, 25, 26 and 43
+#' carry no event).
 #' Dates are `Date`, statuses factors, counts integers. A dataset imported
 #' without incomplete enrolments or events (`include_incomplete`) carries no
 #' `status` column for them; the rules then treat every such record as
 #' completed, which is what the import's request filter made it.
+#'
+#' Rules 43 and 44 question an enrolment still active more than 120 days
+#' after its enrolment date, measured against `as_of`: 43 one without a
+#' surveillance-end form, 44 one whose surveillance-end form is not
+#' completed. A neonatal stay that long is exceptional, so such a record is
+#' most often one nobody closed once the infant left; but the infant may
+#' still be admitted, in which case the finding is to be ignored, and an
+#' exception record keeps the enrolment out of the findings while the stay
+#' lasts. `days_open` is the whole days from the enrolment date to `as_of`.
+#' A dataset imported with the enrolments that are not completed but only
+#' the completed events holds no end form that is not completed, and one
+#' imported with a surveillance-end date filter holds none dated outside
+#' its window, so on either a missing form and one the dataset does not hold
+#' look alike; rule 43 is skipped on such a dataset (named in
+#' `rules_skipped`), and an import of that shape with the validation pass on
+#' refuses.
 #'
 #' | Rules | Level | Context fields |
 #' |---|---|---|
@@ -413,10 +489,12 @@ validation_rule_context_fields <- function()
 #' | 28, 32, 36, 40, 42 | `event_key` | `los`, `los_calc` |
 #' | 29, 33, 37 | `event_key` | `dol` |
 #' | 30, 34, 38 | `event_key` | `dos` |
+#' | 43 | `enrollment_key` | `enrolledAt`, `days_open` |
+#' | 44 | `enrollment_key` | `enrolledAt`, `days_open`, `status` |
 #'
 #' @family validation
 #' @export
-validate <- function(x, rules = NULL, exceptions = NULL)
+validate <- function(x, rules = NULL, exceptions = NULL, as_of = NULL)
 {
   check_neoipcr_ds(x)
   # The rules read the enrollments' `patient_key` and the events'
@@ -450,7 +528,14 @@ validate <- function(x, rules = NULL, exceptions = NULL)
   # does not hold; it has logged that, but a caller reporting which rules a
   # result rests on needs the ids, so they ride along as an attribute.
   selected <- Filter(\(r) is.null(rules) || r$id %in% rules, validation_rules)
-  results  <- lapply(selected, \(r) r$fun(x, exceptions))
+  # The reference date is resolved only when a dated rule is selected, so a
+  # dataset without one still runs a selection that leaves those rules out.
+  .check_as_of(as_of)
+  dated <- vapply(selected, \(r) isTRUE(r$dated), logical(1))
+  if (any(dated))
+    as_of <- .reference_date(x, as_of)
+  results  <- lapply(selected, \(r)
+    if (isTRUE(r$dated)) r$fun(x, exceptions, as_of) else r$fun(x, exceptions))
   skipped  <- vapply(selected, \(r) r$id, integer(1))[
     vapply(results, is.null, logical(1))]
 
