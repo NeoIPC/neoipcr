@@ -17,6 +17,9 @@
 .completion_fields <- function(type)
   c("enrollment_status", "end_status", paste0(type, "_status"))
 
+# The event types that record an infection.
+.infection_event_types <- c("bsi", "nec", "hap", "ssi")
+
 validation_rules <- list(
   list(id = 1L,  level = "patient",    context = character(),
        fun = validation_rule_1),
@@ -110,7 +113,35 @@ validation_rules <- list(
        context = c("enrolledAt", "days_open"), fun = validation_rule_43),
   list(id = 44L, level = "enrollment", event_types = "end", dated = TRUE,
        context = c("enrolledAt", "days_open", "status"),
-       fun = validation_rule_44))
+       fun = validation_rule_44),
+  list(id = 45L, level = "enrollment", event_types = "adm", context = "dol",
+       fun = validation_rule_45),
+  list(id = 46L, level = "enrollment", event_types = "adm", context = "dol",
+       fun = validation_rule_46),
+  list(id = 47L, level = "enrollment", event_types = "adm",
+       context = c("type", "enrolledAt", "enrolledAt_previous"),
+       fun = validation_rule_47),
+  list(id = 48L, level = "enrollment",
+       context = c("enrolledAt", "death_date"), fun = validation_rule_48),
+  list(id = 49L, level = "event", event_types = .infection_event_types,
+       context = c("occurredAt", "occurredAt_previous", "days_between"),
+       fun = validation_rule_49),
+  list(id = 50L, level = "event", event_types = c("bsi", "hap"),
+       context = c("device", "device_days"), fun = validation_rule_50),
+  list(id = 51L, level = "enrollment", event_types = "end",
+       context = c("count", "days", "patient_days"), fun = validation_rule_51),
+  list(id = 52L, level = "enrollment", event_types = "end",
+       context = c("index", "substance_code", "days"), fun = validation_rule_52),
+  list(id = 53L, level = "enrollment", event_types = "end",
+       context = c("index", "substance_code", "days", "ab_days", "patient_days"),
+       fun = validation_rule_53),
+  list(id = 54L, level = "enrollment", event_types = "end",
+       context = c("substance_code", "index", "index_other"),
+       fun = validation_rule_54),
+  list(id = 55L, level = "event", event_types = c("nec", "hap", "ssi"),
+       context = c("sec_bsi", "organisms"), fun = validation_rule_55),
+  list(id = 56L, level = "event", event_types = c("hap", "ssi"),
+       context = c("secondary", "primary"), fun = validation_rule_56))
 
 # How long an enrolment may stay active after its enrolment date before
 # rules 43 and 44 question it. A neonatal stay past four months is
@@ -417,8 +448,10 @@ validation_rule_context_fields <- function()
 #'  without a date. A value that is not a single `Date` is an error whatever
 #'  rules are selected.
 #'
-#' @returns A tibble with one row per finding — a flagged record, or for
-#'  rule 17 one of the two enrolments of an overlapping pair: `rule_id`;
+#' @returns A tibble with one row per finding — a flagged record, or one of
+#'  the several findings a rule records on one record: for rule 17 one of
+#'  the two enrolments of an overlapping pair, for rules 51 to 54 one per
+#'  count, slot or pair of slots: `rule_id`;
 #'  `patient_key`, `enrollment_key` and
 #'  `event_key`, each naming the record the finding refers to at that level
 #'  and `NA` where there is none (an enrolment-level rule that compared a
@@ -441,13 +474,15 @@ validation_rule_context_fields <- function()
 #' as well for an event-level rule, the type being one the rule concerns
 #' (rules 7, 12 and 27–30 sepsis, 8, 13 and 35–38 necrotizing enterocolitis,
 #' 9, 14 and 31–34 pneumonia, 10, 15, 22–24, 39 and 40 surgical procedures,
-#' 11, 19, 41 and 42 surgical site infections, 20 any infection). An
+#' 11, 19, 41 and 42 surgical site infections, 20 and 49 any infection, 50
+#' sepsis or pneumonia, 55 necrotizing enterocolitis, pneumonia or a surgical
+#' site infection, 56 pneumonia or a surgical site infection). An
 #' enrolment-level rule that compares a form carries that form's event on
 #' its finding, so a document shows the finding on the form; a record for
 #' such a rule may name that form's type and date as well, or leave them
-#' empty, and is refused naming any other type (rules 3 and 5 the admission
-#' form, 2, 4, 6, 18, 21 and 44 the surveillance-end form; 17, 25, 26 and 43
-#' carry no event).
+#' empty, and is refused naming any other type (rules 3, 5 and 45–47 the
+#' admission form, 2, 4, 6, 18, 21, 44 and 51–54 the surveillance-end form;
+#' 17, 25, 26, 43 and 48 carry no event).
 #' Dates are `Date`, statuses factors, counts integers. A dataset imported
 #' without incomplete enrolments or events (`include_incomplete`) carries no
 #' `status` column for them; the rules then treat every such record as
@@ -473,6 +508,62 @@ validation_rule_context_fields <- function()
 #' judged sets no period. A tier without the enrolments' link to their
 #' events is not narrowed by the period at all.
 #'
+#' Rules 45 to 47 read the admission form. Rule 45 flags an infant
+#' transferred or readmitted the day after birth or later (admission type 3)
+#' whose day of life at admission is above 120, the last day on which an
+#' infant is eligible, the day of birth being day 1; the other two types
+#' have day 1 assigned by the client on every save, so a higher value stored
+#' there is the network's to mend, not the team's. Rule 46 flags an infant of
+#' that type whose day of life at admission is missing or below 2. Rule 47
+#' flags an enrolment whose admission type says the infant was admitted from
+#' the delivery room or on the day of birth (types 1 and 2) while the patient
+#' has an earlier enrolment, naming the latest earlier enrolment's date. Rule
+#' 48 flags an
+#' enrolment dated on or after the patient's death, the date of a
+#' surveillance-end form of another enrolment of the patient whose reason
+#' is death; where several forms give death, the earliest is the death.
+#'
+#' Rule 49 flags an infection event recorded fewer than 14 days after the
+#' patient's previous event of the same type, across the patient's
+#' enrolments, with both dates and `days_between`; an undated event is not
+#' placed in the sequence. Rule 50 flags a device-associated sepsis or
+#' pneumonia on an enrolment whose completed surveillance-end form counts no
+#' day of that device, `device` being `cvc`, `pvc`, `niv` or `inv` and
+#' `device_days` the count; an enrolment without a completed
+#' surveillance-end form is not judged. Rule 51 flags each cumulative count
+#' of the surveillance-end form that exceeds the patient days, one finding
+#' per count, `count` being the count's column name (`cvc_days`, `pvc_days`,
+#' `inv_days`, `niv_days`, `vs_days` for the invasive and non-invasive
+#' ventilation days together, `ab_days`, `human_milk_days`,
+#' `kangaroo_care_days` or `probiotic_days`). Rules 52 to 54 read the
+#' antibiotic substance slots, one finding per slot or pair: 52 flags a slot
+#' holding a substance without its days (a count of zero counting as none)
+#' or days without a substance, 53 one whose days exceed the form's
+#' antibiotic days or patient days, 54 a substance recorded in two slots of
+#' one form, one finding per pair with the lower slot as `index`. Rule 55
+#' flags a necrotizing enterocolitis, pneumonia or surgical site infection
+#' form whose secondary-BSI item is Yes without a secondary-BSI organism,
+#' and a necrotizing enterocolitis or pneumonia form with secondary-BSI
+#' organisms under an item that is not Yes, `organisms` being their number;
+#' an organism is a finding that names a concept, so a resistance or name
+#' companion stored on its own counts as none, and an item never answered is
+#' an answer other than Yes. Rule 56 flags a pneumonia or surgical site
+#' infection form none of whose secondary-BSI organisms was identified at
+#' the primary site, `secondary` and `primary` being the organisms'
+#' catalogue names joined by commas (`primary` `NA` where the form records
+#' none); organisms are compared as catalogue concepts, a synonym resolving
+#' to the concept it names and a genus not matching a species of it, and a
+#' form recording on either side an organism as not listed, without a
+#' concept, or as one the catalogue does not carry is not judged. Only what
+#' the form shows is compared: a surgical site infection is judged only
+#' while its secondary-BSI item is Yes, since under any other answer the
+#' form hides its secondary-BSI organisms from the team, and the
+#' primary-site organisms count only while the form shows their section —
+#' on a pneumonia while the microbiological test result is Yes, on a
+#' surgical site infection while an organism was identified at one of its
+#' depths — a form whose primary section is hidden being judged as recording
+#' none.
+#'
 #' | Rules | Level | Context fields |
 #' |---|---|---|
 #' | 1 | `patient_key` | none |
@@ -495,6 +586,17 @@ validation_rule_context_fields <- function()
 #' | 30, 34, 38 | `event_key` | `dos` |
 #' | 43 | `enrollment_key` | `enrolledAt`, `days_open` |
 #' | 44 | `enrollment_key` | `enrolledAt`, `days_open`, `status` |
+#' | 45, 46 | `enrollment_key` | `dol` |
+#' | 47 | `enrollment_key` | `type`, `enrolledAt`, `enrolledAt_previous` |
+#' | 48 | `enrollment_key` | `enrolledAt`, `death_date` |
+#' | 49 | `event_key` | `occurredAt`, `occurredAt_previous`, `days_between` |
+#' | 50 | `event_key` | `device`, `device_days` |
+#' | 51 | `enrollment_key` | `count`, `days`, `patient_days` — one finding per count that exceeds the patient days |
+#' | 52 | `enrollment_key` | `index`, `substance_code`, `days` — one finding per slot |
+#' | 53 | `enrollment_key` | `index`, `substance_code`, `days`, `ab_days`, `patient_days` — one finding per slot |
+#' | 54 | `enrollment_key` | `substance_code`, `index`, `index_other` — one finding per pair of slots |
+#' | 55 | `event_key` | `sec_bsi`, `organisms` |
+#' | 56 | `event_key` | `secondary`, `primary` |
 #'
 #' @family validation
 #' @export

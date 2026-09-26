@@ -14,6 +14,25 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+* Twelve rules extend the validation pass to protocol constraints the partner team can see and
+  correct in Tracker Capture, each recorded on the form that shows it. On the admission form:
+  rule 45 an infant transferred or readmitted after the day of birth admitted beyond day of life 120,
+  the last eligible day; rule 46 such an infant whose day of life at admission is missing or below 2; rule 47
+  a later enrolment of the patient typed as an admission from the delivery room or on the day of
+  birth. On the enrolment: rule 48 one dated on or after the patient's recorded death. On the
+  infection forms: rule 49 the same infection type recorded again within 14 days, across the
+  patient's enrolments; rule 50 a device-associated sepsis or pneumonia on an enrolment whose
+  completed surveillance-end form counts no day of that device; rule 55 a secondary-BSI item that
+  disagrees with the secondary-BSI organisms (Yes without one on any form, organisms under another
+  answer on a NEC or pneumonia form); rule 56 a pneumonia or SSI none of whose secondary-BSI
+  organisms was identified at the primary site, organisms compared as catalogue concepts with a
+  synonym resolving to its concept and only while the form shows them. On the surveillance-end form: rule 51 a cumulative count above
+  the patient days, one finding per count, the invasive and non-invasive ventilation days bounded
+  together as well as apart, since a day counts as one or the other; rules 52 to 54 the antibiotic
+  substance slots — a substance without its days or days without a substance, a substance's days
+  above the antibiotic or patient days, the same substance in two slots. The context fields of each
+  are listed on `validate()`.
+
 # neoipcr 0.0.0.9004
 
 * The surveillance-end date filter (`surveillance_end_from`, `surveillance_end_to`) selects the

@@ -216,3 +216,48 @@ validation_rule_44 <- function(x, exceptions, as_of)
       context        = .data$context,
       .keep = "none")
 }
+
+# Find enrolments dated on or after the patient's recorded death: a
+# surveillance-end form of another enrolment of the patient gives death as
+# its reason (code 2 of the option set NEOIPC_SURVEILLANCE_END_REASON), and
+# that form's date is the death date. Where more than one form does, the
+# earliest is the death and every enrolment dated from it on is a finding,
+# the other death-ended ones included. A form giving death without a date
+# places the death nowhere and is left to the rules about the form.
+validation_rule_48 <- function(x, exceptions)
+{
+  check_neoipcr_ds(x)
+  if (!"reason" %in% names(x$surveillanceEndData))
+    return(.rule_skipped(48L, "the surveillance-end form's reason"))
+
+  deaths <- x$events |>
+    dplyr::filter(.data$event_type_key == "end" & !is.na(.data$occurredAt)) |>
+    dplyr::select("patient_key", "enrollment_key", "occurredAt", "event_key") |>
+    dplyr::inner_join(
+      x$surveillanceEndData |>
+        dplyr::filter(.data$reason == "2") |>
+        dplyr::select("event_key"),
+      dplyr::join_by("event_key")) |>
+    dplyr::arrange(.data$enrollment_key) |>
+    dplyr::slice_min(.data$occurredAt, by = "patient_key", with_ties = FALSE) |>
+    dplyr::select("patient_key",
+                  "death_enrollment_key" = "enrollment_key",
+                  "death_date"           = "occurredAt")
+
+  x$enrollments |>
+    dplyr::select("patient_key", "enrollment_key", "enrolledAt") |>
+    dplyr::inner_join(deaths, dplyr::join_by("patient_key")) |>
+    dplyr::filter(.data$enrollment_key != .data$death_enrollment_key &
+                  .data$enrolledAt >= .data$death_date) |>
+    dplyr::anti_join(
+      .rule_exceptions(exceptions, 48L),
+      dplyr::join_by("enrollment_key")) |>
+    tidyr::nest(context = c("enrolledAt", "death_date")) |>
+    dplyr::mutate(
+      rule_id        = 48L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = NA_integer_,
+      context        = .data$context,
+      .keep = "none")
+}
