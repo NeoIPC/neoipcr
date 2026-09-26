@@ -1,0 +1,40 @@
+{
+  "enrollments": [
+    {
+      "enrollment": "ENR_1",
+      "trackedEntity": "TE_1",
+      "status": "COMPLETED",
+      "enrolledAt": "2024-01-01T12:00:00.000",
+      "occurredAt": "2024-01-01T12:00:00.000",
+      "followUp": false,
+      "orgUnit": "OU_DEPT_1",
+      "createdAt": "2024-01-01T12:05:00.000",
+      "createdAtClient": "2024-01-01T12:04:30.000",
+      "updatedAt": "2024-01-20T12:05:00.000",
+      "updatedAtClient": "2024-01-20T12:04:30.000",
+      "completedAt": "2024-01-20T12:05:00.000",
+      "completedBy": "neoipc_user",
+      "storedBy": "neoipc_user",
+      "createdBy": { "username": "neoipc_user" },
+      "updatedBy": { "username": "neoipc_user" }
+    },
+    {
+      "enrollment": "ENR_2",
+      "trackedEntity": "TE_2",
+      "status": "COMPLETED",
+      "enrolledAt": "2024-01-05T12:00:00.000",
+      "occurredAt": "2024-01-05T12:00:00.000",
+      "followUp": false,
+      "orgUnit": "OU_DEPT_1",
+      "createdAt": "2024-01-05T12:05:00.000",
+      "createdAtClient": "2024-01-05T12:04:30.000",
+      "updatedAt": "2024-03-01T12:05:00.000",
+      "updatedAtClient": "2024-03-01T12:04:30.000",
+      "completedAt": "2024-03-01T12:05:00.000",
+      "completedBy": "neoipc_user",
+      "storedBy": "neoipc_user",
+      "createdBy": { "username": "neoipc_user" },
+      "updatedBy": { "username": "neoipc_user" }
+    }
+  ]
+}

@@ -177,18 +177,18 @@ read_events <- function(events, enrollments, metadata, dataset_options)
         dplyr::mutate(completedBy = .data$user_key, .keep = "unused")
   }
 
-  # Entity-level timestamp parsing — six ISO-8601 Instants from the API
-  # (scheduledAt / completedAt / createdAt / createdAtClient / updatedAt
-  # / updatedAtClient) parsed to POSIXct. Gated by `include_timestamps`,
-  # which is also what gates their presence in the request (see
-  # `get_events_request()` line 16-23). The legacy `read_event_details()`
-  # nested this parse inside the `include_user != "no"` branch — under
-  # `include_timestamps = TRUE` + `include_user = "no"` the columns
-  # survived unparsed as strings (latent bug); the merged reader parses
-  # them unconditionally under the schema's gate.
-  if (isTRUE(opts$include_timestamps))
-    events <- events |>
-      dplyr::mutate(dplyr::across(dplyr::ends_with("At"), readr::parse_datetime))
+  # Entity-level timestamps: the ISO-8601 Instants that `events_cols`
+  # declares as POSIXct, which it does only under `include_timestamps` —
+  # the same option that requests them in `get_events_request()`. The set
+  # comes from the schema rather than from an "At" suffix, because
+  # `occurredAt` ends in "At" too and is already a Date by now. `any_of()`
+  # because DHIS2 omits a field that is null on every event in the
+  # response; `finalize_to_schema()` materializes it as NA.
+  datetime_cols <- names(purrr::keep(
+    compile_schema(events_cols, opts), \(col) inherits(col, "POSIXct")))
+  events <- events |>
+    dplyr::mutate(dplyr::across(
+      tidyselect::any_of(datetime_cols), readr::parse_datetime))
 
   # `orgUnit`, `programStage`, `trackedEntity`, `enrollment` are
   # reader-internal scratch — fetched for the joins / filter above and
@@ -335,47 +335,8 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
         dplyr::select("event", "event_key"),
       dplyr::join_by("event")) |>
     tidyr::unnest_longer("dataValues") |>
-    tidyr::unnest_wider("dataValues")
-
-  # Per-DE user-key substitution — extended in phase-b-event-details
-  # to cover all three user companions (`storedBy`, `createdBy`,
-  # `updatedBy`). `storedBy` arrives as a plain String per DataValue
-  # (no hoist); `createdBy` / `updatedBy` arrive as `{username: ...}`
-  # User-subselect objects (hoist the first element = username).
-  if (opts$include_user != "no" && "createdBy" %in% names(events))
-    events <- events |>
-      tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
-      dplyr::left_join(
-        metadata$.users_internal_map |>
-          dplyr::select("username", "user_key"),
-        dplyr::join_by("createdBy" == "username")) |>
-      dplyr::mutate(createdBy = .data$user_key, .keep = "unused")
-
-  if (opts$include_user != "no" && "updatedBy" %in% names(events))
-    events <- events |>
-      tidyr::hoist("updatedBy", updatedBy = 1, .remove = FALSE) |>
-      dplyr::left_join(
-        metadata$.users_internal_map |>
-          dplyr::select("username", "user_key"),
-        dplyr::join_by("updatedBy" == "username")) |>
-      dplyr::mutate(updatedBy = .data$user_key, .keep = "unused")
-
-  if (opts$include_user != "no" && "storedBy" %in% names(events))
-    events <- events |>
-      dplyr::left_join(
-        metadata$.users_internal_map |>
-          dplyr::select("username", "user_key"),
-        dplyr::join_by("storedBy" == "username")) |>
-      dplyr::mutate(storedBy = .data$user_key, .keep = "unused")
-
-  if (opts$include_timestamps &&
-      "createdAt" %in% names(events) &&
-      "updatedAt" %in% names(events))
-    events <- events |>
-      dplyr::mutate(
-        createdAt = readr::parse_datetime(.data$createdAt),
-        updatedAt = readr::parse_datetime(.data$updatedAt),
-        .keep = "unused")
+    tidyr::unnest_wider("dataValues") |>
+    resolve_data_value_audit(metadata, opts)
 
   if (nrow(events) > 0) {
     events <- events |>
@@ -456,9 +417,10 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
     events <- events |>
       dplyr::mutate(vs_days = .data$inv_days + .data$niv_days)
 
-  # Tail loud-finalize + assertion. `finalize_to_schema` drops any
-  # column not declared on the schema; `assert_schema` verifies the
-  # final shape.
+  # Tail loud-finalize + assertion. `finalize_to_schema` aborts on any
+  # column the schema does not declare, drops declared columns that
+  # `opts` excludes, and materializes absent included ones as NA;
+  # `assert_schema` verifies the final shape.
   events <- finalize_to_schema(events, cols, opts)
   assert_schema(events, cols, opts)
 
@@ -653,6 +615,7 @@ read_substance_days <- function(events_raw, processed_events, metadata, dataset_
         dplyr::filter(stringr::str_starts(
           .data$code, "NEOIPC_SURVEILLANCE_END_AB_SUBST_\\d\\d")),
       dplyr::join_by("dataElement")) |>
+    resolve_data_value_audit(metadata, opts) |>
     dplyr::select(!"dataElement") |>
     dplyr::mutate(
       # Substance slots are 2-digit zero-padded (AB_SUBST_01..AB_SUBST_99); capture both digits.
@@ -665,10 +628,71 @@ read_substance_days <- function(events_raw, processed_events, metadata, dataset_
           "days", "substance_code"),
         levels = c("substance_code", "days")),
       .keep = "unused") |>
-    tidyr::pivot_wider(names_expand = TRUE) |>
+    # One row per slot. The substance and the days are separate data
+    # values, each with its own audit fields, so those pivot into
+    # per-value companions (`substance_code_createdBy`, `days_updatedAt`,
+    # …) like every other value field; as id columns they would split a
+    # slot whose two values were entered by different users or at
+    # different times into two rows.
+    tidyr::pivot_wider(
+      id_cols      = c("event", "event_key", "index"),
+      names_from   = "name",
+      values_from  = !c("event", "event_key", "index", "name"),
+      names_glue   = "{name}_{.value}",
+      names_expand = TRUE) |>
+    dplyr::rename_with(
+      ~ stringr::str_extract(.x, "^(.+)_value$", 1),
+      tidyselect::ends_with("_value")) |>
     dplyr::mutate(days = as.integer(.data$days)) |>
     finalize_to_schema(substanceDays_cols, opts, scratch = "event")
   assert_schema(public, substanceDays_cols, opts)
 
   public
+}
+
+# Resolve the audit fields of DHIS2's tracker `DataValue` to the types of
+# their per-value companion columns (see `event_data_attribute_cols()`):
+# the three user fields to `user_key` through `.users_internal_map`, the
+# two timestamps to POSIXct. `storedBy` is a plain username; `createdBy`
+# and `updatedBy` are User objects requested as `createdBy[username]`, so
+# the username is their first element. Each field is resolved only when
+# present, since DHIS2 omits a field that is null on every data value in
+# the response. The hoists state their type because a caller may pass no
+# rows, and a hoist from zero rows leaves a list the join cannot match
+# against the usernames.
+resolve_data_value_audit <- function(data_values, metadata, opts)
+{
+  if (opts$include_user != "no") {
+    users <- metadata$.users_internal_map |>
+      dplyr::select("username", "user_key")
+
+    if ("createdBy" %in% names(data_values))
+      data_values <- data_values |>
+        tidyr::hoist(
+          "createdBy", createdBy = 1, .remove = FALSE,
+          .ptype = list(createdBy = character())) |>
+        dplyr::left_join(users, dplyr::join_by("createdBy" == "username")) |>
+        dplyr::mutate(createdBy = .data$user_key, .keep = "unused")
+
+    if ("updatedBy" %in% names(data_values))
+      data_values <- data_values |>
+        tidyr::hoist(
+          "updatedBy", updatedBy = 1, .remove = FALSE,
+          .ptype = list(updatedBy = character())) |>
+        dplyr::left_join(users, dplyr::join_by("updatedBy" == "username")) |>
+        dplyr::mutate(updatedBy = .data$user_key, .keep = "unused")
+
+    if ("storedBy" %in% names(data_values))
+      data_values <- data_values |>
+        dplyr::left_join(users, dplyr::join_by("storedBy" == "username")) |>
+        dplyr::mutate(storedBy = .data$user_key, .keep = "unused")
+  }
+
+  if (isTRUE(opts$include_timestamps))
+    data_values <- data_values |>
+      dplyr::mutate(dplyr::across(
+        tidyselect::any_of(c("createdAt", "updatedAt")),
+        readr::parse_datetime))
+
+  data_values
 }

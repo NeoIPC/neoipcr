@@ -187,21 +187,16 @@ tea_attribute_cols <- function(base_col, base_when)
   )
 }
 
-# Per-event-data-element companion columns. Used on the seven
-# per-event-type data tibbles (`admissionData`, `surveillanceEndData`,
-# `sepsisData`, `necData`, `pneumoniaData`, `surgeryData`, `ssiData`).
-#
-# DHIS2's tracker `DataValue.java` carries all five audit fields on
-# every data value: `createdAt`, `updatedAt`, `storedBy` (String),
-# `createdBy` (User, fetched as `createdBy[username]`), `updatedBy`
-# (User, fetched as `updatedBy[username]`). Before phase-b-event-details
-# neoipcr only fetched three of them (`createdBy`, `createdAt`,
-# `updatedAt`); `storedBy` and `updatedBy` were latent drops (analogous
-# to the `isTest` / `createdAtClient` / `completedBy` fixes in other
-# entities). This wrapper now declares five companions per DE —
-# `_storedBy`, `_createdBy`, `_updatedBy` gated by `include_user`;
-# `_createdAt`, `_updatedAt` gated by `include_timestamps`. The matching
-# request + reader extensions land in `dhis2-events.R`.
+# Per-data-value companion columns, one per audit field of DHIS2's
+# tracker `DataValue`: `storedBy` (String), `createdBy` and `updatedBy`
+# (User, fetched as `[username]`), `createdAt` and `updatedAt`. They
+# become `_storedBy`, `_createdBy`, `_updatedBy` (user keys) under
+# `include_user`, and `_createdAt`, `_updatedAt` (POSIXct) under
+# `include_timestamps`. Used on the seven per-event-type data tibbles
+# (`admissionData`, `surveillanceEndData`, `sepsisData`, `necData`,
+# `pneumoniaData`, `surgeryData`, `ssiData`) and on both values of a
+# `substanceDays` slot; `resolve_data_value_audit()` in `dhis2-events.R`
+# produces the matching columns.
 event_data_attribute_cols <- function(base_col, base_when)
 {
   name <- base_col$name

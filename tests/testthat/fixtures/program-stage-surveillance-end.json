@@ -1,0 +1,66 @@
+{
+  "id": "DDLi3OGC5Yh",
+  "name": "Surveillance-End",
+  "displayName": "Surveillance-End",
+  "displayFormName": "Surveillance end date",
+  "displayDescription": "The surveillance event where the end of surveillance and the aggregated risk factors are recorded.",
+  "programStageDataElements": [
+    {
+      "dataElement": {
+        "id": "Xn8q3giOGcB",
+        "code": "NEOIPC_SURVEILLANCE_END_PATIENT_DAYS",
+        "valueType": "INTEGER_ZERO_OR_POSITIVE",
+        "displayName": "NeoIPC Surveillance end Patient days",
+        "displayShortName": "NeoIPC Surv. end Pat. days",
+        "displayFormName": "Patient days",
+        "displayDescription": "The number of days the patient stayed in the department during the current admission (enrollment). This field is calculated automatically."
+      }
+    },
+    {
+      "dataElement": {
+        "id": "qVSSgJGFF4D",
+        "code": "NEOIPC_SURVEILLANCE_END_AB_SUBST_01",
+        "valueType": "TEXT",
+        "displayName": "NeoIPC Surveillance end Antibiotic substance 01",
+        "displayShortName": "NeoIPC Surv. end AB 01",
+        "displayFormName": "Antibiotic substance 1",
+        "displayDescription": "The first systemic antibiotic substance the infant received.",
+        "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+      }
+    },
+    {
+      "dataElement": {
+        "id": "b8MqWU4ekHD",
+        "code": "NEOIPC_SURVEILLANCE_END_AB_SUBST_01_DAYS",
+        "valueType": "INTEGER_POSITIVE",
+        "displayName": "NeoIPC Surveillance end Antibiotic substance 01 days",
+        "displayShortName": "NeoIPC Surv. end AB 01 days",
+        "displayFormName": "Antibiotic substance 1 days",
+        "displayDescription": "The cumulative number of days the infant received the systemic antibiotic substance specified as antibiotic substance 1."
+      }
+    },
+    {
+      "dataElement": {
+        "id": "XifsJyPuYfi",
+        "code": "NEOIPC_SURVEILLANCE_END_AB_SUBST_02",
+        "valueType": "TEXT",
+        "displayName": "NeoIPC Surveillance end Antibiotic substance 02",
+        "displayShortName": "NeoIPC Surv. end AB 02",
+        "displayFormName": "Antibiotic substance 2",
+        "displayDescription": "The second systemic antibiotic substance the infant received.",
+        "optionSet": { "code": "NEOIPC_ANTIMICROBIAL_SUBSTANCES" }
+      }
+    },
+    {
+      "dataElement": {
+        "id": "FKxg1geQ63L",
+        "code": "NEOIPC_SURVEILLANCE_END_AB_SUBST_02_DAYS",
+        "valueType": "INTEGER_POSITIVE",
+        "displayName": "NeoIPC Surveillance end Antibiotic substance 02 days",
+        "displayShortName": "NeoIPC Surv. end AB 02 days",
+        "displayFormName": "Antibiotic substance 2 days",
+        "displayDescription": "The cumulative number of days the infant received the systemic antibiotic substance specified as antibiotic substance 2."
+      }
+    }
+  ]
+}

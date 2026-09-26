@@ -320,6 +320,54 @@ test_that("substance-days: a two-digit slot index parses to the full number, not
   expect_equal(result$days[result$index == 15L], 5L)
 })
 
+test_that("substance-days: a slot whose two values carry different audit fields stays one row", {
+  # The slot's two data values differ in every user field but `storedBy`
+  # and in `updatedAt`: each user field names a user of its own on one of
+  # them, and the days were corrected a day after the substance was
+  # entered. Each value keeps its own fields in its companion columns.
+  opts     <- .test_opts(include_user = "full", include_timestamps = TRUE)
+  expected <- neoipcr:::compile_schema(neoipcr:::substanceDays_cols, opts)
+  metadata <- build_reader_metadata("end")
+  metadata$.users_internal_map <- tibble::tibble(
+    user_key = c(1L, 2L),
+    user     = c("UID_admin", "UID_other"),
+    username = c("admin", "other"))
+
+  audit <- function(created_by, updated_by, updated_at) list(
+    storedBy  = "admin",
+    createdBy = list(username = created_by),
+    updatedBy = list(username = updated_by),
+    createdAt = "2024-01-15T10:30:00.000",
+    updatedAt = updated_at)
+  events_raw <- tibble::tibble(
+    event = "EVT_1",
+    dataValues = list(list(
+      c(list(dataElement = .de_uid("NEOIPC_SURVEILLANCE_END_AB_SUBST_01"),
+             value       = "J01CA04"),
+        audit("other", "admin", "2024-01-15T10:30:00.000")),
+      c(list(dataElement = .de_uid("NEOIPC_SURVEILLANCE_END_AB_SUBST_01_DAYS"),
+             value       = "3"),
+        audit("admin", "other", "2024-01-16T09:00:00.000")))))
+  processed <- build_processed_events(1L, "end")
+
+  result <- neoipcr:::read_substance_days(events_raw, processed, metadata, opts)
+
+  expect_identical(names(result), names(expected))
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$substance_code, "J01CA04")
+  expect_equal(result$days, 3L)
+  expect_identical(result$substance_code_storedBy, 1L)
+  expect_identical(result$days_storedBy, 1L)
+  expect_identical(result$substance_code_createdBy, 2L)
+  expect_identical(result$days_createdBy, 1L)
+  expect_identical(result$substance_code_updatedBy, 1L)
+  expect_identical(result$days_updatedBy, 2L)
+  expect_equal(result$substance_code_updatedAt,
+               as.POSIXct("2024-01-15 10:30:00", tz = "UTC"))
+  expect_equal(result$days_updatedAt,
+               as.POSIXct("2024-01-16 09:00:00", tz = "UTC"))
+})
+
 test_that("gap 8: substance-days zero matching events produce schema shape", {
   opts     <- .test_opts()
   expected <- neoipcr:::compile_schema(neoipcr:::substanceDays_cols, opts)

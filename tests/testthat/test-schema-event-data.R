@@ -360,6 +360,36 @@ test_that("substanceDays_cols full-mode: index + substance_code + days declared"
   expect_type(schema$days, "integer")
 })
 
+test_that("substanceDays_cols: five audit companions on each of a slot's two values, under full events only", {
+  companions <- c("_storedBy", "_createdBy", "_updatedBy",
+                  "_createdAt", "_updatedAt")
+  expected   <- as.vector(outer(c("substance_code", "days"), companions, paste0))
+
+  full <- neoipcr:::compile_schema(
+    neoipcr:::substanceDays_cols,
+    dhis2_dataset_options(
+      include_event = "full", include_user = "pseudo",
+      include_timestamps = TRUE))
+  expect_true(all(expected %in% names(full)))
+  for (col in expected[endsWith(expected, "By")])
+    expect_type(full[[col]], "integer")
+  for (col in expected[endsWith(expected, "At")])
+    expect_s3_class(full[[col]], "POSIXct")
+
+  # Without the audit options there are none; under pseudo events the
+  # payload is gone and its companions with it.
+  bare <- neoipcr:::compile_schema(
+    neoipcr:::substanceDays_cols,
+    dhis2_dataset_options(include_event = "full"))
+  expect_false(any(expected %in% names(bare)))
+  pseudo <- neoipcr:::compile_schema(
+    neoipcr:::substanceDays_cols,
+    dhis2_dataset_options(
+      include_event = "pseudo", include_user = "pseudo",
+      include_timestamps = TRUE))
+  expect_false(any(c("substance_code", "days", expected) %in% names(pseudo)))
+})
+
 test_that("unknownPathogenNames_cols full-mode: agent_finding_key + name only", {
   opts <- dhis2_dataset_options(include_event = "full")
   schema <- neoipcr:::compile_schema(
