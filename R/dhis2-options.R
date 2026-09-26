@@ -1,3 +1,17 @@
+# The patient attributes `patient_columns` may select, by their keys.
+.patient_column_choices <- c(
+  "id", "birth_weight", "sex", "delivery_mode", "multiple_birth", "siblings",
+  "gestational_age", "inactive", "potentialDuplicate")
+
+# The patient columns an options object selects: the ones it names, or every
+# one when it names none, which is what an empty `patient_columns` means.
+.selected_patient_columns <- function(opts)
+{
+  if (length(opts$patient_columns) == 0L)
+    return(.patient_column_choices)
+  opts$patient_columns
+}
+
 #' Configure the DHIS2 dataset
 #'
 #' @param surveillance_end_from The earliest surveillance-end date of the
@@ -48,10 +62,13 @@
 #'  tibble also carries the columns selected by `patient_columns`.
 #' @param patient_columns Character vector selecting which patient-specific
 #'  columns beyond `patient_key` are included when `include_patient = "full"`.
-#'  Choices: "id", "birth_weight", "sex", "delivery_mode", "siblings",
-#'  "gestational_age", "inactive", "potentialDuplicate". Empty (the default) means
-#'  all columns allowed by the gate. Ignored when `include_patient` is
-#'  "no" or "pseudo".
+#'  Choices: "id", "birth_weight", "sex", "delivery_mode", "multiple_birth",
+#'  "siblings", "gestational_age", "inactive", "potentialDuplicate". Empty (the
+#'  default) means all of them. The validation pass reads `multiple_birth`
+#'  and `siblings` (rule 56), so the full tier keeps both whenever the pass
+#'  runs, whatever the selection, and the pseudonymized tier reads them for
+#'  the pass and narrows to `patient_key` afterwards. Ignored when
+#'  `include_patient` is "no" or "pseudo".
 #' @param include_enrollment Include the enrollment tibble into the dataset
 #'  and expose the `enrollment_key` link column on downstream tibbles. Same
 #'  three-mode semantics as `include_patient`.
@@ -75,7 +92,10 @@
 #' @param include_timestamps Include the createdAt and modifiedAt timestamps
 #'  into the dataset.
 #' @param include_ineligible_patients Include data from patients that don't meet
-#'  the NeoIPC core case eligibility criteria into the dataset.
+#'  the NeoIPC core case eligibility criteria into the dataset. The validation
+#'  pass then leaves out the eligibility rule (45, an admission after day of
+#'  life 120), which would otherwise remove the late admissions this option
+#'  keeps.
 #' @param include_unenrolled_patients Include the NeoIPC patient records that
 #'  are not enrolled in the surveillance program as well: they are requested
 #'  by tracked-entity type rather than by program, and the removal of orphan
@@ -216,10 +236,7 @@ dhis2_dataset_options <- function(
     include_user = rlang::arg_match(include_user),
     include_patient = rlang::arg_match(include_patient),
     patient_columns = rlang::arg_match(
-      patient_columns,
-      c("id","birth_weight","sex","delivery_mode","siblings","gestational_age",
-        "inactive","potentialDuplicate"),
-      multiple = TRUE),
+      patient_columns, .patient_column_choices, multiple = TRUE),
     include_enrollment = rlang::arg_match(include_enrollment),
     include_event = rlang::arg_match(include_event),
     include_dhis2_ids = rlang::arg_match(

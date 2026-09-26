@@ -140,7 +140,9 @@ validation_rule_51 <- function(x, exceptions)
 
 # The antibiotic substance slots of every surveillance-end form with the
 # enrolment's keys: a slot is a substance and its days, and a row exists for
-# a slot as soon as either was entered.
+# a slot as soon as either was entered. The substance travels as the option
+# code the form stores and as the name the form shows, which the metadata's
+# option set gives; a code the option set does not carry has no name.
 .substance_slots <- function(x)
   x$events |>
     dplyr::filter(.data$event_type_key == "end") |>
@@ -148,9 +150,22 @@ validation_rule_51 <- function(x, exceptions)
     dplyr::inner_join(
       x$substanceDays |>
         dplyr::select("event_key", "index", "substance_code", "days"),
-      dplyr::join_by("event_key"))
+      dplyr::join_by("event_key")) |>
+    dplyr::left_join(
+      x$metadata$antimicrobialSubstances |>
+        dplyr::mutate(
+          substance_code = as.character(.data$code),
+          substance      = as.character(.data$displayName),
+          .keep = "none"),
+      dplyr::join_by("substance_code"))
 
 .substance_slot_columns <- c("index", "substance_code", "days")
+
+# Whether the dataset carries what the substance-slot rules read: the slots'
+# three columns and the option set that names a substance.
+.has_substance_slots <- function(x)
+  all(.substance_slot_columns %in% names(x$substanceDays)) &&
+    all(c("code", "displayName") %in% names(x$metadata$antimicrobialSubstances))
 
 # Find substance slots that hold a substance without its days, or days
 # without a substance. Both are entered together, and the form makes the
@@ -160,8 +175,8 @@ validation_rule_51 <- function(x, exceptions)
 validation_rule_52 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
-  if (!all(.substance_slot_columns %in% names(x$substanceDays)))
-    return(.rule_skipped(52L, "the substance slots' substance and days"))
+  if (!.has_substance_slots(x))
+    return(.rule_skipped(52L, "the substance slots' substance and days and the substance option set"))
 
   .substance_slots(x) |>
     dplyr::filter(is.na(.data$substance_code) !=
@@ -172,7 +187,7 @@ validation_rule_52 <- function(x, exceptions)
     # One finding per slot: on the keys alone, a form's slots would nest
     # into one finding with a context row per slot.
     dplyr::mutate(finding = dplyr::row_number()) |>
-    tidyr::nest(context = c("index", "substance_code", "days")) |>
+    tidyr::nest(context = c("index", "substance_code", "substance", "days")) |>
     dplyr::mutate(
       rule_id        = 52L,
       patient_key    = .data$patient_key,
@@ -189,10 +204,10 @@ validation_rule_52 <- function(x, exceptions)
 validation_rule_53 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
-  if (!all(.substance_slot_columns %in% names(x$substanceDays)) ||
+  if (!.has_substance_slots(x) ||
       !all(c("ab_days", "patient_days") %in% names(x$surveillanceEndData)))
     return(.rule_skipped(
-      53L, "the substance slots' days and the surveillance-end form's antibiotic and patient days"))
+      53L, "the substance slots' days, the substance option set and the surveillance-end form's antibiotic and patient days"))
 
   .substance_slots(x) |>
     dplyr::inner_join(
@@ -207,7 +222,8 @@ validation_rule_53 <- function(x, exceptions)
       dplyr::join_by("enrollment_key")) |>
     # One finding per slot, as in rule 52.
     dplyr::mutate(finding = dplyr::row_number()) |>
-    tidyr::nest(context = c("index", "substance_code", "days", "ab_days", "patient_days")) |>
+    tidyr::nest(context = c("index", "substance_code", "substance", "days",
+                            "ab_days", "patient_days")) |>
     dplyr::mutate(
       rule_id        = 53L,
       patient_key    = .data$patient_key,
@@ -224,8 +240,8 @@ validation_rule_53 <- function(x, exceptions)
 validation_rule_54 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
-  if (!all(.substance_slot_columns %in% names(x$substanceDays)))
-    return(.rule_skipped(54L, "the substance slots' substance and days"))
+  if (!.has_substance_slots(x))
+    return(.rule_skipped(54L, "the substance slots' substance and days and the substance option set"))
 
   slots <- .substance_slots(x) |>
     dplyr::filter(!is.na(.data$substance_code)) |>
@@ -241,7 +257,7 @@ validation_rule_54 <- function(x, exceptions)
       dplyr::join_by("enrollment_key")) |>
     # One finding per pair, as in rule 52.
     dplyr::mutate(finding = dplyr::row_number()) |>
-    tidyr::nest(context = c("substance_code", "index", "index_other")) |>
+    tidyr::nest(context = c("substance_code", "substance", "index", "index_other")) |>
     dplyr::mutate(
       rule_id        = 54L,
       patient_key    = .data$patient_key,

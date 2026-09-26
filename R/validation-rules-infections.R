@@ -12,7 +12,9 @@
 # after the patient's previous event of the same type, across the patient's
 # enrolments. The later event of each such pair is the finding, with both
 # dates and the days between; an event without a date cannot be placed and
-# is left out of the sequence.
+# is left out of the sequence. Two events of one type on one day are
+# ordered by key, which the import assigns arbitrarily, so which of the two
+# carries the finding is arbitrary too; either is the repeat of the other.
 validation_rule_49 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
@@ -164,107 +166,6 @@ validation_rule_55 <- function(x, exceptions)
     tidyr::nest(context = c("sec_bsi", "organisms")) |>
     dplyr::mutate(
       rule_id        = 55L,
-      patient_key    = .data$patient_key,
-      enrollment_key = .data$enrollment_key,
-      event_key      = .data$event_key,
-      context        = .data$context,
-      .keep = "none")
-}
-
-# Find pneumonia and SSI events none of whose secondary-BSI organisms was
-# identified at the primary infection site. The protocol assigns a
-# bloodstream infection to a pneumonia or an SSI only when an organism from
-# the blood matches one from the primary site, so a form with secondary
-# organisms and no match — none of its primary organisms among them, or no
-# primary organism at all — records an infection the definition does not
-# allow. Organisms are compared as catalogue concepts, a synonym resolving
-# to the concept it names, and the finding carries the concepts' names; an
-# entry at genus level does not match one at species level. A finding
-# recorded as not listed (concept 0), without a concept, or with one the
-# catalogue does not carry has no identity to compare, so a form carrying
-# one on either side is left alone; the last of those is the catalogue
-# lagging the option set, which is the network's to mend. Only what the form
-# shows is compared. An SSI is judged only while its secondary-BSI item is
-# Yes: under any other answer its secondary organisms sit in a section the
-# client hides whatever it holds, so the team cannot see them, whereas a
-# pneumonia's organism fields show while they hold a value. The primary-site
-# organisms count only while their section shows — on a pneumonia while the
-# microbiological test result is Yes, on an SSI while an organism was
-# identified at one of its depths — since otherwise the client hides that
-# section with whatever it holds, blanking the first slot only; a form whose
-# primary section is hidden is judged as recording no primary organism. NEC
-# forms record no primary organism and are not judged.
-validation_rule_56 <- function(x, exceptions)
-{
-  check_neoipcr_ds(x)
-  if (!all(c("pathogen_key", "secondary_bsi") %in%
-           names(x$infectiousAgentFindings)) ||
-      !"microbiological_test_result" %in% names(x$pneumoniaData) ||
-      !all(c("sec_bsi", "organisms_superf", "organisms_deep", "organisms_organ") %in%
-           names(x$ssiData)))
-    return(.rule_skipped(
-      56L, "the findings' pathogen and secondary-BSI flag, the pneumonia form's test result and the SSI form's secondary-BSI item and organism flags"))
-
-  concepts <- get_pathogen_taxonomy() |>
-    dplyr::select("input_id", "output_id", "output_name")
-
-  # The catalogue names of the findings `selected` picks out, joined for the
-  # finding's context; `NA` where none is selected.
-  names_of <- function(selected, concept_names)
-    dplyr::na_if(paste(sort(unique(concept_names[selected])), collapse = ", "), "")
-
-  yes <- function(item) dplyr::coalesce(item == "1", FALSE)
-
-  pneumonia_forms <- x$pneumoniaData |>
-    dplyr::select("event_key", "microbiological_test_result") |>
-    dplyr::mutate(
-      primary_shown = yes(.data$microbiological_test_result),
-      .keep = "unused")
-  ssi_forms <- x$ssiData |>
-    dplyr::filter(yes(.data$sec_bsi)) |>
-    dplyr::select("event_key", "organisms_superf", "organisms_deep", "organisms_organ") |>
-    dplyr::mutate(
-      primary_shown = yes(.data$organisms_superf) | yes(.data$organisms_deep) |
-                      yes(.data$organisms_organ),
-      .keep = "unused")
-
-  # A pneumonia without a form row has its test result unanswered, so its
-  # primary section is hidden; an SSI without one has its item unanswered,
-  # so it is not judged.
-  judged <- x$events |>
-    dplyr::select("patient_key", "enrollment_key", "event_key", "event_type_key")
-  judged <- dplyr::bind_rows(
-    judged |>
-      dplyr::filter(.data$event_type_key == "hap") |>
-      dplyr::left_join(pneumonia_forms, dplyr::join_by("event_key")),
-    judged |>
-      dplyr::filter(.data$event_type_key == "ssi") |>
-      dplyr::inner_join(ssi_forms, dplyr::join_by("event_key"))) |>
-    dplyr::mutate(primary_shown = dplyr::coalesce(.data$primary_shown, FALSE)) |>
-    dplyr::select(!"event_type_key")
-
-  judged |>
-    dplyr::inner_join(
-      x$infectiousAgentFindings |>
-        dplyr::select("event_key", "pathogen_key", "secondary_bsi"),
-      dplyr::join_by("event_key")) |>
-    dplyr::mutate(secondary_bsi = dplyr::coalesce(.data$secondary_bsi, FALSE)) |>
-    dplyr::filter(.data$secondary_bsi | .data$primary_shown) |>
-    dplyr::left_join(concepts, dplyr::join_by("pathogen_key" == "input_id")) |>
-    dplyr::summarise(
-      comparable = all(!is.na(.data$output_id) & .data$output_id != 0L),
-      matched    = any(.data$output_id[.data$secondary_bsi] %in%
-                       .data$output_id[!.data$secondary_bsi]),
-      secondary  = names_of(.data$secondary_bsi, .data$output_name),
-      primary    = names_of(!.data$secondary_bsi, .data$output_name),
-      .by = c("patient_key", "enrollment_key", "event_key")) |>
-    dplyr::filter(.data$comparable & !is.na(.data$secondary) & !.data$matched) |>
-    dplyr::anti_join(
-      .rule_exceptions(exceptions, 56L),
-      dplyr::join_by("event_key")) |>
-    tidyr::nest(context = c("secondary", "primary")) |>
-    dplyr::mutate(
-      rule_id        = 56L,
       patient_key    = .data$patient_key,
       enrollment_key = .data$enrollment_key,
       event_key      = .data$event_key,

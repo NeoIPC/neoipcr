@@ -5,12 +5,6 @@
 # a birth in the hospital, 2 one transferred or readmitted on the day of
 # birth, 3 one transferred or readmitted the day after birth or later.
 
-# The last day of life on which an infant is eligible for the surveillance:
-# the protocol admits an infant within 120 days of birth, the day of birth
-# being day 1, so day 120 is the last eligible day and day 121 the first
-# ineligible one. The capture-time configuration warns from day 150 only.
-.admission_max_dol <- 120L
-
 # Each enrolment's admission form: the enrolment's keys and date, the
 # admission event's key, and the columns `cols` of the form.
 .admission_forms <- function(x, cols)
@@ -28,9 +22,13 @@
 
 # Find admission forms of an infant transferred or readmitted the day after
 # birth or later (type 3) whose day of life at admission lies beyond the
-# eligibility window. The other two types have day 1 assigned by the client
-# on every save, so a higher value stored there is not the team's to see or
-# to correct and is left to the network.
+# eligibility window (`.admission_max_dol`, the bound the import's
+# eligibility filter applies; the capture-time configuration warns from day
+# 150 only). The other two types have day 1 assigned by the client on every
+# save, so a higher value stored there is not the team's to see or to
+# correct and is left to the network. An eligibility rule: the import's pass
+# leaves it out when ineligible patients are requested, since it would
+# remove exactly the admissions that option keeps.
 validation_rule_45 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)

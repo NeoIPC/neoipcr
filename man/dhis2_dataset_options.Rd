@@ -100,10 +100,13 @@ tibble also carries the columns selected by \code{patient_columns}.}
 
 \item{patient_columns}{Character vector selecting which patient-specific
 columns beyond \code{patient_key} are included when \code{include_patient = "full"}.
-Choices: "id", "birth_weight", "sex", "delivery_mode", "siblings",
-"gestational_age", "inactive", "potentialDuplicate". Empty (the default) means
-all columns allowed by the gate. Ignored when \code{include_patient} is
-"no" or "pseudo".}
+Choices: "id", "birth_weight", "sex", "delivery_mode", "multiple_birth",
+"siblings", "gestational_age", "inactive", "potentialDuplicate". Empty (the
+default) means all of them. The validation pass reads \code{multiple_birth}
+and \code{siblings} (rule 56), so the full tier keeps both whenever the pass
+runs, whatever the selection, and the pseudonymized tier reads them for
+the pass and narrows to \code{patient_key} afterwards. Ignored when
+\code{include_patient} is "no" or "pseudo".}
 
 \item{include_enrollment}{Include the enrollment tibble into the dataset
 and expose the \code{enrollment_key} link column on downstream tibbles. Same
@@ -135,7 +138,10 @@ into the dataset.}
 \item{include_test_data}{Include data from test departments into the dataset.}
 
 \item{include_ineligible_patients}{Include data from patients that don't meet
-the NeoIPC core case eligibility criteria into the dataset.}
+the NeoIPC core case eligibility criteria into the dataset. The validation
+pass then leaves out the eligibility rule (45, an admission after day of
+life 120), which would otherwise remove the late admissions this option
+keeps.}
 
 \item{include_unenrolled_patients}{Include the NeoIPC patient records that
 are not enrolled in the surveillance program as well: they are requested

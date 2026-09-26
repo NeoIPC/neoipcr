@@ -220,29 +220,42 @@ test_that("rule 52 detects days recorded without a substance", {
   expect_equal(result$rule_id, 52L)
   expect_equal(result$enrollment_key, 1L)
   expect_equal(result$event_key, 2L)
-  expect_named(result$context[[1]], c("index", "substance_code", "days"))
+  expect_named(result$context[[1]], c("index", "substance_code", "substance", "days"))
   expect_equal(result$context[[1]]$index, 2L)
   expect_true(is.na(result$context[[1]]$substance_code))
+  expect_true(is.na(result$context[[1]]$substance))
   expect_equal(result$context[[1]]$days, 2L)
 })
 
 test_that("rule 52 detects a substance recorded without its days", {
   result <- neoipcr:::validation_rule_52(
-    substance_slots_ds(c("J01CA04", "J01DD04"), c(3L, NA)), NULL)
+    substance_slots_ds(c("J01CA04", "J01CR02"), c(3L, NA)), NULL)
   expect_equal(nrow(result), 1L)
   expect_equal(result$context[[1]]$index, 2L)
-  expect_equal(result$context[[1]]$substance_code, "J01DD04")
+  expect_equal(result$context[[1]]$substance_code, "J01CR02")
+  # The substance is named as the form shows it, from the option set.
+  expect_equal(result$context[[1]]$substance, "Amoxicillin/Clavulanic-acid")
   expect_true(is.na(result$context[[1]]$days))
   # Zero days are no days.
   result <- neoipcr:::validation_rule_52(
-    substance_slots_ds(c("J01CA04", "J01DD04"), c(3L, 0L)), NULL)
+    substance_slots_ds(c("J01CA04", "J01CR02"), c(3L, 0L)), NULL)
   expect_equal(nrow(result), 1L)
   expect_equal(result$context[[1]]$days, 0L)
 })
 
+test_that("rules 52 to 54 name a substance the option set does not carry by its code alone", {
+  # A code outside the option set is the network's problem; the finding
+  # still shows the slot, with the code and no name.
+  result <- neoipcr:::validation_rule_52(
+    substance_slots_ds("J99XX99", NA_integer_), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$context[[1]]$substance_code, "J99XX99")
+  expect_true(is.na(result$context[[1]]$substance))
+})
+
 test_that("rule 52 records one finding per slot", {
   result <- neoipcr:::validation_rule_52(
-    substance_slots_ds(c("J01CA04", NA, "J01DD04"), c(3L, 2L, NA)), NULL)
+    substance_slots_ds(c("J01CA04", NA, "J01CR02"), c(3L, 2L, NA)), NULL)
   expect_equal(nrow(result), 2L)
   expect_true(all(vapply(result$context, nrow, integer(1)) == 1L))
   expect_equal(slot_contexts(result)$index, c(2L, 3L))
@@ -250,7 +263,7 @@ test_that("rule 52 records one finding per slot", {
 
 test_that("rule 52 returns no rows for complete slots or no slots", {
   expect_equal(nrow(neoipcr:::validation_rule_52(
-    substance_slots_ds(c("J01CA04", "J01DD04"), c(3L, 2L)), NULL)), 0L)
+    substance_slots_ds(c("J01CA04", "J01CR02"), c(3L, 2L)), NULL)), 0L)
   # One day is the smallest count the form admits, and a complete slot.
   expect_equal(nrow(neoipcr:::validation_rule_52(
     substance_slots_ds("J01CA04", 1L), NULL)), 0L)
@@ -269,7 +282,7 @@ test_that("rule 52 honours exceptions", {
 })
 
 test_that("rule 53 detects a substance's days above the antibiotic days", {
-  ds <- substance_slots_ds(c("J01CA04", "J01DD04"), c(2L, 5L), ab_days = 4L)
+  ds <- substance_slots_ds(c("J01CA04", "J01CR02"), c(2L, 5L), ab_days = 4L)
   result <- neoipcr:::validation_rule_53(ds, NULL)
   expect_equal(nrow(result), 1L)
   expect_declared_context(result)
@@ -277,9 +290,11 @@ test_that("rule 53 detects a substance's days above the antibiotic days", {
   expect_equal(result$rule_id, 53L)
   expect_equal(result$enrollment_key, 1L)
   expect_equal(result$event_key, 2L)
-  expect_named(result$context[[1]], c("index", "substance_code", "days", "ab_days", "patient_days"))
+  expect_named(result$context[[1]],
+               c("index", "substance_code", "substance", "days", "ab_days", "patient_days"))
   expect_equal(result$context[[1]]$index, 2L)
-  expect_equal(result$context[[1]]$substance_code, "J01DD04")
+  expect_equal(result$context[[1]]$substance_code, "J01CR02")
+  expect_equal(result$context[[1]]$substance, "Amoxicillin/Clavulanic-acid")
   expect_equal(result$context[[1]]$days, 5L)
   expect_equal(result$context[[1]]$ab_days, 4L)
   expect_equal(result$context[[1]]$patient_days, 11L)
@@ -300,7 +315,7 @@ test_that("rule 53 detects a substance's days above the patient days and a subst
 
 test_that("rule 53 records one finding per slot", {
   result <- neoipcr:::validation_rule_53(
-    substance_slots_ds(c("J01CA04", "J01DD04", "J01XA01"), c(5L, 5L, 1L), ab_days = 4L), NULL)
+    substance_slots_ds(c("J01CA04", "J01CR02", "J01DH02"), c(5L, 5L, 1L), ab_days = 4L), NULL)
   expect_equal(nrow(result), 2L)
   expect_true(all(vapply(result$context, nrow, integer(1)) == 1L))
   expect_equal(slot_contexts(result)$index, c(1L, 2L))
@@ -328,7 +343,7 @@ test_that("rule 53 honours exceptions", {
 })
 
 test_that("rule 54 detects a substance recorded in two slots", {
-  ds <- substance_slots_ds(c("J01CA04", "J01DD04", "J01CA04"), c(1L, 1L, 1L))
+  ds <- substance_slots_ds(c("J01CA04", "J01CR02", "J01CA04"), c(1L, 1L, 1L))
   result <- neoipcr:::validation_rule_54(ds, NULL)
   expect_equal(nrow(result), 1L)
   expect_declared_context(result)
@@ -336,8 +351,9 @@ test_that("rule 54 detects a substance recorded in two slots", {
   expect_equal(result$rule_id, 54L)
   expect_equal(result$enrollment_key, 1L)
   expect_equal(result$event_key, 2L)
-  expect_named(result$context[[1]], c("substance_code", "index", "index_other"))
+  expect_named(result$context[[1]], c("substance_code", "substance", "index", "index_other"))
   expect_equal(result$context[[1]]$substance_code, "J01CA04")
+  expect_equal(result$context[[1]]$substance, "Amoxicillin")
   expect_equal(result$context[[1]]$index, 1L)
   expect_equal(result$context[[1]]$index_other, 3L)
 })
@@ -354,7 +370,7 @@ test_that("rule 54 records one finding per pair of slots", {
 
 test_that("rule 54 returns no rows for distinct substances or for slots without a substance", {
   expect_equal(nrow(neoipcr:::validation_rule_54(
-    substance_slots_ds(c("J01CA04", "J01DD04"), c(1L, 1L)), NULL)), 0L)
+    substance_slots_ds(c("J01CA04", "J01CR02"), c(1L, 1L)), NULL)), 0L)
   # Two slots holding days alone are rule 52's, not a substance twice.
   expect_equal(nrow(neoipcr:::validation_rule_54(
     substance_slots_ds(c(NA, NA), c(1L, 1L)), NULL)), 0L)
@@ -394,6 +410,13 @@ test_that("rules 52 to 54 skip without a warning when a slot column or a bound i
     ds <- substance_slots_ds("J01CA04", 5L, ab_days = 4L)
     ds$surveillanceEndData[[col]] <- NULL
     expect_no_warning(result <- neoipcr:::validation_rule_53(ds, NULL))
+    expect_null(result)
+  }
+  # The option set names the substances; without it the rules cannot.
+  for (rule in list(neoipcr:::validation_rule_52, neoipcr:::validation_rule_53, neoipcr:::validation_rule_54)) {
+    ds <- substance_slots_ds(c("J01CA04", NA), c(3L, 2L))
+    ds$metadata$antimicrobialSubstances$displayName <- NULL
+    expect_no_warning(result <- rule(ds, NULL))
     expect_null(result)
   }
 })

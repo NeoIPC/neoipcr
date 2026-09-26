@@ -20,6 +20,14 @@
 # The event types that record an infection.
 .infection_event_types <- c("bsi", "nec", "hap", "ssi")
 
+# The rules that find a record the import's own eligibility filter removes
+# under its default, which is why they exist: with ineligible patients
+# requested (`include_ineligible_patients`) the import's pass leaves them
+# out, since they would remove exactly the records that option keeps, and
+# they act where `validate()` runs on such a dataset, as the Validation
+# Report does.
+.eligibility_rules <- 45L
+
 validation_rules <- list(
   list(id = 1L,  level = "patient",    context = character(),
        fun = validation_rule_1),
@@ -131,17 +139,19 @@ validation_rules <- list(
   list(id = 51L, level = "enrollment", event_types = "end",
        context = c("count", "days", "patient_days"), fun = validation_rule_51),
   list(id = 52L, level = "enrollment", event_types = "end",
-       context = c("index", "substance_code", "days"), fun = validation_rule_52),
+       context = c("index", "substance_code", "substance", "days"),
+       fun = validation_rule_52),
   list(id = 53L, level = "enrollment", event_types = "end",
-       context = c("index", "substance_code", "days", "ab_days", "patient_days"),
+       context = c("index", "substance_code", "substance", "days", "ab_days",
+                   "patient_days"),
        fun = validation_rule_53),
   list(id = 54L, level = "enrollment", event_types = "end",
-       context = c("substance_code", "index", "index_other"),
+       context = c("substance_code", "substance", "index", "index_other"),
        fun = validation_rule_54),
   list(id = 55L, level = "event", event_types = c("nec", "hap", "ssi"),
        context = c("sec_bsi", "organisms"), fun = validation_rule_55),
-  list(id = 56L, level = "event", event_types = c("hap", "ssi"),
-       context = c("secondary", "primary"), fun = validation_rule_56))
+  list(id = 56L, level = "patient", context = "siblings",
+       fun = validation_rule_56))
 
 # How long an enrolment may stay active after its enrolment date before
 # rules 43 and 44 question it. A neonatal stay past four months is
@@ -469,14 +479,14 @@ validation_rule_context_fields <- function()
 #' @section Context fields:
 #' Each rule records the fields below in `context`, identifies its finding
 #' by the key named as its level, and is exempted by an exception record
-#' written at that level: the patient alone for rule 1, the patient and the
+#' written at that level: the patient alone for rules 1 and 56, the patient and the
 #' enrolment date for an enrolment-level rule, and the event's type and date
 #' as well for an event-level rule, the type being one the rule concerns
 #' (rules 7, 12 and 27–30 sepsis, 8, 13 and 35–38 necrotizing enterocolitis,
 #' 9, 14 and 31–34 pneumonia, 10, 15, 22–24, 39 and 40 surgical procedures,
 #' 11, 19, 41 and 42 surgical site infections, 20 and 49 any infection, 50
 #' sepsis or pneumonia, 55 necrotizing enterocolitis, pneumonia or a surgical
-#' site infection, 56 pneumonia or a surgical site infection). An
+#' site infection). An
 #' enrolment-level rule that compares a form carries that form's event on
 #' its finding, so a document shows the finding on the form; a record for
 #' such a rule may name that form's type and date as well, or leave them
@@ -513,7 +523,12 @@ validation_rule_context_fields <- function()
 #' whose day of life at admission is above 120, the last day on which an
 #' infant is eligible, the day of birth being day 1; the other two types
 #' have day 1 assigned by the client on every save, so a higher value stored
-#' there is the network's to mend, not the team's. Rule 46 flags an infant of
+#' there is the network's to mend, not the team's. It is an eligibility
+#' rule: the import's own eligibility filter removes such admissions before
+#' the pass unless `include_ineligible_patients` is set, and then the pass
+#' leaves the rule out rather than remove what that option keeps, so the
+#' rule acts where `validate()` runs on a dataset that keeps them, as the
+#' Validation Report does. Rule 46 flags an infant of
 #' that type whose day of life at admission is missing or below 2. Rule 47
 #' flags an enrolment whose admission type says the infant was admitted from
 #' the delivery room or on the day of birth (types 1 and 2) while the patient
@@ -521,7 +536,17 @@ validation_rule_context_fields <- function()
 #' 48 flags an
 #' enrolment dated on or after the patient's death, the date of a
 #' surveillance-end form of another enrolment of the patient whose reason
-#' is death; where several forms give death, the earliest is the death.
+#' is death; where several forms give death, the earliest is the death, and
+#' every enrolment whose own form records a death on that day is the record
+#' of it rather than a stay after it. An event dated after the death is
+#' caught through its enrolment — rules 12 to 15 for a sepsis, necrotizing
+#' enterocolitis, pneumonia or procedure of the death enrolment, this rule
+#' or 17 for another enrolment — except a surgical site infection, which no
+#' rule places against the death. Rules 47 to 49 read the patient's other
+#' enrolments, so under a surveillance-end period, which leaves out the
+#' enrolments that ended outside it before the pass, a finding that needs an
+#' earlier stay, a death recorded on it or an infection on it is lost with
+#' that stay; the Validation Report sets no period.
 #'
 #' Rule 49 flags an infection event recorded fewer than 14 days after the
 #' patient's previous event of the same type, across the patient's
@@ -536,7 +561,10 @@ validation_rule_context_fields <- function()
 #' `inv_days`, `niv_days`, `vs_days` for the invasive and non-invasive
 #' ventilation days together, `ab_days`, `human_milk_days`,
 #' `kangaroo_care_days` or `probiotic_days`). Rules 52 to 54 read the
-#' antibiotic substance slots, one finding per slot or pair: 52 flags a slot
+#' antibiotic substance slots, one finding per slot or pair, naming the
+#' substance by the option code the form stores (`substance_code`) and by
+#' the name the form shows (`substance`, `NA` for a code the option set does
+#' not carry): 52 flags a slot
 #' holding a substance without its days (a count of zero counting as none)
 #' or days without a substance, 53 one whose days exceed the form's
 #' antibiotic days or patient days, 54 a substance recorded in two slots of
@@ -547,22 +575,13 @@ validation_rule_context_fields <- function()
 #' organisms under an item that is not Yes, `organisms` being their number;
 #' an organism is a finding that names a concept, so a resistance or name
 #' companion stored on its own counts as none, and an item never answered is
-#' an answer other than Yes. Rule 56 flags a pneumonia or surgical site
-#' infection form none of whose secondary-BSI organisms was identified at
-#' the primary site, `secondary` and `primary` being the organisms'
-#' catalogue names joined by commas (`primary` `NA` where the form records
-#' none); organisms are compared as catalogue concepts, a synonym resolving
-#' to the concept it names and a genus not matching a species of it, and a
-#' form recording on either side an organism as not listed, without a
-#' concept, or as one the catalogue does not carry is not judged. Only what
-#' the form shows is compared: a surgical site infection is judged only
-#' while its secondary-BSI item is Yes, since under any other answer the
-#' form hides its secondary-BSI organisms from the team, and the
-#' primary-site organisms count only while the form shows their section —
-#' on a pneumonia while the microbiological test result is Yes, on a
-#' surgical site infection while an organism was identified at one of its
-#' depths — a form whose primary section is hidden being judged as recording
-#' none.
+#' an answer other than Yes. Rule 56 flags a patient recorded as part of a
+#' multiple birth whose number of infants at birth is below two; the number
+#' counts every infant of the pregnancy, the patient included. It reads the
+#' two patient attributes `multiple_birth` and `siblings`, which the import
+#' fetches for its pass whatever `patient_columns` selects (see
+#' [dhis2_dataset_options()]); a dataset validated without them skips the
+#' rule.
 #'
 #' | Rules | Level | Context fields |
 #' |---|---|---|
@@ -592,11 +611,11 @@ validation_rule_context_fields <- function()
 #' | 49 | `event_key` | `occurredAt`, `occurredAt_previous`, `days_between` |
 #' | 50 | `event_key` | `device`, `device_days` |
 #' | 51 | `enrollment_key` | `count`, `days`, `patient_days` — one finding per count that exceeds the patient days |
-#' | 52 | `enrollment_key` | `index`, `substance_code`, `days` — one finding per slot |
-#' | 53 | `enrollment_key` | `index`, `substance_code`, `days`, `ab_days`, `patient_days` — one finding per slot |
-#' | 54 | `enrollment_key` | `substance_code`, `index`, `index_other` — one finding per pair of slots |
+#' | 52 | `enrollment_key` | `index`, `substance_code`, `substance`, `days` — one finding per slot |
+#' | 53 | `enrollment_key` | `index`, `substance_code`, `substance`, `days`, `ab_days`, `patient_days` — one finding per slot |
+#' | 54 | `enrollment_key` | `substance_code`, `substance`, `index`, `index_other` — one finding per pair of slots |
 #' | 55 | `event_key` | `sec_bsi`, `organisms` |
-#' | 56 | `event_key` | `secondary`, `primary` |
+#' | 56 | `patient_key` | `siblings` |
 #'
 #' @family validation
 #' @export

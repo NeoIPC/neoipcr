@@ -88,6 +88,7 @@ Collate:
     'validation-rules-event-timing.R'
     'validation-rules-infections.R'
     'validation-rules-pathogens.R'
+    'validation-rules-patient.R'
     'validation-rules-surgical.R'
     'validation-rules-surveillance-end.R'
     'validation.R'

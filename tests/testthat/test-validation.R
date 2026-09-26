@@ -37,7 +37,7 @@ test_that("validation_rules registry has 55 entries with an id, a level and a fu
   expect_equal(neoipcr:::.rule_event_types(50L), c("bsi", "hap"))
   expect_equal(neoipcr:::.rule_event_types(51L), "end")
   expect_equal(neoipcr:::.rule_event_types(55L), c("nec", "hap", "ssi"))
-  expect_equal(neoipcr:::.rule_event_types(56L), c("hap", "ssi"))
+  expect_null(neoipcr:::.rule_event_types(56L))
   # Only the rules that measure an enrolment's age take the reference date.
   dated <- vapply(neoipcr:::validation_rules, \(r) isTRUE(r$dated), logical(1))
   expect_equal(neoipcr::validation_rule_ids()[dated], c(43L, 44L))

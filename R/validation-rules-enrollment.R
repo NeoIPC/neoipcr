@@ -222,33 +222,43 @@ validation_rule_44 <- function(x, exceptions, as_of)
 # its reason (code 2 of the option set NEOIPC_SURVEILLANCE_END_REASON), and
 # that form's date is the death date. Where more than one form does, the
 # earliest is the death and every enrolment dated from it on is a finding,
-# the other death-ended ones included. A form giving death without a date
-# places the death nowhere and is left to the rules about the form.
+# the later death-ended ones included; every enrolment whose own form
+# records a death on that day is the record of it, not a stay after it, so
+# two such forms on one day exclude both (their overlap is rule 17's). A
+# form giving death without a date places the death nowhere and is left to
+# the rules about the form. An event dated after the death is caught
+# through its enrolment — rules 12 to 15 for a sepsis, NEC, pneumonia or
+# procedure of the death enrolment, this rule or 17 for another enrolment —
+# except a surgical site infection, which no rule places against the death.
 validation_rule_48 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
   if (!"reason" %in% names(x$surveillanceEndData))
     return(.rule_skipped(48L, "the surveillance-end form's reason"))
 
-  deaths <- x$events |>
+  death_forms <- x$events |>
     dplyr::filter(.data$event_type_key == "end" & !is.na(.data$occurredAt)) |>
     dplyr::select("patient_key", "enrollment_key", "occurredAt", "event_key") |>
     dplyr::inner_join(
       x$surveillanceEndData |>
         dplyr::filter(.data$reason == "2") |>
         dplyr::select("event_key"),
-      dplyr::join_by("event_key")) |>
-    dplyr::arrange(.data$enrollment_key) |>
+      dplyr::join_by("event_key"))
+
+  deaths <- death_forms |>
     dplyr::slice_min(.data$occurredAt, by = "patient_key", with_ties = FALSE) |>
-    dplyr::select("patient_key",
-                  "death_enrollment_key" = "enrollment_key",
-                  "death_date"           = "occurredAt")
+    dplyr::select("patient_key", death_date = "occurredAt")
+
+  recorded_the_death <- death_forms |>
+    dplyr::inner_join(deaths, dplyr::join_by("patient_key")) |>
+    dplyr::filter(.data$occurredAt == .data$death_date) |>
+    dplyr::select("enrollment_key")
 
   x$enrollments |>
     dplyr::select("patient_key", "enrollment_key", "enrolledAt") |>
     dplyr::inner_join(deaths, dplyr::join_by("patient_key")) |>
-    dplyr::filter(.data$enrollment_key != .data$death_enrollment_key &
-                  .data$enrolledAt >= .data$death_date) |>
+    dplyr::anti_join(recorded_the_death, dplyr::join_by("enrollment_key")) |>
+    dplyr::filter(.data$enrolledAt >= .data$death_date) |>
     dplyr::anti_join(
       .rule_exceptions(exceptions, 48L),
       dplyr::join_by("enrollment_key")) |>

@@ -77,10 +77,10 @@ test_that("patient_id survives via also_when when include_invalid_patients is a 
   # `transform_user_exceptions()` needs `patients$patient_id` to match
   # the records of an exception list passed as `include_invalid_patients`.
   # Schema must preserve the column under that opts combination regardless
-  # of `patient_columns` membership.
+  # of `patient_columns` membership, so the selection names another column.
   opts_id_via_list <- dhis2_dataset_options(
     include_patient          = "full",
-    patient_columns          = character(),
+    patient_columns          = "sex",
     include_invalid_patients = tibble::tibble(
       RULE_ID           = 1L,
       NEOIPC_PATIENT_ID = "PAT_1",
@@ -95,7 +95,7 @@ test_that("patient_id survives via also_when when include_invalid_patients is a 
   # doesn't need patient IDs for matching.
   opts_id_true_bool <- dhis2_dataset_options(
     include_patient          = "full",
-    patient_columns          = character(),
+    patient_columns          = "sex",
     include_invalid_patients = TRUE)
   schema_bool <- neoipcr:::compile_schema(
     neoipcr:::patients_cols, opts_id_true_bool)
@@ -173,20 +173,22 @@ test_that("patients_cols: 'pseudo' mode is strictly patient_key only", {
   expect_identical(names(schema), "patient_key")
 })
 
-test_that("patients_cols: 'full' + empty patient_columns = patient_key + department_key", {
-  # No attribute in `patient_columns` → no attribute or companion
+test_that("patients_cols: 'full' + one attribute = patient_key + that attribute + department_key", {
+  # One attribute in `patient_columns` → that attribute and no companion
   # columns appear. No user/timestamp opts → no entity-level companion
   # columns. Under include_department = "full" (inheritance), departments
-  # carries the hierarchy keys → patients doesn't materialize them.
+  # carries the hierarchy keys → patients doesn't materialize them. The
+  # pass is off so it does not keep the multiple-birth columns.
   opts <- dhis2_dataset_options(
     include_patient    = "full",
-    patient_columns    = character(),
+    patient_columns    = "sex",
+    include_invalid_patients = TRUE,
     include_department = "full",
     include_hospital   = "full",
     include_country    = "full",
     include_world_bank_class = "full")
   schema <- neoipcr:::compile_schema(neoipcr:::patients_cols, opts)
-  expect_identical(names(schema), c("patient_key", "department_key"))
+  expect_setequal(names(schema), c("patient_key", "sex", "department_key"))
 })
 
 test_that("patients_cols: trackedEntity gated on include_dhis2_ids", {
@@ -428,4 +430,41 @@ test_that("make_test_patients carries isTest under include_test_data (round-trip
     include_country          = "pseudo",
     include_world_bank_class = "pseudo")
   expect_schema_matches(fixture, schema)
+})
+
+test_that("an empty patient_columns selects every patient column", {
+  # The documented default: naming none means all of them.
+  schema <- neoipcr:::compile_schema(
+    neoipcr:::patients_cols,
+    dhis2_dataset_options(include_patient = "full", include_invalid_patients = TRUE))
+  expect_true(all(c("patient_id", "sex", "birth_weight", "gest_age", "total_gestation_days",
+                    "delivery_mode", "multiple_birth", "siblings", "inactive",
+                    "potentialDuplicate") %in% names(schema)))
+  # Naming some selects those alone.
+  schema <- neoipcr:::compile_schema(
+    neoipcr:::patients_cols,
+    dhis2_dataset_options(include_patient = "full", patient_columns = "sex",
+                          include_invalid_patients = TRUE))
+  expect_true("sex" %in% names(schema))
+  expect_false(any(c("patient_id", "birth_weight", "siblings") %in% names(schema)))
+})
+
+test_that("the validation pass keeps the multiple-birth flag and the number of infants", {
+  # Rule 56 reads both, so the full tier carries them whenever the pass runs,
+  # whatever `patient_columns` selects; without the pass, or under the
+  # pseudonymized tier, the selection alone decides.
+  with_pass <- neoipcr:::compile_schema(
+    neoipcr:::patients_cols,
+    dhis2_dataset_options(include_patient = "full", patient_columns = "id"))
+  expect_true(all(c("multiple_birth", "siblings") %in% names(with_pass)))
+  expect_false("sex" %in% names(with_pass))
+  without_pass <- neoipcr:::compile_schema(
+    neoipcr:::patients_cols,
+    dhis2_dataset_options(include_patient = "full", patient_columns = "id",
+                          include_invalid_patients = TRUE))
+  expect_false(any(c("multiple_birth", "siblings") %in% names(without_pass)))
+  pseudo <- neoipcr:::compile_schema(
+    neoipcr:::patients_cols,
+    dhis2_dataset_options(include_patient = "pseudo"))
+  expect_named(pseudo, "patient_key")
 })

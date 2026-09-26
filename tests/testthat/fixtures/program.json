@@ -94,6 +94,28 @@
               "id": "R2yCnsqxamL"
             }
           }
+        },
+        {
+          "trackedEntityAttribute": {
+            "id": "q2ijTWehrUh",
+            "code": "NEOIPC_TEA_MULTIPLE_BIRTH",
+            "valueType": "TRUE_ONLY",
+            "displayName": "NeoIPC Patient Multiple birth",
+            "displayShortName": "NeoIPC Pat. Mult. birth",
+            "displayFormName": "Multiple birth",
+            "displayDescription": "Check this field if the infant is part of a multiple birth."
+          }
+        },
+        {
+          "trackedEntityAttribute": {
+            "id": "RWgBBhSiu5U",
+            "code": "NEOIPC_TEA_SIBLINGS",
+            "valueType": "INTEGER_POSITIVE",
+            "displayName": "NeoIPC Patient Infants in birth",
+            "displayShortName": "NeoIPC Pat. Infants",
+            "displayFormName": "Number of infants in birth",
+            "displayDescription": "The number of infants delivered from the (multiple) pregnancy this infant belongs to. Please report the total number of infants including the one you are recording here."
+          }
         }
       ]
     }

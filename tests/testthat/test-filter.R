@@ -100,12 +100,13 @@ test_that("filter_admissions with include_ineligible=TRUE returns all", {
   expect_equal(nrow(result), 3L)
 })
 
-test_that("filter_admissions with include_ineligible=FALSE excludes dol >= 120", {
-  adm <- make_test_admission_data(1:4, dol = c(1L, 119L, 120L, 200L))
+test_that("filter_admissions with include_ineligible=FALSE excludes an admission after day of life 120", {
+  # The protocol's examples table makes day 120 the last eligible day and
+  # day 121 the first ineligible one.
+  adm <- make_test_admission_data(1:4, dol = c(1L, 120L, 121L, 200L))
   result <- neoipcr:::filter_admissions(adm, include_ineligible_patients = FALSE)
-  # dol < 120: keeps dol=1 and dol=119 only
   expect_equal(nrow(result), 2L)
-  expect_true(all(result$dol < 120))
+  expect_true(all(result$dol <= 120))
 })
 
 test_that("filter_admissions passes a 0x0 admission tibble through under the default filter", {

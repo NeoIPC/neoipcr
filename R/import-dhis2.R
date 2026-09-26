@@ -246,7 +246,17 @@ import_dhis2 <- function(
     "DHIS2 imported: trackedEntities={nrow(trackedEntities_raw)} enrollments={nrow(enrollments_raw)} events={nrow(events_raw)}",
     namespace = "neoipcr")
 
-  patients_result <- read_patients(trackedEntities_raw, metadata, dataset_options)
+  # The validation pass reads two patient attributes (rule 56, the
+  # multiple-birth flag and the number of infants) that the pseudonymized
+  # patient tier does not carry: under that tier, with the pass requested,
+  # the patients are read as the full tier narrowed to those two, and are
+  # narrowed to the tier's own shape once the pass has run.
+  patient_read_options <- dataset_options
+  if (validation_requested && dataset_options$include_patient == "pseudo") {
+    patient_read_options$include_patient <- "full"
+    patient_read_options$patient_columns <- c("multiple_birth", "siblings")
+  }
+  patients_result <- read_patients(trackedEntities_raw, metadata, patient_read_options)
   patients <- patients_result$public
   metadata$.patients_internal_map <- patients_result$internal_map
 
@@ -365,7 +375,12 @@ import_dhis2 <- function(
         r, dataset_options$include_invalid_patients)
     else exceptions <- NULL
 
-    v <- r |> validate(exceptions = exceptions)
+    # An eligibility rule finds what the eligibility filter above removes
+    # under its default; with ineligible patients requested it would remove
+    # exactly the records that option keeps, so the pass leaves it out.
+    rules <- if (isTRUE(dataset_options$include_ineligible_patients))
+      setdiff(validation_rule_ids(), .eligibility_rules) else NULL
+    v <- r |> validate(rules = rules, exceptions = exceptions)
     # The full tiers this pass requires give every rule its columns, so a
     # rule that could not run means the dataset is not what the pass needs;
     # the import refuses it rather than storing a pass that reads as
@@ -377,6 +392,8 @@ import_dhis2 <- function(
     # and not with it; only the rules the list names can have any, so only
     # those run again.
     named <- if (is.null(exceptions)) integer() else unique(exceptions$rule_id)
+    if (!is.null(rules))
+      named <- intersect(named, rules)
     exempted <- if (length(named) == 0L) v[0L, ] else
       dplyr::anti_join(
         r |> validate(rules = named),
@@ -386,6 +403,14 @@ import_dhis2 <- function(
     r$validationSummary <- .validation_summary(v, exempted)
     r$patients <- r$patients |>
       dplyr::anti_join(v, dplyr::join_by("patient_key"))
+  }
+
+  # The pseudonymized patient tier read wider for the pass narrows to its own
+  # shape (see the patient read above).
+  if (validation_requested && dataset_options$include_patient == "pseudo") {
+    narrowed <- finalize_to_schema(r$patients, patients_cols, dataset_options)
+    class(narrowed) <- c("neoipcr_pat", setdiff(class(narrowed), "neoipcr_pat"))
+    r$patients <- narrowed
   }
 
   r <- r |>

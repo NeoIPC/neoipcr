@@ -153,7 +153,8 @@ The `R/` directory follows a deliberate structure established by the neoipcr fil
 | `R/validation-rules-surveillance-end.R` | Rules 18, 21, 51–54 — surveillance-end consistency: the patient days, the cumulative counts against them, the antibiotic substance slots |
 | `R/validation-rules-pathogens.R` | Rule 20 — pathogen resolution |
 | `R/validation-rules-event-timing.R` | Rules 27–42 — DOL/LOS verification + early-onset flags |
-| `R/validation-rules-infections.R` | Rules 49, 50, 55, 56 — an infection against the patient's other infections (repeat within 14 days), the surveillance-end form (device association without device days) and its own findings (the secondary-BSI item and organisms, the primary-site match) |
+| `R/validation-rules-infections.R` | Rules 49, 50, 55 — an infection against the patient's other infections (repeat within 14 days), the surveillance-end form (device association without device days) and its own findings (the secondary-BSI item against the organisms recorded) |
+| `R/validation-rules-patient.R` | Rule 56 — the patient record: fewer than two infants at a recorded multiple birth |
 | **Other** | |
 | `R/pathogens.R` | Pathogen taxonomy and resistance markers |
 | `R/types-check.R` | `is_*` predicates + `check_*` assertions for neoipcr S3 classes, and the calculation preconditions `assert_options_for()` (the import options a pipeline entry needs) and `assert_validation_summary()` (both calculation functions refuse a dataset without the `validationSummary` slot rather than emitting `NULL` where a summary is promised) |
