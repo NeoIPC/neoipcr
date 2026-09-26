@@ -65,9 +65,9 @@
 #'  Choices: "id", "birth_weight", "sex", "delivery_mode", "multiple_birth",
 #'  "siblings", "gestational_age", "inactive", "potentialDuplicate". Empty (the
 #'  default) means all of them. The validation pass reads `multiple_birth`
-#'  and `siblings` (rule 56), so the full tier keeps both whenever the pass
-#'  runs, whatever the selection, and the pseudonymized tier reads them for
-#'  the pass and narrows to `patient_key` afterwards. Ignored when
+#'  and `siblings` (rule 56) whatever the selection and drops them again
+#'  unless selected, so the dataset holds only what was asked for; a later
+#'  [validate()] on a dataset without them skips rule 56. Ignored when
 #'  `include_patient` is "no" or "pseudo".
 #' @param include_enrollment Include the enrollment tibble into the dataset
 #'  and expose the `enrollment_key` link column on downstream tibbles. Same

@@ -530,6 +530,16 @@ test_that("rule 48 takes the earliest death where several forms record one", {
   expect_equal(result$context[[2]]$death_date, as.Date("2024-01-10"))
 })
 
+test_that("rule 48 exempts every enrolment that records the earliest death", {
+  # Two stays end in death on the same earliest date: neither is found
+  # against the other, whichever key order they hold; a third stay dated on
+  # that day is.
+  result <- neoipcr:::validation_rule_48(
+    death_ds(c("2024-01-01", "2024-01-10", "2024-01-10"),
+             c("2024-01-10", "2024-01-10"), c("2", "2")), NULL)
+  expect_equal(result$enrollment_key, 3L)
+})
+
 test_that("rule 48 returns no rows without a death, for another patient's death, or for an undated one", {
   expect_equal(nrow(neoipcr:::validation_rule_48(
     death_ds(c("2024-01-01", "2024-03-01"), "2024-01-10", "1"), NULL)), 0L)

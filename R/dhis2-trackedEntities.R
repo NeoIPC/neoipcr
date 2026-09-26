@@ -111,10 +111,6 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
   # so the list can be matched onto the patients.
   if (has_exception_list(opts))
     allowed_codes <- c(allowed_codes, "patient_id")
-  # The validation pass reads the multiple-birth flag and the number of
-  # infants (rule 56) whatever `patient_columns` selects.
-  if (.validation_pass_runs(opts))
-    allowed_codes <- c(allowed_codes, "multiple_birth", "siblings")
   # The eligibility and range filters compare the birth weight and the total
   # gestation days whatever `patient_columns` selects; the schema narrowing
   # at the end drops the two again unless selected.

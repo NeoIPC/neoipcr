@@ -135,13 +135,8 @@ patients_cols <- with_entity_gate(
     patient_attribute_cols(
       "delivery_mode", factor(), factor_levels = character(),
       levels_source = "data"),
-    # The validation pass reads the multiple-birth flag and the number of
-    # infants (rule 56), so the full tier keeps both whenever the pass runs,
-    # whatever `patient_columns` selects.
-    patient_attribute_cols(
-      "multiple_birth", logical(), also_when = .validation_pass_runs),
-    patient_attribute_cols(
-      "siblings", integer(), also_when = .validation_pass_runs),
+    patient_attribute_cols("multiple_birth", logical()),
+    patient_attribute_cols("siblings", integer()),
 
     # Entity-level flags — not TEAs, no companion columns.
     patient_attribute_cols("inactive", logical(), trackable = FALSE),

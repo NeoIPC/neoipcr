@@ -103,9 +103,9 @@ columns beyond \code{patient_key} are included when \code{include_patient = "ful
 Choices: "id", "birth_weight", "sex", "delivery_mode", "multiple_birth",
 "siblings", "gestational_age", "inactive", "potentialDuplicate". Empty (the
 default) means all of them. The validation pass reads \code{multiple_birth}
-and \code{siblings} (rule 56), so the full tier keeps both whenever the pass
-runs, whatever the selection, and the pseudonymized tier reads them for
-the pass and narrows to \code{patient_key} afterwards. Ignored when
+and \code{siblings} (rule 56) whatever the selection and drops them again
+unless selected, so the dataset holds only what was asked for; a later
+\code{\link[=validate]{validate()}} on a dataset without them skips rule 56. Ignored when
 \code{include_patient} is "no" or "pseudo".}
 
 \item{include_enrollment}{Include the enrollment tibble into the dataset

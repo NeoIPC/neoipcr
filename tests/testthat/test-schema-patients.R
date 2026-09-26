@@ -449,15 +449,21 @@ test_that("an empty patient_columns selects every patient column", {
   expect_false(any(c("patient_id", "birth_weight", "siblings") %in% names(schema)))
 })
 
-test_that("the validation pass keeps the multiple-birth flag and the number of infants", {
-  # Rule 56 reads both, so the full tier carries them whenever the pass runs,
-  # whatever `patient_columns` selects; without the pass, or under the
-  # pseudonymized tier, the selection alone decides.
+test_that("the schema declares the multiple-birth columns by selection alone", {
+  # Rule 56 reads both, but the import fetches them for its pass and drops
+  # them again unless selected, so the pass does not widen the schema: with
+  # or without it the selection alone decides, and the pseudonymized tier
+  # carries its key only.
   with_pass <- neoipcr:::compile_schema(
     neoipcr:::patients_cols,
     dhis2_dataset_options(include_patient = "full", patient_columns = "id"))
-  expect_true(all(c("multiple_birth", "siblings") %in% names(with_pass)))
+  expect_false(any(c("multiple_birth", "siblings") %in% names(with_pass)))
   expect_false("sex" %in% names(with_pass))
+  selected <- neoipcr:::compile_schema(
+    neoipcr:::patients_cols,
+    dhis2_dataset_options(include_patient = "full",
+                          patient_columns = c("id", "multiple_birth", "siblings")))
+  expect_true(all(c("multiple_birth", "siblings") %in% names(selected)))
   without_pass <- neoipcr:::compile_schema(
     neoipcr:::patients_cols,
     dhis2_dataset_options(include_patient = "full", patient_columns = "id",

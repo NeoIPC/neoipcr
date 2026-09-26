@@ -247,14 +247,18 @@ import_dhis2 <- function(
     namespace = "neoipcr")
 
   # The validation pass reads two patient attributes (rule 56, the
-  # multiple-birth flag and the number of infants) that the pseudonymized
-  # patient tier does not carry: under that tier, with the pass requested,
-  # the patients are read as the full tier narrowed to those two, and are
-  # narrowed to the tier's own shape once the pass has run.
+  # multiple-birth flag and the number of infants) whatever the caller
+  # selected: with the pass to run, the patients are read as the full tier
+  # with those two added to the selection (the pseudonymized tier's selection
+  # being its key alone), and are narrowed to the requested shape once the
+  # pass has run, so the dataset holds only what was asked for.
   patient_read_options <- dataset_options
-  if (validation_requested && dataset_options$include_patient == "pseudo") {
+  if (.validation_pass_runs(dataset_options)) {
     patient_read_options$include_patient <- "full"
-    patient_read_options$patient_columns <- c("multiple_birth", "siblings")
+    patient_read_options$patient_columns <- union(
+      if (dataset_options$include_patient == "full")
+        .selected_patient_columns(dataset_options),
+      .pass_patient_columns)
   }
   patients_result <- read_patients(trackedEntities_raw, metadata, patient_read_options)
   patients <- patients_result$public
@@ -405,10 +409,11 @@ import_dhis2 <- function(
       dplyr::anti_join(v, dplyr::join_by("patient_key"))
   }
 
-  # The pseudonymized patient tier read wider for the pass narrows to its own
-  # shape (see the patient read above).
-  if (validation_requested && dataset_options$include_patient == "pseudo") {
-    narrowed <- finalize_to_schema(r$patients, patients_cols, dataset_options)
+  # The patients read wider for the pass narrow to the requested shape (see
+  # the patient read above); the pass columns leave unless selected.
+  if (.validation_pass_runs(dataset_options)) {
+    narrowed <- finalize_to_schema(
+      r$patients, patients_cols, dataset_options, scratch = .pass_patient_columns)
     class(narrowed) <- c("neoipcr_pat", setdiff(class(narrowed), "neoipcr_pat"))
     r$patients <- narrowed
   }

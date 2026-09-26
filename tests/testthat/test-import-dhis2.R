@@ -1080,14 +1080,22 @@ test_that("import_dhis2 reads the multiple-birth flag and the number of infants 
     fx
   }
 
-  # The full tier keeps both attributes whatever `patient_columns` selects.
+  # The full tier reads both attributes for the pass whatever
+  # `patient_columns` selects and drops them again unless selected.
   m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
   httr2::local_mocked_responses(m$mock)
   ds <- import_dhis2(test_conn(), import_test_opts(include_invalid_patients = FALSE))
-  expect_true(all(c("multiple_birth", "siblings") %in% names(ds$patients)))
+  expect_false(any(c("multiple_birth", "siblings") %in% names(ds$patients)))
   finding <- ds$validationResults[ds$validationResults$rule_id == 56L, ]
   expect_equal(nrow(finding), 1L)
   expect_equal(finding$context[[1L]]$siblings, 1L)
+  m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    patient_columns          = c("id", "multiple_birth", "siblings"),
+    include_invalid_patients = FALSE))
+  expect_true(all(c("multiple_birth", "siblings") %in% names(ds$patients)))
+  expect_equal(sum(ds$validationResults$rule_id == 56L), 1L)
   # Without the pass the selection alone decides.
   m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
   httr2::local_mocked_responses(m$mock)

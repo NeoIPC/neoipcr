@@ -170,9 +170,9 @@ an answer other than Yes. Rule 56 flags a patient recorded as part of a
 multiple birth whose number of infants at birth is below two; the number
 counts every infant of the pregnancy, the patient included. It reads the
 two patient attributes \code{multiple_birth} and \code{siblings}, which the import
-fetches for its pass whatever \code{patient_columns} selects (see
-\code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}); a dataset validated without them skips the
-rule.\tabular{lll}{
+fetches for its pass whatever \code{patient_columns} selects and drops again
+unless selected (see \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}); a dataset validated
+without them skips the rule.\tabular{lll}{
    Rules \tab Level \tab Context fields \cr
    1 \tab \code{patient_key} \tab none \cr
    2 \tab \code{enrollment_key} \tab none \cr

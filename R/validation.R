@@ -28,6 +28,11 @@
 # Report does.
 .eligibility_rules <- 45L
 
+# The patient attributes the pass reads for rule 56 whatever `patient_columns`
+# selects: the import reads them for the pass and drops them again unless
+# selected, so the dataset holds only what the caller asked for.
+.pass_patient_columns <- c("multiple_birth", "siblings")
+
 validation_rules <- list(
   list(id = 1L,  level = "patient",    context = character(),
        fun = validation_rule_1),
@@ -579,9 +584,9 @@ validation_rule_context_fields <- function()
 #' multiple birth whose number of infants at birth is below two; the number
 #' counts every infant of the pregnancy, the patient included. It reads the
 #' two patient attributes `multiple_birth` and `siblings`, which the import
-#' fetches for its pass whatever `patient_columns` selects (see
-#' [dhis2_dataset_options()]); a dataset validated without them skips the
-#' rule.
+#' fetches for its pass whatever `patient_columns` selects and drops again
+#' unless selected (see [dhis2_dataset_options()]); a dataset validated
+#' without them skips the rule.
 #'
 #' | Rules | Level | Context fields |
 #' |---|---|---|

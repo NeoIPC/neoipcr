@@ -41,9 +41,10 @@ section above it for the next changes.
 * An empty `patient_columns`, the default, selects every patient column, as documented; it selected
   none. The patient tibble gains the multiple-birth flag (`multiple_birth`, the `patient_columns`
   key of the same name), and the validation pass reads it and the number of infants whatever the
-  selection: the full tier keeps both, the pseudonymized tier reads them for the pass and narrows to
-  `patient_key` afterwards. The eligibility and range filters likewise compare the birth weight and
-  the total gestation days whatever the selection, where a selection without them failed the import.
+  selection, then narrows the patients back to the selection, so the dataset holds only what was
+  requested; a later `validate()` on a dataset without them skips rule 56. The eligibility and range
+  filters likewise compare the birth weight and the total gestation days whatever the selection,
+  where a selection without them failed the import.
 
 # neoipcr 0.0.0.9004
 
