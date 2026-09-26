@@ -66,7 +66,7 @@ patient_attribute_cols <- function(name, type,
   # file collated later; the Collate order keeps it earlier regardless.
   base_when <- \(opts)
     opts$include_patient == "full" &&
-    (patient_columns_key %in% opts$patient_columns ||
+    (patient_columns_key %in% .selected_patient_columns(opts) ||
      isTRUE(also_when(opts)))
   base_col <- schema_col(
     name, type, base_when,
@@ -135,6 +135,7 @@ patients_cols <- with_entity_gate(
     patient_attribute_cols(
       "delivery_mode", factor(), factor_levels = character(),
       levels_source = "data"),
+    patient_attribute_cols("multiple_birth", logical()),
     patient_attribute_cols("siblings", integer()),
 
     # Entity-level flags — not TEAs, no companion columns.

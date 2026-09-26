@@ -1066,6 +1066,94 @@ test_that("import_dhis2 runs the open-enrolment rules on the active enrolments i
   expect_identical(attr(neoipcr::validate(ds, rules = 43L), "rules_skipped"), 43L)
 })
 
+test_that("import_dhis2 reads the multiple-birth flag and the number of infants for its pass under either patient tier", {
+  # The first patient is recorded as a multiple birth with one infant, which
+  # rule 56 flags; the mock's admission dates flag both patients under rule 3
+  # as before.
+  with_multiple_birth <- function(fx) {
+    te <- jsonlite::fromJSON(fx$trackedEntities, simplifyVector = FALSE)
+    te$trackedEntities[[1L]]$attributes <- c(
+      te$trackedEntities[[1L]]$attributes,
+      list(list(attribute = "q2ijTWehrUh", value = "true"),
+           list(attribute = "RWgBBhSiu5U", value = "1")))
+    fx$trackedEntities <- as.character(jsonlite::toJSON(te, auto_unbox = TRUE, null = "null"))
+    fx
+  }
+
+  # The full tier reads both attributes for the pass whatever
+  # `patient_columns` selects and drops them again unless selected.
+  m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts(include_invalid_patients = FALSE))
+  expect_false(any(c("multiple_birth", "siblings") %in% names(ds$patients)))
+  finding <- ds$validationResults[ds$validationResults$rule_id == 56L, ]
+  expect_equal(nrow(finding), 1L)
+  expect_equal(finding$context[[1L]]$siblings, 1L)
+  m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    patient_columns          = c("id", "multiple_birth", "siblings"),
+    include_invalid_patients = FALSE))
+  expect_true(all(c("multiple_birth", "siblings") %in% names(ds$patients)))
+  expect_equal(sum(ds$validationResults$rule_id == 56L), 1L)
+  # Without the pass the selection alone decides.
+  m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts(include_invalid_patients = TRUE))
+  expect_false(any(c("multiple_birth", "siblings") %in% names(ds$patients)))
+
+  # The pseudonymized tier reads both for the pass and narrows to its key
+  # afterwards.
+  m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_patient          = "pseudo",
+    include_invalid_patients = FALSE))
+  expect_named(ds$patients, "patient_key")
+  expect_equal(sum(ds$validationResults$rule_id == 56L), 1L)
+})
+
+test_that("import_dhis2 leaves the eligibility rule out of its pass when ineligible patients are requested", {
+  # The first admission is retyped as a transfer after the day of birth on
+  # day of life 130: rule 45's finding, and an admission the eligibility
+  # filter removes under its default.
+  with_late_admission <- function(fx) {
+    ev <- jsonlite::fromJSON(fx$events, simplifyVector = FALSE)
+    ev$events[[1L]]$dataValues <- list(
+      list(dataElement = "AgBqfnnsUzd", value = "3"),
+      list(dataElement = "rvq4L9wWbwW", value = "130"))
+    fx$events <- as.character(jsonlite::toJSON(ev, auto_unbox = TRUE, null = "null"))
+    fx
+  }
+
+  # With ineligible patients requested, the pass does not apply rule 45,
+  # while a later `validate()` on the same dataset does.
+  m <- new_dhis2_mock(with_late_admission(import_test_fixtures()))
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_ineligible_patients = TRUE,
+    include_invalid_patients    = FALSE))
+  expect_false(45L %in% ds$validationResults$rule_id)
+  m <- new_dhis2_mock(with_late_admission(import_test_fixtures()))
+  httr2::local_mocked_responses(m$mock)
+  kept <- import_dhis2(test_conn(), import_test_opts(
+    include_ineligible_patients = TRUE,
+    include_invalid_patients    = TRUE))
+  expect_true(45L %in% neoipcr::validate(kept, rules = 45L)$rule_id)
+
+  # Under the default the eligibility filter has removed the admission form
+  # before the pass, so rule 45 has nothing to find there either. The filter
+  # compared the birth weight and the gestational age, which the selection
+  # of `patient_columns` did not ask for and the patient tibble does not carry.
+  m <- new_dhis2_mock(with_late_admission(import_test_fixtures()))
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_ineligible_patients = FALSE,
+    include_invalid_patients    = FALSE))
+  expect_false(45L %in% ds$validationResults$rule_id)
+  expect_false(any(c("birth_weight", "total_gestation_days") %in% names(ds$patients)))
+})
+
 test_that("import_dhis2 narrows a reporting period to the enrolments that ended in it, before the pass", {
   # The mock with surveillance-end forms, a readmission and an unenrolled
   # patient: the first patient's first stay ended in January and a second

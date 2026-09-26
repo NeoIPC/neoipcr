@@ -138,6 +138,13 @@ filter_enrollments_by_surveillance_end <- function(
     dplyr::semi_join(ends, dplyr::join_by("enrollment_key"))
 }
 
+# The last day of life on which an infant is eligible for the surveillance:
+# the protocol admits an infant within 120 days of birth, the day of birth
+# being day 1, so day 120 is the last eligible day and day 121 the first
+# ineligible one. The eligibility filter below and validation rule 45 read
+# the same bound.
+.admission_max_dol <- 120L
+
 filter_admissions <- function(
     admission_data,
     include_ineligible_patients = FALSE)
@@ -149,8 +156,17 @@ filter_admissions <- function(
     return(admission_data)
 
   admission_data |>
-    dplyr::filter(.data$dol < 120)
+    dplyr::filter(.data$dol <= .admission_max_dol)
 }
+
+# Whether `filter_patients()` reads a patient attribute under `opts`: the
+# eligibility filter and the range filters compare the birth weight and the
+# total gestation days, which the reader therefore fetches whatever
+# `patient_columns` selects.
+.patient_filters_run <- function(opts)
+  !isTRUE(opts$include_ineligible_patients) ||
+    !is.null(opts$birth_weight_from) || !is.null(opts$birth_weight_to) ||
+    !is.null(opts$gestational_age_from) || !is.null(opts$gestational_age_to)
 
 filter_patients <- function(
     patients,

@@ -93,7 +93,7 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
   # DHIS2 TEA codes are `NEOIPC_[TEA_]<UPPER>`. The "id" → "patient_id"
   # mapping is the legacy naming preserved in the schema; everything
   # else is a 1:1 stem match against the lowercased/stripped code.
-  allowed_codes <- opts$patient_columns
+  allowed_codes <- .selected_patient_columns(opts)
   if ("id" %in% allowed_codes)
     allowed_codes <- c(allowed_codes, "patient_id")
   # `gest_age` pulls its paired `total_gestation_days` — per the schema
@@ -111,6 +111,11 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
   # so the list can be matched onto the patients.
   if (has_exception_list(opts))
     allowed_codes <- c(allowed_codes, "patient_id")
+  # The eligibility and range filters compare the birth weight and the total
+  # gestation days whatever `patient_columns` selects; the schema narrowing
+  # at the end drops the two again unless selected.
+  if (.patient_filters_run(opts))
+    allowed_codes <- c(allowed_codes, "birth_weight", "total_gestation_days")
   # Match against the normalized code (lowercase, NEOIPC_[TEA_]
   # prefix stripped) — same extraction that will run below.
   normalized_code <- stringr::str_extract(
@@ -176,7 +181,7 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
   # its columns from the pivot output.
   expected_codes <- c(
     "patient_id", "sex", "birth_weight", "gest_age",
-    "total_gestation_days", "delivery_mode", "siblings")
+    "total_gestation_days", "delivery_mode", "multiple_birth", "siblings")
   expected_codes <- intersect(expected_codes, allowed_codes)
 
   patients <- patients |>
@@ -255,7 +260,9 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
     dplyr::select("patient_key", "trackedEntity")
 
   patients <- patients |>
-    finalize_to_schema(patients_cols, opts)
+    finalize_to_schema(
+      patients_cols, opts,
+      scratch = c("birth_weight", "total_gestation_days"))
   assert_schema(patients, patients_cols, opts)
 
   list(public = patients, internal_map = internal_map)

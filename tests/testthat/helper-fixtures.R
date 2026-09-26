@@ -161,7 +161,8 @@ make_test_patients <- function(
     gest_age             = rep("30+0", n),
     total_gestation_days = rep(210L, n),
     delivery_mode        = factor(rep("1", n), levels = c("1", "2", "3")),
-    siblings             = rep(0L, n),
+    multiple_birth       = rep(FALSE, n),
+    siblings             = rep(1L, n),
     inactive             = rep(FALSE, n),
     potentialDuplicate   = rep(FALSE, n),
     storedBy             = rep(1L, n),
@@ -184,7 +185,7 @@ make_test_patients <- function(
   # schema's include_when predicates drop whatever isn't asked for.
   trackable_attrs <- c(
     "patient_id", "sex", "birth_weight", "gest_age",
-    "total_gestation_days", "delivery_mode", "siblings")
+    "total_gestation_days", "delivery_mode", "multiple_birth", "siblings")
   for (attr in trackable_attrs) {
     full[[paste0(attr, "_storedBy")]]  <- rep(1L, n)
     full[[paste0(attr, "_createdAt")]] <- as.POSIXct("2024-01-01", tz = "UTC") + keys

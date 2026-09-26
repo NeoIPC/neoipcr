@@ -14,6 +14,38 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+* Twelve rules extend the validation pass to protocol constraints the partner team can see and
+  correct in Tracker Capture, each recorded on the form that shows it. On the admission form:
+  rule 45 an infant transferred or readmitted after the day of birth admitted beyond day of life 120,
+  the last eligible day; rule 46 such an infant whose day of life at admission is missing or below 2;
+  rule 47 a later enrolment of the patient typed as an admission from the delivery room or on the day
+  of birth. On the enrolment: rule 48 one dated on or after the patient's recorded death. On the
+  infection forms: rule 49 the same infection type recorded again within 14 days, across the
+  patient's enrolments; rule 50 a device-associated sepsis or pneumonia on an enrolment whose
+  completed surveillance-end form counts no day of that device; rule 55 a secondary-BSI item that
+  disagrees with the secondary-BSI organisms (Yes without one on any form, organisms under another
+  answer on a NEC or pneumonia form). On the surveillance-end form: rule 51 a cumulative count above
+  the patient days, one finding per count, the invasive and non-invasive ventilation days bounded
+  together as well as apart, since a day counts as one or the other; rules 52 to 54 the antibiotic
+  substance slots — a substance without its days or days without a substance, a substance's days
+  above the antibiotic or patient days, the same substance in two slots — each finding naming the
+  substance as the form shows it. On the patient record: rule 56 fewer than two infants at a recorded
+  multiple birth. The context fields of each are listed on `validate()`. An SSI dated after the
+  patient's recorded death is caught by no rule; whether a secondary-BSI organism was identified at
+  the primary site is not checked until the package reads its pathogen identities from the canonical
+  catalogue.
+* Rule 45 is an eligibility rule, and the import's pass leaves it out when `include_ineligible_patients`
+  is set, since it would remove exactly the late admissions that option keeps; it acts where
+  `validate()` runs on such a dataset. The import's eligibility filter now admits day of life 120, the
+  last eligible day under the protocol's examples table, where it admitted day 119 at most.
+* An empty `patient_columns`, the default, selects every patient column, as documented; it selected
+  none. The patient tibble gains the multiple-birth flag (`multiple_birth`, the `patient_columns`
+  key of the same name), and the validation pass reads it and the number of infants whatever the
+  selection, then narrows the patients back to the selection, so the dataset holds only what was
+  requested; a later `validate()` on a dataset without them skips rule 56. The eligibility and range
+  filters likewise compare the birth weight and the total gestation days whatever the selection,
+  where a selection without them failed the import.
+
 # neoipcr 0.0.0.9004
 
 * The surveillance-end date filter (`surveillance_end_from`, `surveillance_end_to`) selects the

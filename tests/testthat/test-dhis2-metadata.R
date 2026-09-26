@@ -163,15 +163,16 @@ test_that("read_metadata parses data elements with option set references", {
 
 test_that("read_metadata parses tracked entity attributes", {
   metadata <- read_test_metadata()
-  expect_equal(nrow(metadata$trackedEntityAttributes), 2L)
+  expect_equal(nrow(metadata$trackedEntityAttributes), 4L)
   # Column is renamed from 'id' to 'attribute' by read_metadata
   expect_true("attribute" %in% names(metadata$trackedEntityAttributes))
   expect_equal(
     metadata$trackedEntityAttributes$attribute,
-    c("yQwpowV0o08", "E5OMg8BC8be"))
+    c("yQwpowV0o08", "E5OMg8BC8be", "q2ijTWehrUh", "RWgBBhSiu5U"))
   expect_equal(
     metadata$trackedEntityAttributes$code,
-    c("NEOIPC_PATIENT_ID", "NEOIPC_TEA_SEX"))
+    c("NEOIPC_PATIENT_ID", "NEOIPC_TEA_SEX", "NEOIPC_TEA_MULTIPLE_BIRTH",
+      "NEOIPC_TEA_SIBLINGS"))
 })
 
 test_that("read_metadata parses countries when include_country is full", {
