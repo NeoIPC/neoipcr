@@ -1,4 +1,4 @@
-# Tests for R/validation-rules-enrollment.R — rules 1, 2, 17, 25, 26.
+# Tests for R/validation-rules-enrollment.R — rules 1, 2, 17, 25, 26, 43, 44, 48.
 
 enrollment_status <- function(x)
   factor(x, levels = c("ACTIVE", "COMPLETED", "CANCELLED"))
@@ -462,4 +462,96 @@ test_that("rule 44 honours exceptions", {
   result <- neoipcr:::validation_rule_44(
     open_enrolment_ds(400, end = "ACTIVE"), make_test_exceptions(44L, enrollment_key = 1L), open_enrolment_as_of)
   expect_equal(nrow(result), 0L)
+})
+
+# --- Rule 48: an enrolment on or after the patient's death ---
+
+end_reason <- function(x)
+  factor(x, levels = c("1", "2"))
+
+# Enrolments on `enrolled_at`, the i-th belonging to `patient_keys[i]`; the
+# first `length(ended_at)` of them have a surveillance-end event (key i) on
+# `ended_at[i]` whose reason is `reasons[i]`, 2 being death.
+death_ds <- function(enrolled_at, ended_at, reasons,
+                     patient_keys = rep(1L, length(enrolled_at))) {
+  n_end <- length(ended_at)
+  make_test_ds(
+    patients    = make_test_patients(max(patient_keys)),
+    enrollments = make_test_enrollments(length(enrolled_at),
+      patient_keys = patient_keys,
+      enrolledAt = as.Date(enrolled_at)),
+    events = make_test_events(n_end,
+      enrollment_keys = seq_len(n_end),
+      patient_keys    = patient_keys[seq_len(n_end)],
+      event_type_keys = rep("end", n_end),
+      occurredAt = as.Date(ended_at)),
+    surveillanceEndData = make_test_surveillance_end_data(
+      seq_len(n_end), reason = end_reason(reasons)))
+}
+
+test_that("rule 48 detects an enrolment dated after the patient's death", {
+  ds <- death_ds(c("2024-01-01", "2024-03-01"), "2024-01-10", "2")
+  result <- neoipcr:::validation_rule_48(ds, NULL)
+  expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
+  expect_equal(result$rule_id, 48L)
+  expect_equal(result$enrollment_key, 2L)
+  # The finding is about the enrolment as a whole, not a form of it.
+  expect_true(is.na(result$event_key))
+  expect_named(result$context[[1]], c("enrolledAt", "death_date"))
+  expect_equal(result$context[[1]]$enrolledAt, as.Date("2024-03-01"))
+  expect_equal(result$context[[1]]$death_date, as.Date("2024-01-10"))
+})
+
+test_that("rule 48 counts the day of death itself and not the day before", {
+  expect_equal(nrow(neoipcr:::validation_rule_48(
+    death_ds(c("2024-01-01", "2024-01-10"), "2024-01-10", "2"), NULL)), 1L)
+  expect_equal(nrow(neoipcr:::validation_rule_48(
+    death_ds(c("2024-01-01", "2024-01-09"), "2024-01-10", "2"), NULL)), 0L)
+})
+
+test_that("rule 48 does not flag the enrolment that recorded the death", {
+  # An infant admitted and dying on the same day: the death enrolment is
+  # dated on the death date and is the record of it, not a stay after it.
+  expect_equal(nrow(neoipcr:::validation_rule_48(
+    death_ds("2024-01-10", "2024-01-10", "2"), NULL)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_48(
+    death_ds(c("2024-01-10", "2024-01-05"), "2024-01-10", "2"), NULL)), 0L)
+})
+
+test_that("rule 48 takes the earliest death where several forms record one", {
+  # The first stay ends in death; the second, dated after it, ends in death
+  # too; the third follows. The later two are found against the first death,
+  # the first is not.
+  result <- neoipcr:::validation_rule_48(
+    death_ds(c("2024-01-01", "2024-02-01", "2024-03-01"),
+             c("2024-01-10", "2024-02-10"), c("2", "2")), NULL)
+  expect_equal(result$enrollment_key, c(2L, 3L))
+  expect_equal(result$context[[2]]$death_date, as.Date("2024-01-10"))
+})
+
+test_that("rule 48 returns no rows without a death, for another patient's death, or for an undated one", {
+  expect_equal(nrow(neoipcr:::validation_rule_48(
+    death_ds(c("2024-01-01", "2024-03-01"), "2024-01-10", "1"), NULL)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_48(
+    death_ds(c("2024-01-01", "2024-03-01"), "2024-01-10", "2", patient_keys = c(1L, 2L)), NULL)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_48(
+    death_ds(c("2024-01-01", "2024-03-01"), NA, "2"), NULL)), 0L)
+  # A form without a reason records no death.
+  expect_equal(nrow(neoipcr:::validation_rule_48(
+    death_ds(c("2024-01-01", "2024-03-01"), "2024-01-10", NA), NULL)), 0L)
+})
+
+test_that("rule 48 honours exceptions", {
+  result <- neoipcr:::validation_rule_48(
+    death_ds(c("2024-01-01", "2024-03-01"), "2024-01-10", "2"),
+    make_test_exceptions(48L, enrollment_key = 2L))
+  expect_equal(nrow(result), 0L)
+})
+
+test_that("rule 48 skips without a warning when the reason is absent", {
+  ds <- death_ds(c("2024-01-01", "2024-03-01"), "2024-01-10", "2")
+  ds$surveillanceEndData$reason <- NULL
+  expect_no_warning(result <- neoipcr:::validation_rule_48(ds, NULL))
+  expect_null(result)
 })

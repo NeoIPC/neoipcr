@@ -35,8 +35,10 @@ without a date. A value that is not a single \code{Date} is an error whatever
 rules are selected.}
 }
 \value{
-A tibble with one row per finding — a flagged record, or for
-rule 17 one of the two enrolments of an overlapping pair: \code{rule_id};
+A tibble with one row per finding — a flagged record, or one of
+the several findings a rule records on one record: for rule 17 one of
+the two enrolments of an overlapping pair, for rules 51 to 54 one per
+count, slot or pair of slots: \code{rule_id};
 \code{patient_key}, \code{enrollment_key} and
 \code{event_key}, each naming the record the finding refers to at that level
 and \code{NA} where there is none (an enrolment-level rule that compared a
@@ -73,13 +75,15 @@ enrolment date for an enrolment-level rule, and the event's type and date
 as well for an event-level rule, the type being one the rule concerns
 (rules 7, 12 and 27–30 sepsis, 8, 13 and 35–38 necrotizing enterocolitis,
 9, 14 and 31–34 pneumonia, 10, 15, 22–24, 39 and 40 surgical procedures,
-11, 19, 41 and 42 surgical site infections, 20 any infection). An
+11, 19, 41 and 42 surgical site infections, 20 and 49 any infection, 50
+sepsis or pneumonia, 55 necrotizing enterocolitis, pneumonia or a surgical
+site infection, 56 pneumonia or a surgical site infection). An
 enrolment-level rule that compares a form carries that form's event on
 its finding, so a document shows the finding on the form; a record for
 such a rule may name that form's type and date as well, or leave them
-empty, and is refused naming any other type (rules 3 and 5 the admission
-form, 2, 4, 6, 18, 21 and 44 the surveillance-end form; 17, 25, 26 and 43
-carry no event).
+empty, and is refused naming any other type (rules 3, 5 and 45–47 the
+admission form, 2, 4, 6, 18, 21, 44 and 51–54 the surveillance-end form;
+17, 25, 26, 43 and 48 carry no event).
 Dates are \code{Date}, statuses factors, counts integers. A dataset imported
 without incomplete enrolments or events (\code{include_incomplete}) carries no
 \code{status} column for them; the rules then treat every such record as
@@ -103,7 +107,63 @@ such a stay having ended in no window, so rule 43 finds nothing on it,
 while an active enrolment whose surveillance-end form is dated in the
 window stays for rules 2 and 44; a consumer that wants the open stays
 judged sets no period. A tier without the enrolments' link to their
-events is not narrowed by the period at all.\tabular{lll}{
+events is not narrowed by the period at all.
+
+Rules 45 to 47 read the admission form. Rule 45 flags an infant
+transferred or readmitted the day after birth or later (admission type 3)
+whose day of life at admission is above 120, the last day on which an
+infant is eligible, the day of birth being day 1; the other two types
+have day 1 assigned by the client on every save, so a higher value stored
+there is the network's to mend, not the team's. Rule 46 flags an infant of
+that type whose day of life at admission is missing or below 2. Rule 47
+flags an enrolment whose admission type says the infant was admitted from
+the delivery room or on the day of birth (types 1 and 2) while the patient
+has an earlier enrolment, naming the latest earlier enrolment's date. Rule
+48 flags an
+enrolment dated on or after the patient's death, the date of a
+surveillance-end form of another enrolment of the patient whose reason
+is death; where several forms give death, the earliest is the death.
+
+Rule 49 flags an infection event recorded fewer than 14 days after the
+patient's previous event of the same type, across the patient's
+enrolments, with both dates and \code{days_between}; an undated event is not
+placed in the sequence. Rule 50 flags a device-associated sepsis or
+pneumonia on an enrolment whose completed surveillance-end form counts no
+day of that device, \code{device} being \code{cvc}, \code{pvc}, \code{niv} or \code{inv} and
+\code{device_days} the count; an enrolment without a completed
+surveillance-end form is not judged. Rule 51 flags each cumulative count
+of the surveillance-end form that exceeds the patient days, one finding
+per count, \code{count} being the count's column name (\code{cvc_days}, \code{pvc_days},
+\code{inv_days}, \code{niv_days}, \code{vs_days} for the invasive and non-invasive
+ventilation days together, \code{ab_days}, \code{human_milk_days},
+\code{kangaroo_care_days} or \code{probiotic_days}). Rules 52 to 54 read the
+antibiotic substance slots, one finding per slot or pair: 52 flags a slot
+holding a substance without its days (a count of zero counting as none)
+or days without a substance, 53 one whose days exceed the form's
+antibiotic days or patient days, 54 a substance recorded in two slots of
+one form, one finding per pair with the lower slot as \code{index}. Rule 55
+flags a necrotizing enterocolitis, pneumonia or surgical site infection
+form whose secondary-BSI item is Yes without a secondary-BSI organism,
+and a necrotizing enterocolitis or pneumonia form with secondary-BSI
+organisms under an item that is not Yes, \code{organisms} being their number;
+an organism is a finding that names a concept, so a resistance or name
+companion stored on its own counts as none, and an item never answered is
+an answer other than Yes. Rule 56 flags a pneumonia or surgical site
+infection form none of whose secondary-BSI organisms was identified at
+the primary site, \code{secondary} and \code{primary} being the organisms'
+catalogue names joined by commas (\code{primary} \code{NA} where the form records
+none); organisms are compared as catalogue concepts, a synonym resolving
+to the concept it names and a genus not matching a species of it, and a
+form recording on either side an organism as not listed, without a
+concept, or as one the catalogue does not carry is not judged. Only what
+the form shows is compared: a surgical site infection is judged only
+while its secondary-BSI item is Yes, since under any other answer the
+form hides its secondary-BSI organisms from the team, and the
+primary-site organisms count only while the form shows their section —
+on a pneumonia while the microbiological test result is Yes, on a
+surgical site infection while an organism was identified at one of its
+depths — a form whose primary section is hidden being judged as recording
+none.\tabular{lll}{
    Rules \tab Level \tab Context fields \cr
    1 \tab \code{patient_key} \tab none \cr
    2 \tab \code{enrollment_key} \tab none \cr
@@ -125,6 +185,17 @@ events is not narrowed by the period at all.\tabular{lll}{
    30, 34, 38 \tab \code{event_key} \tab \code{dos} \cr
    43 \tab \code{enrollment_key} \tab \code{enrolledAt}, \code{days_open} \cr
    44 \tab \code{enrollment_key} \tab \code{enrolledAt}, \code{days_open}, \code{status} \cr
+   45, 46 \tab \code{enrollment_key} \tab \code{dol} \cr
+   47 \tab \code{enrollment_key} \tab \code{type}, \code{enrolledAt}, \code{enrolledAt_previous} \cr
+   48 \tab \code{enrollment_key} \tab \code{enrolledAt}, \code{death_date} \cr
+   49 \tab \code{event_key} \tab \code{occurredAt}, \code{occurredAt_previous}, \code{days_between} \cr
+   50 \tab \code{event_key} \tab \code{device}, \code{device_days} \cr
+   51 \tab \code{enrollment_key} \tab \code{count}, \code{days}, \code{patient_days} — one finding per count that exceeds the patient days \cr
+   52 \tab \code{enrollment_key} \tab \code{index}, \code{substance_code}, \code{days} — one finding per slot \cr
+   53 \tab \code{enrollment_key} \tab \code{index}, \code{substance_code}, \code{days}, \code{ab_days}, \code{patient_days} — one finding per slot \cr
+   54 \tab \code{enrollment_key} \tab \code{substance_code}, \code{index}, \code{index_other} — one finding per pair of slots \cr
+   55 \tab \code{event_key} \tab \code{sec_bsi}, \code{organisms} \cr
+   56 \tab \code{event_key} \tab \code{secondary}, \code{primary} \cr
 }
 }
 
