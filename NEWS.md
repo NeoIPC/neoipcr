@@ -14,6 +14,8 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+# neoipcr 0.0.0.9005
+
 * Twelve rules extend the validation pass to protocol constraints the partner team can see and
   correct in Tracker Capture, each recorded on the form that shows it. On the admission form:
   rule 45 an infant transferred or readmitted after the day of birth admitted beyond day of life 120,
