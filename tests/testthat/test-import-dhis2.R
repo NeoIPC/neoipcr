@@ -1377,3 +1377,82 @@ for (mode in c("pseudo", "full")) {
     })
   })
 }
+
+# The audit fixtures as DHIS2 returns them when `fields` is null on every
+# record of each response: DHIS2 omits a null field, so the field is absent
+# throughout. `createdBy` and `updatedBy` are null on every record created
+# before the instance was upgraded to 2.36 (events) or 2.37 (enrolments,
+# tracked entities), which added the columns behind them without filling
+# them in.
+audit_fixtures_without <- function(fields) {
+  drop <- function(x) {
+    if (!is.list(x)) return(x)
+    if (!is.null(names(x))) x <- x[setdiff(names(x), fields)]
+    lapply(x, drop)
+  }
+  fx <- audit_fixtures()
+  for (endpoint in c("trackedEntities", "enrollments", "events"))
+    fx[[endpoint]] <- as.character(jsonlite::toJSON(
+      drop(jsonlite::fromJSON(fx[[endpoint]], simplifyVector = FALSE)),
+      auto_unbox = TRUE, null = "null"))
+  fx
+}
+
+for (mode in c("pseudo", "full")) {
+  local({
+    include_user <- mode
+
+    test_that(sprintf("import_dhis2 reads records without a stored creator under include_user = \"%s\"", include_user), {
+      m <- new_dhis2_mock(
+        audit_fixtures_without(c("createdBy", "updatedBy")), honour_fields = TRUE)
+      httr2::local_mocked_responses(m$mock)
+
+      ds <- import_dhis2(test_conn(), import_test_opts(include_user = include_user))
+
+      user_key <- ds$metadata$users$user_key
+      for (tbl in c("patients", "enrollments", "events")) {
+        n <- nrow(ds[[tbl]])
+        expect_identical(ds[[tbl]]$createdBy, rep(NA_integer_, n), info = tbl)
+        expect_identical(ds[[tbl]]$updatedBy, rep(NA_integer_, n), info = tbl)
+        expect_identical(ds[[tbl]]$storedBy, rep(user_key, n), info = tbl)
+      }
+      expect_identical(ds$events$completedBy, rep(user_key, 4L))
+      expect_identical(ds$substanceDays$days_createdBy, rep(NA_integer_, 3L))
+      expect_identical(ds$substanceDays$days_storedBy, rep(user_key, 3L))
+    })
+
+    test_that(sprintf("import_dhis2 reads records without storedBy under include_user = \"%s\"", include_user), {
+      m <- new_dhis2_mock(audit_fixtures_without("storedBy"), honour_fields = TRUE)
+      httr2::local_mocked_responses(m$mock)
+
+      ds <- import_dhis2(test_conn(), import_test_opts(include_user = include_user))
+
+      user_key <- ds$metadata$users$user_key
+      for (tbl in c("patients", "enrollments", "events")) {
+        n <- nrow(ds[[tbl]])
+        expect_identical(ds[[tbl]]$storedBy, rep(NA_integer_, n), info = tbl)
+        expect_identical(ds[[tbl]]$createdBy, rep(user_key, n), info = tbl)
+      }
+      expect_identical(ds$patients$patient_id_storedBy, rep(NA_integer_, 2L))
+      expect_identical(ds$substanceDays$days_storedBy, rep(NA_integer_, 3L))
+    })
+
+    test_that(sprintf("import_dhis2 reads an event note without a stored author under include_user = \"%s\"", include_user), {
+      fx <- audit_fixtures()
+      body <- jsonlite::fromJSON(fx$events, simplifyVector = FALSE)
+      body$events[[1]]$notes <- list(list(
+        note = "NOTE_1", value = "A note", storedBy = "neoipc_user",
+        storedAt = "2024-01-02T12:10:00.000"))
+      fx$events <- as.character(jsonlite::toJSON(body, auto_unbox = TRUE, null = "null"))
+      m <- new_dhis2_mock(fx, honour_fields = TRUE)
+      httr2::local_mocked_responses(m$mock)
+
+      ds <- import_dhis2(test_conn(), import_test_opts(
+        include_user = include_user, include_notes = "events"))
+
+      expect_equal(nrow(ds$eventNotes), 1L)
+      expect_identical(ds$eventNotes$createdBy, NA_integer_)
+      expect_identical(ds$eventNotes$storedBy, ds$metadata$users$user_key)
+    })
+  })
+}
