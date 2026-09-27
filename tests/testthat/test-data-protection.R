@@ -257,10 +257,18 @@ test_that("assert_data_protection aborts when the department–trial link is pop
     "departmentTrials")
 })
 
+test_that("assert_data_protection aborts when the department–trial link is populated without the trials opt-in", {
+  # The trials themselves are empty, so the abort can only come from the link,
+  # which would tell which pseudonymized departments share a trial.
+  ds <- trials_ds
+  ds$metadata$trials <- tibble::tibble()
+  expect_error(guard_with(ds = ds), "departmentTrials")
+})
+
 
 # --- assert_serializable_dataset_options -----------------------------------
 
-test_that("assert_serializable_dataset_options refuses a data frame and, for reference data, a department filter", {
+test_that("assert_serializable_dataset_options refuses a data frame and, for reference data, a department or trial filter", {
   plain <- dhis2_dataset_options()
   expect_invisible(neoipcr:::assert_serializable_dataset_options(
     plain, allow_department_filter = FALSE))
@@ -281,7 +289,7 @@ test_that("assert_serializable_dataset_options refuses a data frame and, for ref
   expect_error(
     neoipcr:::assert_serializable_dataset_options(
       filtered, allow_department_filter = FALSE),
-    "department filter")
+    "department_filter")
   expect_invisible(neoipcr:::assert_serializable_dataset_options(
     filtered, allow_department_filter = TRUE))
   marked <- neoipcr:::serializable_dataset_options(
@@ -297,6 +305,21 @@ test_that("assert_serializable_dataset_options refuses a data frame and, for ref
     unfiltered, keep_department_filter = FALSE)
   expect_true("department_filter" %in% names(marked))
   expect_null(marked$department_filter)
+  expect_invisible(neoipcr:::assert_serializable_dataset_options(
+    marked, allow_department_filter = FALSE))
+
+  # A trial filter selects the trial's member departments, which every user
+  # can read, so reference data carries it only as the marker.
+  by_trial <- dhis2_dataset_options(trial_filter = "TRIAL_A")
+  expect_error(
+    neoipcr:::assert_serializable_dataset_options(
+      by_trial, allow_department_filter = FALSE),
+    "trial_filter")
+  expect_invisible(neoipcr:::assert_serializable_dataset_options(
+    by_trial, allow_department_filter = TRUE))
+  marked <- neoipcr:::serializable_dataset_options(
+    by_trial, keep_department_filter = FALSE)
+  expect_identical(marked$trial_filter, "applied")
   expect_invisible(neoipcr:::assert_serializable_dataset_options(
     marked, allow_department_filter = FALSE))
 })

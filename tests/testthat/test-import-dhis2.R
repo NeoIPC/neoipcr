@@ -1786,6 +1786,16 @@ trials_fixtures <- function(move_second_patient = TRUE) {
     fx$events <- to_second_department(
       fx$events, "events", "enrollment", "ENR_2")
   }
+  # The events are requested once per selected department, so each request
+  # gets only the events of the org unit it names, as DHIS2 answers it.
+  events <- fx$events
+  fx$events <- function(req) {
+    org_unit <- httr2::url_parse(req$url)$query$orgUnit
+    if (is.null(org_unit)) return(events)
+    body <- jsonlite::fromJSON(events, simplifyVector = FALSE)
+    body$events <- Filter(\(event) identical(event$orgUnit, org_unit), body$events)
+    as.character(jsonlite::toJSON(body, auto_unbox = TRUE, null = "null"))
+  }
   fx
 }
 
@@ -1818,6 +1828,9 @@ test_that("import_dhis2 lists the trials of the imported departments and links e
     trial_links(ds),
     c("DEPT_01:TRIAL_A", "DEPT_01:TRIAL_B", "DEPT_02:TRIAL_B", "DEPT_02:TRIAL_D"))
   expect_true(any(grepl("NEOIPC_TRIALS", utils::URLdecode(m$urls()), fixed = TRUE)))
+  # The trials' internal map carries the departments' raw DHIS2 ids, so no
+  # internal map may leave the import.
+  expect_false(any(startsWith(names(ds$metadata), ".")))
 })
 
 test_that("import_dhis2 shows pseudonymized trials by their key alone", {
@@ -1835,6 +1848,20 @@ test_that("import_dhis2 shows pseudonymized trials by their key alone", {
 
 test_that("import_dhis2 lists the trials without departments, but links none", {
   m <- new_dhis2_mock(trials_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_department = "no", include_trials = "full"))
+
+  expect_setequal(ds$metadata$trials$code, c("TRIAL_A", "TRIAL_B", "TRIAL_D"))
+  expect_equal(ncol(ds$metadata$departmentTrials), 0L)
+})
+
+test_that("import_dhis2 lists, without departments, the trials of every department it read", {
+  # The second department has no data. Without the department tier the
+  # dataset has no departments to tell that by, so TRIAL_D, which only that
+  # department takes part in, stays listed.
+  m <- new_dhis2_mock(trials_fixtures(move_second_patient = FALSE))
   httr2::local_mocked_responses(m$mock)
 
   ds <- import_dhis2(test_conn(), import_test_opts(
@@ -1886,14 +1913,21 @@ test_that("import_dhis2 keeps the departments of the trials trial_filter names",
   expect_identical(request$query$ouMode, "SELECTED")
   expect_identical(request$query$orgUnit, "OU_DEPT_1")
   expect_equal(ncol(ds$metadata$trials), 0L)
+  # The filter reads the trials group set even though the trials are not shown:
+  # a server returns it only when asked.
+  expect_true(any(grepl("NEOIPC_TRIALS", utils::URLdecode(m$urls()), fixed = TRUE)))
+  expect_false(any(startsWith(names(ds$metadata), ".")))
 
-  # A department stays when it takes part in any of the named trials.
+  # A department stays when it takes part in any of the named trials, and each
+  # department's events are read once.
   m <- new_dhis2_mock(trials_fixtures())
   httr2::local_mocked_responses(m$mock)
   ds <- import_dhis2(test_conn(), import_test_opts(
     include_department = "full", trial_filter = c("TRIAL_A", "TRIAL_D")))
   expect_setequal(ds$metadata$departments$code, c("DEPT_01", "DEPT_02"))
   expect_setequal(as.character(ds$patients$patient_id), c("PAT_1", "PAT_2"))
+  expect_equal(nrow(ds$enrollments), 2L)
+  expect_equal(nrow(ds$events), 2L)
 })
 
 test_that("import_dhis2 refuses a trial_filter that selects no department it can import", {
@@ -1906,11 +1940,17 @@ test_that("import_dhis2 refuses a trial_filter that selects no department it can
   expect_false(any(grepl("/tracker/", m$urls(), fixed = TRUE)))
 
   # A trial whose departments are all out of reach leaves no org unit to
-  # request.
+  # request, and the error names the filter that was set and the likely cause.
   m <- new_dhis2_mock(trials_fixtures())
   httr2::local_mocked_responses(m$mock)
-  expect_error(
+  error <- expect_error(
     import_dhis2(test_conn(), import_test_opts(trial_filter = "TRIAL_C")),
     class = "neoipcr_empty_department_filter")
+  expect_match(conditionMessage(error), "^trial_filter matched")
+  expect_match(conditionMessage(error), "outside the org units the account can see")
+  expect_no_match(conditionMessage(error), "department_filter")
   expect_false(any(grepl("/tracker/", m$urls(), fixed = TRUE)))
+
+  # A missing code would match a trial group without a code.
+  expect_error(dhis2_dataset_options(trial_filter = NA_character_), "trial_filter")
 })

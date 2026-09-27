@@ -152,11 +152,23 @@ import_dhis2 <- function(
     # cryptic 409 ("At least one organisation unit must be specified"). Surface
     # the actual cause: the most common one is selecting a test department while
     # include_test_data is FALSE, since test units are dropped (dhis2-metadata.R)
-    # before the department and trial filters are applied.
-    if (length(dept_ids) == 0L)
+    # before the department and trial filters are applied; for a trial, that its
+    # member departments lie outside the org units the account can see.
+    if (length(dept_ids) == 0L) {
+      by_department <- length(dataset_options$department_filter) > 0
+      by_trial <- length(dataset_options$trial_filter) > 0
       rlang::abort(
-        sprintf("department_filter and trial_filter matched no accessible NEO_DEPARTMENT org unit after metadata filtering (include_test_data = %s); a tracker query with no org unit would be rejected by DHIS2. If a test department was selected, set include_test_data = TRUE.", dataset_options$include_test_data),
+        c(sprintf(
+            "%s matched no accessible NEO_DEPARTMENT org unit after metadata filtering; a tracker query with no org unit would be rejected by DHIS2.",
+            paste(c("department_filter", "trial_filter")[c(by_department, by_trial)],
+                  collapse = " and ")),
+          "i" = if (by_department)
+            sprintf("If a test department was selected, set include_test_data = TRUE (it is %s).",
+                    dataset_options$include_test_data),
+          "i" = if (by_trial)
+            "A trial's member departments may lie outside the org units the account can see."),
         class = "neoipcr_empty_department_filter")
+    }
 
     te_enrl_req <- tracker_req |>
       httr2::req_url_query(!!!ou_query("SELECTED", multi_uid(dept_ids)))
@@ -239,7 +251,7 @@ import_dhis2 <- function(
 
   trackedEntities_raw <- parse_resp(resps[[1]])
   enrollments_raw <- parse_resp(resps[[2]])
-  events_raw <- resps[seq(3, length(resps))] |>
+  events_raw <- resps[-(1:2)] |>
     purrr::map(parse_resp) |>
     purrr::list_rbind()
 

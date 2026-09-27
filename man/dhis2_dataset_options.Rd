@@ -81,7 +81,8 @@ include into the dataset: a department stays when it takes part in at
 least one of them, and with it its patients, enrollments and events.
 Codes are matched exactly, and a code the instance has no trial for
 aborts the import before its tracker requests. Whether the dataset shows
-the trials is \code{include_trials}'s choice.}
+the trials is \code{include_trials}'s choice: the filter alone leaves
+\code{metadata$trials} empty.}
 
 \item{include_world_bank_class}{Include the World Bank class into the
 dataset. Possible values are "no", "pseudo" and "full"}
@@ -98,10 +99,13 @@ values are "no", "pseudo" and "full"}
 \item{include_trials}{Include the NeoIPC trials the imported departments
 take part in: \code{metadata$trials} lists the trials and
 \code{metadata$departmentTrials} links each department to its trials by
-\code{department_key} and \code{trial_key} (the latter only when
-\code{include_department} is not "no"). A trial is an organisation unit group
-of the group set \code{NEOIPC_TRIALS}, and only the trials with at least one
-department in the dataset are listed. Possible values are "no", "pseudo"
+\code{department_key} and \code{trial_key}; the link is empty unless
+\code{include_department} is not "no". A trial is an organisation unit group
+of the group set \code{NEOIPC_TRIALS}. With the departments included, only the
+trials with at least one department in the dataset are listed; without
+them the dataset holds no departments to measure that by, and the trials
+listed are those of the departments the import read, whether or not they
+contribute data. Possible values are "no", "pseudo"
 and "full": under "pseudo" the trials carry \code{trial_key} alone, under
 "full" also their \code{code} and display names. A trial with few
 participating departments narrows down which department a pseudonymized

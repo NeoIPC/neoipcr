@@ -5,7 +5,7 @@
 # Output: coverage.html in the package root (gitignored).
 
 if (!requireNamespace("covr", quietly = TRUE))
-  stop("Package 'covr' is required. Install with: install.packages('covr')")
+  rlang::abort("Package 'covr' is required. Install with: install.packages('covr')")
 
 args <- commandArgs(trailingOnly = TRUE)
 open_report <- !("quiet" %in% args)

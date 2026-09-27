@@ -123,6 +123,7 @@ test_that("the calculation functions abort on a dataset without a validation sum
 test_that("the calculated datasets carry the validation summary and options fit to leave the package", {
   ds <- make_calc_test_ds()
   ds$metadata$dataset_options$department_filter <- "DEPT_01"
+  ds$metadata$dataset_options$trial_filter <- "TRIAL_A"
   ds$metadata$dataset_options$include_invalid_patients <- tibble::tibble(
     RULE_ID           = 3L,
     NEOIPC_PATIENT_ID = "PAT_X",
@@ -138,8 +139,9 @@ test_that("the calculated datasets carry the validation summary and options fit 
   expect_identical(
     dept$metadata$dataset_options$include_invalid_patients,
     "exception_list_applied")
-  # A department dataset keeps its own filter.
+  # A department dataset keeps its own filters.
   expect_identical(dept$metadata$dataset_options$department_filter, "DEPT_01")
+  expect_identical(dept$metadata$dataset_options$trial_filter, "TRIAL_A")
 
   ref <- calculate_reference_data(ds, use_cache = FALSE)
   expect_identical(ref$validationSummary, ds$validationSummary)
@@ -147,6 +149,9 @@ test_that("the calculated datasets carry the validation summary and options fit 
     ref$metadata$dataset_options$include_invalid_patients,
     "exception_list_applied")
   expect_identical(ref$metadata$dataset_options$department_filter, "applied")
+  # Every user can read a trial's member departments, so reference data does
+  # not name the trial either.
+  expect_identical(ref$metadata$dataset_options$trial_filter, "applied")
   expect_false(any(vapply(ref$metadata$dataset_options, is.data.frame, logical(1))))
 })
 
