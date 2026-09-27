@@ -31,12 +31,14 @@ read_test_metadata <- function(
 {
   bad <- setdiff(exclude, .valid_exclusions)
   if (length(bad) > 0L)
-    stop("Unknown exclusion(s): ", paste(bad, collapse = ", "),
-         "\nValid values: ", paste(.valid_exclusions, collapse = ", "))
+    rlang::abort(c(
+      paste0("Unknown exclusion(s): ", paste(bad, collapse = ", ")),
+      "i" = paste0("Valid values: ", paste(.valid_exclusions, collapse = ", "))))
   bad <- setdiff(include, .valid_inclusions)
   if (length(bad) > 0L)
-    stop("Unknown inclusion(s): ", paste(bad, collapse = ", "),
-         "\nValid values: ", paste(.valid_inclusions, collapse = ", "))
+    rlang::abort(c(
+      paste0("Unknown inclusion(s): ", paste(bad, collapse = ", ")),
+      "i" = paste0("Valid values: ", paste(.valid_inclusions, collapse = ", "))))
 
   fixture_path <- testthat::test_path("fixtures")
   read_fixture <- function(name) {

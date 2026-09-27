@@ -256,29 +256,64 @@ read_metadata_test_unit_ids <- function(metadata, include_test_data)
     dplyr::pull("id")
 }
 
-read_metadata_trials <- function(metadata, trial_keys)
+# Read the NeoIPC trials: the organisation unit groups of the group set
+# `NEOIPC_TRIALS`, which the metadata request asks for whenever
+# `.trials_requested()` holds. An instance without the group set has no
+# trials.
+#
+# Returns a named list with two components:
+#   * `public`  — schema-conformant tibble matching
+#                 `compile_schema(trials_cols, dataset_options)`, one row per
+#                 trial. `assemble_metadata()` narrows it to the trials with
+#                 a department in the dataset.
+#   * `members` — orchestrator-internal membership map, one row per trial and
+#                 member org unit: `trial_key`, `code` and the raw DHIS2
+#                 `orgUnit` id. Consumed by the `trial_filter` department
+#                 filter and the department–trial link; stripped at
+#                 `import_dhis2()` exit.
+#
+# A code in `trial_filter` that names no trial aborts: dropping it would leave
+# a selection the caller did not make.
+read_metadata_trials <- function(metadata, dataset_options)
 {
-  if(is.null(trial_keys))
-    return(NULL)
+  groups <- purrr::pluck(metadata, "organisationUnitGroupSets") |>
+    purrr::detect(\(gs) identical(purrr::pluck(gs, "code"), "NEOIPC_TRIALS")) |>
+    purrr::pluck("organisationUnitGroups")
 
-  for (i in 1:2) {
-    if ('NEOIPC_TRIALS' ==
-        (purrr::pluck(metadata,"organisationUnitGroupSets", i, "code"))) break
-  }
-  organisationUnitGroups <- metadata |>
-    purrr::pluck("organisationUnitGroupSets", i, "organisationUnitGroups")
+  field <- \(name) purrr::map_chr(groups, \(g) g[[name]] %||% NA_character_)
+  trials <- tibble::tibble(
+    code               = field("code"),
+    displayName        = field("displayName"),
+    displayShortName   = field("displayShortName"),
+    displayDescription = field("displayDescription"),
+    orgUnit            = purrr::map(groups, \(g)
+      purrr::map_chr(g$organisationUnits %||% list(), "id")))
 
-  if(rlang::is_null(organisationUnitGroups))
-    return(NULL)
+  unknown <- setdiff(dataset_options$trial_filter, trials$code)
+  if (length(unknown) > 0L)
+    rlang::abort(c(
+      "`trial_filter` names trials the DHIS2 instance does not have.",
+      "x" = paste(unknown, collapse = ", "),
+      "i" = "A trial is an organisation unit group of the group set NEOIPC_TRIALS, named by its code."),
+      class = "neoipcr_unknown_trial")
 
-  organisationUnitGroups <- organisationUnitGroups |>
-    tibble::tibble() |>
-    tidyr::unnest_wider(1) |>
-    dplyr::filter(
-      stringr::str_detect(
-        .data$code,
-        stringr::regex(paste0(trial_keys, collapse = "|"),
-                       ignore_case = TRUE)))
+  trials <- trials |>
+    add_key_column("trial_key")
+
+  public <- trials |>
+    dplyr::select(!"orgUnit") |>
+    finalize_to_schema(trials_cols, dataset_options)
+  assert_schema(public, trials_cols, dataset_options)
+
+  # One row per trial and member; `as.character()` keeps the column
+  # character when there is no trial at all.
+  n_members <- lengths(trials$orgUnit)
+  list(
+    public  = public,
+    members = tibble::tibble(
+      trial_key = rep(trials$trial_key, n_members),
+      code      = rep(trials$code, n_members),
+      orgUnit   = as.character(unlist(trials$orgUnit))))
 }
 
 #' @include schema-orgunits.R

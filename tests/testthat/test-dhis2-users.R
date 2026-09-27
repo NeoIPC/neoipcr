@@ -38,6 +38,18 @@ test_that("get_user_info yields NA lastLogin (no crash) when /me carries none", 
   expect_equal(info$username, "neoipc_user")
 })
 
+test_that("get_user_info passes a rejected login through as the authentication error", {
+  # The outer handler wraps any other failure as a connection error of the
+  # same class, quoting the original message in a bullet; the translated
+  # authentication error must pass it with its own headline.
+  httr2::local_mocked_responses(list(mock_json_response(
+    "https://dhis2.example.org/api/me", "{}", status = 401L)))
+
+  cnd <- expect_error(
+    neoipcr:::get_user_info(me_request()), class = "neoipcr_dhis2_error")
+  expect_match(cnd$message, "^DHIS2 authentication failed")
+})
+
 # ---- resolve_user_fields() ---------------------------------------------------
 
 users_metadata <- list(.users_internal_map = tibble::tibble(

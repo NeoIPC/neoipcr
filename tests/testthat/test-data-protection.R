@@ -228,10 +228,47 @@ test_that("assert_data_protection aborts when an IsTestunit row survives in a va
     "IsTestunit")
 })
 
+# --- Trials -------------------------------------------------------------
+#
+# The trials and the department–trial link travel only on the
+# `include_trials` opt-in, and the link only with departments present.
+
+trials_ds <- base_ds
+trials_ds$metadata$trials <- tibble::tibble(
+  trial_key = 1L, code = "TRIAL_A", displayName = "Trial A",
+  displayShortName = "TRIAL_A", displayDescription = "")
+trials_ds$metadata$departmentTrials <- tibble::tibble(
+  department_key = 1L, trial_key = 1L)
+
+test_that("assert_data_protection passes for populated trials when the caller opted in", {
+  expect_no_error(guard_with(ds = trials_ds, include_trials = "full"))
+})
+
+test_that("assert_data_protection aborts when the trials are populated without the opt-in", {
+  expect_error(guard_with(ds = trials_ds), "x\\$metadata\\$trials")
+  expect_error(guard_with(ds = trials_ds), "opt-in")
+})
+
+test_that("assert_data_protection aborts when the department–trial link is populated without departments", {
+  ds <- strip_key(trials_ds, "department_key")
+  ds$metadata$departments <- tibble::tibble()
+  expect_error(
+    guard_with(ds = ds, include_department = "no", include_trials = "full"),
+    "departmentTrials")
+})
+
+test_that("assert_data_protection aborts when the department–trial link is populated without the trials opt-in", {
+  # The trials themselves are empty, so the abort can only come from the link,
+  # which would tell which pseudonymized departments share a trial.
+  ds <- trials_ds
+  ds$metadata$trials <- tibble::tibble()
+  expect_error(guard_with(ds = ds), "departmentTrials")
+})
+
 
 # --- assert_serializable_dataset_options -----------------------------------
 
-test_that("assert_serializable_dataset_options refuses a data frame and, for reference data, a department filter", {
+test_that("assert_serializable_dataset_options refuses a data frame and, for reference data, a department or trial filter", {
   plain <- dhis2_dataset_options()
   expect_invisible(neoipcr:::assert_serializable_dataset_options(
     plain, allow_department_filter = FALSE))
@@ -252,7 +289,7 @@ test_that("assert_serializable_dataset_options refuses a data frame and, for ref
   expect_error(
     neoipcr:::assert_serializable_dataset_options(
       filtered, allow_department_filter = FALSE),
-    "department filter")
+    "department_filter")
   expect_invisible(neoipcr:::assert_serializable_dataset_options(
     filtered, allow_department_filter = TRUE))
   marked <- neoipcr:::serializable_dataset_options(
@@ -268,6 +305,21 @@ test_that("assert_serializable_dataset_options refuses a data frame and, for ref
     unfiltered, keep_department_filter = FALSE)
   expect_true("department_filter" %in% names(marked))
   expect_null(marked$department_filter)
+  expect_invisible(neoipcr:::assert_serializable_dataset_options(
+    marked, allow_department_filter = FALSE))
+
+  # A trial filter selects the trial's member departments, which every user
+  # can read, so reference data carries it only as the marker.
+  by_trial <- dhis2_dataset_options(trial_filter = "TRIAL_A")
+  expect_error(
+    neoipcr:::assert_serializable_dataset_options(
+      by_trial, allow_department_filter = FALSE),
+    "trial_filter")
+  expect_invisible(neoipcr:::assert_serializable_dataset_options(
+    by_trial, allow_department_filter = TRUE))
+  marked <- neoipcr:::serializable_dataset_options(
+    by_trial, keep_department_filter = FALSE)
+  expect_identical(marked$trial_filter, "applied")
   expect_invisible(neoipcr:::assert_serializable_dataset_options(
     marked, allow_department_filter = FALSE))
 })

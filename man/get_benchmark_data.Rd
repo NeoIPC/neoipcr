@@ -14,7 +14,9 @@ neoipcr_rep_ds and one neoipcr_ref_ds to benchmark department data against
 reference data but it can also be multiple neoipcr_rep_ds or multiple
 neoipcr_ref_ds to benchmark them against each other). Each name is appended
 to that dataset's column names in the resulting tables, so
-\code{get_benchmark_data(own = x, ref = y)} yields \code{n_own} and \code{n_ref}}
+\code{get_benchmark_data(own = x, ref = y)} yields \code{n_own} and \code{n_ref}. At
+least one dataset is required; a call without any aborts with class
+\code{neoipcr_no_benchmark_datasets}.}
 }
 \value{
 A neoipcr_bnch_ds. Each dataset's \code{metadata} and

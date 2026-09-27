@@ -13,10 +13,12 @@ dhis2_dataset_options(
   gestational_age_to = NULL,
   country_filter = NULL,
   department_filter = NULL,
+  trial_filter = NULL,
   include_world_bank_class = c("no", "pseudo", "full"),
   include_country = c("no", "pseudo", "full"),
   include_hospital = c("no", "pseudo", "full"),
   include_department = c("no", "pseudo", "full"),
+  include_trials = c("no", "pseudo", "full"),
   include_user = c("no", "pseudo", "full"),
   include_patient = c("no", "pseudo", "full"),
   patient_columns = character(),
@@ -32,7 +34,6 @@ dhis2_dataset_options(
   include_incomplete = character(),
   include_notes = character(),
   include_deleted = FALSE,
-  trial_keys = NULL,
   translate = TRUE,
   locale = NULL
 )
@@ -75,6 +76,14 @@ departments are located in to include into the dataset.}
 \item{department_filter}{NeoIPC department codes of the departments to
 include into the dataset.}
 
+\item{trial_filter}{Codes of the NeoIPC trials whose departments to
+include into the dataset: a department stays when it takes part in at
+least one of them, and with it its patients, enrollments and events.
+Codes are matched exactly, and a code the instance has no trial for
+aborts the import before its tracker requests. Whether the dataset shows
+the trials is \code{include_trials}'s choice: the filter alone leaves
+\code{metadata$trials} empty.}
+
 \item{include_world_bank_class}{Include the World Bank class into the
 dataset. Possible values are "no", "pseudo" and "full"}
 
@@ -86,6 +95,23 @@ values are "no", "pseudo" and "full"}
 
 \item{include_department}{Include the department into the dataset. Possible
 values are "no", "pseudo" and "full"}
+
+\item{include_trials}{Include the NeoIPC trials the imported departments
+take part in: \code{metadata$trials} lists the trials and
+\code{metadata$departmentTrials} links each department to its trials by
+\code{department_key} and \code{trial_key}; the link is empty unless
+\code{include_department} is not "no". A trial is an organisation unit group
+of the group set \code{NEOIPC_TRIALS}. With the departments included, only the
+trials with at least one department in the dataset are listed; without
+them the dataset holds no departments to measure that by, and the trials
+listed are those of the departments the import read, whether or not they
+contribute data. Possible values are "no", "pseudo"
+and "full": under "pseudo" the trials carry \code{trial_key} alone, under
+"full" also their \code{code} and display names. A trial with few
+participating departments narrows down which department a pseudonymized
+\code{department_key} stands for, so linking trials to pseudonymized
+departments is the caller's explicit choice, as with
+\code{include_custom_attributes}.}
 
 \item{include_user}{Include the user metadata into the dataset. Possible
 values are "no", "pseudo" and "full"}
@@ -215,8 +241,6 @@ Possible values are "enrollments" and "events"}
 "enrollments" and "events"}
 
 \item{include_deleted}{Include deleted records into the dataset.}
-
-\item{trial_keys}{Only include date for the trials listed in this variable.}
 
 \item{translate}{Translate DHIS2 metadata}
 

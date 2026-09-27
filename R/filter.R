@@ -294,6 +294,7 @@ apply_postfilter <- function(x)
   # must not keep an org unit alive), so they follow once the hierarchy has
   # settled.
   x <- .postfilter_attribute_values(x)
+  x <- .postfilter_trials(x)
 
   # Step 3: drop unused levels on data-sourced factor columns. Protocol-
   # fixed factors (`levels_source = "fixed"`) keep their full level list
@@ -559,6 +560,32 @@ apply_postfilter <- function(x)
     x$metadata[[leaf$tbl]] <- values |>
       dplyr::semi_join(parent, by = leaf$key)
   }
+
+  x
+}
+
+
+# Prune the trial tables to the surviving departments: the department–trial
+# link as a leaf of departments, and the trials to those the link still
+# names. Column-presence-guarded like the attribute values: with the link
+# 0×0 (`include_department = "no"`) the trials keep the set
+# `assemble_metadata()` narrowed them to.
+.postfilter_trials <- function(x)
+{
+  links       <- x$metadata$departmentTrials
+  departments <- x$metadata$departments
+  if (is.null(links) || is.null(departments) ||
+      !("department_key" %in% names(links)) ||
+      !("department_key" %in% names(departments)))
+    return(x)
+
+  x$metadata$departmentTrials <- links |>
+    dplyr::semi_join(departments, by = "department_key")
+
+  trials <- x$metadata$trials
+  if (!is.null(trials) && "trial_key" %in% names(trials))
+    x$metadata$trials <- trials |>
+      dplyr::semi_join(x$metadata$departmentTrials, by = "trial_key")
 
   x
 }

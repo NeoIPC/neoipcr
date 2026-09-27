@@ -81,39 +81,26 @@ get_metadata_request <- function(req_base, user_info, dataset_options)
   req <- req_base |>
     httr2::req_url_path_append("metadata")
 
-  if(length(dataset_options$trial_keys) > 0 ||
+  if(.trials_requested(dataset_options) ||
      dataset_options$include_world_bank_class != "no")
   {
-    if(length(dataset_options$trial_keys) == 0)
-    {
-      if(dataset_options$include_world_bank_class == "full")
-        req <- req |>
-          httr2::req_url_query(
-            `organisationUnitGroupSets:fields` = "code,organisationUnitGroups[code,displayName,displayShortName,displayDescription,organisationUnits[id]]")
-      else # pseudonymize
-        req <- req |>
-          httr2::req_url_query(
-            `organisationUnitGroupSets:fields` = "code,organisationUnitGroups[code,organisationUnits[id]]")
-
-      req <- req |>
-        httr2::req_url_query(
-          `organisationUnitGroupSets:filter` = "code:eq:WORLD_BANK_CLASSES")
-    }
-    else
-    {
-      req <- req |>
-        httr2::req_url_query(
-          `organisationUnitGroupSets:fields` = "code,organisationUnitGroups[code,displayName,displayShortName,displayDescription,organisationUnits[id]]")
-
-      if(dataset_options$include_world_bank_class == "no")
-        req <- req |>
-          httr2::req_url_query(
-            `organisationUnitGroupSets:filter` = "code:eq:NEOIPC_TRIALS")
-      else
-        req <- req |>
-          httr2::req_url_query(
-            `organisationUnitGroupSets:filter` = "code:in:[NEOIPC_TRIALS,WORLD_BANK_CLASSES]")
-    }
+    # The two group sets share one field list, so the display names are
+    # requested when either is shown in full; the keys and the memberships
+    # need the codes alone.
+    names_shown <- dataset_options$include_world_bank_class == "full" ||
+      dataset_options$include_trials == "full"
+    req <- req |>
+      httr2::req_url_query(
+        `organisationUnitGroupSets:fields` = if (names_shown)
+          "code,organisationUnitGroups[code,displayName,displayShortName,displayDescription,organisationUnits[id]]"
+        else
+          "code,organisationUnitGroups[code,organisationUnits[id]]",
+        `organisationUnitGroupSets:filter` = if (!.trials_requested(dataset_options))
+          "code:eq:WORLD_BANK_CLASSES"
+        else if (dataset_options$include_world_bank_class == "no")
+          "code:eq:NEOIPC_TRIALS"
+        else
+          "code:in:[NEOIPC_TRIALS,WORLD_BANK_CLASSES]")
   }
 
   if(length(dataset_options$country_filter) > 0 ||
@@ -226,6 +213,15 @@ assemble_metadata <- function(metadata, user_info, dataset_options)
   if (length(dataset_options$department_filter) > 0)
     metadata$departments <- metadata$departments |>
       dplyr::filter(.data$code %in% dataset_options$department_filter)
+
+  # Filter departments by trial_filter: a department stays when it takes part
+  # in at least one of the named trials.
+  if (length(dataset_options$trial_filter) > 0)
+    metadata$departments <- metadata$departments |>
+      dplyr::semi_join(
+        metadata$.trials_internal_map |>
+          dplyr::filter(.data$code %in% dataset_options$trial_filter),
+        dplyr::join_by("orgUnit"))
 
   # Filter countries by country_filter and remove departments not in those countries
   if (length(dataset_options$country_filter) > 0 &&
@@ -412,6 +408,24 @@ assemble_metadata <- function(metadata, user_info, dataset_options)
     finalize_to_schema(departments_cols, dataset_options)
   assert_schema(metadata$departments, departments_cols, dataset_options)
 
+  # The trials of the departments that survived every filter above (the
+  # internal map is that set): the link between the two, and the trials
+  # narrowed to those with a department in it.
+  department_trials <- metadata$.trials_internal_map |>
+    dplyr::inner_join(
+      metadata$.departments_internal_map |>
+        dplyr::select("department_key", "orgUnit"),
+      dplyr::join_by("orgUnit")) |>
+    dplyr::select("department_key", "trial_key") |>
+    dplyr::distinct()
+  if ("trial_key" %in% names(metadata$trials))
+    metadata$trials <- metadata$trials |>
+      dplyr::semi_join(department_trials, dplyr::join_by("trial_key"))
+  metadata$departmentTrials <- department_trials |>
+    finalize_to_schema(departmentTrials_cols, dataset_options)
+  assert_schema(
+    metadata$departmentTrials, departmentTrials_cols, dataset_options)
+
   # Department attribute values, for callers that opted in: resolved against
   # the full definitions for the departments that survived every filter above
   # (the internal map is that set). The `IsTestunit` rows are dropped — the
@@ -508,9 +522,7 @@ read_metadata <- function(metadata, dataset_options)
   # `read_user_info_table()` in `assemble_metadata()`.
   users_result <- read_metadata_users(metadata, dataset_options)
 
-  trials <- read_metadata_trials(
-    metadata,
-    dataset_options$trial_keys)
+  trials_result <- read_metadata_trials(metadata, dataset_options)
 
   wb_result <- read_metadata_wb_classes(metadata, dataset_options)
   world_bank_classes <- wb_result$public
@@ -566,8 +578,13 @@ read_metadata <- function(metadata, dataset_options)
   # `metadata$.users_internal_map`.
   if (!is.null(users_result$internal_map))
     ret <- c(ret, list(.users_result = users_result))
-  if(!is.null(trials))
-    ret <- c(ret, list(trials = trials))
+  # `trials` follows the three-mode contract of `trials_cols`; the
+  # membership map behind it serves the `trial_filter` and the
+  # department–trial link in `assemble_metadata()` and is stripped at
+  # `import_dhis2()` exit.
+  ret <- c(ret, list(
+    trials = trials_result$public,
+    .trials_internal_map = trials_result$members))
   # `world_bank_classes` is always a tibble (never NULL) — the three-mode
   # shape is the signal: 0×0 under "no", 1-col under "pseudo", full schema
   # under "full". See `R/schema-orgunits.R::worldBankClasses_cols`.

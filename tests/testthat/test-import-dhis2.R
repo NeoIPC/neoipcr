@@ -1251,6 +1251,56 @@ test_that("import_dhis2 keeps a patient with neither birth weight nor gestationa
   expect_equal(as.character(ds$patients$patient_id), "PAT_2")
 })
 
+# The fixture set with the `i`-th tracked entity's attributes replaced.
+with_attributes <- function(fx, i, attributes) {
+  te <- jsonlite::fromJSON(fx$trackedEntities, simplifyVector = FALSE)
+  te$trackedEntities[[i]]$attributes <- attributes
+  fx$trackedEntities <- as.character(jsonlite::toJSON(te, auto_unbox = TRUE, null = "null"))
+  fx
+}
+
+test_that("import_dhis2 keeps a patient that records none of the selected attributes", {
+  # The second patient has no birth weight, the one attribute selected.
+  fx <- with_attributes(import_test_fixtures(patient_eligibility = TRUE), 2L, list(
+    list(attribute = "yQwpowV0o08", value = "PAT_2"),
+    list(attribute = "qLGOhTzMVyY", value = "27+3"),
+    list(attribute = "Qyu9KOWyazL", value = "192")))
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(patient_columns = "birth_weight"))
+
+  expect_equal(sort(ds$patients$birth_weight, na.last = TRUE), c(1200L, NA))
+  expect_equal(nrow(ds$enrollments), 2L)
+})
+
+test_that("import_dhis2 validates pseudonymized patients none of which records an attribute its pass reads", {
+  # The baseline patients carry their patient id alone, which the
+  # pseudonymized tier does not read, so the pass gets no attribute value.
+  m <- new_dhis2_mock(import_test_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_patient = "pseudo", include_invalid_patients = FALSE))
+
+  expect_equal(sum(ds$validationResults$rule_id == 57L), 2L)
+})
+
+test_that("import_dhis2 reports a pseudonymized patient without birth weight or gestational age under rule 57", {
+  # The first patient keeps its patient id alone; the second records both.
+  fx <- with_attributes(import_test_fixtures(patient_eligibility = TRUE), 1L, list(
+    list(attribute = "yQwpowV0o08", value = "PAT_1")))
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_patient = "pseudo", include_invalid_patients = FALSE))
+
+  expect_equal(sum(ds$validationResults$rule_id == 57L), 1L)
+  per_rule <- ds$validationSummary[ds$validationSummary$rule_id %in% 57L, ]
+  expect_equal(per_rule$n_removed, 1L)
+})
+
 test_that("import_dhis2 narrows a reporting period to the enrolments that ended in it, before the pass", {
   # The mock with surveillance-end forms, a readmission and an unenrolled
   # patient: the first patient's first stay ended in January and a second
@@ -1690,4 +1740,227 @@ test_that("import_dhis2 keeps the notes of the enrolments it keeps and no others
   expect_equal(nrow(ds$enrollments), 1L)
   expect_equal(ds$enrollment_notes$value, "Second enrolment")
   expect_identical(ds$enrollment_notes$enrollment_key, ds$enrollments$enrollment_key)
+})
+
+# ---------------------------------------------------------------------------
+# Trials: `include_trials` shows the trials of the imported departments,
+# `trial_filter` selects the departments by their trials.
+# ---------------------------------------------------------------------------
+
+# The mock with two departments and the trials group set: TRIAL_A holds the
+# first department, TRIAL_B both, TRIAL_C only an org unit outside the
+# user's reach, TRIAL_D only the second department. With
+# `move_second_patient` the second patient, its enrolment and its admission
+# are in the second department; without it that department has no data.
+trials_fixtures <- function(move_second_patient = TRUE) {
+  fx <- import_test_fixtures()
+  fx$organisationUnits <- read_fixture_text("orgunits-departments-2.json")
+
+  trial <- function(code, name, ...)
+    list(code = code, displayName = name, displayShortName = code,
+         displayDescription = paste(name, "description"),
+         organisationUnits = lapply(c(...), \(id) list(id = id)))
+  md <- jsonlite::fromJSON(fx$metadata, simplifyVector = FALSE)
+  md$organisationUnitGroupSets <- list(list(
+    code = "NEOIPC_TRIALS",
+    organisationUnitGroups = list(
+      trial("TRIAL_A", "Trial A", "OU_DEPT_1"),
+      trial("TRIAL_B", "Trial B", "OU_DEPT_1", "OU_DEPT_2"),
+      trial("TRIAL_C", "Trial C", "OU_ELSEWHERE"),
+      trial("TRIAL_D", "Trial D", "OU_DEPT_2"))))
+  fx$metadata <- as.character(jsonlite::toJSON(md, auto_unbox = TRUE, null = "null"))
+
+  if (move_second_patient) {
+    to_second_department <- function(json, collection, id_field, id) {
+      body <- jsonlite::fromJSON(json, simplifyVector = FALSE)
+      body[[collection]] <- lapply(body[[collection]], \(record) {
+        if (identical(record[[id_field]], id)) record$orgUnit <- "OU_DEPT_2"
+        record
+      })
+      as.character(jsonlite::toJSON(body, auto_unbox = TRUE, null = "null"))
+    }
+    fx$trackedEntities <- to_second_department(
+      fx$trackedEntities, "trackedEntities", "trackedEntity", "TE_2")
+    fx$enrollments <- to_second_department(
+      fx$enrollments, "enrollments", "enrollment", "ENR_2")
+    fx$events <- to_second_department(
+      fx$events, "events", "enrollment", "ENR_2")
+  }
+  # The events are requested once per selected department, so each request
+  # gets only the events of the org unit it names, as DHIS2 answers it.
+  events <- fx$events
+  fx$events <- function(req) {
+    org_unit <- httr2::url_parse(req$url)$query$orgUnit
+    if (is.null(org_unit)) return(events)
+    body <- jsonlite::fromJSON(events, simplifyVector = FALSE)
+    body$events <- Filter(\(event) identical(event$orgUnit, org_unit), body$events)
+    as.character(jsonlite::toJSON(body, auto_unbox = TRUE, null = "null"))
+  }
+  fx
+}
+
+# The organisation-unit group-set fields an import asked the metadata endpoint for.
+group_set_fields <- function(urls) {
+  metadata <- grep("/api/metadata", urls, fixed = TRUE, value = TRUE)
+  httr2::url_parse(metadata[[1]])$query[["organisationUnitGroupSets:fields"]]
+}
+
+# A dataset's department–trial links as sorted "department:trial" codes,
+# read through the keys.
+trial_links <- function(ds) {
+  departments <- ds$metadata$departments
+  trials      <- ds$metadata$trials
+  links       <- ds$metadata$departmentTrials
+  sort(paste(
+    departments$code[match(links$department_key, departments$department_key)],
+    trials$code[match(links$trial_key, trials$trial_key)],
+    sep = ":"))
+}
+
+test_that("import_dhis2 lists the trials of the imported departments and links each department to its own", {
+  m <- new_dhis2_mock(trials_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_department = "full", include_trials = "full"))
+
+  # TRIAL_C has no department in the dataset, so it is not listed.
+  expect_schema_matches(
+    ds$metadata$trials,
+    neoipcr:::get_trials_schema(import_test_opts(include_trials = "full")))
+  expect_setequal(ds$metadata$trials$code, c("TRIAL_A", "TRIAL_B", "TRIAL_D"))
+  expect_setequal(ds$metadata$trials$displayName, c("Trial A", "Trial B", "Trial D"))
+  expect_identical(
+    trial_links(ds),
+    c("DEPT_01:TRIAL_A", "DEPT_01:TRIAL_B", "DEPT_02:TRIAL_B", "DEPT_02:TRIAL_D"))
+  expect_true(any(grepl("NEOIPC_TRIALS", utils::URLdecode(m$urls()), fixed = TRUE)))
+  expect_match(group_set_fields(m$urls()), "displayName", fixed = TRUE)
+  # The trials' internal map carries the departments' raw DHIS2 ids, so no
+  # internal map may leave the import.
+  expect_false(any(startsWith(names(ds$metadata), ".")))
+})
+
+test_that("import_dhis2 shows pseudonymized trials by their key alone", {
+  m <- new_dhis2_mock(trials_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(include_trials = "pseudo"))
+
+  # Nothing shows the trials' names, so the request does not fetch them.
+  expect_identical(group_set_fields(m$urls()), "code,organisationUnitGroups[code,organisationUnits[id]]")
+  expect_identical(names(ds$metadata$trials), "trial_key")
+  expect_equal(nrow(ds$metadata$trials), 3L)
+  expect_identical(names(ds$metadata$departmentTrials), c("department_key", "trial_key"))
+  expect_equal(nrow(ds$metadata$departmentTrials), 4L)
+  expect_true(all(ds$metadata$departmentTrials$trial_key %in% ds$metadata$trials$trial_key))
+})
+
+test_that("import_dhis2 lists the trials without departments, but links none", {
+  m <- new_dhis2_mock(trials_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_department = "no", include_trials = "full"))
+
+  expect_setequal(ds$metadata$trials$code, c("TRIAL_A", "TRIAL_B", "TRIAL_D"))
+  expect_equal(ncol(ds$metadata$departmentTrials), 0L)
+})
+
+test_that("import_dhis2 lists, without departments, the trials of every department it read", {
+  # The second department has no data. Without the department tier the
+  # dataset has no departments to tell that by, so TRIAL_D, which only that
+  # department takes part in, stays listed.
+  m <- new_dhis2_mock(trials_fixtures(move_second_patient = FALSE))
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_department = "no", include_trials = "full"))
+
+  expect_setequal(ds$metadata$trials$code, c("TRIAL_A", "TRIAL_B", "TRIAL_D"))
+  expect_equal(ncol(ds$metadata$departmentTrials), 0L)
+})
+
+test_that("import_dhis2 drops the trials of a department that leaves the dataset", {
+  # The second department has no data, so it leaves the dataset, and with it
+  # its links and TRIAL_D, which only it takes part in.
+  m <- new_dhis2_mock(trials_fixtures(move_second_patient = FALSE))
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_department = "full", include_trials = "full"))
+
+  expect_identical(ds$metadata$departments$code, "DEPT_01")
+  expect_setequal(ds$metadata$trials$code, c("TRIAL_A", "TRIAL_B"))
+  expect_identical(trial_links(ds), c("DEPT_01:TRIAL_A", "DEPT_01:TRIAL_B"))
+})
+
+test_that("import_dhis2 neither requests nor shows the trials by default", {
+  m <- new_dhis2_mock(trials_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(include_department = "full"))
+
+  expect_equal(ncol(ds$metadata$trials), 0L)
+  expect_equal(ncol(ds$metadata$departmentTrials), 0L)
+  expect_false(any(grepl("NEOIPC_TRIALS", utils::URLdecode(m$urls()), fixed = TRUE)))
+})
+
+test_that("import_dhis2 keeps the departments of the trials trial_filter names", {
+  m <- new_dhis2_mock(trials_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_department = "full", trial_filter = "TRIAL_A"))
+
+  expect_identical(ds$metadata$departments$code, "DEPT_01")
+  expect_identical(as.character(ds$patients$patient_id), "PAT_1")
+  expect_equal(nrow(ds$enrollments), 1L)
+  expect_equal(nrow(ds$events), 1L)
+  # The tracker requests go to the selected department alone, and the filter
+  # does not show the trials.
+  request <- tracked_entity_request(m$urls())
+  expect_identical(request$query$ouMode, "SELECTED")
+  expect_identical(request$query$orgUnit, "OU_DEPT_1")
+  expect_equal(ncol(ds$metadata$trials), 0L)
+  # The filter reads the trials group set even though the trials are not shown:
+  # a server returns it only when asked. It needs the memberships, not the names.
+  expect_true(any(grepl("NEOIPC_TRIALS", utils::URLdecode(m$urls()), fixed = TRUE)))
+  expect_identical(group_set_fields(m$urls()), "code,organisationUnitGroups[code,organisationUnits[id]]")
+  expect_false(any(startsWith(names(ds$metadata), ".")))
+
+  # A department stays when it takes part in any of the named trials, and each
+  # department's events are read once.
+  m <- new_dhis2_mock(trials_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_department = "full", trial_filter = c("TRIAL_A", "TRIAL_D")))
+  expect_setequal(ds$metadata$departments$code, c("DEPT_01", "DEPT_02"))
+  expect_setequal(as.character(ds$patients$patient_id), c("PAT_1", "PAT_2"))
+  expect_equal(nrow(ds$enrollments), 2L)
+  expect_equal(nrow(ds$events), 2L)
+})
+
+test_that("import_dhis2 refuses a trial_filter that selects no department it can import", {
+  # A code the instance has no trial for aborts before the tracker requests.
+  m <- new_dhis2_mock(trials_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  expect_error(
+    import_dhis2(test_conn(), import_test_opts(trial_filter = "TRIAL_X")),
+    "TRIAL_X", class = "neoipcr_unknown_trial")
+  expect_false(any(grepl("/tracker/", m$urls(), fixed = TRUE)))
+
+  # A trial whose departments are all out of reach leaves no org unit to
+  # request, and the error names the filter that was set and the likely cause.
+  m <- new_dhis2_mock(trials_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  error <- expect_error(
+    import_dhis2(test_conn(), import_test_opts(trial_filter = "TRIAL_C")),
+    class = "neoipcr_empty_department_filter")
+  expect_match(conditionMessage(error), "^trial_filter matched")
+  expect_match(conditionMessage(error), "outside the org units the account can see")
+  expect_no_match(conditionMessage(error), "department_filter")
+  expect_false(any(grepl("/tracker/", m$urls(), fixed = TRUE)))
+
+  # A missing code would match a trial group without a code.
+  expect_error(dhis2_dataset_options(trial_filter = NA_character_), "trial_filter")
 })

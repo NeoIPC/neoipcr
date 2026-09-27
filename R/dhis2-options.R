@@ -12,6 +12,11 @@
   opts$patient_columns
 }
 
+# Whether an import reads the trials: to list them, or to select the
+# departments by `trial_filter`.
+.trials_requested <- function(opts)
+  opts$include_trials != "no" || length(opts$trial_filter) > 0L
+
 #' Configure the DHIS2 dataset
 #'
 #' @param surveillance_end_from The earliest surveillance-end date of the
@@ -43,6 +48,13 @@
 #'  departments are located in to include into the dataset.
 #' @param department_filter NeoIPC department codes of the departments to
 #'  include into the dataset.
+#' @param trial_filter Codes of the NeoIPC trials whose departments to
+#'  include into the dataset: a department stays when it takes part in at
+#'  least one of them, and with it its patients, enrollments and events.
+#'  Codes are matched exactly, and a code the instance has no trial for
+#'  aborts the import before its tracker requests. Whether the dataset shows
+#'  the trials is `include_trials`'s choice: the filter alone leaves
+#'  `metadata$trials` empty.
 #' @param include_world_bank_class Include the World Bank class into the
 #'  dataset. Possible values are "no", "pseudo" and "full"
 #' @param include_country Include the country into the dataset. Possible values
@@ -51,6 +63,22 @@
 #'  values are "no", "pseudo" and "full"
 #' @param include_department Include the department into the dataset. Possible
 #'  values are "no", "pseudo" and "full"
+#' @param include_trials Include the NeoIPC trials the imported departments
+#'  take part in: `metadata$trials` lists the trials and
+#'  `metadata$departmentTrials` links each department to its trials by
+#'  `department_key` and `trial_key`; the link is empty unless
+#'  `include_department` is not "no". A trial is an organisation unit group
+#'  of the group set `NEOIPC_TRIALS`. With the departments included, only the
+#'  trials with at least one department in the dataset are listed; without
+#'  them the dataset holds no departments to measure that by, and the trials
+#'  listed are those of the departments the import read, whether or not they
+#'  contribute data. Possible values are "no", "pseudo"
+#'  and "full": under "pseudo" the trials carry `trial_key` alone, under
+#'  "full" also their `code` and display names. A trial with few
+#'  participating departments narrows down which department a pseudonymized
+#'  `department_key` stands for, so linking trials to pseudonymized
+#'  departments is the caller's explicit choice, as with
+#'  `include_custom_attributes`.
 #' @param include_user Include the user metadata into the dataset. Possible
 #'  values are "no", "pseudo" and "full"
 #' @param include_patient Include the patient tibble into the dataset and
@@ -165,7 +193,6 @@
 #' @param include_notes Include notes into the dataset. Possible values are
 #'  "enrollments" and "events"
 #' @param include_deleted Include deleted records into the dataset.
-#' @param trial_keys Only include date for the trials listed in this variable.
 #' @param translate Translate DHIS2 metadata
 #' @param locale The locale to translate DHIS2 metadata to
 #'
@@ -179,10 +206,12 @@ dhis2_dataset_options <- function(
     gestational_age_to = NULL,
     country_filter = NULL,
     department_filter = NULL,
+    trial_filter = NULL,
     include_world_bank_class = c("no","pseudo","full"),
     include_country = c("no","pseudo","full"),
     include_hospital = c("no","pseudo","full"),
     include_department = c("no","pseudo","full"),
+    include_trials = c("no","pseudo","full"),
     include_user = c("no","pseudo","full"),
     include_patient = c("no","pseudo","full"),
     patient_columns = character(),
@@ -198,7 +227,6 @@ dhis2_dataset_options <- function(
     include_incomplete = character(),
     include_notes = character(),
     include_deleted = FALSE,
-    trial_keys = NULL,
     translate = TRUE,
     locale = NULL)
 {
@@ -213,6 +241,8 @@ dhis2_dataset_options <- function(
   check_number_whole(gestational_age_to, allow_null = TRUE)
   check_character(country_filter, allow_null = TRUE)
   check_character(department_filter, allow_null = TRUE)
+  # A missing code would match a trial group that carries no code.
+  check_character(trial_filter, allow_na = FALSE, allow_null = TRUE)
   check_character(patient_columns)
   check_character(include_custom_attributes)
   check_bool(include_timestamps)
@@ -238,10 +268,12 @@ dhis2_dataset_options <- function(
     gestational_age_to = gestational_age_to,
     country_filter = country_filter,
     department_filter = department_filter,
+    trial_filter = trial_filter,
     include_world_bank_class = rlang::arg_match(include_world_bank_class),
     include_country = rlang::arg_match(include_country),
     include_hospital = rlang::arg_match(include_hospital),
     include_department = rlang::arg_match(include_department),
+    include_trials = rlang::arg_match(include_trials),
     include_user = rlang::arg_match(include_user),
     include_patient = rlang::arg_match(include_patient),
     patient_columns = rlang::arg_match(
@@ -271,7 +303,6 @@ dhis2_dataset_options <- function(
       c("enrollments","events"),
       multiple = TRUE),
     include_deleted = include_deleted,
-    trial_keys = trial_keys,
     translate = translate,
     locale = locale
     # Inherit "list" so jsonlite (and other serialisers) handle it as its
@@ -283,20 +314,22 @@ dhis2_dataset_options <- function(
 
 # The copy of a dataset's options that a calculated dataset carries out of
 # the package. An exception list is a data frame of patient ids and enrolment
-# dates, and a department filter names the departments behind reference
-# values, so each is replaced by a marker saying it was applied: the
-# calculated dataset records that a list was used without carrying it, and
-# reference data records that it was filtered without saying to what. A
-# department dataset keeps its filter, which is its own department. The
-# import applies a filter only when it names a department, so an empty one
-# leaves as `NULL` rather than as the marker; the element stays in place,
-# which `$<-` with `NULL` would not do.
+# dates, and a department or trial filter names the departments behind
+# reference values (every user can read a trial's member departments), so
+# each is replaced by a marker saying it was applied: the calculated dataset
+# records that a list was used without carrying it, and reference data records
+# that it was filtered without saying to what. A department dataset keeps its
+# filters, which name its own department. The import applies a filter only
+# when it names something, so an empty one leaves as `NULL` rather than as the
+# marker; the element stays in place, which `$<-` with `NULL` would not do.
 serializable_dataset_options <- function(opts, keep_department_filter)
 {
   if (is.data.frame(opts$include_invalid_patients))
     opts$include_invalid_patients <- "exception_list_applied"
-  if (!keep_department_filter && !is.null(opts$department_filter))
-    opts["department_filter"] <- list(
-      if (length(opts$department_filter) > 0L) "applied")
+  if (!keep_department_filter) {
+    for (filter in c("department_filter", "trial_filter"))
+      if (!is.null(opts[[filter]]))
+        opts[filter] <- list(if (length(opts[[filter]]) > 0L) "applied")
+  }
   opts
 }

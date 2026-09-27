@@ -14,6 +14,8 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+# neoipcr 0.0.0.9006
+
 * `import_dhis2()` with `include_timestamps = TRUE` no longer fails on the events. It parses the
   timestamps the events schema declares as date-times — `scheduledAt`, `completedAt`, `createdAt`,
   `createdAtClient`, `updatedAt` and `updatedAtClient` — where it used to parse every column whose name
@@ -53,6 +55,31 @@ section above it for the next changes.
   `include_ineligible_patients` is set. The pass reads the birth weight and the total gestation days
   whatever `patient_columns` selects, as it does the multiple-birth flag and the number of infants
   for rule 56, and drops them again unless selected.
+* `import_dhis2()` keeps a patient that records none of the selected patient attributes, with those
+  columns missing. Each patient's row used to be built from its attribute values, so such a patient
+  left the dataset silently, its enrolments and events with it, and an import in which the patients
+  recorded attributes, but none of the selected ones, failed. Under `include_patient = "pseudo"` the validation pass
+  selects only the attributes it reads — the multiple-birth flag, the number of infants, the birth
+  weight and the gestational age — so an import without any of them failed, and a patient without
+  any of them left before rule 57 could report it.
+* `get_benchmark_data()` without any dataset aborts with class `neoipcr_no_benchmark_datasets`,
+  where it failed with "subscript out of bounds".
+* `include_trials` shows the NeoIPC trials the imported departments take part in, the organisation
+  unit groups of the group set `NEOIPC_TRIALS`: `metadata$trials` lists them — by `trial_key`, and
+  under `"full"` with their code and display names — and `metadata$departmentTrials` links each
+  department to its trials by `department_key` and `trial_key` when the departments are included.
+  With them, the trials of departments that leave the dataset are dropped; without them, the trials
+  of every department the import read are listed. It defaults to `"no"`, since a trial with few
+  departments narrows down which department a pseudonymized key stands for.
+* `trial_keys` is now `trial_filter`, beside `department_filter` and `country_filter`, and selects
+  again: the import keeps the departments that take part in at least one of the named trials, with
+  their patients, enrolments and events, and sends its tracker requests to those departments alone.
+  It had stopped narrowing anything. The codes are matched exactly rather than as case-insensitive
+  patterns, and a code the instance has no trial for aborts with class `neoipcr_unknown_trial`, where
+  an instance without the trials group set failed with "argument is of length zero". The trials
+  themselves reach `metadata` only with `include_trials`, where `trial_keys` used to add them. In
+  reference data the filter is carried as the marker `"applied"`, as `department_filter` is, since
+  every user can read which departments a trial has.
 
 # neoipcr 0.0.0.9005
 

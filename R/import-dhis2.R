@@ -140,22 +140,35 @@ import_dhis2 <- function(
 
   multi_uid <- dialect$multi_uid
 
-  if (length(dataset_options$department_filter) > 0) {
+  if (length(dataset_options$department_filter) > 0 ||
+      length(dataset_options$trial_filter) > 0) {
     dept_ids <- metadata$.departments_internal_map |>
       dplyr::pull(.data$orgUnit)
 
     logger::log_debug(
-      "department_filter: {length(dataset_options$department_filter)} requested code(s) resolved to {length(dept_ids)} accessible org unit(s)",
+      "department selection: {length(dataset_options$department_filter)} department code(s) and {length(dataset_options$trial_filter)} trial code(s) resolved to {length(dept_ids)} accessible org unit(s)",
       namespace = "neoipcr")
     # An empty resolution here sends `orgUnit=` blank, which DHIS2 rejects with a
     # cryptic 409 ("At least one organisation unit must be specified"). Surface
     # the actual cause: the most common one is selecting a test department while
     # include_test_data is FALSE, since test units are dropped (dhis2-metadata.R)
-    # before the department filter is applied.
-    if (length(dept_ids) == 0L)
+    # before the department and trial filters are applied; for a trial, that its
+    # member departments lie outside the org units the account can see.
+    if (length(dept_ids) == 0L) {
+      by_department <- length(dataset_options$department_filter) > 0
+      by_trial <- length(dataset_options$trial_filter) > 0
       rlang::abort(
-        sprintf("department_filter matched no accessible NEO_DEPARTMENT org unit after metadata filtering (include_test_data = %s); a tracker query with no org unit would be rejected by DHIS2. If a test department was selected, set include_test_data = TRUE.", dataset_options$include_test_data),
+        c(sprintf(
+            "%s matched no accessible NEO_DEPARTMENT org unit after metadata filtering; a tracker query with no org unit would be rejected by DHIS2.",
+            paste(c("department_filter", "trial_filter")[c(by_department, by_trial)],
+                  collapse = " and ")),
+          "i" = if (by_department)
+            sprintf("If a test department was selected, set include_test_data = TRUE (it is %s).",
+                    dataset_options$include_test_data),
+          "i" = if (by_trial)
+            "A trial's member departments may lie outside the org units the account can see."),
         class = "neoipcr_empty_department_filter")
+    }
 
     te_enrl_req <- tracker_req |>
       httr2::req_url_query(!!!ou_query("SELECTED", multi_uid(dept_ids)))
@@ -238,7 +251,7 @@ import_dhis2 <- function(
 
   trackedEntities_raw <- parse_resp(resps[[1]])
   enrollments_raw <- parse_resp(resps[[2]])
-  events_raw <- resps[seq(3, length(resps))] |>
+  events_raw <- resps[-(1:2)] |>
     purrr::map(parse_resp) |>
     purrr::list_rbind()
 
@@ -435,6 +448,7 @@ import_dhis2 <- function(
   # Hierarchy order: metadata → fact entities
   r$metadata$.wb_country_map               <- NULL
   r$metadata$.orgUnitAttributes_internal_map <- NULL
+  r$metadata$.trials_internal_map      <- NULL
   r$metadata$.countries_internal_map   <- NULL
   r$metadata$.hospitals_internal_map   <- NULL
   r$metadata$.departments_internal_map <- NULL
@@ -585,7 +599,7 @@ convert_value <- function(values, valueTypes, levelsLists)
 {
   len <- length(values)
   convertedValues <- vector(mode = "list", length = len)
-  for (i in 1:len) {
+  for (i in seq_len(len)) {
     value <- values[i]
     valueType <- valueTypes[i]
     levels <- unlist(levelsLists[i])

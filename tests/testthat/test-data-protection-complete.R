@@ -31,6 +31,9 @@
     neoipcr:::departmentAttributeValues_cols, opts)
   md$hospitalAttributeValues <- neoipcr:::compile_schema(
     neoipcr:::hospitalAttributeValues_cols, opts)
+  md$trials          <- neoipcr:::compile_schema(neoipcr:::trials_cols, opts)
+  md$departmentTrials <- neoipcr:::compile_schema(
+    neoipcr:::departmentTrials_cols, opts)
   md$dataset_options <- opts
 
   make_test_ds(
@@ -181,5 +184,15 @@ test_that("assert_data_protection passes for schema-compliant attribute-value sh
         "include_custom_attributes=[%s], include_department=%s, include_hospital=%s",
         paste(opts$include_custom_attributes, collapse = ","),
         opts$include_department, opts$include_hospital))
+  }
+})
+
+test_that("assert_data_protection passes for schema-compliant trial shapes under every opt-in / gate combination", {
+  for (opts in iter_dataset_options(c("include_trials", "include_department"))) {
+    ds <- .schema_compliant_ds(opts)
+    expect_error(
+      neoipcr:::assert_data_protection(ds, opts), NA,
+      info = sprintf("include_trials=%s, include_department=%s",
+                     opts$include_trials, opts$include_department))
   }
 })
