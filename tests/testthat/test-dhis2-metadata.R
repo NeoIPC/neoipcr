@@ -358,36 +358,69 @@ test_that("read_metadata_wb_classes country_map exposes the WB-class-to-country 
 
 # --- read_metadata_trials — the trials group set, found by its code ---
 
-test_that("read_metadata_trials finds the trials group set by its code", {
-  # Another group set before it carries a group the trial key would match
-  # as well, so reading the wrong set would show.
+# The World Bank classes, another group set, and the trials group set last,
+# whose second trial spans two org units.
+build_trials_metadata <- function() {
   metadata <- build_wb_class_metadata()
   metadata$organisationUnitGroupSets <- c(
     metadata$organisationUnitGroupSets,
     list(
       list(code = "OTHER_GROUP_SET", organisationUnitGroups = list(
-        list(code = "OTHER_TRIAL_A", organisationUnits = list()))),
+        list(code = "OTHER_GROUP", organisationUnits = list(list(id = "OU_9"))))),
       list(code = "NEOIPC_TRIALS", organisationUnitGroups = list(
-        list(code = "TRIAL_A", organisationUnits = list(list(id = "OU_1"))),
-        list(code = "TRIAL_B", organisationUnits = list(list(id = "OU_2")))))))
+        list(code = "TRIAL_A", displayName = "Trial A",
+             organisationUnits = list(list(id = "OU_1"))),
+        list(code = "TRIAL_B", displayName = "Trial B",
+             organisationUnits = list(list(id = "OU_1"), list(id = "OU_2")))))))
+  metadata
+}
 
-  trials <- neoipcr:::read_metadata_trials(metadata, "trial_a")
+test_that("read_metadata_trials reads the trials group set, found by its code", {
+  result <- neoipcr:::read_metadata_trials(
+    build_trials_metadata(), dhis2_dataset_options(include_trials = "full"))
 
-  expect_identical(trials$code, "TRIAL_A")
+  expect_schema_matches(
+    result$public,
+    neoipcr:::get_trials_schema(dhis2_dataset_options(include_trials = "full")))
+  expect_setequal(result$public$code, c("TRIAL_A", "TRIAL_B"))
+  members <- result$members[order(result$members$code, result$members$orgUnit), ]
+  expect_identical(members$code, c("TRIAL_A", "TRIAL_B", "TRIAL_B"))
+  expect_identical(members$orgUnit, c("OU_1", "OU_1", "OU_2"))
+  expect_identical(
+    members$trial_key,
+    result$public$trial_key[match(members$code, result$public$code)])
 })
 
-test_that("read_metadata_trials aborts when trials are named and the instance has no trials group set", {
-  expect_error(
-    neoipcr:::read_metadata_trials(build_wb_class_metadata(), "trial_a"),
-    class = "neoipcr_missing_trials_group_set")
-  expect_error(
-    neoipcr:::read_metadata_trials(list(), "trial_a"),
-    class = "neoipcr_missing_trials_group_set")
+test_that("read_metadata_trials keeps the members for the filter while the trials stay closed", {
+  result <- neoipcr:::read_metadata_trials(
+    build_trials_metadata(), dhis2_dataset_options(trial_filter = "TRIAL_B"))
+
+  expect_equal(ncol(result$public), 0L)
+  expect_setequal(result$members$orgUnit[result$members$code == "TRIAL_B"],
+                  c("OU_1", "OU_2"))
 })
 
-test_that("read_metadata_trials reads nothing when no trial is named", {
-  expect_null(neoipcr:::read_metadata_trials(list(), NULL))
-  expect_null(neoipcr:::read_metadata_trials(list(), character()))
+test_that("read_metadata_trials has no trials on an instance without the group set", {
+  result <- neoipcr:::read_metadata_trials(
+    build_wb_class_metadata(), dhis2_dataset_options(include_trials = "full"))
+
+  expect_equal(nrow(result$public), 0L)
+  expect_equal(nrow(result$members), 0L)
+  expect_type(result$members$orgUnit, "character")
+})
+
+test_that("read_metadata_trials aborts on a filter code the instance has no trial for", {
+  # Codes are matched exactly, so neither another case nor a prefix names a
+  # trial.
+  for (code in c("TRIAL_C", "trial_a", "TRIAL"))
+    expect_error(
+      neoipcr:::read_metadata_trials(
+        build_trials_metadata(), dhis2_dataset_options(trial_filter = code)),
+      code, class = "neoipcr_unknown_trial")
+  expect_error(
+    neoipcr:::read_metadata_trials(
+      list(), dhis2_dataset_options(trial_filter = "TRIAL_A")),
+    class = "neoipcr_unknown_trial")
 })
 
 # --- read_metadata orchestrator — worldBankClasses always in ret ---

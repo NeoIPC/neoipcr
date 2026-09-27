@@ -5,7 +5,7 @@
 #' the readers own every tibble's shape, so this function's job is to
 #' **assert invariants** -- not to scrub columns.
 #'
-#' Scope is currently narrow: three invariant families are asserted here
+#' Scope is currently narrow: four invariant families are asserted here
 #' as a final net.
 #'
 #' 1. **Hierarchy keys** under `include_<level> == "no"` -- the key
@@ -21,6 +21,9 @@
 #'    into that entity's attributes (`include_custom_attributes`) and the
 #'    entity is present, and must never carry an `IsTestunit` row (that
 #'    flag is folded into `isTest`).
+#' 4. **Trials** -- `trials` must be empty unless the caller opted into
+#'    trials (`include_trials`), and `departmentTrials` also unless
+#'    departments are present.
 #'
 #' Everything else (per-entity id / link / patient narrowing, factor
 #' levels, metadata-tibble nulling) is owned by the schemas + readers
@@ -95,6 +98,10 @@ assert_data_protection <- function(x, dataset_options)
     tbl      = "hospitalAttributeValues")
   .assert_no_test_unit_attribute_rows(x)
 
+  # A department's trials narrow down which department a pseudonymized key
+  # stands for, so they travel only on the caller's explicit opt-in.
+  .assert_trials_absent(x, dataset_options)
+
   x
 }
 
@@ -163,6 +170,35 @@ assert_serializable_dataset_options <- function(opts, allow_department_filter)
                  "reader that emits them -- this guardian asserts, it does ",
                  "not scrub.")
   ))
+}
+
+
+#' Assert that the trial tables are 0×0 unless their gates are open:
+#' `include_trials` for both, and departments present for the link.
+#'
+#' As with the attribute values, the contract is the shape, not the row
+#' count.
+#'
+#' @noRd
+.assert_trials_absent <- function(x, opts) {
+  open <- c(
+    trials           = opts$include_trials != "no",
+    departmentTrials = opts$include_trials != "no" &&
+      opts$include_department != "no")
+  for (tbl in names(open)) {
+    t <- x$metadata[[tbl]]
+    if (is.null(t) || ncol(t) == 0L || open[[tbl]])
+      next
+    rlang::abort(c(
+      sprintf("Data-protection violation: `x$metadata$%s` carries columns without the trials opt-in (a closed gate yields a 0x0 tibble).",
+              tbl),
+      "x" = sprintf("`include_trials` = \"%s\"; `include_department` = \"%s\".",
+                    opts$include_trials, opts$include_department),
+      "i" = paste0("A department's trials can narrow down which department a ",
+                   "pseudonymized key stands for. Fix the reader that emits ",
+                   "them -- this guardian asserts, it does not scrub.")
+    ))
+  }
 }
 
 
@@ -237,7 +273,8 @@ assert_serializable_dataset_options <- function(opts, allow_department_filter)
   metadata_tables <- c("worldBankClasses", "countries", "hospitals",
                        "departments", "users", "eventTypes",
                        "orgUnitAttributes", "departmentAttributeValues",
-                       "hospitalAttributeValues")
+                       "hospitalAttributeValues", "trials",
+                       "departmentTrials")
   for (tbl in metadata_tables) {
     t <- x$metadata[[tbl]]
     if (!is.null(t)) {

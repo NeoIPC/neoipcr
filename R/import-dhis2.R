@@ -140,21 +140,22 @@ import_dhis2 <- function(
 
   multi_uid <- dialect$multi_uid
 
-  if (length(dataset_options$department_filter) > 0) {
+  if (length(dataset_options$department_filter) > 0 ||
+      length(dataset_options$trial_filter) > 0) {
     dept_ids <- metadata$.departments_internal_map |>
       dplyr::pull(.data$orgUnit)
 
     logger::log_debug(
-      "department_filter: {length(dataset_options$department_filter)} requested code(s) resolved to {length(dept_ids)} accessible org unit(s)",
+      "department selection: {length(dataset_options$department_filter)} department code(s) and {length(dataset_options$trial_filter)} trial code(s) resolved to {length(dept_ids)} accessible org unit(s)",
       namespace = "neoipcr")
     # An empty resolution here sends `orgUnit=` blank, which DHIS2 rejects with a
     # cryptic 409 ("At least one organisation unit must be specified"). Surface
     # the actual cause: the most common one is selecting a test department while
     # include_test_data is FALSE, since test units are dropped (dhis2-metadata.R)
-    # before the department filter is applied.
+    # before the department and trial filters are applied.
     if (length(dept_ids) == 0L)
       rlang::abort(
-        sprintf("department_filter matched no accessible NEO_DEPARTMENT org unit after metadata filtering (include_test_data = %s); a tracker query with no org unit would be rejected by DHIS2. If a test department was selected, set include_test_data = TRUE.", dataset_options$include_test_data),
+        sprintf("department_filter and trial_filter matched no accessible NEO_DEPARTMENT org unit after metadata filtering (include_test_data = %s); a tracker query with no org unit would be rejected by DHIS2. If a test department was selected, set include_test_data = TRUE.", dataset_options$include_test_data),
         class = "neoipcr_empty_department_filter")
 
     te_enrl_req <- tracker_req |>
@@ -435,6 +436,7 @@ import_dhis2 <- function(
   # Hierarchy order: metadata → fact entities
   r$metadata$.wb_country_map               <- NULL
   r$metadata$.orgUnitAttributes_internal_map <- NULL
+  r$metadata$.trials_internal_map      <- NULL
   r$metadata$.countries_internal_map   <- NULL
   r$metadata$.hospitals_internal_map   <- NULL
   r$metadata$.departments_internal_map <- NULL

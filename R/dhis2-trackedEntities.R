@@ -157,7 +157,7 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
 
   if(!dataset_options$include_test_data ||
      length(dataset_options$country_filter) > 0 ||
-     length(dataset_options$trial_keys) > 0)
+     length(dataset_options$trial_filter) > 0)
     patients <- patients |>
       dplyr::semi_join(
         metadata$.departments_internal_map, dplyr::join_by("orgUnit"))

@@ -228,6 +228,35 @@ test_that("assert_data_protection aborts when an IsTestunit row survives in a va
     "IsTestunit")
 })
 
+# --- Trials -------------------------------------------------------------
+#
+# The trials and the department–trial link travel only on the
+# `include_trials` opt-in, and the link only with departments present.
+
+trials_ds <- base_ds
+trials_ds$metadata$trials <- tibble::tibble(
+  trial_key = 1L, code = "TRIAL_A", displayName = "Trial A",
+  displayShortName = "TRIAL_A", displayDescription = "")
+trials_ds$metadata$departmentTrials <- tibble::tibble(
+  department_key = 1L, trial_key = 1L)
+
+test_that("assert_data_protection passes for populated trials when the caller opted in", {
+  expect_no_error(guard_with(ds = trials_ds, include_trials = "full"))
+})
+
+test_that("assert_data_protection aborts when the trials are populated without the opt-in", {
+  expect_error(guard_with(ds = trials_ds), "x\\$metadata\\$trials")
+  expect_error(guard_with(ds = trials_ds), "opt-in")
+})
+
+test_that("assert_data_protection aborts when the department–trial link is populated without departments", {
+  ds <- strip_key(trials_ds, "department_key")
+  ds$metadata$departments <- tibble::tibble()
+  expect_error(
+    guard_with(ds = ds, include_department = "no", include_trials = "full"),
+    "departmentTrials")
+})
+
 
 # --- assert_serializable_dataset_options -----------------------------------
 

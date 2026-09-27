@@ -284,6 +284,63 @@ departments_cols <- with_entity_gate(
 get_departments_schema <- function(opts)
   compile_schema(departments_cols, opts)
 
+# ---- Trials ---------------------------------------------------------------
+#
+# The NeoIPC trials are the organisation unit groups of the group set
+# `NEOIPC_TRIALS`. A department can take part in several trials and a trial
+# spans several departments, so the membership is a link table of its own
+# (`departmentTrials`) rather than a key on departments. Both follow the
+# `include_trials` opt-in, default "no"; the link also needs departments,
+# since its rows are keyed on `department_key`. The `trial_filter` department
+# filter reads the trials whatever `include_trials` says, through the
+# orchestrator-internal membership map, and does not open these tibbles.
+#
+# Three-mode shape of `trials`:
+#   "no"     — 0×0 tibble (via the entity gate).
+#   "pseudo" — `trial_key` only.
+#   "full"   — adds `code`, `displayName`, `displayShortName`,
+#              `displayDescription`.
+# `departmentTrials` is 0×0 while its gate is closed and carries
+# `department_key` and `trial_key` once it opens.
+
+trials_cols <- with_entity_gate(
+  list(
+    schema_col("trial_key", integer()),
+    schema_col(
+      "code", character(),
+      include_when = \(opts) opts$include_trials == "full"
+    ),
+    schema_col(
+      "displayName", character(),
+      include_when = \(opts) opts$include_trials == "full"
+    ),
+    schema_col(
+      "displayShortName", character(),
+      include_when = \(opts) opts$include_trials == "full"
+    ),
+    schema_col(
+      "displayDescription", character(),
+      include_when = \(opts) opts$include_trials == "full"
+    )
+  ),
+  gate = \(opts) opts$include_trials != "no"
+)
+
+get_trials_schema <- function(opts)
+  compile_schema(trials_cols, opts)
+
+departmentTrials_cols <- with_entity_gate(
+  list(
+    col_department_key,
+    schema_col("trial_key", integer())
+  ),
+  gate = \(opts)
+    opts$include_trials != "no" && opts$include_department != "no"
+)
+
+get_departmentTrials_schema <- function(opts)
+  compile_schema(departmentTrials_cols, opts)
+
 # ---- Org-unit attributes --------------------------------------------------
 #
 # DHIS2 custom attributes on organisation units: the definitions

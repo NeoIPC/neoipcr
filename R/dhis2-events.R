@@ -128,7 +128,7 @@ read_events <- function(events, enrollments, metadata, dataset_options)
 
   if (!opts$include_test_data ||
       length(opts$country_filter) > 0 ||
-      !is.null(opts$trial_keys))
+      length(opts$trial_filter) > 0)
     events <- events |>
       dplyr::semi_join(
         metadata$.departments_internal_map, dplyr::join_by("orgUnit"))

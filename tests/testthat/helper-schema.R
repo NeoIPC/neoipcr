@@ -63,6 +63,7 @@ expect_schema_matches <- function(x, expected)
   include_country          = c("no", "pseudo", "full"),
   include_hospital         = c("no", "pseudo", "full"),
   include_department       = c("no", "pseudo", "full"),
+  include_trials           = c("no", "pseudo", "full"),
   include_user             = c("no", "pseudo", "full"),
   include_patient          = c("no", "pseudo", "full"),
   include_enrollment       = c("no", "pseudo", "full"),

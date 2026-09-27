@@ -72,6 +72,13 @@ entity that is itself imported:
 adds their typed values as `metadata$departmentAttributeValues`, with
 the attribute definitions in `metadata$orgUnitAttributes`.
 
+The trials the imported departments take part in are imported on request
+too:
+`dhis2_dataset_options(include_department = "full", include_trials = "full")`
+lists them as `metadata$trials` and links each department to its trials
+in `metadata$departmentTrials`. `trial_filter` narrows the import to the
+departments of the trials it names.
+
 ## Calculating Indicators
 
 `import_dhis2()` returns a keyed, relational dataset. From there,

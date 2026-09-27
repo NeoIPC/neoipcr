@@ -62,10 +62,17 @@ section above it for the next changes.
   any of them left before rule 57 could report it.
 * `get_benchmark_data()` without any dataset aborts with class `neoipcr_no_benchmark_datasets`,
   where it failed with "subscript out of bounds".
-* `import_dhis2()` with `trial_keys` on an instance without the `NEOIPC_TRIALS` organisation unit
-  group set aborts with class `neoipcr_missing_trials_group_set`, where it failed with "argument is
-  of length zero". An empty `trial_keys` names no trial, as the metadata request already treated it,
-  instead of failing the same way.
+* `include_trials` shows the NeoIPC trials the imported departments take part in, the organisation
+  unit groups of the group set `NEOIPC_TRIALS`: `metadata$trials` lists them — by `trial_key`, and
+  under `"full"` with their code and display names — and `metadata$departmentTrials` links each
+  department to its trials by `department_key` and `trial_key`. It defaults to `"no"`, since a trial
+  with few departments narrows down which department a pseudonymized key stands for.
+* `trial_keys` is now `trial_filter`, beside `department_filter` and `country_filter`, and selects
+  again: the import keeps the departments that take part in at least one of the named trials, with
+  their patients, enrolments and events, and sends its tracker requests to those departments alone.
+  It had stopped narrowing anything. The codes are matched exactly rather than as case-insensitive
+  patterns, and a code the instance has no trial for aborts with class `neoipcr_unknown_trial`, where
+  an instance without the trials group set failed with "argument is of length zero".
 
 # neoipcr 0.0.0.9005
 

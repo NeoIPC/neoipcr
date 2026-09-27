@@ -1117,3 +1117,36 @@ test_that("the org-unit attribute builders match their schemas", {
   expect_equal(ncol(make_test_metadata_hospital_attribute_values(
     include_hospital = "no")), 0L)
 })
+
+# --- trials_cols / departmentTrials_cols — the include_trials opt-in ---
+
+trial_gate_label <- function(opts)
+  sprintf("include_trials=%s, include_department=%s",
+          opts$include_trials, opts$include_department)
+
+test_that("get_trials_schema follows the strict 0 -> 1 -> N progression of include_trials", {
+  for (opts in iter_dataset_options(c("include_trials", "include_department"))) {
+    expected <- switch(opts$include_trials,
+      no     = character(),
+      pseudo = "trial_key",
+      full   = c("trial_key", "code", "displayName", "displayShortName",
+                 "displayDescription"))
+    expect_identical(
+      names(neoipcr:::get_trials_schema(opts)), expected,
+      info = trial_gate_label(opts))
+  }
+})
+
+test_that("get_departmentTrials_schema opens only with trials opted in and departments present", {
+  for (opts in iter_dataset_options(c("include_trials", "include_department"))) {
+    schema <- neoipcr:::get_departmentTrials_schema(opts)
+    if (opts$include_trials != "no" && opts$include_department != "no") {
+      expect_identical(
+        names(schema), c("department_key", "trial_key"),
+        info = trial_gate_label(opts))
+      expect_true(is.integer(schema$department_key), info = trial_gate_label(opts))
+      expect_true(is.integer(schema$trial_key), info = trial_gate_label(opts))
+    } else
+      expect_equal(ncol(schema), 0L, info = trial_gate_label(opts))
+  }
+})
