@@ -298,8 +298,14 @@ import_dhis2 <- function(
 
   metadata$dataset_options <- dataset_options
 
+  # The notes are matched to their enrolment on the DHIS2 enrolment id,
+  # which the internal map always carries and the public enrolments only
+  # when read in full under `include_dhis2_ids`. The notes of an enrolment
+  # the reporting period or the validation pass leaves out go with it in
+  # the post-filter.
   enrollment_notes <- read_enrollment_notes(
-    enrollments_raw, enrollments, metadata, dataset_options)
+    enrollments_raw, metadata$.enrollments_internal_map, metadata,
+    dataset_options)
   eventNotes <- read_event_notes(
     events_raw, metadata$.events_internal_map, metadata, dataset_options)
   surveillanceEndData <- read_event_data(

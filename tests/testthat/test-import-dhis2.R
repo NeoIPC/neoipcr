@@ -1479,3 +1479,117 @@ for (mode in c("pseudo", "full")) {
     })
   })
 }
+
+# ---------------------------------------------------------------------------
+# Enrolment notes. The audit fixtures with a note on each enrolment; the first
+# enrolment's surveillance ended on 2024-01-20, the second's on 2024-03-01.
+# `author` is the first note's author, the whole tracker User object a server
+# returns for a note. By default it carries the test user's uid and a username
+# no user of the map has, so only a match on the uid finds it; `NULL` leaves
+# the author out. The second note names none.
+# ---------------------------------------------------------------------------
+
+with_enrollment_notes <- function(fx, author = list(
+                                    uid = "meUser0001", username = "not_in_the_map",
+                                    firstName = "Test", surname = "User",
+                                    displayName = "Test User")) {
+  body <- jsonlite::fromJSON(fx$enrollments, simplifyVector = FALSE)
+  first <- list(
+    note = "NOTE_ENR_1", value = "First enrolment", storedBy = "neoipc_user",
+    storedAt = "2024-01-01T12:10:00.000")
+  first$createdBy <- author
+  body$enrollments[[1]]$notes <- list(first)
+  body$enrollments[[2]]$notes <- list(list(
+    note = "NOTE_ENR_2", value = "Second enrolment", storedBy = "neoipc_user",
+    storedAt = "2024-01-05T12:10:00.000"))
+  fx$enrollments <- as.character(jsonlite::toJSON(body, auto_unbox = TRUE, null = "null"))
+  fx
+}
+
+test_that("import_dhis2 reads the enrolment notes without the DHIS2 enrolment ids", {
+  m <- new_dhis2_mock(with_enrollment_notes(audit_fixtures()), honour_fields = TRUE)
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(include_notes = "enrollments"))
+
+  expect_false("enrollment" %in% names(ds$enrollments))
+  notes <- ds$enrollment_notes |>
+    dplyr::inner_join(
+      ds$enrollments |> dplyr::select("enrollment_key", "enrolledAt"),
+      dplyr::join_by("enrollment_key"))
+  expect_equal(nrow(notes), 2L)
+  expect_equal(notes$value[notes$enrolledAt == as.Date("2024-01-01")], "First enrolment")
+  expect_equal(notes$value[notes$enrolledAt == as.Date("2024-01-05")], "Second enrolment")
+
+  # Under pseudonymized enrolments the notes still link to them by the
+  # enrolment key.
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_enrollment = "pseudo", include_notes = "enrollments"))
+  expect_equal(nrow(ds$enrollment_notes), 2L)
+  expect_setequal(ds$enrollment_notes$enrollment_key, ds$enrollments$enrollment_key)
+})
+
+for (mode in c("pseudo", "full")) {
+  local({
+    include_user <- mode
+    test_that(sprintf("import_dhis2 resolves the enrolment notes' authors under include_user = \"%s\"", include_user), {
+      m <- new_dhis2_mock(with_enrollment_notes(audit_fixtures()), honour_fields = TRUE)
+      httr2::local_mocked_responses(m$mock)
+
+      ds <- import_dhis2(test_conn(), import_test_opts(
+        include_user = include_user, include_notes = "enrollments"))
+
+      # The author is matched on the User's `uid`; the note without one
+      # has no author.
+      user_key <- ds$metadata$users$user_key
+      notes <- ds$enrollment_notes |>
+        dplyr::inner_join(
+          ds$enrollments |> dplyr::select("enrollment_key", "enrolledAt"),
+          dplyr::join_by("enrollment_key"))
+      first <- notes$enrolledAt == as.Date("2024-01-01")
+      expect_identical(notes$createdBy[first], user_key)
+      expect_identical(notes$createdBy[!first], NA_integer_)
+      expect_identical(notes$storedBy, rep(user_key, 2L))
+
+      # A response in which no note names an author.
+      m <- new_dhis2_mock(
+        with_enrollment_notes(audit_fixtures(), author = NULL), honour_fields = TRUE)
+      httr2::local_mocked_responses(m$mock)
+      ds <- import_dhis2(test_conn(), import_test_opts(
+        include_user = include_user, include_notes = "enrollments"))
+      expect_identical(ds$enrollment_notes$createdBy, rep(NA_integer_, 2L))
+      expect_identical(ds$enrollment_notes$storedBy, rep(user_key, 2L))
+    })
+  })
+}
+
+test_that("import_dhis2 keeps the notes of the enrolments it keeps and no others", {
+  m <- new_dhis2_mock(with_enrollment_notes(audit_fixtures()), honour_fields = TRUE)
+  httr2::local_mocked_responses(m$mock)
+
+  # A reporting period from February holds the second enrolment only.
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_notes = "enrollments", surveillance_end_from = as.Date("2024-02-01")))
+  expect_equal(nrow(ds$enrollments), 1L)
+  expect_equal(ds$enrollment_notes$value, "Second enrolment")
+  expect_identical(ds$enrollment_notes$enrollment_key, ds$enrollments$enrollment_key)
+
+  # The validation pass flags both patients: each admission form is dated a
+  # day after its enrolment (rule 3), and each surveillance-end form's
+  # patient days are one short of the count from the enrolment (rule 18).
+  # An exception keeps the second patient, so the pass removes the first,
+  # and only the second enrolment's note stays.
+  exceptions <- tibble::tibble(
+    RULE_ID           = c(3L, 18L),
+    NEOIPC_PATIENT_ID = "PAT_2",
+    ENROLMENT_DATE    = as.Date("2024-01-05"),
+    EVENT_TYPE        = NA_character_,
+    EVENT_DATE        = as.Date(NA))
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_notes = "enrollments", include_invalid_patients = exceptions))
+  totals <- ds$validationSummary[is.na(ds$validationSummary$rule_id), ]
+  expect_equal(totals$n_removed[totals$record_kind == "enrollments"], 1L)
+  expect_equal(nrow(ds$enrollments), 1L)
+  expect_equal(ds$enrollment_notes$value, "Second enrolment")
+  expect_identical(ds$enrollment_notes$enrollment_key, ds$enrollments$enrollment_key)
+})
