@@ -1,0 +1,48 @@
+{
+  "trackedEntities": [
+    {
+      "trackedEntity": "TE_1",
+      "orgUnit": "OU_DEPT_1",
+      "inactive": false,
+      "potentialDuplicate": false,
+      "createdAt": "2024-01-01T12:05:00.000",
+      "createdAtClient": "2024-01-01T12:04:30.000",
+      "updatedAt": "2024-01-01T12:05:00.000",
+      "updatedAtClient": "2024-01-01T12:04:30.000",
+      "storedBy": "neoipc_user",
+      "createdBy": { "username": "neoipc_user" },
+      "updatedBy": { "username": "neoipc_user" },
+      "attributes": [
+        {
+          "attribute": "yQwpowV0o08",
+          "value": "PAT_1",
+          "createdAt": "2024-01-01T12:05:00.000",
+          "updatedAt": "2024-01-01T12:05:00.000",
+          "storedBy": "neoipc_user"
+        }
+      ]
+    },
+    {
+      "trackedEntity": "TE_2",
+      "orgUnit": "OU_DEPT_1",
+      "inactive": false,
+      "potentialDuplicate": false,
+      "createdAt": "2024-01-05T12:05:00.000",
+      "createdAtClient": "2024-01-05T12:04:30.000",
+      "updatedAt": "2024-01-05T12:05:00.000",
+      "updatedAtClient": "2024-01-05T12:04:30.000",
+      "storedBy": "neoipc_user",
+      "createdBy": { "username": "neoipc_user" },
+      "updatedBy": { "username": "neoipc_user" },
+      "attributes": [
+        {
+          "attribute": "yQwpowV0o08",
+          "value": "PAT_2",
+          "createdAt": "2024-01-05T12:05:00.000",
+          "updatedAt": "2024-01-05T12:05:00.000",
+          "storedBy": "neoipc_user"
+        }
+      ]
+    }
+  ]
+}

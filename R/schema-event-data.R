@@ -32,12 +32,11 @@ NULL
 # pattern; `surveillanceEndData_cols` doesn't declare them.
 #
 # Per-DE companion columns follow `event_data_attribute_cols()` from
-# `schema-cols-shared.R` — three companions per data element
-# (`_createdBy`, `_createdAt`, `_updatedAt`). DHIS2's
-# `EventDataValue.java` carries more (`storedBy`, server timestamps
-# plus user info blobs), but the current reader's API request only
-# fetches `createdBy[username]`, `createdAt`, `updatedAt` — the
-# schema mirrors the current reader output.
+# `schema-cols-shared.R` — five companions per data element, one per
+# audit field of DHIS2's tracker `DataValue`: `_storedBy`, `_createdBy`,
+# `_updatedBy` under `include_user`, `_createdAt`, `_updatedAt` under
+# `include_timestamps`. `substanceDays` carries them on both of a
+# slot's values.
 #
 # Entity gate: every per-event-type tibble is gated on
 # `include_event != "no"`. Under pseudo events (events has only
@@ -99,7 +98,8 @@ event_data_col <- function(name, type,
   event_data_attribute_cols(base_col, base_when)
 }
 
-# Common link / hierarchy prefix for every per-event-type tibble.
+# Common link / hierarchy prefix for every per-event-type tibble and
+# for `substanceDays`.
 # Link FKs and hierarchy keys inherit strictly from events_cols — they
 # materialize here only when events's compiled schema doesn't already
 # carry them under the current opts.
@@ -513,42 +513,32 @@ findings_cols <- with_entity_gate(
 # No separate PK — `(event_key, index)` is unique per row. Composite
 # key is also how downstream consumers join to events.
 #
-# Gate: `include_event != "no"`. Under pseudo events the tibble still
-# carries event_key + its payload (same semantic as per-event-type
-# data).
+# The substance and its days are two data values, so each carries its
+# own five audit companions (`substance_code_createdBy`,
+# `days_updatedAt`, …), declared the same way as on the per-event-type
+# data tibbles.
+#
+# Gate: `include_event != "no"`. The payload and its companions need
+# `include_event == "full"`, so under pseudo events the tibble keeps
+# only `event_key` and what it inherits from `events_cols` (link and
+# hierarchy keys, and `isTest` under `include_test_data`), as
+# `findings_cols` does beside its own `agent_finding_key`; the
+# per-event-type data tibbles keep their payload under pseudo events.
+
+substance_days_col <- function(name, type)
+{
+  base_when <- \(opts) opts$include_event == "full"
+  event_data_attribute_cols(schema_col(name, type, base_when), base_when)
+}
 
 substanceDays_cols <- with_entity_gate(
-  list(
-    col_event_key,
-
-    # Inherited link FKs + hierarchy + isTest from events_cols.
-    col_inherited_from("enrollment_key",       "include_enrollment",
-                       events_cols),
-    col_inherited_from("patient_key",          "include_patient",
-                       events_cols),
-    col_inherited_from("department_key",       "include_department",
-                       events_cols),
-    col_inherited_from("hospital_key",         "include_hospital",
-                       events_cols),
-    col_inherited_from("country_key",          "include_country",
-                       events_cols),
-    col_inherited_from("world_bank_class_key", "include_world_bank_class",
-                       events_cols),
-    schema_col(
-      "isTest", logical(),
-      include_when = \(opts)
-        isTRUE(opts$include_test_data) &&
-        !("isTest" %in% names(compile_schema(events_cols, opts)))),
-
-    schema_col(
+  c(
+    .event_data_link_cols(),
+    list(schema_col(
       "index", integer(),
-      include_when = \(opts) opts$include_event == "full"),
-    schema_col(
-      "substance_code", character(),
-      include_when = \(opts) opts$include_event == "full"),
-    schema_col(
-      "days", integer(),
-      include_when = \(opts) opts$include_event == "full")
+      include_when = \(opts) opts$include_event == "full")),
+    substance_days_col("substance_code", character()),
+    substance_days_col("days", integer())
   ),
   gate = \(opts) opts$include_event != "no"
 )

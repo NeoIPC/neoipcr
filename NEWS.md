@@ -14,6 +14,18 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+* `import_dhis2()` with `include_timestamps = TRUE` no longer fails on the events. It parses the
+  timestamps the events schema declares as date-times — `scheduledAt`, `completedAt`, `createdAt`,
+  `createdAtClient`, `updatedAt` and `updatedAtClient` — where it used to parse every column whose name
+  ends in "At", `occurredAt` among them, which is a date by then.
+* `substanceDays` carries the audit fields of both of a slot's data values when they are requested:
+  under `include_user = "pseudo"` or `"full"` the user keys in `substance_code_storedBy`,
+  `substance_code_createdBy`, `substance_code_updatedBy` and their `days_` counterparts, under
+  `include_timestamps = TRUE` the date-times in `substance_code_createdAt`, `substance_code_updatedAt`
+  and theirs — the same companions the per-event-type data tibbles carry for each field. An import
+  that requested either used to fail on these fields. A slot stays one row when its substance and its
+  days were entered by different users or at different times.
+
 # neoipcr 0.0.0.9005
 
 * Twelve rules extend the validation pass to protocol constraints the partner team can see and

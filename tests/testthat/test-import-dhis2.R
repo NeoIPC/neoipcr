@@ -1262,3 +1262,118 @@ test_that("import_dhis2 narrows a reporting period to the enrolments that ended 
     include_enrollment = "pseudo", surveillance_end_from = from_march))
   expect_setequal(as.character(ds$patients$patient_id), c("PAT_2", "PAT_3"))
 })
+
+# ---------------------------------------------------------------------------
+# Audit fields end to end. A live server returns the user and timestamp fields
+# on every tracked entity, enrolment and event, and on each of an event's data
+# values, whenever `include_user` or `include_timestamps` asks for them. The
+# audit fixtures carry all of them, on the base patients and admission forms
+# plus a surveillance-end form per enrolment holding antibiotic-substance
+# slots; the second patient's second slot had its days corrected a day after
+# the substance was entered. Served through the mock's field filter, each
+# response holds only what its request selected.
+# ---------------------------------------------------------------------------
+
+audit_fixtures <- function(version = "2.40.12.0") {
+  fx <- import_test_fixtures(version, me_fixture_for(version))
+  fx$metadata        <- build_metadata_response(version, surveillance_end = TRUE)
+  fx$trackedEntities <- read_fixture_text("tracker-trackedEntities-audit.json")
+  fx$enrollments     <- read_fixture_text("tracker-enrollments-audit.json")
+  fx$events          <- read_fixture_text("tracker-events-audit.json")
+  fx
+}
+
+utc <- function(x) as.POSIXct(x, tz = "UTC")
+
+test_that("import_dhis2 parses the event and data-value timestamps under include_timestamps", {
+  m <- new_dhis2_mock(audit_fixtures(), honour_fields = TRUE)
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(include_timestamps = TRUE))
+
+  # `occurredAt` stays the event date; the six instants the schema declares
+  # parse to date-times, and `scheduledAt`, which only the first
+  # surveillance-end form carries, reads as NA on the other events.
+  events <- ds$events
+  expect_equal(nrow(events), 4L)
+  expect_s3_class(events$occurredAt, "Date")
+  end_1 <- events$occurredAt == as.Date("2024-01-20")
+  end_2 <- events$occurredAt == as.Date("2024-03-01")
+  expect_equal(events$scheduledAt[end_1], utc("2024-01-20 00:00:00"))
+  expect_true(all(is.na(events$scheduledAt[!end_1])))
+  expect_equal(events$completedAt[end_2], utc("2024-03-01 12:05:00"))
+  expect_equal(events$createdAt[end_2], utc("2024-03-01 12:05:00"))
+  expect_equal(events$createdAtClient[end_2], utc("2024-03-01 12:04:30"))
+  expect_equal(events$updatedAt[end_2], utc("2024-03-02 09:00:00"))
+  expect_equal(events$updatedAtClient[end_2], utc("2024-03-02 08:59:30"))
+
+  # One row per substance slot, each of its two values with its own
+  # timestamps: the corrected days do not split the slot.
+  sbd <- ds$substanceDays
+  expect_equal(nrow(sbd), 3L)
+  slot <- sbd[sbd$index == 2L, ]
+  expect_equal(nrow(slot), 1L)
+  expect_equal(slot$substance_code, "J01DH02")
+  expect_equal(slot$days, 2L)
+  expect_equal(slot$substance_code_updatedAt, utc("2024-03-01 12:05:00"))
+  expect_equal(slot$days_updatedAt, utc("2024-03-02 09:00:00"))
+  expect_equal(slot$days_createdAt, utc("2024-03-01 12:05:00"))
+
+  # The surveillance-end form's own fields carry theirs beside the slots,
+  # and so do the admission form's.
+  end_data <- ds$surveillanceEndData
+  expect_setequal(end_data$patient_days, c(19L, 56L))
+  expect_equal(
+    end_data$patient_days_updatedAt[end_data$patient_days == 56L],
+    utc("2024-03-01 12:05:00"))
+  adm <- ds$admissionData
+  expect_equal(adm$dol_createdAt[adm$dol == 5L], utc("2024-01-06 12:05:00"))
+})
+
+test_that("import_dhis2 reads a declared event instant no event carries as NA", {
+  # DHIS2 omits a field that is null, so an instant null on every event in
+  # the response arrives as no column at all.
+  fx <- audit_fixtures()
+  body <- jsonlite::fromJSON(fx$events, simplifyVector = FALSE)
+  body$events <- lapply(body$events, \(event) {
+    event$scheduledAt <- NULL
+    event
+  })
+  fx$events <- as.character(jsonlite::toJSON(body, auto_unbox = TRUE, null = "null"))
+  m <- new_dhis2_mock(fx, honour_fields = TRUE)
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(include_timestamps = TRUE))
+
+  expect_s3_class(ds$events$scheduledAt, "POSIXct")
+  expect_true(all(is.na(ds$events$scheduledAt)))
+  expect_false(anyNA(ds$events$createdAt))
+})
+
+for (mode in c("pseudo", "full")) {
+  local({
+    include_user <- mode
+    test_that(sprintf("import_dhis2 resolves the data-value users under include_user = \"%s\"", include_user), {
+      m <- new_dhis2_mock(audit_fixtures(), honour_fields = TRUE)
+      httr2::local_mocked_responses(m$mock)
+
+      ds <- import_dhis2(test_conn(), import_test_opts(include_user = include_user))
+
+      # Every record was entered by the one user the /me fallback reads.
+      user_key <- ds$metadata$users$user_key
+      expect_length(user_key, 1L)
+
+      sbd <- ds$substanceDays
+      expect_equal(nrow(sbd), 3L)
+      expect_setequal(sbd$substance_code, c("J01CA04", "J01DH02"))
+      for (col in c("substance_code_storedBy", "substance_code_createdBy",
+                    "substance_code_updatedBy", "days_storedBy",
+                    "days_createdBy", "days_updatedBy"))
+        expect_identical(sbd[[col]], rep(user_key, 3L), info = col)
+
+      expect_identical(
+        ds$surveillanceEndData$patient_days_createdBy, rep(user_key, 2L))
+      expect_identical(ds$events$completedBy, rep(user_key, 4L))
+    })
+  })
+}
