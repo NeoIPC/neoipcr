@@ -1672,14 +1672,15 @@ test_that("import_dhis2 keeps the notes of the enrolments it keeps and no others
   expect_identical(ds$enrollment_notes$enrollment_key, ds$enrollments$enrollment_key)
 
   # The validation pass flags both patients: each admission form is dated a
-  # day after its enrolment (rule 3), and each surveillance-end form's
-  # patient days are one short of the count from the enrolment (rule 18).
-  # An exception keeps the second patient, so the pass removes the first,
-  # and only the second enrolment's note stays.
+  # day after its enrolment (rule 3), each surveillance-end form's patient
+  # days are one short of the count from the enrolment (rule 18), and
+  # neither patient records a birth weight or gestational age (rule 57).
+  # Exceptions keep the second patient, so the pass removes the first, and
+  # only the second enrolment's note stays.
   exceptions <- tibble::tibble(
-    RULE_ID           = c(3L, 18L),
+    RULE_ID           = c(3L, 18L, 57L),
     NEOIPC_PATIENT_ID = "PAT_2",
-    ENROLMENT_DATE    = as.Date("2024-01-05"),
+    ENROLMENT_DATE    = as.Date(c("2024-01-05", "2024-01-05", NA)),
     EVENT_TYPE        = NA_character_,
     EVENT_DATE        = as.Date(NA))
   ds <- import_dhis2(test_conn(), import_test_opts(
