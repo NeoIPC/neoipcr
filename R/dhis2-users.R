@@ -35,7 +35,7 @@ get_user_info <- function(req)
       }
     ),
     error = function(cnd) {
-      if (inherits(cnd, "neoipcr_dhis2_error")) stop(cnd)
+      if (inherits(cnd, "neoipcr_dhis2_error")) rlang::cnd_signal(cnd)
       rlang::abort(c(
         sprintf("Failed to connect to DHIS2 at %s.", req$url),
         i = "Check your network connection and DHIS2 server URL.",

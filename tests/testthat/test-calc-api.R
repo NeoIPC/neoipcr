@@ -165,6 +165,10 @@ test_that("an empty department filter leaves reference data as unfiltered, not a
   expect_null(ref$metadata$dataset_options$department_filter)
 })
 
+test_that("get_benchmark_data refuses a call without any dataset", {
+  expect_error(get_benchmark_data(), class = "neoipcr_no_benchmark_datasets")
+})
+
 test_that("get_benchmark_data carries each dataset's validation summary under its name", {
   ds <- make_calc_test_ds()
   own <- calculate_department_data(ds, use_cache = FALSE)

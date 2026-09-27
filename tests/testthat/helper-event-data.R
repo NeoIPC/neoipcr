@@ -183,9 +183,12 @@
 #'   with no dataValues.
 #' @return A tibble with columns `event`, `dataValues`.
 build_raw_events <- function(event_keys, event_type_key, rows) {
-  stopifnot(
-    length(event_keys) == length(rows),
-    event_type_key %in% names(.stage_prefix))
+  if (length(event_keys) != length(rows))
+    rlang::abort(sprintf(
+      "%d row(s) given for %d event key(s).", length(rows), length(event_keys)))
+  if (!all(event_type_key %in% names(.stage_prefix)))
+    rlang::abort(paste0(
+      "Unknown event type key: ", paste(event_type_key, collapse = ", ")))
 
   data_values <- purrr::map(rows, function(row) {
     purrr::map(names(row), function(field) {
@@ -365,7 +368,10 @@ build_reader_metadata <- function(event_type_key = c("adm", "end", "bsi",
 #'   E.g. `list(list("1" = list(substance_code = "J01CA04", days = "3")))`.
 #'   Use `list()` for an event with no substance DEs.
 build_raw_substance_events <- function(event_keys, substance_rows) {
-  stopifnot(length(event_keys) == length(substance_rows))
+  if (length(event_keys) != length(substance_rows))
+    rlang::abort(sprintf(
+      "%d substance row(s) given for %d event key(s).",
+      length(substance_rows), length(event_keys)))
 
   data_values <- purrr::map(substance_rows, function(row) {
     dvs <- list()
@@ -405,9 +411,14 @@ build_raw_substance_events <- function(event_keys, substance_rows) {
 #'   `list(list("1" = list(pathogen = "42", "3gcr" = "0")))`.
 build_raw_pathogen_events <- function(event_keys, event_type_keys,
                                       pathogen_rows) {
-  stopifnot(
-    length(event_keys) == length(pathogen_rows),
-    length(event_keys) == length(event_type_keys))
+  if (length(event_keys) != length(pathogen_rows))
+    rlang::abort(sprintf(
+      "%d pathogen row(s) given for %d event key(s).",
+      length(pathogen_rows), length(event_keys)))
+  if (length(event_keys) != length(event_type_keys))
+    rlang::abort(sprintf(
+      "%d event type key(s) given for %d event key(s).",
+      length(event_type_keys), length(event_keys)))
 
   data_values <- purrr::map2(pathogen_rows, event_type_keys, function(row, etk) {
     prefix <- .stage_prefix[[etk]]

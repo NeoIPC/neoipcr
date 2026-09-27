@@ -258,15 +258,20 @@ read_metadata_test_unit_ids <- function(metadata, include_test_data)
 
 read_metadata_trials <- function(metadata, trial_keys)
 {
-  if(is.null(trial_keys))
+  # The metadata request asks for the trials group set only when
+  # `trial_keys` names at least one trial.
+  if(length(trial_keys) == 0L)
     return(NULL)
 
-  for (i in 1:2) {
-    if ('NEOIPC_TRIALS' ==
-        (purrr::pluck(metadata,"organisationUnitGroupSets", i, "code"))) break
-  }
-  organisationUnitGroups <- metadata |>
-    purrr::pluck("organisationUnitGroupSets", i, "organisationUnitGroups")
+  trials_set <- purrr::detect(
+    purrr::pluck(metadata, "organisationUnitGroupSets"),
+    \(gs) identical(purrr::pluck(gs, "code"), "NEOIPC_TRIALS"))
+  if (is.null(trials_set))
+    rlang::abort(c(
+      "`trial_keys` names trials, but the DHIS2 instance has no trials group set.",
+      "i" = "Trials are read from the organisation unit group set with the code NEOIPC_TRIALS."),
+      class = "neoipcr_missing_trials_group_set")
+  organisationUnitGroups <- purrr::pluck(trials_set, "organisationUnitGroups")
 
   if(rlang::is_null(organisationUnitGroups))
     return(NULL)

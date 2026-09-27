@@ -60,6 +60,12 @@ section above it for the next changes.
   selects only the attributes it reads — the multiple-birth flag, the number of infants, the birth
   weight and the gestational age — so an import without any of them failed, and a patient without
   any of them left before rule 57 could report it.
+* `get_benchmark_data()` without any dataset aborts with class `neoipcr_no_benchmark_datasets`,
+  where it failed with "subscript out of bounds".
+* `import_dhis2()` with `trial_keys` on an instance without the `NEOIPC_TRIALS` organisation unit
+  group set aborts with class `neoipcr_missing_trials_group_set`, where it failed with "argument is
+  of length zero". An empty `trial_keys` names no trial, as the metadata request already treated it,
+  instead of failing the same way.
 
 # neoipcr 0.0.0.9005
 

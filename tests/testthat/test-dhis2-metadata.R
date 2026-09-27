@@ -356,6 +356,40 @@ test_that("read_metadata_wb_classes country_map exposes the WB-class-to-country 
   expect_equal(nrow(result$country_map), 2L)
 })
 
+# --- read_metadata_trials — the trials group set, found by its code ---
+
+test_that("read_metadata_trials finds the trials group set by its code", {
+  # Another group set before it carries a group the trial key would match
+  # as well, so reading the wrong set would show.
+  metadata <- build_wb_class_metadata()
+  metadata$organisationUnitGroupSets <- c(
+    metadata$organisationUnitGroupSets,
+    list(
+      list(code = "OTHER_GROUP_SET", organisationUnitGroups = list(
+        list(code = "OTHER_TRIAL_A", organisationUnits = list()))),
+      list(code = "NEOIPC_TRIALS", organisationUnitGroups = list(
+        list(code = "TRIAL_A", organisationUnits = list(list(id = "OU_1"))),
+        list(code = "TRIAL_B", organisationUnits = list(list(id = "OU_2")))))))
+
+  trials <- neoipcr:::read_metadata_trials(metadata, "trial_a")
+
+  expect_identical(trials$code, "TRIAL_A")
+})
+
+test_that("read_metadata_trials aborts when trials are named and the instance has no trials group set", {
+  expect_error(
+    neoipcr:::read_metadata_trials(build_wb_class_metadata(), "trial_a"),
+    class = "neoipcr_missing_trials_group_set")
+  expect_error(
+    neoipcr:::read_metadata_trials(list(), "trial_a"),
+    class = "neoipcr_missing_trials_group_set")
+})
+
+test_that("read_metadata_trials reads nothing when no trial is named", {
+  expect_null(neoipcr:::read_metadata_trials(list(), NULL))
+  expect_null(neoipcr:::read_metadata_trials(list(), character()))
+})
+
 # --- read_metadata orchestrator — worldBankClasses always in ret ---
 
 test_that("read_metadata stores worldBankClasses as an empty tibble (never NULL) under 'no'", {

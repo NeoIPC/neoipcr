@@ -342,7 +342,9 @@ calculate_department_data <- function(x, use_cache = TRUE) {
 #'  reference data but it can also be multiple neoipcr_rep_ds or multiple
 #'  neoipcr_ref_ds to benchmark them against each other). Each name is appended
 #'  to that dataset's column names in the resulting tables, so
-#'  `get_benchmark_data(own = x, ref = y)` yields `n_own` and `n_ref`
+#'  `get_benchmark_data(own = x, ref = y)` yields `n_own` and `n_ref`. At
+#'  least one dataset is required; a call without any aborts with class
+#'  `neoipcr_no_benchmark_datasets`.
 #'
 #' @returns A neoipcr_bnch_ds. Each dataset's `metadata` and
 #'  `validationSummary` are carried under the dataset's name — a dataset
@@ -351,7 +353,10 @@ calculate_department_data <- function(x, use_cache = TRUE) {
 #' @export
 get_benchmark_data <- function(...) {
   x <- list(...)
-  n_ds <- length(x)
+  if (length(x) == 0L)
+    rlang::abort(
+      "No dataset to benchmark: pass at least one calculated dataset.",
+      class = "neoipcr_no_benchmark_datasets")
   ds_names = rlang::names2(x)
   output <- list(
     dataset_names = ds_names,
@@ -360,7 +365,7 @@ get_benchmark_data <- function(...) {
   suffixes = ds_names |>
     sapply(\(x)ifelse(x=="",x,paste0("_",x)), USE.NAMES = FALSE)
 
-  for (i in 1:n_ds) {
+  for (i in seq_along(x)) {
     ds <- x[[i]]
     suffix <- suffixes[i]
     ds_name <- ds_names[i]
@@ -444,12 +449,9 @@ get_benchmark_data <- function(...) {
         output$n_surgical_procedures, tbl)
     }
     if ("birth_weight_figure" %in% elements) {
-      n_tbl <- length(ds$birth_weight_figure)
-      tbl_names <- names(ds$birth_weight_figure)
-      for (j in 1:n_tbl) {
-        tbl_name <- tbl_names[j]
+      for (tbl_name in names(ds$birth_weight_figure)) {
         tbl <- tibble::tibble(dataset = ds_name) |>
-          dplyr::bind_cols(ds$birth_weight_figure[[j]])
+          dplyr::bind_cols(ds$birth_weight_figure[[tbl_name]])
 
         if (is.null(output$birth_weight_figure)) {
           output$birth_weight_figure <- list()
@@ -464,12 +466,9 @@ get_benchmark_data <- function(...) {
       }
     }
     if ("gestational_age_figure" %in% elements) {
-      n_tbl <- length(ds$gestational_age_figure)
-      tbl_names <- names(ds$gestational_age_figure)
-      for (j in 1:n_tbl) {
-        tbl_name <- tbl_names[j]
+      for (tbl_name in names(ds$gestational_age_figure)) {
         tbl <- tibble::tibble(dataset = ds_name) |>
-          dplyr::bind_cols(ds$gestational_age_figure[[j]])
+          dplyr::bind_cols(ds$gestational_age_figure[[tbl_name]])
 
         if (is.null(output$gestational_age_figure)) {
           output$gestational_age_figure <- list()
