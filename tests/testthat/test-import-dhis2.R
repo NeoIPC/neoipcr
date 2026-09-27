@@ -1251,6 +1251,56 @@ test_that("import_dhis2 keeps a patient with neither birth weight nor gestationa
   expect_equal(as.character(ds$patients$patient_id), "PAT_2")
 })
 
+# The fixture set with the `i`-th tracked entity's attributes replaced.
+with_attributes <- function(fx, i, attributes) {
+  te <- jsonlite::fromJSON(fx$trackedEntities, simplifyVector = FALSE)
+  te$trackedEntities[[i]]$attributes <- attributes
+  fx$trackedEntities <- as.character(jsonlite::toJSON(te, auto_unbox = TRUE, null = "null"))
+  fx
+}
+
+test_that("import_dhis2 keeps a patient that records none of the selected attributes", {
+  # The second patient has no birth weight, the one attribute selected.
+  fx <- with_attributes(import_test_fixtures(patient_eligibility = TRUE), 2L, list(
+    list(attribute = "yQwpowV0o08", value = "PAT_2"),
+    list(attribute = "qLGOhTzMVyY", value = "27+3"),
+    list(attribute = "Qyu9KOWyazL", value = "192")))
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(patient_columns = "birth_weight"))
+
+  expect_equal(sort(ds$patients$birth_weight, na.last = TRUE), c(1200L, NA))
+  expect_equal(nrow(ds$enrollments), 2L)
+})
+
+test_that("import_dhis2 validates pseudonymized patients none of which records an attribute its pass reads", {
+  # The baseline patients carry their patient id alone, which the
+  # pseudonymized tier does not read, so the pass gets no attribute value.
+  m <- new_dhis2_mock(import_test_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_patient = "pseudo", include_invalid_patients = FALSE))
+
+  expect_equal(sum(ds$validationResults$rule_id == 57L), 2L)
+})
+
+test_that("import_dhis2 reports a pseudonymized patient without birth weight or gestational age under rule 57", {
+  # The first patient keeps its patient id alone; the second records both.
+  fx <- with_attributes(import_test_fixtures(patient_eligibility = TRUE), 1L, list(
+    list(attribute = "yQwpowV0o08", value = "PAT_1")))
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_patient = "pseudo", include_invalid_patients = FALSE))
+
+  expect_equal(sum(ds$validationResults$rule_id == 57L), 1L)
+  per_rule <- ds$validationSummary[ds$validationSummary$rule_id %in% 57L, ]
+  expect_equal(per_rule$n_removed, 1L)
+})
+
 test_that("import_dhis2 narrows a reporting period to the enrolments that ended in it, before the pass", {
   # The mock with surveillance-end forms, a readmission and an unenrolled
   # patient: the first patient's first stay ended in January and a second

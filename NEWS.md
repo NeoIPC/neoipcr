@@ -53,6 +53,13 @@ section above it for the next changes.
   `include_ineligible_patients` is set. The pass reads the birth weight and the total gestation days
   whatever `patient_columns` selects, as it does the multiple-birth flag and the number of infants
   for rule 56, and drops them again unless selected.
+* `import_dhis2()` keeps a patient that records none of the selected patient attributes, with those
+  columns missing. Each patient's row used to be built from its attribute values, so such a patient
+  left the dataset silently, its enrolments and events with it, and an import in which no patient
+  recorded any selected attribute failed. Under `include_patient = "pseudo"` the validation pass
+  selects only the attributes it reads — the multiple-birth flag, the number of infants, the birth
+  weight and the gestational age — so an import without any of them failed, and a patient without
+  any of them left before rule 57 could report it.
 
 # neoipcr 0.0.0.9005
 

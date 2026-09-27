@@ -585,7 +585,7 @@ convert_value <- function(values, valueTypes, levelsLists)
 {
   len <- length(values)
   convertedValues <- vector(mode = "list", length = len)
-  for (i in 1:len) {
+  for (i in seq_len(len)) {
     value <- values[i]
     valueType <- valueTypes[i]
     levels <- unlist(levelsLists[i])

@@ -73,7 +73,14 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
         patient_key    = integer(),
         trackedEntity  = character())))
 
+  # One row per tracked entity, with the attribute values in a table of their
+  # own that is pivoted and joined onto it: a patient carrying none of the
+  # selected attributes keeps its row, with those columns missing, instead of
+  # leaving the dataset together with its attribute rows.
   patients <- trackedEntities |>
+    dplyr::select(!"attributes")
+  attribute_values <- trackedEntities |>
+    dplyr::select("trackedEntity", "attributes") |>
     tidyr::unnest_longer("attributes") |>
     tidyr::unnest_wider("attributes", names_sep = "_") |>
     dplyr::inner_join(
@@ -119,22 +126,27 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
   # Match against the normalized code (lowercase, NEOIPC_[TEA_]
   # prefix stripped) — same extraction that will run below.
   normalized_code <- stringr::str_extract(
-    tolower(patients$code), "^neoipc_(tea_)?(.+)$", group = 2)
-  patients <- patients |>
+    tolower(attribute_values$code), "^neoipc_(tea_)?(.+)$", group = 2)
+  attribute_values <- attribute_values |>
     dplyr::filter(normalized_code %in% allowed_codes)
 
-  if(dataset_options$include_timestamps)
-    patients <- patients |>
-      dplyr::mutate(dplyr::across(tidyselect::contains("At", ignore.case = FALSE), readr::parse_datetime))
+  # Both tables carry timestamps: the tracked entity's own and each
+  # attribute value's `attributes_createdAt` / `attributes_updatedAt`.
+  timestamps <- if (dataset_options$include_timestamps)
+    \(x) dplyr::mutate(x, dplyr::across(
+      tidyselect::contains("At", ignore.case = FALSE), readr::parse_datetime))
   else
-    patients <- patients |>
-      dplyr::select(!tidyselect::contains("At", ignore.case = FALSE))
+    \(x) dplyr::select(x, !tidyselect::contains("At", ignore.case = FALSE))
+  patients <- timestamps(patients)
+  attribute_values <- timestamps(attribute_values)
 
   if(dataset_options$include_user != "no")
+  {
     patients <- patients |>
-      resolve_user_fields(
-        metadata,
-        c("storedBy", "createdBy", "updatedBy", "attributes_storedBy"))
+      resolve_user_fields(metadata, c("storedBy", "createdBy", "updatedBy"))
+    attribute_values <- attribute_values |>
+      resolve_user_fields(metadata, "attributes_storedBy")
+  }
   # `metadata$users` → `metadata$.users_internal_map` on every lookup above.
   # `metadata$users` carries the public three-mode shape (0×0 / 1-col
   # `user_key` / full) declared by `users_cols`; pseudo mode intentionally
@@ -161,22 +173,27 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
     "total_gestation_days", "delivery_mode", "multiple_birth", "siblings")
   expected_codes <- intersect(expected_codes, allowed_codes)
 
-  patients <- patients |>
+  attribute_values <- attribute_values |>
     dplyr::mutate(
       attributes_value = convert_value(
         .data$attributes_value, .data$valueType, .data$levels),
       code = factor(
         stringr::str_extract(
           tolower(.data$code), "^neoipc_(tea_)?(.+)$", group = 2),
-        levels = expected_codes),
-      .keep = "unused"
+        levels = expected_codes)
     ) |>
     tidyr::pivot_wider(
+      id_cols = "trackedEntity",
       names_from = "code",
       values_from = tidyselect::starts_with("attributes_"),
       names_glue = "{code}_{.value}",
       names_vary = "slowest",
-      names_expand = TRUE) |>
+      names_expand = TRUE)
+
+  # A patient without a value keeps a `NULL` in that value's list column,
+  # which the unnest turns into `NA`.
+  patients <- patients |>
+    dplyr::left_join(attribute_values, dplyr::join_by("trackedEntity")) |>
     tidyr::unnest_longer(dplyr::ends_with("value"), keep_empty = TRUE) |>
     dplyr::rename_with(
       ~ stringr::str_remove(.x, "_attributes"),
