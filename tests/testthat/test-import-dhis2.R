@@ -65,13 +65,20 @@ import_test_opts <- function(...) {
 # `org_unit_attributes` merges the custom-attribute definitions into the
 # metadata response and mocks the IsTestunit follow-up they trigger; without
 # them no follow-up is mocked, so an unwanted one aborts in the mock.
+# `patient_eligibility` gives both patients an eligible birth weight and
+# gestational age, with the attributes that carry them; without it the
+# patients have neither, which rule 57 flags wherever the pass runs.
 import_test_fixtures <- function(version = "2.40.12.0", me = "me-nested.json",
-                                 org_unit_attributes = FALSE) {
+                                 org_unit_attributes = FALSE,
+                                 patient_eligibility = FALSE) {
   fx <- list(
     me                = read_fixture_text(me),
-    metadata          = build_metadata_response(version, org_unit_attributes),
+    metadata          = build_metadata_response(
+      version, org_unit_attributes, patient_eligibility = patient_eligibility),
     organisationUnits = read_fixture_text("orgunits-departments.json"),
-    trackedEntities   = read_fixture_text("tracker-trackedEntities.json"),
+    trackedEntities   = read_fixture_text(
+      if (patient_eligibility) "tracker-trackedEntities-eligibility.json"
+      else "tracker-trackedEntities.json"),
     enrollments       = read_fixture_text("tracker-enrollments.json"),
     events            = read_fixture_text("tracker-events.json"))
   if (org_unit_attributes)
@@ -146,7 +153,7 @@ test_that("import_dhis2 keeps a patient with no enrolment only when asked for th
   # enrols. The mock serves it whatever the request asks, so the default
   # import shows the orphan removal pruning it and the opt-in import shows
   # the removal leaving it in place.
-  fx <- import_test_fixtures()
+  fx <- import_test_fixtures(patient_eligibility = TRUE)
   tes <- jsonlite::fromJSON(fx$trackedEntities, simplifyVector = FALSE)
   unenrolled <- tes$trackedEntities[[1]]
   unenrolled$trackedEntity <- "TE_3"
@@ -206,7 +213,7 @@ test_that("import_dhis2 keeps a patient with no enrolment only when asked for th
 
 test_that("import_dhis2 keeps an enrolment without an admission form only when it skips the validation pass", {
   # The second enrolment loses its only event, the admission.
-  fx <- import_test_fixtures()
+  fx <- import_test_fixtures(patient_eligibility = TRUE)
   events <- jsonlite::fromJSON(fx$events, simplifyVector = FALSE)
   events$events <- Filter(function(e) e$enrollment != "ENR_2", events$events)
   fx$events <- jsonlite::toJSON(events, auto_unbox = TRUE, null = "null")
@@ -918,7 +925,7 @@ test_that("import_dhis2 keeps the records an exception list names", {
     EVENT_TYPE        = NA_character_,
     EVENT_DATE        = as.Date(NA))
 
-  m <- new_dhis2_mock(import_test_fixtures())
+  m <- new_dhis2_mock(import_test_fixtures(patient_eligibility = TRUE))
   httr2::local_mocked_responses(m$mock)
   removed <- import_dhis2(test_conn(), import_test_opts(
     include_department       = "full",
@@ -983,7 +990,7 @@ test_that("import_dhis2 keeps the records an exception list names", {
 
   # With a second department in the import the records join on the
   # department code as well.
-  fx <- import_test_fixtures()
+  fx <- import_test_fixtures(patient_eligibility = TRUE)
   fx$organisationUnits <- read_fixture_text("orgunits-departments-2.json")
   m <- new_dhis2_mock(fx)
   httr2::local_mocked_responses(m$mock)
@@ -1035,7 +1042,7 @@ test_that("import_dhis2 runs the open-enrolment rules on the active enrolments i
     fx
   }
 
-  m <- new_dhis2_mock(with_active(import_test_fixtures()))
+  m <- new_dhis2_mock(with_active(import_test_fixtures(patient_eligibility = TRUE)))
   httr2::local_mocked_responses(m$mock)
   removed <- import_dhis2(test_conn(), import_test_opts(
     include_incomplete       = c("enrollments", "events"),
@@ -1052,7 +1059,8 @@ test_that("import_dhis2 runs the open-enrolment rules on the active enrolments i
   # Requested with the active enrolments but only the completed events, the
   # dataset holds no open end form, so a missing one and an open one look
   # alike on it: the pass cannot run rule 43, and the import refuses with it.
-  m <- new_dhis2_mock(with_active(import_test_fixtures(), event_status = FALSE))
+  m <- new_dhis2_mock(with_active(
+    import_test_fixtures(patient_eligibility = TRUE), event_status = FALSE))
   httr2::local_mocked_responses(m$mock)
   expect_error(
     import_dhis2(test_conn(), import_test_opts(
@@ -1145,13 +1153,102 @@ test_that("import_dhis2 leaves the eligibility rule out of its pass when ineligi
   # before the pass, so rule 45 has nothing to find there either. The filter
   # compared the birth weight and the gestational age, which the selection
   # of `patient_columns` did not ask for and the patient tibble does not carry.
-  m <- new_dhis2_mock(with_late_admission(import_test_fixtures()))
+  m <- new_dhis2_mock(with_late_admission(
+    import_test_fixtures(patient_eligibility = TRUE)))
   httr2::local_mocked_responses(m$mock)
   ds <- import_dhis2(test_conn(), import_test_opts(
     include_ineligible_patients = FALSE,
     include_invalid_patients    = FALSE))
   expect_false(45L %in% ds$validationResults$rule_id)
   expect_false(any(c("birth_weight", "total_gestation_days") %in% names(ds$patients)))
+})
+
+# The exception records for what the pass finds on both mock enrolments
+# whatever a test changes: rule 3, their admission events being dated a day
+# after the enrolment, and rule 25, neither having a surveillance-end form.
+# With them a test's own change is the pass's only finding.
+mock_enrolment_exceptions <- function()
+  tibble::tibble(
+    RULE_ID           = c(3L, 3L, 25L, 25L),
+    NEOIPC_PATIENT_ID = c("PAT_1", "PAT_2", "PAT_1", "PAT_2"),
+    ENROLMENT_DATE    = as.Date(c("2024-01-01", "2024-01-05", "2024-01-01", "2024-01-05")),
+    EVENT_TYPE        = NA_character_,
+    EVENT_DATE        = as.Date(NA))
+
+test_that("import_dhis2 keeps an admission without a day of life for its pass, which reports it under rule 46", {
+  # Both admissions lose their day of life: the first is retyped as a
+  # transfer after the day of birth (type 3), whose day of life the team
+  # enters, the second as an admission from the delivery room (type 1),
+  # whose day 1 the client assigns.
+  without_day_of_life <- function(fx) {
+    ev <- jsonlite::fromJSON(fx$events, simplifyVector = FALSE)
+    ev$events[[1L]]$dataValues <- list(list(dataElement = "AgBqfnnsUzd", value = "3"))
+    ev$events[[2L]]$dataValues <- list(list(dataElement = "AgBqfnnsUzd", value = "1"))
+    fx$events <- as.character(jsonlite::toJSON(ev, auto_unbox = TRUE, null = "null"))
+    fx
+  }
+
+  m <- new_dhis2_mock(without_day_of_life(import_test_fixtures(patient_eligibility = TRUE)))
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_ineligible_patients = FALSE,
+    include_invalid_patients    = mock_enrolment_exceptions()))
+
+  # The eligibility filter leaves both forms in place. The pass removes the
+  # first patient on rule 46 and counts it; the second admission was on the
+  # day of birth, so its missing value is no finding the team could act on,
+  # and it stays in the dataset with its enrolment.
+  expect_equal(ds$validationResults$rule_id, 46L)
+  expect_equal(as.character(ds$patients$patient_id), "PAT_2")
+  expect_equal(nrow(ds$enrollments), 1L)
+  expect_equal(nrow(ds$admissionData), 1L)
+  per_rule <- ds$validationSummary[ds$validationSummary$rule_id %in% 46L, ]
+  expect_equal(as.character(per_rule$record_kind), "enrollments")
+  expect_equal(per_rule$n_removed, 1L)
+  totals <- ds$validationSummary[is.na(ds$validationSummary$rule_id), ]
+  expect_equal(totals$n_removed, c(1L, 1L, 0L))
+})
+
+test_that("import_dhis2 keeps a patient with neither birth weight nor gestational age for its pass, which reports it under rule 57", {
+  # The first patient loses both values; the second keeps a birth weight of
+  # 1600 g and loses its gestational age, so the one criterion it records
+  # fails.
+  with_missing_values <- function(fx) {
+    te <- jsonlite::fromJSON(fx$trackedEntities, simplifyVector = FALSE)
+    te$trackedEntities[[1L]]$attributes <- list(
+      list(attribute = "yQwpowV0o08", value = "PAT_1"))
+    te$trackedEntities[[2L]]$attributes <- list(
+      list(attribute = "yQwpowV0o08", value = "PAT_2"),
+      list(attribute = "ZbL9VmLRB6D", value = "1600"))
+    fx$trackedEntities <- as.character(jsonlite::toJSON(te, auto_unbox = TRUE, null = "null"))
+    fx
+  }
+
+  # Under the default the first patient reaches the pass, which removes it
+  # and counts it; the second is left out as ineligible before the pass, as
+  # registration treats it. The two values were read for the pass and leave
+  # with it, `patient_columns` selecting neither.
+  m <- new_dhis2_mock(with_missing_values(import_test_fixtures(patient_eligibility = TRUE)))
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_ineligible_patients = FALSE,
+    include_invalid_patients    = mock_enrolment_exceptions()))
+  expect_equal(ds$validationResults$rule_id, 57L)
+  expect_equal(nrow(ds$patients), 0L)
+  per_rule <- ds$validationSummary[ds$validationSummary$rule_id %in% 57L, ]
+  expect_equal(as.character(per_rule$record_kind), "patients")
+  expect_equal(per_rule$n_removed, 1L)
+  expect_false(any(c("birth_weight", "gest_age", "total_gestation_days") %in% names(ds$patients)))
+
+  # Not an eligibility rule: with ineligible patients requested the pass
+  # still removes the first patient on rule 57, and keeps the second.
+  m <- new_dhis2_mock(with_missing_values(import_test_fixtures(patient_eligibility = TRUE)))
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_ineligible_patients = TRUE,
+    include_invalid_patients    = mock_enrolment_exceptions()))
+  expect_equal(ds$validationResults$rule_id, 57L)
+  expect_equal(as.character(ds$patients$patient_id), "PAT_2")
 })
 
 test_that("import_dhis2 narrows a reporting period to the enrolments that ended in it, before the pass", {
@@ -1199,7 +1296,7 @@ test_that("import_dhis2 narrows a reporting period to the enrolments that ended 
     fx
   }
 
-  m <- new_dhis2_mock(with_period(import_test_fixtures()))
+  m <- new_dhis2_mock(with_period(import_test_fixtures(patient_eligibility = TRUE)))
   httr2::local_mocked_responses(m$mock)
   from_february <- as.Date("2024-02-01")
   from_march    <- as.Date("2024-03-01")
@@ -1575,14 +1672,15 @@ test_that("import_dhis2 keeps the notes of the enrolments it keeps and no others
   expect_identical(ds$enrollment_notes$enrollment_key, ds$enrollments$enrollment_key)
 
   # The validation pass flags both patients: each admission form is dated a
-  # day after its enrolment (rule 3), and each surveillance-end form's
-  # patient days are one short of the count from the enrolment (rule 18).
-  # An exception keeps the second patient, so the pass removes the first,
-  # and only the second enrolment's note stays.
+  # day after its enrolment (rule 3), each surveillance-end form's patient
+  # days are one short of the count from the enrolment (rule 18), and
+  # neither patient records a birth weight or gestational age (rule 57).
+  # Exceptions keep the second patient, so the pass removes the first, and
+  # only the second enrolment's note stays.
   exceptions <- tibble::tibble(
-    RULE_ID           = c(3L, 18L),
+    RULE_ID           = c(3L, 18L, 57L),
     NEOIPC_PATIENT_ID = "PAT_2",
-    ENROLMENT_DATE    = as.Date("2024-01-05"),
+    ENROLMENT_DATE    = as.Date(c("2024-01-05", "2024-01-05", NA)),
     EVENT_TYPE        = NA_character_,
     EVENT_DATE        = as.Date(NA))
   ds <- import_dhis2(test_conn(), import_test_opts(

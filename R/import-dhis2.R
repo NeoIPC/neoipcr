@@ -246,12 +246,13 @@ import_dhis2 <- function(
     "DHIS2 imported: trackedEntities={nrow(trackedEntities_raw)} enrollments={nrow(enrollments_raw)} events={nrow(events_raw)}",
     namespace = "neoipcr")
 
-  # The validation pass reads two patient attributes (rule 56, the
-  # multiple-birth flag and the number of infants) whatever the caller
-  # selected: with the pass to run, the patients are read as the full tier
-  # with those two added to the selection (the pseudonymized tier's selection
-  # being its key alone), and are narrowed to the requested shape once the
-  # pass has run, so the dataset holds only what was asked for.
+  # The validation pass reads patient attributes whatever the caller selected
+  # (`.pass_patient_columns`: rule 56 the multiple-birth flag and the number of
+  # infants, rule 57 the birth weight and the gestational age): with the pass
+  # to run, the patients are read as the full tier with those added to the
+  # selection (the pseudonymized tier's selection being its key alone), and
+  # are narrowed to the requested shape once the pass has run, so the dataset
+  # holds only what was asked for.
   patient_read_options <- dataset_options
   if (.validation_pass_runs(dataset_options)) {
     patient_read_options$include_patient <- "full"

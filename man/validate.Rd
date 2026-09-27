@@ -70,7 +70,7 @@ is written and translated where the document is rendered.
 
 Each rule records the fields below in \code{context}, identifies its finding
 by the key named as its level, and is exempted by an exception record
-written at that level: the patient alone for rules 1 and 56, the patient and the
+written at that level: the patient alone for rules 1, 56 and 57, the patient and the
 enrolment date for an enrolment-level rule, and the event's type and date
 as well for an event-level rule, the type being one the rule concerns
 (rules 7, 12 and 27–30 sepsis, 8, 13 and 35–38 necrotizing enterocolitis,
@@ -120,7 +120,10 @@ the pass unless \code{include_ineligible_patients} is set, and then the pass
 leaves the rule out rather than remove what that option keeps, so the
 rule acts where \code{validate()} runs on a dataset that keeps them, as the
 Validation Report does. Rule 46 flags an infant of
-that type whose day of life at admission is missing or below 2. Rule 47
+that type whose day of life at admission is missing or below 2. It is not
+an eligibility rule: the eligibility filter keeps an admission form
+without a day of life, so the pass reports it here under either setting of
+\code{include_ineligible_patients}. Rule 47
 flags an enrolment whose admission type says the infant was admitted from
 the delivery room or on the day of birth (types 1 and 2) while the patient
 has an earlier enrolment, naming the latest earlier enrolment's date. Rule
@@ -172,7 +175,23 @@ counts every infant of the pregnancy, the patient included. It reads the
 two patient attributes \code{multiple_birth} and \code{siblings}, which the import
 fetches for its pass whatever \code{patient_columns} selects and drops again
 unless selected (see \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}); a dataset validated
-without them skips the rule.\tabular{lll}{
+without them skips the rule.
+
+Rule 57 flags a patient whose record holds neither a birth weight nor a
+gestational age (the total gestation days), so that whether the infant is
+eligible cannot be established. The registration form refuses such a
+record in every department, one of the two being compulsory wherever the
+other is empty, so one reaches the dataset around the form: imported
+through the API, or registered before that requirement existed. It
+records no context. It is not an eligibility rule:
+the eligibility filter keeps such a patient for the pass rather than
+remove it unreported, and the pass reports it under either setting of
+\code{include_ineligible_patients}. A patient with one of the two values
+recorded is not its concern: the eligibility filter judges that patient
+on the value it has. Like rule 56 it reads two patient attributes,
+\code{birth_weight} and \code{total_gestation_days}, which the import fetches for
+its pass whatever \code{patient_columns} selects; a dataset validated without
+them skips the rule.\tabular{lll}{
    Rules \tab Level \tab Context fields \cr
    1 \tab \code{patient_key} \tab none \cr
    2 \tab \code{enrollment_key} \tab none \cr
@@ -205,6 +224,7 @@ without them skips the rule.\tabular{lll}{
    54 \tab \code{enrollment_key} \tab \code{substance_code}, \code{substance}, \code{index}, \code{index_other} — one finding per pair of slots \cr
    55 \tab \code{event_key} \tab \code{sec_bsi}, \code{organisms} \cr
    56 \tab \code{patient_key} \tab \code{siblings} \cr
+   57 \tab \code{patient_key} \tab none \cr
 }
 }
 
