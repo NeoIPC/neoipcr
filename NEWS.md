@@ -14,6 +14,8 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+# neoipcr 0.0.0.9006
+
 * `import_dhis2()` with `include_timestamps = TRUE` no longer fails on the events. It parses the
   timestamps the events schema declares as date-times — `scheduledAt`, `completedAt`, `createdAt`,
   `createdAtClient`, `updatedAt` and `updatedAtClient` — where it used to parse every column whose name
