@@ -32,6 +32,12 @@ section above it for the next changes.
   An import whose patients, enrolments or events were all created before that upgrade, or that carried
   no `storedBy` on its patients, or no creator on its event or enrolment notes, used to stop; each such
   field now reads as NA.
+* `import_dhis2()` with `include_notes = "enrollments"` no longer fails. It matched the notes to their
+  enrolment on the DHIS2 enrolment id, which the enrolments carry only when they are read in full and
+  `include_dhis2_ids` asks for it, so every import without those ids, and every import of pseudonymized
+  enrolments, stopped. The notes now follow the enrolments whatever `include_dhis2_ids` holds, and leave
+  the dataset with them. Under pseudonymized enrolments their patient and department keys are empty, as
+  on the other tibbles below a pseudonymized parent.
 
 # neoipcr 0.0.0.9005
 
