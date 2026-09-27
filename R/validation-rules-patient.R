@@ -34,9 +34,11 @@ validation_rule_56 <- function(x, exceptions)
 # Find patients whose record holds neither the birth weight nor the
 # gestational age (the total gestation days, the value the eligibility filter
 # and the calculations read). Eligibility rests on one of the two, so without
-# both it cannot be established, and registration refuses such a record in
-# every department: one of the two is compulsory wherever the other is
-# empty. The eligibility filter keeps these patients for this rule rather
+# both it cannot be established. The registration form refuses such a record
+# in every department, one of the two being compulsory wherever the other is
+# empty, so a record without either reaches the dataset around the form:
+# imported through the API, or registered before that requirement existed.
+# The eligibility filter keeps these patients for this rule rather
 # than remove them unreported. Not an eligibility rule: it finds a record
 # that is incomplete whichever patients were requested.
 validation_rule_57 <- function(x, exceptions)

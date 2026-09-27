@@ -179,8 +179,11 @@ without them skips the rule.
 
 Rule 57 flags a patient whose record holds neither a birth weight nor a
 gestational age (the total gestation days), so that whether the infant is
-eligible cannot be established; registration refuses such a record in
-every department. It records no context. It is not an eligibility rule:
+eligible cannot be established. The registration form refuses such a
+record in every department, one of the two being compulsory wherever the
+other is empty, so one reaches the dataset around the form: imported
+through the API, or registered before that requirement existed. It
+records no context. It is not an eligibility rule:
 the eligibility filter keeps such a patient for the pass rather than
 remove it unreported, and the pass reports it under either setting of
 \code{include_ineligible_patients}. A patient with one of the two values
