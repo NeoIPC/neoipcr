@@ -1437,22 +1437,12 @@ for (mode in c("pseudo", "full")) {
       expect_identical(ds$substanceDays$days_storedBy, rep(NA_integer_, 3L))
     })
 
-    test_that(sprintf("import_dhis2 reads an event note's author on its uid, and a note without one, under include_user = \"%s\"", include_user), {
-      # The first note names no author. The second names it as the whole
-      # tracker User object a server returns for a note, whose username no
-      # user of the map has, so only a match on its uid finds the author.
+    test_that(sprintf("import_dhis2 reads an event note without a stored author under include_user = \"%s\"", include_user), {
       fx <- audit_fixtures()
       body <- jsonlite::fromJSON(fx$events, simplifyVector = FALSE)
-      body$events[[1]]$notes <- list(
-        list(
-          note = "NOTE_1", value = "A note", storedBy = "neoipc_user",
-          storedAt = "2024-01-02T12:10:00.000"),
-        list(
-          note = "NOTE_2", value = "Another note", storedBy = "neoipc_user",
-          storedAt = "2024-01-02T12:20:00.000",
-          createdBy = list(
-            uid = "meUser0001", username = "not_in_the_map", firstName = "Test",
-            surname = "User", displayName = "Test User")))
+      body$events[[1]]$notes <- list(list(
+        note = "NOTE_1", value = "A note", storedBy = "neoipc_user",
+        storedAt = "2024-01-02T12:10:00.000"))
       fx$events <- as.character(jsonlite::toJSON(body, auto_unbox = TRUE, null = "null"))
       m <- new_dhis2_mock(fx, honour_fields = TRUE)
       httr2::local_mocked_responses(m$mock)
@@ -1460,12 +1450,32 @@ for (mode in c("pseudo", "full")) {
       ds <- import_dhis2(test_conn(), import_test_opts(
         include_user = include_user, include_notes = "events"))
 
-      notes <- ds$eventNotes
-      user_key <- ds$metadata$users$user_key
-      expect_equal(nrow(notes), 2L)
-      expect_identical(notes$createdBy[notes$value == "A note"], NA_integer_)
-      expect_identical(notes$createdBy[notes$value == "Another note"], user_key)
-      expect_identical(notes$storedBy, rep(user_key, 2L))
+      expect_equal(nrow(ds$eventNotes), 1L)
+      expect_identical(ds$eventNotes$createdBy, NA_integer_)
+      expect_identical(ds$eventNotes$storedBy, ds$metadata$users$user_key)
+    })
+
+    test_that(sprintf("import_dhis2 matches an event note's author on its uid under include_user = \"%s\"", include_user), {
+      # The author is the whole tracker User object a server returns for a
+      # note, and its username no user of the map has, so only a match on
+      # its uid finds the author.
+      fx <- audit_fixtures()
+      body <- jsonlite::fromJSON(fx$events, simplifyVector = FALSE)
+      body$events[[1]]$notes <- list(list(
+        note = "NOTE_1", value = "A note", storedBy = "neoipc_user",
+        storedAt = "2024-01-02T12:10:00.000",
+        createdBy = list(
+          uid = "meUser0001", username = "not_in_the_map", firstName = "Test",
+          surname = "User", displayName = "Test User")))
+      fx$events <- as.character(jsonlite::toJSON(body, auto_unbox = TRUE, null = "null"))
+      m <- new_dhis2_mock(fx, honour_fields = TRUE)
+      httr2::local_mocked_responses(m$mock)
+
+      ds <- import_dhis2(test_conn(), import_test_opts(
+        include_user = include_user, include_notes = "events"))
+
+      expect_equal(nrow(ds$eventNotes), 1L)
+      expect_identical(ds$eventNotes$createdBy, ds$metadata$users$user_key)
     })
   })
 }

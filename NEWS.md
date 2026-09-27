@@ -30,8 +30,8 @@ section above it for the next changes.
   `updatedBy` are empty on every record created before the instance was upgraded to DHIS2 2.36 (events)
   or 2.37 (enrolments, tracked entities), which added them without filling them in for existing records.
   An import whose patients, enrolments or events were all created before that upgrade, or that carried
-  no `storedBy` on its patients, or no creator on its event notes, used to stop; each such field now
-  reads as NA.
+  no `storedBy` on its patients, or no creator on its event or enrolment notes, used to stop; each such
+  field now reads as NA.
 
 # neoipcr 0.0.0.9005
 
