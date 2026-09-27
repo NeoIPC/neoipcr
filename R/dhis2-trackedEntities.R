@@ -132,32 +132,9 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
 
   if(dataset_options$include_user != "no")
     patients <- patients |>
-      tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
-      dplyr::left_join(
-        metadata$.users_internal_map |>
-          dplyr::select("user_key", "username"),
-        dplyr::join_by("createdBy" == "username")) |>
-      dplyr::mutate(createdBy = .data$user_key, .keep = "unused") |>
-      tidyr::hoist("updatedBy", updatedBy = 1, .remove = FALSE) |>
-      dplyr::left_join(
-        metadata$.users_internal_map |>
-          dplyr::select("user_key", "username"),
-        dplyr::join_by("updatedBy" == "username")) |>
-      dplyr::mutate(updatedBy = .data$user_key, .keep = "unused") |>
-      dplyr::left_join(
-        metadata$.users_internal_map |>
-          dplyr::select("user_key", "username"),
-        dplyr::join_by("storedBy" == "username")) |>
-      dplyr::mutate(storedBy = .data$user_key, .keep = "unused")
-
-  if(dataset_options$include_user != "no" &&
-     "attributes_storedBy" %in% names(patients))
-    patients <- patients |>
-      dplyr::left_join(
-        metadata$.users_internal_map |>
-          dplyr::select("user_key", "username"),
-        dplyr::join_by("attributes_storedBy" == "username")) |>
-      dplyr::mutate(attributes_storedBy = .data$user_key, .keep = "unused")
+      resolve_user_fields(
+        metadata,
+        c("storedBy", "createdBy", "updatedBy", "attributes_storedBy"))
   # `metadata$users` → `metadata$.users_internal_map` on every lookup above.
   # `metadata$users` carries the public three-mode shape (0×0 / 1-col
   # `user_key` / full) declared by `users_cols`; pseudo mode intentionally

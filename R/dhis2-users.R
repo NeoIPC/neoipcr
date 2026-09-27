@@ -200,3 +200,32 @@ read_metadata_users <- function(metadata, dataset_options)
 
   list(public = public, internal_map = internal_map)
 }
+
+# Replace the user references in `fields` with their `user_key` from
+# `metadata$.users_internal_map`, matched on `by`: the username, or the
+# DHIS2 user id (`uid`, the map's `user` column). A reference is either the
+# plain value (`storedBy`, `completedBy`) or a User object carrying it
+# (`createdBy`, `updatedBy`); a reference without a match becomes NA.
+#
+# A field is resolved only where the input has it. DHIS2 omits a field that
+# is null on every object in the response, and `createdBy` and `updatedBy`
+# are null on every record created before the instance was upgraded to 2.36
+# (events) or 2.37 (enrolments, tracked entities): those releases added the
+# columns behind them without filling them in, and `updatedBy` is set only
+# once a record is next edited.
+resolve_user_fields <- function(x, metadata, fields, by = c("username", "uid"))
+{
+  by <- match.arg(by)
+  users <- metadata$.users_internal_map
+  known <- if (by == "uid") users$user else users$username
+
+  for (field in intersect(fields, names(x))) {
+    references <- x[[field]]
+    if (is.list(references))
+      references <- purrr::map_chr(
+        references, \(user) if (is.list(user)) user[[by]] %||% NA_character_ else NA_character_)
+    x[[field]] <- users$user_key[match(references, known, incomparables = NA)]
+  }
+
+  x
+}

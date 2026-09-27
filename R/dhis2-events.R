@@ -133,49 +133,13 @@ read_events <- function(events, enrollments, metadata, dataset_options)
       dplyr::semi_join(
         metadata$.departments_internal_map, dplyr::join_by("orgUnit"))
 
-  # Entity-level user-field substitution — folded in from the former
-  # `read_event_details()` ahead of the schema finalize. Each raw field
-  # arrives with a different JSON shape:
-  #   - `storedBy` / `completedBy`: plain String — username directly.
-  #   - `createdBy` / `updatedBy`:   User object from `createdBy[username]`
-  #                                  subselect; the first element of the
-  #                                  hoisted list is the username.
-  # All four get substituted to integer `user_key` via the orchestrator-
-  # internal `.users_internal_map`'s `username` column (different from
-  # notes' `createdBy` join, which uses the UID-bearing `user` column —
-  # see the reader comment in `read_event_notes()` and `docs/dhis2-user-
-  # timestamp-semantics.md` for the DHIS2-source rationale).
-  if (opts$include_user != "no") {
+  # Entity-level user fields, matched on the username: `storedBy` and
+  # `completedBy` carry it directly, `createdBy` and `updatedBy` are
+  # requested as `createdBy[username]`.
+  if (opts$include_user != "no")
     events <- events |>
-      tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
-      tidyr::hoist("updatedBy", updatedBy = 1, .remove = FALSE) |>
-      dplyr::left_join(
-        metadata$.users_internal_map |>
-          dplyr::select("user_key", "username"),
-        dplyr::join_by("createdBy" == "username")) |>
-      dplyr::mutate(createdBy = .data$user_key, .keep = "unused") |>
-      dplyr::left_join(
-        metadata$.users_internal_map |>
-          dplyr::select("user_key", "username"),
-        dplyr::join_by("updatedBy" == "username")) |>
-      dplyr::mutate(updatedBy = .data$user_key, .keep = "unused")
-
-    if ("storedBy" %in% names(events))
-      events <- events |>
-        dplyr::left_join(
-          metadata$.users_internal_map |>
-            dplyr::select("user_key", "username"),
-          dplyr::join_by("storedBy" == "username")) |>
-        dplyr::mutate(storedBy = .data$user_key, .keep = "unused")
-
-    if ("completedBy" %in% names(events))
-      events <- events |>
-        dplyr::left_join(
-          metadata$.users_internal_map |>
-            dplyr::select("user_key", "username"),
-          dplyr::join_by("completedBy" == "username")) |>
-        dplyr::mutate(completedBy = .data$user_key, .keep = "unused")
-  }
+      resolve_user_fields(
+        metadata, c("storedBy", "createdBy", "updatedBy", "completedBy"))
 
   # Entity-level timestamps: the ISO-8601 Instants that `events_cols`
   # declares as POSIXct, which it does only under `include_timestamps` —
@@ -261,29 +225,13 @@ read_event_notes <- function(events, processed_events, metadata, dataset_options
     return(public)
   }
 
-  if (opts$include_user != "no") {
-    # Note: `createdBy` here is a DHIS2 user UID (Note.java emits the
-    # User object as `{id: <UID>, ...}`), so we join on the `user`
-    # column of the internal map — NOT `username` (the latter is how
-    # event / event-data createdBy joins work because those API
-    # endpoints request `createdBy[username]`). See phase-b-notes
-    # Divergences for the DHIS2-source-confirmed rationale.
+  # A note's `createdBy` is DHIS2's whole tracker User object, since the
+  # request asks for `notes` without narrowing them, so it is matched on
+  # the User's `uid`. `storedBy` is a plain username.
+  if (opts$include_user != "no")
     events <- events |>
-      tidyr::hoist("createdBy", createdBy = 1, .remove = FALSE) |>
-      dplyr::left_join(
-        metadata$.users_internal_map |>
-          dplyr::select("user", "user_key"),
-        dplyr::join_by("createdBy" == "user")) |>
-      dplyr::mutate(createdBy = .data$user_key, .keep = "unused")
-
-    if ("storedBy" %in% names(events))
-      events <- events |>
-        dplyr::left_join(
-          metadata$.users_internal_map |>
-            dplyr::select("username", "user_key"),
-          dplyr::join_by("storedBy" == "username")) |>
-        dplyr::mutate(storedBy = .data$user_key, .keep = "unused")
-  }
+      resolve_user_fields(metadata, "createdBy", by = "uid") |>
+      resolve_user_fields(metadata, "storedBy")
 
   if (opts$include_timestamps && "storedAt" %in% names(events))
     events <- events |>
@@ -652,41 +600,14 @@ read_substance_days <- function(events_raw, processed_events, metadata, dataset_
 
 # Resolve the audit fields of DHIS2's tracker `DataValue` to the types of
 # their per-value companion columns (see `event_data_attribute_cols()`):
-# the three user fields to `user_key` through `.users_internal_map`, the
-# two timestamps to POSIXct. `storedBy` is a plain username; `createdBy`
-# and `updatedBy` are User objects requested as `createdBy[username]`, so
-# the username is their first element. Each field is resolved only when
-# present, since DHIS2 omits a field that is null on every data value in
-# the response. The hoists state their type because a caller may pass no
-# rows, and a hoist from zero rows leaves a list the join cannot match
-# against the usernames.
+# the three user fields to `user_key`, matched on the username, the two
+# timestamps to POSIXct. Each timestamp is parsed only when present, since
+# DHIS2 omits a field that is null on every data value in the response.
 resolve_data_value_audit <- function(data_values, metadata, opts)
 {
-  if (opts$include_user != "no") {
-    users <- metadata$.users_internal_map |>
-      dplyr::select("username", "user_key")
-
-    if ("createdBy" %in% names(data_values))
-      data_values <- data_values |>
-        tidyr::hoist(
-          "createdBy", createdBy = 1, .remove = FALSE,
-          .ptype = list(createdBy = character())) |>
-        dplyr::left_join(users, dplyr::join_by("createdBy" == "username")) |>
-        dplyr::mutate(createdBy = .data$user_key, .keep = "unused")
-
-    if ("updatedBy" %in% names(data_values))
-      data_values <- data_values |>
-        tidyr::hoist(
-          "updatedBy", updatedBy = 1, .remove = FALSE,
-          .ptype = list(updatedBy = character())) |>
-        dplyr::left_join(users, dplyr::join_by("updatedBy" == "username")) |>
-        dplyr::mutate(updatedBy = .data$user_key, .keep = "unused")
-
-    if ("storedBy" %in% names(data_values))
-      data_values <- data_values |>
-        dplyr::left_join(users, dplyr::join_by("storedBy" == "username")) |>
-        dplyr::mutate(storedBy = .data$user_key, .keep = "unused")
-  }
+  if (opts$include_user != "no")
+    data_values <- data_values |>
+      resolve_user_fields(metadata, c("storedBy", "createdBy", "updatedBy"))
 
   if (isTRUE(opts$include_timestamps))
     data_values <- data_values |>

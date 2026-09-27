@@ -25,6 +25,13 @@ section above it for the next changes.
   and theirs — the same companions the per-event-type data tibbles carry for each field. An import
   that requested either used to fail on these fields. A slot stays one row when its substance and its
   days were entered by different users or at different times.
+* `import_dhis2()` with `include_user = "pseudo"` or `"full"` no longer fails on records without a
+  creator. DHIS2 leaves out a user field that is empty on every record it returns, and `createdBy` and
+  `updatedBy` are empty on every record created before the instance was upgraded to DHIS2 2.36 (events)
+  or 2.37 (enrolments, tracked entities), which added them without filling them in for existing records.
+  An import whose patients, enrolments or events were all created before that upgrade, or that carried
+  no `storedBy` on its patients, or no creator on its event or enrolment notes, used to stop; each such
+  field now reads as NA.
 
 # neoipcr 0.0.0.9005
 

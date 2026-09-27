@@ -1,4 +1,5 @@
-# Tests for R/dhis2-users.R::get_user_info() — the /me reader.
+# Tests for R/dhis2-users.R: get_user_info() — the /me reader — and the
+# user-reference resolution the tracker readers share.
 # All HTTP is intercepted with httr2::local_mocked_responses (no real calls).
 
 me_request <- function()
@@ -35,4 +36,54 @@ test_that("get_user_info yields NA lastLogin (no crash) when /me carries none", 
 
   expect_true(is.na(info$lastLogin))
   expect_equal(info$username, "neoipc_user")
+})
+
+# ---- resolve_user_fields() ---------------------------------------------------
+
+users_metadata <- list(.users_internal_map = tibble::tibble(
+  user_key = c(1L, 2L, 3L),
+  user     = c("UID_admin", "UID_other", "UID_nameless"),
+  username = c("admin", "other", NA)))
+
+test_that("resolve_user_fields resolves plain usernames and User objects by name", {
+  records <- tibble::tibble(
+    storedBy  = c("admin", "unknown", NA),
+    createdBy = list(
+      list(username = "other"),
+      NULL,
+      list(uid = "UID_admin", username = "admin")))
+
+  resolved <- neoipcr:::resolve_user_fields(
+    records, users_metadata, c("storedBy", "createdBy", "updatedBy"))
+
+  # A field the input lacks stays absent. An unknown or missing reference
+  # resolves to NA; a missing one does not match the user the map holds
+  # without a username.
+  expect_named(resolved, c("storedBy", "createdBy"))
+  expect_identical(resolved$storedBy, c(1L, NA, NA))
+  expect_identical(resolved$createdBy, c(2L, NA, 1L))
+})
+
+test_that("resolve_user_fields matches a User object on its uid when asked to", {
+  notes <- tibble::tibble(createdBy = list(
+    list(uid = "UID_other", username = "admin"),
+    list(uid = "UID_nameless")))
+
+  resolved <- neoipcr:::resolve_user_fields(
+    notes, users_metadata, "createdBy", by = "uid")
+
+  expect_identical(resolved$createdBy, c(2L, 3L))
+})
+
+test_that("resolve_user_fields reads a field with no value on any record, and no records", {
+  # A hoist from records none of which carries the field yields NA, not a
+  # list.
+  expect_identical(
+    neoipcr:::resolve_user_fields(
+      tibble::tibble(createdBy = c(NA, NA)), users_metadata, "createdBy")$createdBy,
+    c(NA_integer_, NA_integer_))
+  expect_identical(
+    neoipcr:::resolve_user_fields(
+      tibble::tibble(createdBy = list()), users_metadata, "createdBy")$createdBy,
+    integer())
 })
