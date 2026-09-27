@@ -84,36 +84,23 @@ get_metadata_request <- function(req_base, user_info, dataset_options)
   if(.trials_requested(dataset_options) ||
      dataset_options$include_world_bank_class != "no")
   {
-    if(!.trials_requested(dataset_options))
-    {
-      if(dataset_options$include_world_bank_class == "full")
-        req <- req |>
-          httr2::req_url_query(
-            `organisationUnitGroupSets:fields` = "code,organisationUnitGroups[code,displayName,displayShortName,displayDescription,organisationUnits[id]]")
-      else # pseudonymize
-        req <- req |>
-          httr2::req_url_query(
-            `organisationUnitGroupSets:fields` = "code,organisationUnitGroups[code,organisationUnits[id]]")
-
-      req <- req |>
-        httr2::req_url_query(
-          `organisationUnitGroupSets:filter` = "code:eq:WORLD_BANK_CLASSES")
-    }
-    else
-    {
-      req <- req |>
-        httr2::req_url_query(
-          `organisationUnitGroupSets:fields` = "code,organisationUnitGroups[code,displayName,displayShortName,displayDescription,organisationUnits[id]]")
-
-      if(dataset_options$include_world_bank_class == "no")
-        req <- req |>
-          httr2::req_url_query(
-            `organisationUnitGroupSets:filter` = "code:eq:NEOIPC_TRIALS")
-      else
-        req <- req |>
-          httr2::req_url_query(
-            `organisationUnitGroupSets:filter` = "code:in:[NEOIPC_TRIALS,WORLD_BANK_CLASSES]")
-    }
+    # The two group sets share one field list, so the display names are
+    # requested when either is shown in full; the keys and the memberships
+    # need the codes alone.
+    names_shown <- dataset_options$include_world_bank_class == "full" ||
+      dataset_options$include_trials == "full"
+    req <- req |>
+      httr2::req_url_query(
+        `organisationUnitGroupSets:fields` = if (names_shown)
+          "code,organisationUnitGroups[code,displayName,displayShortName,displayDescription,organisationUnits[id]]"
+        else
+          "code,organisationUnitGroups[code,organisationUnits[id]]",
+        `organisationUnitGroupSets:filter` = if (!.trials_requested(dataset_options))
+          "code:eq:WORLD_BANK_CLASSES"
+        else if (dataset_options$include_world_bank_class == "no")
+          "code:eq:NEOIPC_TRIALS"
+        else
+          "code:in:[NEOIPC_TRIALS,WORLD_BANK_CLASSES]")
   }
 
   if(length(dataset_options$country_filter) > 0 ||

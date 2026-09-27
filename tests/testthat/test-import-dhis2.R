@@ -1799,6 +1799,12 @@ trials_fixtures <- function(move_second_patient = TRUE) {
   fx
 }
 
+# The organisation-unit group-set fields an import asked the metadata endpoint for.
+group_set_fields <- function(urls) {
+  metadata <- grep("/api/metadata", urls, fixed = TRUE, value = TRUE)
+  httr2::url_parse(metadata[[1]])$query[["organisationUnitGroupSets:fields"]]
+}
+
 # A dataset's department–trial links as sorted "department:trial" codes,
 # read through the keys.
 trial_links <- function(ds) {
@@ -1828,6 +1834,7 @@ test_that("import_dhis2 lists the trials of the imported departments and links e
     trial_links(ds),
     c("DEPT_01:TRIAL_A", "DEPT_01:TRIAL_B", "DEPT_02:TRIAL_B", "DEPT_02:TRIAL_D"))
   expect_true(any(grepl("NEOIPC_TRIALS", utils::URLdecode(m$urls()), fixed = TRUE)))
+  expect_match(group_set_fields(m$urls()), "displayName", fixed = TRUE)
   # The trials' internal map carries the departments' raw DHIS2 ids, so no
   # internal map may leave the import.
   expect_false(any(startsWith(names(ds$metadata), ".")))
@@ -1839,6 +1846,8 @@ test_that("import_dhis2 shows pseudonymized trials by their key alone", {
 
   ds <- import_dhis2(test_conn(), import_test_opts(include_trials = "pseudo"))
 
+  # Nothing shows the trials' names, so the request does not fetch them.
+  expect_identical(group_set_fields(m$urls()), "code,organisationUnitGroups[code,organisationUnits[id]]")
   expect_identical(names(ds$metadata$trials), "trial_key")
   expect_equal(nrow(ds$metadata$trials), 3L)
   expect_identical(names(ds$metadata$departmentTrials), c("department_key", "trial_key"))
@@ -1914,8 +1923,9 @@ test_that("import_dhis2 keeps the departments of the trials trial_filter names",
   expect_identical(request$query$orgUnit, "OU_DEPT_1")
   expect_equal(ncol(ds$metadata$trials), 0L)
   # The filter reads the trials group set even though the trials are not shown:
-  # a server returns it only when asked.
+  # a server returns it only when asked. It needs the memberships, not the names.
   expect_true(any(grepl("NEOIPC_TRIALS", utils::URLdecode(m$urls()), fixed = TRUE)))
+  expect_identical(group_set_fields(m$urls()), "code,organisationUnitGroups[code,organisationUnits[id]]")
   expect_false(any(startsWith(names(ds$metadata), ".")))
 
   # A department stays when it takes part in any of the named trials, and each
