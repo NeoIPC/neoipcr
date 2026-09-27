@@ -109,6 +109,17 @@ test_that("filter_admissions with include_ineligible=FALSE excludes an admission
   expect_true(all(result$dol <= 120))
 })
 
+test_that("filter_admissions keeps an admission without a day of life, whatever its type", {
+  # A missing day of life is no evidence of a late admission: the form stays
+  # for the validation pass, where rule 46 reports it on an admission of
+  # type 3. Only the recorded day beyond the window leaves.
+  adm <- make_test_admission_data(1:5,
+    type = factor(c("3", "3", "3", "1", "3"), levels = c("1", "2", "3")),
+    dol  = c(NA, 1L, 30L, NA, 121L))
+  result <- neoipcr:::filter_admissions(adm, include_ineligible_patients = FALSE)
+  expect_setequal(result$event_key, 1:4)
+})
+
 test_that("filter_admissions passes a 0x0 admission tibble through under the default filter", {
   # An `include_event = "no"` import carries no admission data at all; the
   # eligibility filter must not look for `dol` there.
@@ -142,6 +153,27 @@ test_that("filter_patients applies core patient filter by default", {
   # Patient 3: 280>=224 AND 2500>=1500 → exclude
   # Patient 4: 230>=224 BUT 1600>=1500 → exclude (neither condition met)
   expect_equal(nrow(result), 2L)
+})
+
+test_that("filter_patients judges eligibility on the recorded value when the other is missing", {
+  # Either criterion suffices, so one recorded below its bound keeps the
+  # patient; one recorded at or above it, with the other missing, leaves
+  # the patient out as ineligible, as registration treats it.
+  patients <- make_test_patients(4,
+    birth_weight         = c(1200L, NA, 1600L, NA),
+    total_gestation_days = c(NA, 210L, NA, 230L))
+  result <- neoipcr:::filter_patients(patients, include_ineligible_patients = FALSE)
+  expect_setequal(result$patient_key, 1:2)
+})
+
+test_that("filter_patients keeps a patient with neither birth weight nor gestational age", {
+  # Eligibility cannot be judged without either value, so the patient stays
+  # for the validation pass, where rule 57 reports it.
+  patients <- make_test_patients(2,
+    birth_weight         = c(NA, 2500L),
+    total_gestation_days = c(NA, 280L))
+  result <- neoipcr:::filter_patients(patients, include_ineligible_patients = FALSE)
+  expect_equal(result$patient_key, 1L)
 })
 
 test_that("filter_patients filters by birth_weight_from", {

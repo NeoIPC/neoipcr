@@ -28,10 +28,13 @@
 # Report does.
 .eligibility_rules <- 45L
 
-# The patient attributes the pass reads for rule 56 whatever `patient_columns`
-# selects: the import reads them for the pass and drops them again unless
-# selected, so the dataset holds only what the caller asked for.
-.pass_patient_columns <- c("multiple_birth", "siblings")
+# The `patient_columns` keys of the patient attributes the pass reads whatever
+# `patient_columns` selects — rule 56 the multiple-birth flag and the number of
+# infants, rule 57 the birth weight and the gestational age: the import reads
+# them for the pass and drops them again unless selected, so the dataset holds
+# only what the caller asked for.
+.pass_patient_columns <- c(
+  "multiple_birth", "siblings", "birth_weight", "gestational_age")
 
 validation_rules <- list(
   list(id = 1L,  level = "patient",    context = character(),
@@ -156,7 +159,9 @@ validation_rules <- list(
   list(id = 55L, level = "event", event_types = c("nec", "hap", "ssi"),
        context = c("sec_bsi", "organisms"), fun = validation_rule_55),
   list(id = 56L, level = "patient", context = "siblings",
-       fun = validation_rule_56))
+       fun = validation_rule_56),
+  list(id = 57L, level = "patient", context = character(),
+       fun = validation_rule_57))
 
 # How long an enrolment may stay active after its enrolment date before
 # rules 43 and 44 question it. A neonatal stay past four months is
@@ -484,7 +489,7 @@ validation_rule_context_fields <- function()
 #' @section Context fields:
 #' Each rule records the fields below in `context`, identifies its finding
 #' by the key named as its level, and is exempted by an exception record
-#' written at that level: the patient alone for rules 1 and 56, the patient and the
+#' written at that level: the patient alone for rules 1, 56 and 57, the patient and the
 #' enrolment date for an enrolment-level rule, and the event's type and date
 #' as well for an event-level rule, the type being one the rule concerns
 #' (rules 7, 12 and 27–30 sepsis, 8, 13 and 35–38 necrotizing enterocolitis,
@@ -534,7 +539,10 @@ validation_rule_context_fields <- function()
 #' leaves the rule out rather than remove what that option keeps, so the
 #' rule acts where `validate()` runs on a dataset that keeps them, as the
 #' Validation Report does. Rule 46 flags an infant of
-#' that type whose day of life at admission is missing or below 2. Rule 47
+#' that type whose day of life at admission is missing or below 2. It is not
+#' an eligibility rule: the eligibility filter keeps an admission form
+#' without a day of life, so the pass reports it here under either setting of
+#' `include_ineligible_patients`. Rule 47
 #' flags an enrolment whose admission type says the infant was admitted from
 #' the delivery room or on the day of birth (types 1 and 2) while the patient
 #' has an earlier enrolment, naming the latest earlier enrolment's date. Rule
@@ -588,6 +596,19 @@ validation_rule_context_fields <- function()
 #' unless selected (see [dhis2_dataset_options()]); a dataset validated
 #' without them skips the rule.
 #'
+#' Rule 57 flags a patient whose record holds neither a birth weight nor a
+#' gestational age (the total gestation days), so that whether the infant is
+#' eligible cannot be established; registration refuses such a record in
+#' every department. It records no context. It is not an eligibility rule:
+#' the eligibility filter keeps such a patient for the pass rather than
+#' remove it unreported, and the pass reports it under either setting of
+#' `include_ineligible_patients`. A patient with one of the two values
+#' recorded is not its concern: the eligibility filter judges that patient
+#' on the value it has. Like rule 56 it reads two patient attributes,
+#' `birth_weight` and `total_gestation_days`, which the import fetches for
+#' its pass whatever `patient_columns` selects; a dataset validated without
+#' them skips the rule.
+#'
 #' | Rules | Level | Context fields |
 #' |---|---|---|
 #' | 1 | `patient_key` | none |
@@ -621,6 +642,7 @@ validation_rule_context_fields <- function()
 #' | 54 | `enrollment_key` | `substance_code`, `substance`, `index`, `index_other` — one finding per pair of slots |
 #' | 55 | `event_key` | `sec_bsi`, `organisms` |
 #' | 56 | `patient_key` | `siblings` |
+#' | 57 | `patient_key` | none |
 #'
 #' @family validation
 #' @export

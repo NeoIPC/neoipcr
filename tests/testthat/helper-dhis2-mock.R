@@ -35,9 +35,13 @@ read_fixture_text <- function(name) {
 # definitions in on request; the baseline graph carries none.
 # `surveillance_end` adds the Surveillance-End stage with its patient-days
 # field and two antibiotic-substance slots, which the baseline program lacks.
+# `patient_eligibility` adds the birth-weight, gestational-age and
+# total-gestation-days attributes, which the baseline program lacks too, so
+# its patients arrive with neither value.
 build_metadata_response <- function(version = "2.40.3.2",
                                     org_unit_attributes = FALSE,
-                                    surveillance_end = FALSE) {
+                                    surveillance_end = FALSE,
+                                    patient_eligibility = FALSE) {
   read_fx <- function(name)
     jsonlite::fromJSON(
       testthat::test_path("fixtures", name), simplifyVector = FALSE)
@@ -50,6 +54,10 @@ build_metadata_response <- function(version = "2.40.3.2",
     md$programs[[1]]$programStages <- c(
       md$programs[[1]]$programStages,
       list(read_fx("program-stage-surveillance-end.json")))
+  if (patient_eligibility)
+    md$programs[[1]]$programTrackedEntityAttributes <- c(
+      md$programs[[1]]$programTrackedEntityAttributes,
+      read_fx("patient-eligibility-attributes.json"))
   am <- read_fx("antimicrobials.json")
   md$options        <- c(md$options, am$options)
   md$optionGroupSets <- c(md$optionGroupSets, am$optionGroupSets)

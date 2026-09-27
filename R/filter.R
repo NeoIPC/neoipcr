@@ -155,8 +155,13 @@ filter_admissions <- function(
   if(include_ineligible_patients || ncol(admission_data) == 0L)
     return(admission_data)
 
+  # A missing day of life is no evidence that the admission lies beyond the
+  # window, so only a recorded one leaves here. The admission form stays for
+  # the validation pass, which reports a missing value on an admission of
+  # type 3 under rule 46; were it removed here, the enrolment would leave with
+  # the orphan removal that follows the pass, and no finding would say why.
   admission_data |>
-    dplyr::filter(.data$dol <= .admission_max_dol)
+    dplyr::filter(is.na(.data$dol) | .data$dol <= .admission_max_dol)
 }
 
 # Whether `filter_patients()` reads a patient attribute under `opts`: the
@@ -190,10 +195,21 @@ filter_patients <- function(
   if(!is.null(gestational_age_to))
     patients <- patients |>
       dplyr::filter(.data$total_gestation_days < ((gestational_age_to + 1L) * 7L))
+  # The protocol admits an infant with a birth weight below 1500 g or a
+  # gestational age below 32 weeks (224 days); either criterion suffices. A
+  # patient whose one recorded criterion fails while the other is missing is
+  # left out as ineligible, as registration treats it: the program rule
+  # refuses it outside the departments of the org-unit group
+  # NEOIPC_ALL_PATIENTS_ELIGIBLE, and inside them it is an infant registered
+  # without the value that could have made it eligible. A patient with neither
+  # value is not judged here but kept for the validation pass, which reports
+  # it under rule 57; removed here, it would leave with no finding to say why.
   if(!include_ineligible_patients)
     patients <- patients |>
       dplyr::filter(
-        .data$total_gestation_days < 224 | .data$birth_weight < 1500)
+        dplyr::coalesce(.data$total_gestation_days < 224L, FALSE) |
+          dplyr::coalesce(.data$birth_weight < 1500L, FALSE) |
+          (is.na(.data$total_gestation_days) & is.na(.data$birth_weight)))
   return(patients)
 }
 

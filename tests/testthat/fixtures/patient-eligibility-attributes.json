@@ -1,0 +1,35 @@
+[
+  {
+    "trackedEntityAttribute": {
+      "id": "ZbL9VmLRB6D",
+      "code": "NEOIPC_TEA_BIRTH_WEIGHT",
+      "valueType": "INTEGER_POSITIVE",
+      "displayName": "NeoIPC Patient Birth weight",
+      "displayShortName": "NeoIPC Pat. BW",
+      "displayFormName": "Birth weight",
+      "displayDescription": "The infant's weight immediately after birth in grams."
+    }
+  },
+  {
+    "trackedEntityAttribute": {
+      "id": "qLGOhTzMVyY",
+      "code": "NEOIPC_TEA_GEST_AGE",
+      "valueType": "TEXT",
+      "displayName": "NeoIPC Patient Gestational age",
+      "displayShortName": "NeoIPC Pat. GA",
+      "displayFormName": "Gestational age (weeks and days e.g. 25+4)",
+      "displayDescription": "The gestational age, expressed in completed weeks and days, at the time of birth."
+    }
+  },
+  {
+    "trackedEntityAttribute": {
+      "id": "Qyu9KOWyazL",
+      "code": "NeoIPC_TEA_TOTAL_GESTATION_DAYS",
+      "valueType": "INTEGER_ZERO_OR_POSITIVE",
+      "displayName": "NeoIPC Patient Total gestation days",
+      "displayShortName": "NeoIPC Pat. Tot. gest. days",
+      "displayFormName": "Total gestation days",
+      "displayDescription": "The total number of completed gestation days at the time of birth. This field is automatically calculated from the gestational age field."
+    }
+  }
+]

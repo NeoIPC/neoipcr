@@ -38,6 +38,21 @@ section above it for the next changes.
   enrolments, stopped. The notes now follow the enrolments whatever `include_dhis2_ids` holds, and leave
   the dataset with them. Under pseudonymized enrolments their patient and department keys are empty, as
   on the other tibbles below a pseudonymized parent.
+* The eligibility filter no longer takes a missing value for ineligibility, so what it used to drop
+  silently now reaches the validation pass and is counted in `validationSummary`. An admission form
+  without a day of life stays: on an admission of type 3 rule 46 reports it and the pass removes the
+  patient, where the filter used to remove the form before the pass could see it and the enrolment
+  then left with the orphan removal, unreported; on types 1 and 2, admitted on the day of birth, the
+  admission stays in the dataset. Only a recorded day of life above 120 leaves. The patient filter
+  used to drop a patient with neither birth weight nor gestational age the same way; it now keeps that
+  patient for the pass. A patient whose one recorded criterion fails while the other is missing is
+  still left out as ineligible, as registration treats it, now by an explicit condition rather than
+  by the comparison's missing result.
+* Rule 57 flags a patient with neither a birth weight nor a gestational age, whose eligibility
+  cannot be established. It is not an eligibility rule, so the pass applies it whether or not
+  `include_ineligible_patients` is set. The pass reads the birth weight and the total gestation days
+  whatever `patient_columns` selects, as it does the multiple-birth flag and the number of infants
+  for rule 56, and drops them again unless selected.
 
 # neoipcr 0.0.0.9005
 

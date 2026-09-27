@@ -65,9 +65,10 @@
 #'  Choices: "id", "birth_weight", "sex", "delivery_mode", "multiple_birth",
 #'  "siblings", "gestational_age", "inactive", "potentialDuplicate". Empty (the
 #'  default) means all of them. The validation pass reads `multiple_birth`
-#'  and `siblings` (rule 56) whatever the selection and drops them again
-#'  unless selected, so the dataset holds only what was asked for; a later
-#'  [validate()] on a dataset without them skips rule 56. Ignored when
+#'  and `siblings` (rule 56) and `birth_weight` and `gestational_age` (rule
+#'  57) whatever the selection and drops them again unless selected, so the
+#'  dataset holds only what was asked for; a later [validate()] on a dataset
+#'  without them skips the rule that reads them. Ignored when
 #'  `include_patient` is "no" or "pseudo".
 #' @param include_enrollment Include the enrollment tibble into the dataset
 #'  and expose the `enrollment_key` link column on downstream tibbles. Same
@@ -95,7 +96,15 @@
 #'  the NeoIPC core case eligibility criteria into the dataset. The validation
 #'  pass then leaves out the eligibility rule (45, an admission after day of
 #'  life 120), which would otherwise remove the late admissions this option
-#'  keeps.
+#'  keeps. Without it, the import leaves out an admission form whose day of
+#'  life is above 120, and a patient with a birth weight of 1500 g or more and
+#'  a gestational age of 32 weeks or more, or with one of the two recorded at
+#'  or beyond its bound and the other missing, as registration treats that
+#'  patient. A missing value is not taken for ineligibility otherwise: an
+#'  admission form without a day of life and a patient with neither birth
+#'  weight nor gestational age stay for the validation pass, which reports the
+#'  first under rule 46 when the admission type is 3 and the second under
+#'  rule 57 (see [validate()]), rather than leaving the dataset unreported.
 #' @param include_unenrolled_patients Include the NeoIPC patient records that
 #'  are not enrolled in the surveillance program as well: they are requested
 #'  by tracked-entity type rather than by program, and the removal of orphan

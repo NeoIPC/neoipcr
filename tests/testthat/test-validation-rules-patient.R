@@ -1,4 +1,4 @@
-# Tests for R/validation-rules-patient.R — rule 56.
+# Tests for R/validation-rules-patient.R — rules 56 and 57.
 
 # Two patients with the multiple-birth flags `flags` and the numbers of
 # infants `infants`, the columns the rule reads selected.
@@ -54,6 +54,55 @@ test_that("rule 56 skips without a warning when the flag or the number is absent
     ds <- multiple_birth_ds(c(TRUE, TRUE), c(1L, 2L))
     ds$patients[[col]] <- NULL
     expect_no_warning(result <- neoipcr:::validation_rule_56(ds, NULL))
+    expect_null(result)
+  }
+})
+
+# Three patients with the birth weights `weights` and the total gestation days
+# `days`, the columns the rule reads selected.
+eligibility_ds <- function(weights, days)
+  make_test_ds(
+    patients = make_test_patients(3,
+      patient_columns      = c("id", "birth_weight", "gestational_age"),
+      birth_weight         = weights,
+      total_gestation_days = days),
+    enrollments = make_test_enrollments(3, patient_keys = 1:3))
+
+test_that("rule 57 detects a patient with neither birth weight nor gestational age", {
+  result <- neoipcr:::validation_rule_57(
+    eligibility_ds(c(NA, 1200L, 2500L), c(NA, 210L, 280L)), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
+  expect_equal(result$rule_id, 57L)
+  expect_equal(result$patient_key, 1L)
+  # A patient-level finding names no enrolment or event, and with both
+  # values missing it has nothing to record.
+  expect_true(is.na(result$enrollment_key))
+  expect_true(is.na(result$event_key))
+  expect_null(result$context[[1]])
+})
+
+test_that("rule 57 leaves a patient with either value alone, eligible or not", {
+  # One recorded value is enough for the eligibility filter to judge by:
+  # a birth weight or a gestational age alone, below the bound or above it.
+  expect_equal(nrow(neoipcr:::validation_rule_57(
+    eligibility_ds(c(1200L, NA, 1600L), c(NA, 210L, NA)), NULL)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_57(
+    eligibility_ds(c(NA, 2500L, 900L), c(240L, 280L, 192L)), NULL)), 0L)
+})
+
+test_that("rule 57 honours exceptions", {
+  result <- neoipcr:::validation_rule_57(
+    eligibility_ds(c(NA, NA, 1200L), c(NA, NA, 210L)),
+    make_test_exceptions(57L, patient_key = 1L))
+  expect_equal(result$patient_key, 2L)
+})
+
+test_that("rule 57 skips without a warning when the birth weight or the gestational age is absent", {
+  for (col in c("birth_weight", "total_gestation_days")) {
+    ds <- eligibility_ds(c(NA, 1200L, 2500L), c(NA, 210L, 280L))
+    ds$patients[[col]] <- NULL
+    expect_no_warning(result <- neoipcr:::validation_rule_57(ds, NULL))
     expect_null(result)
   }
 })

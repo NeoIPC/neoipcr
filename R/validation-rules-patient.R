@@ -30,3 +30,34 @@ validation_rule_56 <- function(x, exceptions)
       context        = .data$context,
       .keep = "none")
 }
+
+# Find patients whose record holds neither the birth weight nor the
+# gestational age (the total gestation days, the value the eligibility filter
+# and the calculations read). Eligibility rests on one of the two, so without
+# both it cannot be established, and registration refuses such a record in
+# every department: one of the two is compulsory wherever the other is
+# empty. The eligibility filter keeps these patients for this rule rather
+# than remove them unreported. Not an eligibility rule: it finds a record
+# that is incomplete whichever patients were requested.
+validation_rule_57 <- function(x, exceptions)
+{
+  check_neoipcr_ds(x)
+  if (!all(c("birth_weight", "total_gestation_days") %in% names(x$patients)))
+    return(.rule_skipped(
+      57L, "the patients' birth weight and total gestation days"))
+
+  x$patients |>
+    dplyr::filter(is.na(.data$birth_weight) &
+                  is.na(.data$total_gestation_days)) |>
+    dplyr::select("patient_key") |>
+    dplyr::anti_join(
+      .rule_exceptions(exceptions, 57L),
+      dplyr::join_by("patient_key")) |>
+    dplyr::mutate(
+      rule_id        = 57L,
+      patient_key    = .data$patient_key,
+      enrollment_key = NA_integer_,
+      event_key      = NA_integer_,
+      context        = list(NULL),
+      .keep = "none")
+}
