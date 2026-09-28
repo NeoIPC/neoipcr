@@ -37,11 +37,14 @@ read_fixture_text <- function(name) {
 # field and two antibiotic-substance slots, which the baseline program lacks.
 # `patient_eligibility` adds the birth-weight, gestational-age and
 # total-gestation-days attributes, which the baseline program lacks too, so
-# its patients arrive with neither value.
+# its patients arrive with neither value. `reconciliation` adds the sepsis and
+# surgical site infection stages with the items the reconciliations read, and
+# the option sets of those items and of the admission type.
 build_metadata_response <- function(version = "2.40.3.2",
                                     org_unit_attributes = FALSE,
                                     surveillance_end = FALSE,
-                                    patient_eligibility = FALSE) {
+                                    patient_eligibility = FALSE,
+                                    reconciliation = FALSE) {
   read_fx <- function(name)
     jsonlite::fromJSON(
       testthat::test_path("fixtures", name), simplifyVector = FALSE)
@@ -58,6 +61,12 @@ build_metadata_response <- function(version = "2.40.3.2",
     md$programs[[1]]$programTrackedEntityAttributes <- c(
       md$programs[[1]]$programTrackedEntityAttributes,
       read_fx("patient-eligibility-attributes.json"))
+  if (reconciliation) {
+    stages <- read_fx("program-stages-reconciliation.json")
+    md$programs[[1]]$programStages <- c(
+      md$programs[[1]]$programStages, stages$programStages)
+    md$options <- c(md$options, stages$options)
+  }
   am <- read_fx("antimicrobials.json")
   md$options        <- c(md$options, am$options)
   md$optionGroupSets <- c(md$optionGroupSets, am$optionGroupSets)

@@ -52,26 +52,26 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
 {
   opts <- dataset_options
 
+  .empty_result <- function()
+    list(
+      public             = compile_schema(patients_cols, opts),
+      internal_map       = tibble::tibble(
+        patient_key    = integer(),
+        trackedEntity  = character()),
+      reconciliation_log = .reconciliation_log())
+
   # Entity gate short-circuit: under `include_patient = "no"` the
   # public patients tibble is 0×0. `assert_schema` + `finalize_to_schema`
   # short-circuit too, but returning early here avoids running the
   # whole unnest / join / pivot pipeline on a dataset the caller has
   # explicitly opted out of.
   if (opts$include_patient == "no")
-    return(list(
-      public       = compile_schema(patients_cols, opts),
-      internal_map = tibble::tibble(
-        patient_key    = integer(),
-        trackedEntity  = character())))
+    return(.empty_result())
 
   # Empty-input guard: DHIS2 returned no tracked entities. Produce a
   # valid empty dataset rather than crashing on missing columns.
   if (nrow(trackedEntities) == 0L)
-    return(list(
-      public       = compile_schema(patients_cols, opts),
-      internal_map = tibble::tibble(
-        patient_key    = integer(),
-        trackedEntity  = character())))
+    return(.empty_result())
 
   # One row per tracked entity, with the attribute values in a table of their
   # own that is pivoted and joined onto it: a patient carrying none of the
@@ -123,6 +123,11 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
   # at the end drops the two again unless selected.
   if (.patient_filters_run(opts))
     allowed_codes <- c(allowed_codes, "birth_weight", "total_gestation_days")
+  # The reconciliation of the gestational age compares the text with the
+  # total whatever `patient_columns` selects; the narrowing at the end drops
+  # both again unless selected.
+  if (.reconciliation_runs(opts))
+    allowed_codes <- c(allowed_codes, "gest_age", "total_gestation_days")
   # Match against the normalized code (lowercase, NEOIPC_[TEA_]
   # prefix stripped) — same extraction that will run below.
   normalized_code <- stringr::str_extract(
@@ -233,6 +238,17 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
   patients <- patients |>
     dplyr::select(!tidyselect::any_of("orgUnit"))
 
+  # The coordinating centre's reconciliation of the gestational age (see
+  # `reconcile` on `dhis2_dataset_options()`) runs here, before the filters
+  # below, which judge the reconciled total: the internal map is built after
+  # them, so a patient they remove leaves with its enrolments and events.
+  reconciliation_log <- .reconciliation_log()
+  if (.reconciliation_runs(opts)) {
+    reconciled <- .reconcile_gestational_age(patients)
+    patients <- reconciled$records
+    reconciliation_log <- .reconciliation_log(reconciled$changes)
+  }
+
   # Apply eligibility and range filters early so downstream joins operate on
   # fewer rows
   patients <- patients |>
@@ -259,5 +275,8 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
       scratch = c("birth_weight", "total_gestation_days"))
   assert_schema(patients, patients_cols, opts)
 
-  list(public = patients, internal_map = internal_map)
+  list(
+    public             = patients,
+    internal_map       = internal_map,
+    reconciliation_log = reconciliation_log)
 }

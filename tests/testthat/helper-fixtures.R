@@ -1208,6 +1208,13 @@ make_test_ds <- function(
   validation_summary <- if (ncol(validation_results) == 0L)
     neoipcr:::compile_schema(neoipcr:::validationSummary_cols, metadata$dataset_options)
   else neoipcr:::.validation_summary(validation_results, validation_results)
+  # The reconciliation slot as the import leaves it where no stored value
+  # needed repair: a row per reconciliation, at zero where the options let it
+  # read its records and `NA` where they do not, or 0×0 where the options
+  # reconcile nothing. With nothing reconciled the counts do not depend on
+  # which records the dataset holds, so the options alone decide them.
+  reconciliation_summary <- neoipcr:::.reconciliation_summary(
+    neoipcr:::.reconciliation_log(), list(metadata = metadata))
 
   # Empty tibbles with correct column names so rules can select columns
   # even when no data rows exist.
@@ -1229,6 +1236,7 @@ make_test_ds <- function(
     unknownPathogenNames    = make_test_unknown_pathogen_names(integer(0)),
     validationResults       = validation_results,
     validationSummary       = validation_summary,
+    reconciliationSummary   = reconciliation_summary,
     metadata                = structure(metadata, class = c("neoipcr_metadata", class(metadata))),
     .cache                  = new.env(parent = emptyenv())
   )

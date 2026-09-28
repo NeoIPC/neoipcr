@@ -184,6 +184,71 @@ test_that("get_benchmark_data carries each dataset's validation summary under it
   expect_identical(benchmark$validationSummary$ref, ref$validationSummary)
 })
 
+test_that("the calculated datasets carry the reconciliation summary, and get_benchmark_data carries it under each dataset's name", {
+  ds <- make_calc_test_ds()
+  expect_named(ds$reconciliationSummary,
+               c("reconciliation_id", "record_kind", "n_repaired", "n_reported"))
+
+  own <- calculate_department_data(ds, use_cache = FALSE)
+  ref <- calculate_reference_data(ds, use_cache = FALSE)
+  expect_identical(own$reconciliationSummary, ds$reconciliationSummary)
+  expect_identical(ref$reconciliationSummary, ds$reconciliationSummary)
+  expect_true(own$metadata$dataset_options$reconcile)
+  expect_true(ref$metadata$dataset_options$reconcile)
+
+  benchmark <- get_benchmark_data(own = own, ref = ref)
+  expect_named(benchmark$reconciliationSummary, c("own", "ref"))
+  expect_identical(benchmark$reconciliationSummary$own, own$reconciliationSummary)
+  expect_identical(benchmark$reconciliationSummary$ref, ref$reconciliationSummary)
+})
+
+test_that("the calculation functions take a raw dataset written before the reconciliation summary existed", {
+  # NEOIPC-PERMANENT(dataset-format): see assert_reconciliation_summary(). A
+  # raw dataset kept as a backup outlives the code that wrote it, so the
+  # calculations carry `NULL` for its summary rather than refuse it, and the
+  # benchmark holds no entry for it.
+  ds <- make_calc_test_ds()
+  ds$reconciliationSummary <- NULL
+
+  own <- calculate_department_data(ds, use_cache = FALSE)
+  ref <- calculate_reference_data(ds, use_cache = FALSE)
+  expect_null(own$reconciliationSummary)
+  expect_null(ref$reconciliationSummary)
+
+  benchmark <- get_benchmark_data(own = own, ref = ref)
+  expect_length(benchmark$reconciliationSummary, 0L)
+  expect_true("n_patients" %in% names(benchmark))
+})
+
+test_that("get_benchmark_data takes a calculated dataset serialized before the reconciliation summary existed", {
+  # NEOIPC-PERMANENT(dataset-format): see get_benchmark_data().
+  ds <- make_calc_test_ds()
+  own <- calculate_department_data(ds, use_cache = FALSE)
+  ref <- calculate_reference_data(ds, use_cache = FALSE)
+  ref$reconciliationSummary <- NULL
+  expect_false("reconciliationSummary" %in% names(ref))
+
+  benchmark <- get_benchmark_data(own = own, ref = ref)
+  expect_named(benchmark$reconciliationSummary, "own")
+})
+
+test_that("the calculation functions refuse a reconciliation summary of another shape", {
+  ds <- make_calc_test_ds()
+  ds$reconciliationSummary <- tibble::tibble(reconciliation_id = 1L)
+  expect_error(calculate_department_data(ds, use_cache = FALSE),
+               "reconciliation_id", class = "neoipcr_malformed_reconciliation_summary")
+  expect_error(calculate_reference_data(ds, use_cache = FALSE),
+               class = "neoipcr_malformed_reconciliation_summary")
+  ds$reconciliationSummary <- list(n_repaired = 1L)
+  expect_error(calculate_department_data(ds, use_cache = FALSE),
+               "not a data frame", class = "neoipcr_malformed_reconciliation_summary")
+
+  # The 0×0 slot of an import that reconciled nothing is the import's own.
+  ds$reconciliationSummary <- tibble::tibble()
+  own <- calculate_department_data(ds, use_cache = FALSE)
+  expect_equal(dim(own$reconciliationSummary), c(0L, 0L))
+})
+
 test_that("get_benchmark_data takes a calculated dataset without a validation summary", {
   # NEOIPC-PERMANENT(dataset-format): see get_benchmark_data(). A dataset
   # serialized before the slot existed contributes no entry and is otherwise

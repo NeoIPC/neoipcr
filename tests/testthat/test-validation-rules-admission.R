@@ -45,7 +45,7 @@ test_that("rule 45 leaves a missing day of life to the rules about the form", {
     admission_ds(type = admission_type("3"), dol = NA_integer_), NULL)), 0L)
 })
 
-test_that("rule 45 leaves the client-assigned day of life of the other admission types to the network", {
+test_that("rule 45 leaves the client-assigned day of life of the other admission types to the NeoIPC coordinating centre", {
   # For an infant born in the hospital or admitted on the day of birth, and
   # for a form without a type, the client sets the day of life to 1 on every
   # save, so a higher value stored there is not the team's to correct.

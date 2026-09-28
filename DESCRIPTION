@@ -1,7 +1,7 @@
 Package: neoipcr
 Type: Package
 Title: Facilitates Working With Data From the NeoIPC Project
-Version: 0.0.0.9006
+Version: 0.0.0.9007
 Authors@R: c(
     person(given = c("Brar", "Christian"), family = "Piening", email = "brar.piening@charite.de", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-4478-5597")),
@@ -72,6 +72,7 @@ Collate:
     'log.R'
     'neoipcr-package.R'
     'pathogens.R'
+    'reconciliation.R'
     'scales.R'
     'validation-exceptions.R'
     'schema-patients.R'
@@ -79,11 +80,13 @@ Collate:
     'schema-events.R'
     'schema-event-data.R'
     'schema-notes.R'
+    'schema-reconciliation.R'
     'schema-validation.R'
     'types-check.R'
     'validation-rules-admission.R'
     'validation-rules-completeness.R'
     'validation-rules-dates.R'
+    'validation-rules-definitions.R'
     'validation-rules-enrollment.R'
     'validation-rules-event-timing.R'
     'validation-rules-infections.R'

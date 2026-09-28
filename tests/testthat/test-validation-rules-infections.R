@@ -277,7 +277,7 @@ test_that("rule 55 detects secondary-BSI organisms under an item that is not Yes
   }
 })
 
-test_that("rule 55 leaves organisms under a No on an SSI form to the network", {
+test_that("rule 55 leaves infectious agents under a No on an SSI form to the NeoIPC coordinating centre", {
   # They sit in a section the client hides whatever it holds, so the team
   # cannot see them.
   for (item in c("0", "-1", NA))

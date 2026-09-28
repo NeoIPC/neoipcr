@@ -244,8 +244,8 @@ test_that("rule 52 detects a substance recorded without its days", {
 })
 
 test_that("rules 52 to 54 name a substance the option set does not carry by its code alone", {
-  # A code outside the option set is the network's problem; the finding
-  # still shows the slot, with the code and no name.
+  # A code outside the option set is the NeoIPC coordinating centre's
+  # problem; the finding still shows the slot, with the code and no name.
   result <- neoipcr:::validation_rule_52(
     substance_slots_ds("J99XX99", NA_integer_), NULL)
   expect_equal(nrow(result), 1L)

@@ -19,10 +19,12 @@ least one dataset is required; a call without any aborts with class
 \code{neoipcr_no_benchmark_datasets}.}
 }
 \value{
-A neoipcr_bnch_ds. Each dataset's \code{metadata} and
-\code{validationSummary} are carried under the dataset's name — a dataset
-serialized before the summary existed contributes no entry — and the
-counts and tables are merged with the names as column suffixes.
+A neoipcr_bnch_ds. Each dataset's \code{metadata},
+\code{validationSummary} and \code{reconciliationSummary} are carried under the
+dataset's name — a dataset serialized before a summary existed, or
+calculated from a raw dataset written before it existed, contributes no
+entry to it — and the counts and tables are merged with the names as
+column suffixes.
 }
 \description{
 Creates a NeoIPC benchmark data set from department report datasets and a

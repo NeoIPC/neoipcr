@@ -1,7 +1,7 @@
 # Tests for R/validation.R — validate() orchestrator and validation_rules registry.
 
-test_that("validation_rules registry has 56 entries with an id, a level and a function each", {
-  expect_equal(length(neoipcr:::validation_rules), 56L)
+test_that("validation_rules registry has 60 entries with an id, a level and a function each", {
+  expect_equal(length(neoipcr:::validation_rules), 60L)
   for (entry in neoipcr:::validation_rules) {
     expect_true(all(c("id", "level", "fun") %in% names(entry)))
     expect_true(is.integer(entry$id))
@@ -40,6 +40,14 @@ test_that("validation_rules registry has 56 entries with an id, a level and a fu
   expect_null(neoipcr:::.rule_event_types(56L))
   expect_equal(unname(levels["57"]), "patient")
   expect_null(neoipcr:::.rule_event_types(57L))
+  expect_equal(unname(levels["58"]), "patient")
+  expect_null(neoipcr:::.rule_event_types(58L))
+  # The definition rules each concern the one form whose definition they
+  # hold it to.
+  expect_equal(unname(levels[c("59", "60", "61")]), rep("event", 3L))
+  expect_equal(neoipcr:::.rule_event_types(59L), "bsi")
+  expect_equal(neoipcr:::.rule_event_types(60L), "nec")
+  expect_equal(neoipcr:::.rule_event_types(61L), "ssi")
   # Only the rules that measure an enrolment's age take the reference date.
   dated <- vapply(neoipcr:::validation_rules, \(r) isTRUE(r$dated), logical(1))
   expect_equal(neoipcr::validation_rule_ids()[dated], c(43L, 44L))
@@ -89,12 +97,17 @@ test_that("validation_rule_ids is exported and lists the registry in order", {
   namespace <- readLines(system.file("NAMESPACE", package = "neoipcr"))
   expect_true("export(validation_rule_ids)" %in% namespace)
   # Rule 16 is gone, so the ids keep their numbering with a gap at 16.
-  expect_identical(neoipcr::validation_rule_ids(), c(1:15, 17:57))
+  expect_identical(neoipcr::validation_rule_ids(), c(1:15, 17:61))
   expect_true("export(validation_rule_context_fields)" %in% namespace)
   fields <- neoipcr::validation_rule_context_fields()
   expect_identical(names(fields), as.character(neoipcr::validation_rule_ids()))
   expect_identical(fields[["1"]], character())
   expect_identical(fields[["57"]], character())
+  expect_identical(fields[["58"]], "gest_age")
+  expect_identical(fields[["59"]], "findings")
+  expect_setequal(fields[["60"]],
+                  c("imaging_count", "clinical_count", "surgical_count"))
+  expect_identical(fields[["61"]], "infection_type")
   expect_setequal(fields[["3"]], c("enrolledAt", "occurredAt"))
   expect_setequal(fields[["20"]], c("index", "secondary_bsi", "name"))
 })

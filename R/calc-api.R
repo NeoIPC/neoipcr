@@ -7,7 +7,9 @@
 #' reference data names neither the records a list exempted nor the
 #' departments it was built from. `validationSummary` is the dataset's
 #' validation summary (see [import_dhis2()]); a dataset without it is
-#' refused.
+#' refused. `reconciliationSummary` is the dataset's reconciliation summary
+#' (see [import_dhis2()]), `NULL` for a dataset written before the summary
+#' existed; a summary of another shape is refused.
 #'
 #' @param x The neoipcr_ds object containing the data
 #' @param use_cache Use the cache
@@ -27,6 +29,7 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
     include_event      = c("pseudo", "full")
   ), fn_name = "calculate_reference_data")
   assert_validation_summary(x, fn_name = "calculate_reference_data")
+  assert_reconciliation_summary(x, fn_name = "calculate_reference_data")
 
   # `metadata$countries` is always a tibble under the three-mode schema
   # contract; gate on the key column instead of null-ness. Under "no" the
@@ -172,6 +175,9 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
         q3 = sur_proc_q[3]),
       n_infections = n_infections,
       validationSummary = x$validationSummary,
+      # NEOIPC-PERMANENT(dataset-format): `NULL` for a raw dataset written
+      # before the slot existed; see `assert_reconciliation_summary()`.
+      reconciliationSummary = x$reconciliationSummary,
       usage_density_rate_table =
         get_usage_density_rate_table(x, use_cache),
       antibiotic_utilization_table =
@@ -205,7 +211,9 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
 #' `"exception_list_applied"`, while the department filter — the
 #' department's own — is kept. `validationSummary` is the dataset's
 #' validation summary (see [import_dhis2()]); a dataset without it is
-#' refused.
+#' refused. `reconciliationSummary` is the dataset's reconciliation summary
+#' (see [import_dhis2()]), `NULL` for a dataset written before the summary
+#' existed; a summary of another shape is refused.
 #'
 #' @param x The neoipcr_ds object containing the data
 #' @param use_cache Use the cache
@@ -224,6 +232,7 @@ calculate_department_data <- function(x, use_cache = TRUE) {
     include_event      = c("pseudo", "full")
   ), fn_name = "calculate_department_data")
   assert_validation_summary(x, fn_name = "calculate_department_data")
+  assert_reconciliation_summary(x, fn_name = "calculate_department_data")
 
   rt <- x |>
     get_risk_time(use_cache = use_cache)
@@ -303,6 +312,9 @@ calculate_department_data <- function(x, use_cache = TRUE) {
       n_surgical_procedures = list(total = sr$n_procedures),
       n_surgical_patients = list(total = sr$n_patients),
       validationSummary = x$validationSummary,
+      # NEOIPC-PERMANENT(dataset-format): `NULL` for a raw dataset written
+      # before the slot existed; see `assert_reconciliation_summary()`.
+      reconciliationSummary = x$reconciliationSummary,
       usage_density_rate_table = usage_density_rate_table,
       antibiotic_utilization_table =
         get_antibiotic_utilization_table(x, use_cache, include_quartiles = FALSE),
@@ -346,10 +358,12 @@ calculate_department_data <- function(x, use_cache = TRUE) {
 #'  least one dataset is required; a call without any aborts with class
 #'  `neoipcr_no_benchmark_datasets`.
 #'
-#' @returns A neoipcr_bnch_ds. Each dataset's `metadata` and
-#'  `validationSummary` are carried under the dataset's name — a dataset
-#'  serialized before the summary existed contributes no entry — and the
-#'  counts and tables are merged with the names as column suffixes.
+#' @returns A neoipcr_bnch_ds. Each dataset's `metadata`,
+#'  `validationSummary` and `reconciliationSummary` are carried under the
+#'  dataset's name — a dataset serialized before a summary existed, or
+#'  calculated from a raw dataset written before it existed, contributes no
+#'  entry to it — and the counts and tables are merged with the names as
+#'  column suffixes.
 #' @export
 get_benchmark_data <- function(...) {
   x <- list(...)
@@ -361,7 +375,8 @@ get_benchmark_data <- function(...) {
   output <- list(
     dataset_names = ds_names,
     metadata = list(),
-    validationSummary = list())
+    validationSummary = list(),
+    reconciliationSummary = list())
   suffixes = ds_names |>
     sapply(\(x)ifelse(x=="",x,paste0("_",x)), USE.NAMES = FALSE)
 
@@ -384,6 +399,12 @@ get_benchmark_data <- function(...) {
     # documentation says, and its consumer renders without the summary.
     if ("validationSummary" %in% elements) {
       output$validationSummary[[ds_name]] <- ds$validationSummary
+    }
+    # NEOIPC-PERMANENT(dataset-format): never drop the presence test, for the
+    # reason above. A dataset calculated from a raw dataset written before
+    # the slot existed carries it as `NULL`, which adds no entry either.
+    if ("reconciliationSummary" %in% elements) {
+      output$reconciliationSummary[[ds_name]] <- ds$reconciliationSummary
     }
 
     if ("n_departments" %in% elements) {

@@ -203,7 +203,12 @@ filter_patients <- function(
   # NEOIPC_ALL_PATIENTS_ELIGIBLE, and inside them it is an infant registered
   # without the value that could have made it eligible. A patient with neither
   # value is not judged here but kept for the validation pass, which reports
-  # it under rule 57; removed here, it would leave with no finding to say why.
+  # it under rule 57, or under rule 58 where it records a gestational-age text
+  # in the wrong format; removed here, it would leave with no finding to say
+  # why. One such patient is judged by neither: under `reconcile = FALSE`, a
+  # patient whose only gestational age is a text in the required format,
+  # from which reconciliation 3 would have computed the total, is kept here
+  # and reported by no rule.
   if(!include_ineligible_patients)
     patients <- patients |>
       dplyr::filter(
