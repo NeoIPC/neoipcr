@@ -32,10 +32,42 @@
 # `patient_columns` selects — rule 56 the multiple-birth flag and the number of
 # infants, rule 57 the birth weight and the gestational age in both its forms,
 # the total gestation days and the text, and rule 58 the text: the import
-# reads them for the pass and drops them again unless selected, so the
-# dataset holds only what the caller asked for.
+# reads them for the pass and drops them again unless selected. Rules 56 and
+# 58 record the value they compared in their finding's context, so the import
+# masks it there too (`.mask_unreturned_patient_context()`), and the dataset
+# holds only the patient attributes the caller asked for.
 .pass_patient_columns <- c(
   "multiple_birth", "siblings", "birth_weight", "gestational_age")
+
+# `findings` with every context value set to missing whose field is a
+# patient attribute the patients tibble `patients` does not carry: the
+# values the patient-level rules compared on the patient record, which the
+# import read for its pass whatever `patient_columns` selects and which the
+# returned dataset holds only where the caller asked for them. The fields
+# are the context fields of the registry's patient-level rules that the
+# patient schema declares, rule 56's `siblings` and rule 58's `gest_age`. A
+# context keeps its fields and their types, so it still holds what the
+# registry declares; only the value goes.
+.mask_unreturned_patient_context <- function(findings, patients)
+{
+  declared <- purrr::map_chr(patients_cols, "name")
+  patient_rules <- purrr::keep(validation_rules, \(rule) rule$level == "patient")
+  masked <- patient_rules |>
+    purrr::map(\(rule) setdiff(intersect(rule$context, declared), names(patients))) |>
+    rlang::set_names(
+      vapply(patient_rules, \(rule) as.character(rule$id), character(1))) |>
+    purrr::compact()
+
+  findings$context <- purrr::map2(
+    findings$rule_id, findings$context, \(id, context) {
+      fields <- masked[[as.character(id)]]
+      if (is.null(fields))
+        return(context)
+      dplyr::mutate(context, dplyr::across(
+        tidyselect::all_of(fields), \(value) replace(value, seq_along(value), NA)))
+    })
+  findings
+}
 
 validation_rules <- list(
   list(id = 1L,  level = "patient",    context = character(),
@@ -542,10 +574,10 @@ validation_rule_context_fields <- function()
 #' transferred or readmitted the day after birth or later (admission type 3)
 #' whose day of life at admission is above 120, the last day on which an
 #' infant is eligible, the day of birth being day 1; the other two types
-#' have day 1 assigned by the client whenever it saves a form that can still
-#' be edited, so a higher value stored there is one the team never chose,
-#' and the NeoIPC coordinating centre's to mend (see `reconcile` on
-#' [dhis2_dataset_options()]). It is an eligibility
+#' have day 1 assigned by the client whenever it processes a form while it
+#' can still be edited, and saves it, so a higher value stored there is one
+#' the team never chose, and the NeoIPC coordinating centre's to mend (see
+#' `reconcile` on [dhis2_dataset_options()]). It is an eligibility
 #' rule: the import's own eligibility filter removes such admissions before
 #' the pass unless `include_ineligible_patients` is set, and then the pass
 #' leaves the rule out rather than remove what that option keeps, so the
@@ -606,7 +638,10 @@ validation_rule_context_fields <- function()
 #' two patient attributes `multiple_birth` and `siblings`, which the import
 #' fetches for its pass whatever `patient_columns` selects and drops again
 #' unless selected (see [dhis2_dataset_options()]); a dataset validated
-#' without them skips the rule.
+#' without them skips the rule. `siblings` is the number as stored; in the
+#' import's `validationResults` it is `NA` where the returned patients do not
+#' carry `siblings`, under the pseudonymized patient tier or with the
+#' attribute left out of `patient_columns`.
 #'
 #' Rule 57 flags a patient whose record holds neither a birth weight nor a
 #' gestational age in either of its forms, the total gestation days or the
@@ -632,8 +667,11 @@ validation_rule_context_fields <- function()
 #' 49, a plus sign, and one digit for the days, 0 to 6, with nothing before
 #' or after, as in `25+4`. The form refuses any other text, so one reaches
 #' the dataset around the form. An empty text is no text and not its
-#' concern. `gest_age` is the text as stored. It is not an eligibility rule,
-#' and it reads `gest_age` as rule 57 does.
+#' concern. `gest_age` is the text as stored; in the import's
+#' `validationResults` it is `NA` where the returned patients do not carry
+#' the gestational age, under the pseudonymized patient tier or with
+#' `"gestational_age"` left out of `patient_columns`. It is not an
+#' eligibility rule, and it reads `gest_age` as rule 57 does.
 #'
 #' Rules 59 to 61 hold a completed infection form to the case definition the
 #' client checks when the form is completed and without which it refuses to
@@ -649,8 +687,9 @@ validation_rule_context_fields <- function()
 #' features of generalized infection, `findings` being their number, each
 #' clinical sign present counting one and the laboratory findings one
 #' together, however many are present. That includes a form that records
-#' neither a negative culture nor an agent, which the client refuses only
-#' through the compulsory first agent. An agent is a slot that names a
+#' neither a negative culture nor an agent, which the client refuses only by
+#' making the first agent mandatory while the culture is not recorded as
+#' negative. An agent is a slot that names a
 #' concept, "Not listed" included; a resistance or name companion stored on
 #' its own records none. Rule 60 flags a necrotizing enterocolitis form that
 #' records neither at least one imaging and one clinical finding nor at least

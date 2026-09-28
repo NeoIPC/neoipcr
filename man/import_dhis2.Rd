@@ -17,7 +17,10 @@ server.}
 }
 \value{
 A NeoIPC dataset. Its \code{validationResults} slot holds the findings
-of the import's validation pass in the shape \code{\link[=validate]{validate()}} returns, and
+of the import's validation pass in the shape \code{\link[=validate]{validate()}} returns, except
+that a context value the pass read from a patient attribute the returned
+\code{patients} does not carry is \code{NA} (rule 56's \code{siblings} and rule 58's
+\code{gest_age}, see \code{patient_columns} on \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}), and
 \code{validationSummary} counts them: one row per rule that flagged or
 exempted a record, with the rule's record kind — \code{patients},
 \code{enrollments} or \code{events}, the level it is recorded on; see the table on

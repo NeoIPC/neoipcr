@@ -221,7 +221,9 @@ test_that("the calculation functions take a raw dataset written before the recon
 })
 
 test_that("get_benchmark_data takes a calculated dataset serialized before the reconciliation summary existed", {
-  # NEOIPC-PERMANENT(dataset-format): see get_benchmark_data().
+  # NEOIPC-PERMANENT(dataset-format): a calculated dataset serialized before
+  # the slot existed outlives the code that wrote it; it contributes no entry
+  # and is otherwise combined as before.
   ds <- make_calc_test_ds()
   own <- calculate_department_data(ds, use_cache = FALSE)
   ref <- calculate_reference_data(ds, use_cache = FALSE)
@@ -250,9 +252,9 @@ test_that("the calculation functions refuse a reconciliation summary of another 
 })
 
 test_that("get_benchmark_data takes a calculated dataset without a validation summary", {
-  # NEOIPC-PERMANENT(dataset-format): see get_benchmark_data(). A dataset
-  # serialized before the slot existed contributes no entry and is otherwise
-  # combined as before.
+  # NEOIPC-PERMANENT(dataset-format): a calculated dataset serialized before
+  # the slot existed outlives the code that wrote it; it contributes no entry
+  # and is otherwise combined as before.
   ds <- make_calc_test_ds()
   own <- calculate_department_data(ds, use_cache = FALSE)
   ref <- calculate_reference_data(ds, use_cache = FALSE)

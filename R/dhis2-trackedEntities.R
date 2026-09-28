@@ -119,10 +119,12 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
   if (has_exception_list(opts))
     allowed_codes <- c(allowed_codes, "patient_id")
   # The eligibility and range filters compare the birth weight and the total
-  # gestation days whatever `patient_columns` selects; the schema narrowing
-  # at the end drops the two again unless selected.
+  # gestation days whatever `patient_columns` selects, the total computed
+  # from the gestational-age text where it is missing; the schema narrowing
+  # at the end drops the three again unless selected.
   if (.patient_filters_run(opts))
-    allowed_codes <- c(allowed_codes, "birth_weight", "total_gestation_days")
+    allowed_codes <- c(
+      allowed_codes, "birth_weight", "total_gestation_days", "gest_age")
   # The reconciliation of the gestational age compares the text with the
   # total whatever `patient_columns` selects; the narrowing at the end drops
   # both again unless selected.
@@ -261,7 +263,9 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
 
   # Narrow to the public schema + loud-assert. `orgUnit` — the only
   # reader-internal column not declared on `patients_cols` — was dropped
-  # above, so no `scratch` declaration is needed here.
+  # above, so no `scratch` declaration is needed here: the birth weight, the
+  # total gestation days and the gestational-age text are declared, and the
+  # schema's selection under `opts` drops them unless selected.
   # Internal map: carries `patient_key + trackedEntity` for
   # downstream readers (read_enrollments) that need to substitute
   # the raw DHIS2 TE uid with the integer key. Built before finalize
@@ -270,9 +274,7 @@ read_patients <- function(trackedEntities, metadata, dataset_options)
     dplyr::select("patient_key", "trackedEntity")
 
   patients <- patients |>
-    finalize_to_schema(
-      patients_cols, opts,
-      scratch = c("birth_weight", "total_gestation_days"))
+    finalize_to_schema(patients_cols, opts)
   assert_schema(patients, patients_cols, opts)
 
   list(

@@ -113,10 +113,10 @@ Rules 45 to 47 read the admission form. Rule 45 flags an infant
 transferred or readmitted the day after birth or later (admission type 3)
 whose day of life at admission is above 120, the last day on which an
 infant is eligible, the day of birth being day 1; the other two types
-have day 1 assigned by the client whenever it saves a form that can still
-be edited, so a higher value stored there is one the team never chose,
-and the NeoIPC coordinating centre's to mend (see \code{reconcile} on
-\code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}). It is an eligibility
+have day 1 assigned by the client whenever it processes a form while it
+can still be edited, and saves it, so a higher value stored there is one
+the team never chose, and the NeoIPC coordinating centre's to mend (see
+\code{reconcile} on \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}). It is an eligibility
 rule: the import's own eligibility filter removes such admissions before
 the pass unless \code{include_ineligible_patients} is set, and then the pass
 leaves the rule out rather than remove what that option keeps, so the
@@ -177,7 +177,10 @@ counts every infant of the pregnancy, the patient included. It reads the
 two patient attributes \code{multiple_birth} and \code{siblings}, which the import
 fetches for its pass whatever \code{patient_columns} selects and drops again
 unless selected (see \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}); a dataset validated
-without them skips the rule.
+without them skips the rule. \code{siblings} is the number as stored; in the
+import's \code{validationResults} it is \code{NA} where the returned patients do not
+carry \code{siblings}, under the pseudonymized patient tier or with the
+attribute left out of \code{patient_columns}.
 
 Rule 57 flags a patient whose record holds neither a birth weight nor a
 gestational age in either of its forms, the total gestation days or the
@@ -203,8 +206,11 @@ the registration form requires: two digits for the completed weeks, 20 to
 49, a plus sign, and one digit for the days, 0 to 6, with nothing before
 or after, as in \code{25+4}. The form refuses any other text, so one reaches
 the dataset around the form. An empty text is no text and not its
-concern. \code{gest_age} is the text as stored. It is not an eligibility rule,
-and it reads \code{gest_age} as rule 57 does.
+concern. \code{gest_age} is the text as stored; in the import's
+\code{validationResults} it is \code{NA} where the returned patients do not carry
+the gestational age, under the pseudonymized patient tier or with
+\code{"gestational_age"} left out of \code{patient_columns}. It is not an
+eligibility rule, and it reads \code{gest_age} as rule 57 does.
 
 Rules 59 to 61 hold a completed infection form to the case definition the
 client checks when the form is completed and without which it refuses to
@@ -220,8 +226,9 @@ antibiotic therapy for five days or more initiated, and at least two
 features of generalized infection, \code{findings} being their number, each
 clinical sign present counting one and the laboratory findings one
 together, however many are present. That includes a form that records
-neither a negative culture nor an agent, which the client refuses only
-through the compulsory first agent. An agent is a slot that names a
+neither a negative culture nor an agent, which the client refuses only by
+making the first agent mandatory while the culture is not recorded as
+negative. An agent is a slot that names a
 concept, "Not listed" included; a resistance or name companion stored on
 its own records none. Rule 60 flags a necrotizing enterocolitis form that
 records neither at least one imaging and one clinical finding nor at least

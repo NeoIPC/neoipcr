@@ -5,7 +5,10 @@
 #' @param dataset_options The options to use for the dataset configuration
 #'
 #' @returns A NeoIPC dataset. Its `validationResults` slot holds the findings
-#'  of the import's validation pass in the shape [validate()] returns, and
+#'  of the import's validation pass in the shape [validate()] returns, except
+#'  that a context value the pass read from a patient attribute the returned
+#'  `patients` does not carry is `NA` (rule 56's `siblings` and rule 58's
+#'  `gest_age`, see `patient_columns` on [dhis2_dataset_options()]), and
 #'  `validationSummary` counts them: one row per rule that flagged or
 #'  exempted a record, with the rule's record kind — `patients`,
 #'  `enrollments` or `events`, the level it is recorded on; see the table on
@@ -280,11 +283,12 @@ import_dhis2 <- function(
 
   # The validation pass reads patient attributes whatever the caller selected
   # (`.pass_patient_columns`: rule 56 the multiple-birth flag and the number of
-  # infants, rule 57 the birth weight and the gestational age): with the pass
-  # to run, the patients are read as the full tier with those added to the
-  # selection (the pseudonymized tier's selection being its key alone), and
-  # are narrowed to the requested shape once the pass has run, so the dataset
-  # holds only what was asked for.
+  # infants, rule 57 the birth weight and the gestational age, rule 58 the
+  # gestational-age text): with the pass to run, the patients are read as the
+  # full tier with those added to the selection (the pseudonymized tier's
+  # selection being its key alone), and are narrowed to the requested shape
+  # once the pass has run, the findings' context with them, so the dataset
+  # holds only the patient attributes that were asked for.
   patient_read_options <- dataset_options
   if (.validation_pass_runs(dataset_options)) {
     patient_read_options$include_patient <- "full"
@@ -491,12 +495,15 @@ import_dhis2 <- function(
   }
 
   # The patients read wider for the pass narrow to the requested shape (see
-  # the patient read above); the pass columns leave unless selected.
+  # the patient read above); the pass columns, which the schema declares,
+  # leave by its selection under the requested options unless selected, and
+  # so do the values of them the findings recorded.
   if (.validation_pass_runs(dataset_options)) {
-    narrowed <- finalize_to_schema(
-      r$patients, patients_cols, dataset_options, scratch = .pass_patient_columns)
+    narrowed <- finalize_to_schema(r$patients, patients_cols, dataset_options)
     class(narrowed) <- c("neoipcr_pat", setdiff(class(narrowed), "neoipcr_pat"))
     r$patients <- narrowed
+    r$validationResults <- .mask_unreturned_patient_context(
+      r$validationResults, r$patients)
   }
 
   r <- r |>

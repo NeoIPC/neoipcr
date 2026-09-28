@@ -98,7 +98,11 @@ admission_case <- function() {
     dol           = c(150L, NA, 150L, 150L, 1L, 5L, 1L, 3L),
     los           = rep(0L, 8L),
     dol_storedBy  = rep(7L, 8L),
-    dol_updatedAt = rep(utc_time("2024-01-02 10:00"), 8L))
+    dol_createdBy = rep(8L, 8L),
+    dol_updatedBy = rep(9L, 8L),
+    dol_createdAt = rep(utc_time("2024-01-01 10:00"), 8L),
+    dol_updatedAt = rep(utc_time("2024-01-02 10:00"), 8L),
+    los_storedBy  = rep(7L, 8L))
   enrollments <- tibble::tibble(
     enrollment_key = 1:8,
     patient_key    = c(1L, 2L, 3L, 4L, 5L, 5L, 7L, 7L),
@@ -139,12 +143,16 @@ test_that("reconciliation 1 leaves a type-3, untyped or already correct admissio
   expect_false(any(c(3L, 4L, 5L, 6L, 7L) %in% r$changes$event_key))
   expect_true(8L %in% r$changes$event_key)
   expect_identical(r$records$los, case$admission$los)
-  # The audit fields of the repaired values go, the others stay.
-  expect_identical(
-    r$records$dol_storedBy, c(NA, NA, 7L, 7L, 7L, 7L, 7L, NA))
-  expect_identical(
-    is.na(r$records$dol_updatedAt),
-    c(TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE))
+  # The five audit fields of the repaired values go, the others stay, and so
+  # do the audit fields of another value on a repaired form.
+  repaired <- c(TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE)
+  for (companion in c("dol_storedBy", "dol_createdBy", "dol_updatedBy"))
+    expect_identical(
+      r$records[[companion]],
+      replace(case$admission[[companion]], repaired, NA), info = companion)
+  for (companion in c("dol_createdAt", "dol_updatedAt"))
+    expect_identical(is.na(r$records[[companion]]), repaired, info = companion)
+  expect_identical(r$records$los_storedBy, case$admission$los_storedBy)
 
   # The earlier enrolment decides although the frame holds only the
   # readmission's form, as under a reporting period that leaves the first
@@ -174,15 +182,19 @@ event_dol_case <- function() {
       "2024-01-03", "2024-01-03", "2024-01-11")))
   forms <- list(
     sepsisData = tibble::tibble(
-      event_key    = c(11L, 12L, 14L, 21L, 22L, 31L),
-      dol          = c(160L, 7L, NA, 2L, 3L, 160L),
-      los          = c(10L, 14L, NA, 2L, 2L, 10L),
-      dol_storedBy = rep(7L, 6L)),
+      event_key     = c(11L, 12L, 14L, 21L, 22L, 31L),
+      dol           = c(160L, 7L, NA, 2L, 3L, 160L),
+      los           = c(10L, 14L, NA, 2L, 2L, 10L),
+      dol_storedBy  = rep(7L, 6L),
+      dol_createdBy = rep(8L, 6L),
+      dol_updatedBy = rep(9L, 6L)),
     ssiData = tibble::tibble(
-      event_key    = 13L,
-      dol          = NA_integer_,
-      los          = 4L,
-      dol_storedBy = 7L))
+      event_key     = 13L,
+      dol           = NA_integer_,
+      los           = 4L,
+      dol_storedBy  = 7L,
+      dol_createdBy = 8L,
+      dol_updatedBy = 9L))
   list(
     forms       = forms,
     repaired    = tibble::tibble(enrollment_key = c(1L, 2L), dol = c(150L, NA)),
@@ -223,7 +235,53 @@ test_that("reconciliation 2 leaves a day of life the stored admission value does
   expect_identical(r$records$sepsisData$los, case$forms$sepsisData$los)
   expect_identical(r$records$ssiData$los, 4L)
   expect_identical(r$records$sepsisData$dol_storedBy, c(NA, 7L, 7L, NA, 7L, 7L))
+  expect_identical(r$records$sepsisData$dol_createdBy, c(NA, 8L, 8L, NA, 8L, 8L))
+  expect_identical(r$records$sepsisData$dol_updatedBy, c(NA, 9L, 9L, NA, 9L, 9L))
   expect_identical(r$records$ssiData$dol_storedBy, NA_integer_)
+  expect_identical(r$records$ssiData$dol_createdBy, NA_integer_)
+  expect_identical(r$records$ssiData$dol_updatedBy, NA_integer_)
+})
+
+test_that("reconciliation 2 derives again the day of life of the necrotizing enterocolitis, pneumonia and procedure forms", {
+  # Enrolment 1, admitted on 2024-01-01 with a type-1 admission form on day
+  # 150, and a necrotizing enterocolitis, a pneumonia and a procedure form
+  # whose days of life the client derived from that value.
+  frame <- tibble::tibble(
+    event_key      = 1:4,
+    event_type_key = factor(c("adm", "nec", "hap", "pro"), levels = event_type_levels),
+    enrollment_key = 1L,
+    patient_key    = 1L,
+    occurredAt     = as.Date(c("2024-01-01", "2024-01-05", "2024-01-08", "2024-01-11")))
+  data <- list(
+    admissionData           = make_test_admission_data(1L, dol = 150L),
+    sepsisData              = make_test_sepsis_data(integer(0)),
+    necData                 = make_test_nec_data(2L, dol = 154L),
+    pneumoniaData           = make_test_pneumonia_data(3L, dol = 157L),
+    surgeryData             = make_test_surgery_data(4L, dol = 160L),
+    ssiData                 = make_test_ssi_data(integer(0)),
+    infectiousAgentFindings = make_test_iaf(integer(0)),
+    unknownPathogenNames    = make_test_unknown_pathogen_names())
+
+  r <- neoipcr:::.reconcile_event_data(
+    data,
+    frame       = frame,
+    enrollments = tibble::tibble(
+      enrollment_key = 1L,
+      patient_key    = 1L,
+      enrolledAt     = as.Date("2024-01-01")),
+    findings    = tibble::tibble(
+      agent_finding_key = integer(),
+      event_key         = integer(),
+      secondary_bsi     = logical(),
+      index             = integer(),
+      pathogen_key      = integer()))
+
+  expect_identical(r$data$necData$dol, 5L)
+  expect_identical(r$data$pneumoniaData$dol, 8L)
+  expect_identical(r$data$surgeryData$dol, 11L)
+  expect_setequal(r$changes$`2`$event_key, 2:4)
+  expect_equal(r$changes$`2`$dol_reconciled[order(r$changes$`2`$event_key)],
+               c(5L, 8L, 11L))
 })
 
 # --- Hidden infectious-agent sections (reconciliations 5 and 6) -----------

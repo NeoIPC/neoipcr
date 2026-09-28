@@ -47,8 +47,9 @@ test_that("rule 45 leaves a missing day of life to the rules about the form", {
 
 test_that("rule 45 leaves the client-assigned day of life of the other admission types to the NeoIPC coordinating centre", {
   # For an infant born in the hospital or admitted on the day of birth, and
-  # for a form without a type, the client sets the day of life to 1 on every
-  # save, so a higher value stored there is not the team's to correct.
+  # for a form without a type, the client sets the day of life to 1 whenever
+  # it processes the form while it can still be edited, and saves it, so a
+  # higher value stored there is not the team's to correct.
   for (type in c("1", "2", NA))
     expect_equal(nrow(neoipcr:::validation_rule_45(
       admission_ds(type = admission_type(type), dol = 150L), NULL)), 0L, info = type)

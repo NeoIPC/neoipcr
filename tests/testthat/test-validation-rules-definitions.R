@@ -109,7 +109,8 @@ test_that("rule 59 detects a sepsis without an agent whose antibiotic therapy or
   expect_identical(result$context[[1]]$findings, 8L)
   # A form with neither a negative culture nor an agent describes neither a
   # clinical sepsis nor a laboratory-confirmed one; the client refuses it
-  # only through the compulsory first agent.
+  # only by making the first agent mandatory while the culture is not
+  # recorded as negative.
   neither <- culture_negative(c("temperature", "apnoea"))
   neither$no_pos_culture <- FALSE
   expect_equal(nrow(neoipcr:::validation_rule_59(sepsis_ds(list(neither)), NULL)), 1L)
@@ -447,6 +448,42 @@ test_that("rule 61 reads a missing item as not present", {
   ds <- ssi_ds(list(list(infection_type = "1")))
   ds$ssiData <- ds$ssiData[0L, ]
   expect_equal(nrow(neoipcr:::validation_rule_61(ds, NULL)), 0L)
+})
+
+test_that("rule 61 reads a missing item of a compound criterion as not present", {
+  # A compound criterion with its gate met and one of its items missing, the
+  # others No, is not met, so the form is flagged; the same item Yes meets
+  # it. Read as missing rather than as No, the item would leave the
+  # criterion undecided, and the form would silently pass.
+  missing_and_present <- function(form, item) {
+    form[[item]] <- NA
+    expect_true(ssi_flagged(form), info = item)
+    form[[item]] <- TRUE
+    expect_false(ssi_flagged(form), info = item)
+  }
+
+  # The superficial incision opened and not tested, with a local sign.
+  opened <- list(infection_type = "1", inc_opened_superf = TRUE,
+                 organisms_superf = "-1")
+  for (sign in c("localized_pain_superf", "localized_swelling",
+                 "localized_erythema", "localized_heat"))
+    missing_and_present(opened, sign)
+  missing_and_present(
+    list(infection_type = "1", organisms_superf = "-1",
+         localized_pain_superf = TRUE),
+    "inc_opened_superf")
+
+  # The deep incision dehiscing, with agents identified or not tested, and
+  # fever or pain.
+  for (organisms in c("1", "-1")) {
+    dehiscing <- list(infection_type = "2", inc_dehisces_deep = TRUE,
+                      organisms_deep = organisms)
+    for (sign in c("fever", "localized_pain_deep"))
+      missing_and_present(dehiscing, sign)
+    missing_and_present(
+      list(infection_type = "2", organisms_deep = organisms, fever = TRUE),
+      "inc_dehisces_deep")
+  }
 })
 
 test_that("rule 61 judges only completed forms", {

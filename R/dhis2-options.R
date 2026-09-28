@@ -40,10 +40,12 @@
 #' @param birth_weight_to The highest birth weight (in grams) of patient
 #'  records to include into the dataset.
 #' @param gestational_age_from The lowest gestational age (in completed weeks)
-#'  of patient records to include into the dataset.
+#'  of patient records to include into the dataset, judged by the total
+#'  gestation days as `include_ineligible_patients` describes.
 #' @param gestational_age_to The highest gestational age (in completed weeks) of
-#'  patient records to include into the dataset. The bound covers the whole
-#'  completed week: `31` keeps 31+0 through 31+6.
+#'  patient records to include into the dataset, judged by the total
+#'  gestation days as `include_ineligible_patients` describes. The bound
+#'  covers the whole completed week: `31` keeps 31+0 through 31+6.
 #' @param country_filter ISO 3166 country codes	of the countries the enrolling
 #'  departments are located in to include into the dataset.
 #' @param department_filter NeoIPC department codes of the departments to
@@ -95,10 +97,14 @@
 #'  default) means all of them. The validation pass reads `multiple_birth`
 #'  and `siblings` (rule 56), `birth_weight` (rule 57) and `gestational_age`
 #'  (rules 57 and 58) whatever the selection and drops them again unless
-#'  selected, so the dataset holds only what was asked for; a later
-#'  [validate()] on a dataset without them skips the rule that reads them.
-#'  Ignored when
-#'  `include_patient` is "no" or "pseudo".
+#'  selected; a later [validate()] on a dataset without them skips the rule
+#'  that reads them. Rules 56 and 58 record the value they compared in their
+#'  finding's context, `siblings` and the gestational-age text `gest_age`,
+#'  and `validationResults` keeps that value only where the returned
+#'  patients carry the attribute: under `include_patient = "pseudo"`, or
+#'  with the attribute left out of the selection, the field is `NA`. So the
+#'  dataset holds only the patient attributes that were asked for. Ignored
+#'  when `include_patient` is "no" or "pseudo".
 #' @param include_enrollment Include the enrollment tibble into the dataset
 #'  and expose the `enrollment_key` link column on downstream tibbles. Same
 #'  three-mode semantics as `include_patient`.
@@ -136,11 +142,12 @@
 #'  rule 57, or under rule 58 where it records a gestational-age text in the
 #'  wrong format (see [validate()]), rather than leaving the dataset
 #'  unreported. The filter judges the values as `reconcile` leaves them, and
-#'  reads the total gestation days, not the text: under `reconcile = FALSE`,
-#'  a patient whose only gestational age is a text in the required format is
-#'  kept as one with neither value and reported by no rule, since the text is
-#'  a recorded gestational age; under the default, reconciliation 3 computes
-#'  the total from that text first.
+#'  where the total gestation days are missing it judges the total the
+#'  registration form computes from a gestational-age text in the required
+#'  format, so that a patient whose only gestational age is such a text is
+#'  judged by it under `reconcile = FALSE` as well, its stored values staying
+#'  as they are; under the default, reconciliation 3 stores that total
+#'  first. The range filters on the gestational age judge the same total.
 #' @param include_unenrolled_patients Include the NeoIPC patient records that
 #'  are not enrolled in the surveillance program as well: they are requested
 #'  by tracked-entity type rather than by program, and the removal of orphan
@@ -218,21 +225,33 @@
 #'     the client assigns, unless the import read an earlier enrolment of the
 #'     patient, whether or not a reporting period keeps it: the admission's
 #'     type is then what is wrong, which validation rule 47 reports where the
-#'     dataset holds both enrolments;
+#'     dataset holds both enrolments. An admission form without a type, to
+#'     which the client assigns day 1 as well, is left as stored: under the
+#'     default options one stored above day 120 is then dropped by the
+#'     admission filter (see `include_ineligible_patients`) with no finding,
+#'     since no validation rule checks a missing admission type;
 #'  2. on an enrolment reconciliation 1 repaired, the day of life of an
 #'     infection or procedure form that the client derived from the stored
 #'     admission value, or that is missing, is derived again from day 1;
 #'  3. a total of gestation days that differs from the gestational-age text,
-#'     where that text is in the format the registration form requires, is
-#'     computed from the text;
+#'     or is missing beside it, where that text is in the format the
+#'     registration form requires, is computed from the text;
 #'  4. a total of gestation days outside 140 to 349 without a text in that
-#'     format is removed;
+#'     format is removed. A total within that range is left as stored beside
+#'     a text in another format, which validation rule 58 reports, and beside
+#'     no text at all or an empty one, which no rule reports, since rule 57
+#'     counts the total alone as a recorded gestational age;
 #'  5. the secondary-BSI infectious agents of a surgical site infection form
 #'     whose secondary-BSI item is not Yes are removed;
 #'  6. the infectious agents of a sepsis form recorded as culture-negative are
 #'     removed, unless the form names an infectious agent and would not then
 #'     meet the clinical-sepsis definition: such a form is reported, not
-#'     repaired.
+#'     repaired. The configuration also hides the culture-negative item once
+#'     the first agent slot names an infectious agent
+#'     (`NEOIPC_BSI_NO_POS_CULTURE_HIDE_IF_AGENT_RECORDED`), so the client,
+#'     once it processes the reopened form, blanks the flag when slot 1 holds
+#'     an agent; the reconciliation follows the completed form instead, which
+#'     is what the team sees, and keeps the flag and the antibiotic therapy.
 #'
 #'  A repaired value's audit fields (`_storedBy`, `_createdBy`, `_updatedBy`,
 #'  `_createdAt`, `_updatedAt`) become missing, since they describe the stored

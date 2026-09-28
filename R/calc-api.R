@@ -390,22 +390,15 @@ get_benchmark_data <- function(...) {
     if ("metadata" %in% elements) {
       output$metadata[[ds_name]] <- ds$metadata
     }
-    # The validation summary is a dataset's own account, like its metadata,
-    # so it rides under the dataset's name rather than merged by suffix.
-    # NEOIPC-PERMANENT(dataset-format): never drop the presence test. A
-    # calculated dataset serialized before the slot existed carries none,
-    # and a file on disk outlives the code that wrote it, so no condition
-    # retires this; such a dataset gets no entry here, as the return value's
-    # documentation says, and its consumer renders without the summary.
-    if ("validationSummary" %in% elements) {
-      output$validationSummary[[ds_name]] <- ds$validationSummary
-    }
-    # NEOIPC-PERMANENT(dataset-format): never drop the presence test, for the
-    # reason above. A dataset calculated from a raw dataset written before
-    # the slot existed carries it as `NULL`, which adds no entry either.
-    if ("reconciliationSummary" %in% elements) {
-      output$reconciliationSummary[[ds_name]] <- ds$reconciliationSummary
-    }
+    # The validation and reconciliation summaries are a dataset's own
+    # account, like its metadata, so they ride under the dataset's name
+    # rather than merged by suffix. A calculated dataset serialized before a
+    # slot existed, or calculated from a raw dataset written before it
+    # existed, carries `NULL` there, and assigning `NULL` adds no entry, so
+    # such a dataset contributes none, as the return value's documentation
+    # says, and its consumer renders without the summary.
+    output$validationSummary[[ds_name]] <- ds[["validationSummary"]]
+    output$reconciliationSummary[[ds_name]] <- ds[["reconciliationSummary"]]
 
     if ("n_departments" %in% elements) {
       tbl <- tibble::tibble(n = ds$n_departments) |>

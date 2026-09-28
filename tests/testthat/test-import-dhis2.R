@@ -1088,22 +1088,30 @@ test_that("import_dhis2 reads the multiple-birth flag and the number of infants 
     fx
   }
 
+  # The number of infants the finding recorded, which is `NA` where the
+  # dataset does not return it.
+  siblings_of <- function(ds) {
+    finding <- ds$validationResults[ds$validationResults$rule_id == 56L, ]
+    expect_equal(nrow(finding), 1L)
+    expect_named(finding$context[[1L]], "siblings")
+    finding$context[[1L]]$siblings
+  }
+
   # The full tier reads both attributes for the pass whatever
-  # `patient_columns` selects and drops them again unless selected.
+  # `patient_columns` selects and drops them again unless selected, and the
+  # number the finding recorded with them.
   m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
   httr2::local_mocked_responses(m$mock)
   ds <- import_dhis2(test_conn(), import_test_opts(include_invalid_patients = FALSE))
   expect_false(any(c("multiple_birth", "siblings") %in% names(ds$patients)))
-  finding <- ds$validationResults[ds$validationResults$rule_id == 56L, ]
-  expect_equal(nrow(finding), 1L)
-  expect_equal(finding$context[[1L]]$siblings, 1L)
+  expect_identical(siblings_of(ds), NA_integer_)
   m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
   httr2::local_mocked_responses(m$mock)
   ds <- import_dhis2(test_conn(), import_test_opts(
     patient_columns          = c("id", "multiple_birth", "siblings"),
     include_invalid_patients = FALSE))
   expect_true(all(c("multiple_birth", "siblings") %in% names(ds$patients)))
-  expect_equal(sum(ds$validationResults$rule_id == 56L), 1L)
+  expect_identical(siblings_of(ds), 1L)
   # Without the pass the selection alone decides.
   m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
   httr2::local_mocked_responses(m$mock)
@@ -1111,14 +1119,14 @@ test_that("import_dhis2 reads the multiple-birth flag and the number of infants 
   expect_false(any(c("multiple_birth", "siblings") %in% names(ds$patients)))
 
   # The pseudonymized tier reads both for the pass and narrows to its key
-  # afterwards.
+  # afterwards, the finding's number with it.
   m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
   httr2::local_mocked_responses(m$mock)
   ds <- import_dhis2(test_conn(), import_test_opts(
     include_patient          = "pseudo",
     include_invalid_patients = FALSE))
   expect_named(ds$patients, "patient_key")
-  expect_equal(sum(ds$validationResults$rule_id == 56L), 1L)
+  expect_identical(siblings_of(ds), NA_integer_)
 })
 
 test_that("import_dhis2 leaves the eligibility rule out of its pass when ineligible patients are requested", {
@@ -1274,6 +1282,40 @@ test_that("import_dhis2 keeps a patient that records none of the selected attrib
 
   expect_equal(sort(ds$patients$birth_weight, na.last = TRUE), c(1200L, NA))
   expect_equal(nrow(ds$enrollments), 2L)
+})
+
+test_that("import_dhis2 judges eligibility by a gestational-age text in the required format where the total is missing", {
+  # Neither patient records a birth weight or a total, only the text: 33+0
+  # (231 days) is ineligible, 25+4 (179 days) eligible. As stored, with no
+  # reconciliation to compute the total, the eligibility filter judges the
+  # total the client computes from the text, and the stored total stays
+  # missing.
+  fx <- import_test_fixtures(patient_eligibility = TRUE) |>
+    with_attributes(1L, list(
+      list(attribute = "yQwpowV0o08", value = "PAT_1"),
+      list(attribute = "qLGOhTzMVyY", value = "33+0"))) |>
+    with_attributes(2L, list(
+      list(attribute = "yQwpowV0o08", value = "PAT_2"),
+      list(attribute = "qLGOhTzMVyY", value = "25+4")))
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    patient_columns             = c("id", "gestational_age"),
+    include_ineligible_patients = FALSE,
+    reconcile                   = FALSE))
+
+  expect_equal(as.character(ds$patients$patient_id), "PAT_2")
+  expect_identical(ds$patients$gest_age, "25+4")
+  expect_identical(ds$patients$total_gestation_days, NA_integer_)
+
+  # The filter reads the text whatever `patient_columns` selects, and drops
+  # it again.
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_ineligible_patients = FALSE,
+    reconcile                   = FALSE))
+  expect_equal(as.character(ds$patients$patient_id), "PAT_2")
+  expect_false(any(c("gest_age", "total_gestation_days") %in% names(ds$patients)))
 })
 
 test_that("import_dhis2 validates pseudonymized patients none of which records an attribute its pass reads", {
@@ -2277,20 +2319,42 @@ test_that("import_dhis2 applies its gestational-age range filters to the reconci
       reconcile = reconcile, ...))$patients$patient_id)
 
   # Up to 31 completed weeks, below 224 days. A removed total fails the
-  # filter.
+  # filter. As stored, PAT_R11's missing total is judged by its text, 20+0.
   expect_setequal(
     within(TRUE, gestational_age_to = 31L),
     c("PAT_R01", "PAT_R02", "PAT_R06", "PAT_R09", "PAT_R11"))
   expect_setequal(
     within(FALSE, gestational_age_to = 31L),
-    c("PAT_R01", "PAT_R02", "PAT_R03", "PAT_R05", "PAT_R06", "PAT_R10"))
+    c("PAT_R01", "PAT_R02", "PAT_R03", "PAT_R05", "PAT_R06", "PAT_R10",
+      "PAT_R11"))
   # From 20 completed weeks, 140 days on.
   expect_setequal(
     within(TRUE, gestational_age_from = 20L),
     setdiff(reconciliation_patients, c("PAT_R03", "PAT_R04", "PAT_R05")))
   expect_setequal(
     within(FALSE, gestational_age_from = 20L),
-    setdiff(reconciliation_patients, c("PAT_R03", "PAT_R05", "PAT_R11")))
+    setdiff(reconciliation_patients, c("PAT_R03", "PAT_R05")))
+})
+
+test_that("import_dhis2 records rule 58's text only where the returned patients carry the gestational age", {
+  m <- new_dhis2_mock(reconciliation_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  # The texts rule 58's findings record, one per patient with a text in the
+  # wrong format: PAT_R05, PAT_R06 and PAT_R08.
+  texts <- function(...) {
+    ds <- import_dhis2(test_conn(), import_test_opts(
+      include_invalid_patients = FALSE, ...))
+    findings <- ds$validationResults[ds$validationResults$rule_id == 58L, ]
+    for (context in findings$context)
+      expect_named(context, "gest_age")
+    vapply(findings$context, \(context) context$gest_age, character(1))
+  }
+
+  expect_setequal(texts(patient_columns = c("id", "gestational_age")),
+                  c("19+6", "25+7", "25 +4"))
+  # The pass read the text for the rule, but the dataset does not return it.
+  expect_identical(texts(patient_columns = "id"), rep(NA_character_, 3L))
+  expect_identical(texts(include_patient = "pseudo"), rep(NA_character_, 3L))
 })
 
 test_that("import_dhis2 counts the reconciled records the reporting period keeps", {

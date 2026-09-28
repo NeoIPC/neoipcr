@@ -115,13 +115,16 @@ reconciliations <- list(
 # Reconciliations 3 and 4 on `patients`, which carries `patient_key`,
 # `gest_age` and `total_gestation_days`. The client computes the total from
 # the text whenever the text is in the required format and shows it
-# read-only, so a stored total that differs from such a text is one the
-# partner neither sees nor can correct: reconciliation 3 computes it again.
-# For any other text the client computes 0, and a text in the format yields
-# 140 to 349 days, so a total outside that range beside no such text, 0 among
-# them, is no gestational age at all: reconciliation 4 removes it. A total
-# within the range beside a text in another format is left as stored;
-# validation rule 58 reports the text.
+# read-only, so a stored total that differs from such a text, or a missing
+# one beside it, is one the partner neither sees nor can correct:
+# reconciliation 3 computes it from the text. For any other text the client
+# computes 0, and a text in the format yields 140 to 349 days, so a total
+# outside that range beside no such text, 0 among them, is no gestational age
+# at all: reconciliation 4 removes it. A total within the range beside a text
+# in another format is left as stored; validation rule 58 reports the text. A
+# total within the range beside no text at all, or an empty one, is left as
+# stored too and reported by no rule, since rule 57 counts the total alone as
+# a recorded gestational age.
 .reconcile_gestational_age <- function(patients)
 {
   stored     <- as.integer(patients$total_gestation_days)
@@ -165,7 +168,9 @@ reconciliations <- list(
 # holds that enrolment: its type is what is wrong, which validation rule 47
 # reports where the dataset holds both and the partner can correct. An
 # admission without a type, to which the client assigns day 1 as well, is
-# left as stored too.
+# left as stored too; under the default options one stored above day 120 is
+# then dropped by the admission filter (`filter_admissions()`) with no
+# finding, since no rule checks a missing admission type.
 .reconcile_admission_dol <- function(admission, frame, enrollments)
 {
   changes <- admission |>
@@ -322,7 +327,14 @@ reconciliations <- list(
 # signs and laboratory findings behind a recognized pathogen, so the partner
 # may never have been shown the items the definition counts, and validation
 # rule 59 would flag the form for them. Such a form is reported and kept as
-# stored. Returns the changes and the findings to remove.
+# stored. The configuration also hides the culture-negative item once slot 1
+# names an infectious agent
+# (`NEOIPC_BSI_NO_POS_CULTURE_HIDE_IF_AGENT_RECORDED`), so the client, once it
+# processes the reopened form, blanks the flag when slot 1 holds an agent and
+# keeps the agents. The reconciliation follows the completed form instead,
+# which is what the team sees: the flag and the antibiotic therapy stay, and
+# a repaired form loses its infectious agents. Returns the changes and the
+# findings to remove.
 .reconcile_culture_negative <- function(findings, sepsis, frame)
 {
   forms <- frame |>

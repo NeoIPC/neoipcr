@@ -25,11 +25,11 @@
 # eligibility window (`.admission_max_dol`, the bound the import's
 # eligibility filter applies; the capture-time configuration warns from day
 # 150 only). The other two types have day 1 assigned by the client whenever
-# it saves a form that can still be edited, so a higher value stored there
-# is one the team never chose and is left to the NeoIPC coordinating
-# centre. An eligibility rule: the import's pass leaves it out when
-# ineligible patients are requested, since it would remove exactly the
-# admissions that option keeps.
+# it processes a form while it can still be edited, and saves it, so a
+# higher value stored there is one the team never chose and is left to the
+# NeoIPC coordinating centre. An eligibility rule: the import's pass leaves
+# it out when ineligible patients are requested, since it would remove
+# exactly the admissions that option keeps.
 validation_rule_45 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)

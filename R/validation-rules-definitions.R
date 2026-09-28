@@ -104,7 +104,9 @@
 # negative, the antibiotic therapy recorded as initiated, and at least two
 # findings. The client refuses completion only where the culture is recorded
 # as negative; a form with neither a negative culture nor an agent it refuses
-# through the compulsory first agent, so this rule flags that form as well.
+# only by making the first agent mandatory while the culture is not recorded
+# as negative (`NEOIPC_BSI_UNLESS_NO_POS_CULTURE`), so this rule flags that
+# form as well.
 # An agent is a slot that names a concept, "Not listed" (code 0) included; a
 # resistance or name companion stored on its own records none.
 validation_rule_59 <- function(x, exceptions)

@@ -19,27 +19,27 @@ section above it for the next changes.
 * `import_dhis2()` reconciles, before its filters and its validation pass, the stored values the NeoIPC
   coordinating centre is responsible for: values Tracker Capture derives itself and the partner team
   never chooses, and values it keeps in a section it hides. The client assigns a day of life whenever it
-  saves a form that can still be edited, so a different stored value survives only on a completed form,
-  which it shows read-only as stored until the form is reopened, or where the value was stored around
-  the client; it computes the total gestation days into a field the partner cannot edit. Reconciliation
-  1 gives day of life 1 to the admission form of an infant admitted from the delivery room or on the day
-  of birth (admission types 1 and 2), as the client does, unless the import read an earlier enrolment of
-  the patient, even one a reporting period leaves out, which rule 47 reports where the dataset holds
-  both; reconciliation 2 derives again from day 1 the day of life of an infection or procedure form on an
-  enrolment whose admission reconciliation 1 repaired, where the client derived it from the stored
-  admission value or it is missing; reconciliation 3 computes the total gestation days from a
-  gestational-age text in the format the registration form requires where the stored total differs from
-  it or is missing;
-  reconciliation 4 removes a total outside 140 to 349 days beside no text in that format;
-  reconciliation 5 removes the secondary-BSI infectious agents of a surgical site infection form whose
-  secondary-BSI item is not Yes; reconciliation 6 removes the infectious agents of a sepsis form recorded
-  as culture-negative, unless the form names an infectious agent and would not then meet the
-  clinical-sepsis definition, in which case it is reported and kept as stored. The reconciliation reads
-  the import's own links and dates, so it reconciles the same records under the pseudonymized tiers as
-  under the full ones. It also runs under `include_invalid_patients = TRUE`, which leaves out the pass,
-  and under `include_ineligible_patients = TRUE`, which leaves out the eligibility filters. A repaired
-  value's audit fields (`_storedBy`, `_createdBy`, `_updatedBy`, `_createdAt`, `_updatedAt`) are
-  missing, since they describe the value as stored.
+  processes a form while it can still be edited, and saves it, so a different stored value survives only
+  on a completed form, which it shows read-only as stored until the form is reopened, or where the value
+  was stored around the client; it computes the total gestation days into a field the partner cannot
+  edit. Reconciliation 1 gives day of life 1 to the admission form of an infant admitted from the
+  delivery room or on the day of birth (admission types 1 and 2), as the client does, unless the import
+  read an earlier enrolment of the patient, even one a reporting period leaves out, which rule 47
+  reports where the dataset holds both; reconciliation 2 derives again from day 1 the day of life of an
+  infection or procedure form on an enrolment whose admission reconciliation 1 repaired, where the
+  client derived it from the stored admission value or it is missing; reconciliation 3 computes the
+  total gestation days from a gestational-age text in the format the registration form requires where
+  the stored total differs from it or is missing; reconciliation 4 removes a total outside 140 to 349
+  days beside no text in that format; reconciliation 5 removes the secondary-BSI infectious agents of a
+  surgical site infection form whose secondary-BSI item is not Yes; reconciliation 6 removes the
+  infectious agents of a sepsis form recorded as culture-negative, unless the form names an infectious
+  agent and would not then meet the clinical-sepsis definition, in which case it is reported and kept
+  as stored. The reconciliation reads the import's own links and dates, so it reconciles the same
+  records under the pseudonymized tiers as under the full ones. It also runs under
+  `include_invalid_patients = TRUE`, which leaves out the pass, and under
+  `include_ineligible_patients = TRUE`, which leaves out the eligibility filters. A repaired value's
+  audit fields (`_storedBy`, `_createdBy`, `_updatedBy`, `_createdAt`, `_updatedAt`) are missing, since
+  they describe the value as stored.
 * `dhis2_dataset_options()` gains `reconcile`, `TRUE` by default, so every import reconciles unless it
   asks otherwise. `reconcile = FALSE` keeps every value as stored, which a copy of the stored record under
   Article 15 of the GDPR requires: a consumer that produces one must now pass it. An earlier neoipcr
@@ -78,27 +78,35 @@ section above it for the next changes.
   agent, and its infectious agents no longer enter the figures built from them.
 * Four rules extend the validation pass. On the patient record, rule 58 flags a gestational-age text in
   a format other than the one the registration form requires, two digits for the completed weeks, 20 to
-  49, a plus sign and one digit for the days, as in `25+4`; its finding records the text as stored, in
-  `validationResults` as well, whatever `patient_columns` selects. On the completed infection forms, three
-  rules check the case definition Tracker Capture checks when a form is completed: rule 59 a sepsis form
-  that records no infectious agent and does not meet the clinical-sepsis definition (no positive culture,
-  intravenous antibiotic therapy for five days or more initiated, and at least two features of
-  generalized infection, the laboratory findings counting as one together), a form with neither a
-  negative culture nor an infectious agent included; rule 60 a necrotizing enterocolitis form without
-  either at least one imaging and one clinical finding or at least one surgical finding; rule 61 a
-  surgical site infection form that does not meet the definition of the depth it records. The three read
-  an empty item as the client reads it and judge only completed forms. None of the four is an
-  eligibility rule, so the import's pass removes the patient of a record any of them flags, whatever
-  `include_ineligible_patients` holds. The definitions of a laboratory-confirmed sepsis with a
-  common commensal and of pneumonia are not checked: they rest on the client's classification of
-  infectious agents, which differs from the package's. The context fields of each rule are listed on
-  `validate()`.
+  49, a plus sign and one digit for the days, as in `25+4`; its finding records the text as stored,
+  which the import's `validationResults` keeps only where the returned patients carry the gestational
+  age and records as `NA` otherwise. On the completed infection forms, three rules check the case
+  definition Tracker Capture checks when a form is completed: rule 59 a sepsis form that records no
+  infectious agent and does not meet the clinical-sepsis definition (no positive culture, intravenous
+  antibiotic therapy for five days or more initiated, and at least two features of generalized
+  infection, the laboratory findings counting as one together), a form with neither a negative culture
+  nor an infectious agent included; rule 60 a necrotizing enterocolitis form without either at least
+  one imaging and one clinical finding or at least one surgical finding; rule 61 a surgical site
+  infection form that does not meet the definition of the depth it records. The three read an empty
+  item as the client reads it and judge only completed forms. None of the four is an eligibility rule,
+  so the import's pass removes the patient of a record any of them flags, whatever
+  `include_ineligible_patients` holds. The definitions of a laboratory-confirmed sepsis with a common
+  commensal and of pneumonia are not checked: they rest on the client's classification of infectious
+  agents, which differs from the package's. The context fields of each rule are listed on `validate()`.
 * Rule 57 flags a patient only where the gestational-age text is missing as well, an empty text counting
   as missing: a text, even one in the wrong format, is a recorded gestational age, and rule 58 reports
   the wrong format. The pass reads the text whatever `patient_columns` selects, and a later `validate()`
-  on a dataset without it skips rule 57. Under `reconcile = FALSE`, a patient whose only gestational age
-  is a text in the required format is kept by the eligibility filter, which reads the total, and is
-  reported by no rule; under the default, reconciliation 3 computes the total from that text first.
+  on a dataset without it skips rule 57.
+* The eligibility filter and the range filters `gestational_age_from` and `gestational_age_to` judge,
+  where the stored total gestation days are missing, the total the registration form computes from a
+  gestational-age text in the required format, so that under `reconcile = FALSE` a patient whose only
+  gestational age is such a text is judged by it; its stored values stay as they are. The import reads
+  the text for the filters whatever `patient_columns` selects and drops it again unless selected.
+* Rule 56's `siblings`, the number of infants the finding records, is `NA` in the import's
+  `validationResults` where the returned patients do not carry it, under `include_patient = "pseudo"`
+  or with `"siblings"` left out of `patient_columns`, as rule 58's text is: the pass reads both
+  attributes whatever `patient_columns` selects, and the dataset now holds only the patient attributes
+  that were asked for.
 * The documentation of `validate()` names the NeoIPC coordinating centre where it said "the network".
 
 # neoipcr 0.0.0.9006
