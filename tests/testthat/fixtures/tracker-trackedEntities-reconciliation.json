@@ -1,0 +1,100 @@
+{
+  "trackedEntities": [
+    {
+      "trackedEntity": "TE_R01", "orgUnit": "OU_DEPT_1", "inactive": false, "potentialDuplicate": false,
+      "attributes": [
+        { "attribute": "yQwpowV0o08", "value": "PAT_R01" },
+        { "attribute": "ZbL9VmLRB6D", "value": "900" },
+        { "attribute": "qLGOhTzMVyY", "value": "25+4" },
+        { "attribute": "Qyu9KOWyazL", "value": "170" }
+      ]
+    },
+    {
+      "trackedEntity": "TE_R02", "orgUnit": "OU_DEPT_1", "inactive": false, "potentialDuplicate": false,
+      "attributes": [
+        { "attribute": "yQwpowV0o08", "value": "PAT_R02" },
+        { "attribute": "ZbL9VmLRB6D", "value": "900" },
+        { "attribute": "qLGOhTzMVyY", "value": "25+4" },
+        { "attribute": "Qyu9KOWyazL", "value": "179" }
+      ]
+    },
+    {
+      "trackedEntity": "TE_R03", "orgUnit": "OU_DEPT_1", "inactive": false, "potentialDuplicate": false,
+      "attributes": [
+        { "attribute": "yQwpowV0o08", "value": "PAT_R03" },
+        { "attribute": "ZbL9VmLRB6D", "value": "1600" },
+        { "attribute": "qLGOhTzMVyY", "value": "" },
+        { "attribute": "Qyu9KOWyazL", "value": "0" }
+      ]
+    },
+    {
+      "trackedEntity": "TE_R04", "orgUnit": "OU_DEPT_1", "inactive": false, "potentialDuplicate": false,
+      "attributes": [
+        { "attribute": "yQwpowV0o08", "value": "PAT_R04" },
+        { "attribute": "Qyu9KOWyazL", "value": "350" }
+      ]
+    },
+    {
+      "trackedEntity": "TE_R05", "orgUnit": "OU_DEPT_1", "inactive": false, "potentialDuplicate": false,
+      "attributes": [
+        { "attribute": "yQwpowV0o08", "value": "PAT_R05" },
+        { "attribute": "ZbL9VmLRB6D", "value": "800" },
+        { "attribute": "qLGOhTzMVyY", "value": "19+6" },
+        { "attribute": "Qyu9KOWyazL", "value": "139" }
+      ]
+    },
+    {
+      "trackedEntity": "TE_R06", "orgUnit": "OU_DEPT_1", "inactive": false, "potentialDuplicate": false,
+      "attributes": [
+        { "attribute": "yQwpowV0o08", "value": "PAT_R06" },
+        { "attribute": "ZbL9VmLRB6D", "value": "800" },
+        { "attribute": "qLGOhTzMVyY", "value": "25+7" },
+        { "attribute": "Qyu9KOWyazL", "value": "140" }
+      ]
+    },
+    {
+      "trackedEntity": "TE_R07", "orgUnit": "OU_DEPT_1", "inactive": false, "potentialDuplicate": false,
+      "attributes": [
+        { "attribute": "yQwpowV0o08", "value": "PAT_R07" },
+        { "attribute": "ZbL9VmLRB6D", "value": "800" },
+        { "attribute": "qLGOhTzMVyY", "value": "49+6" },
+        { "attribute": "Qyu9KOWyazL", "value": "349" }
+      ]
+    },
+    {
+      "trackedEntity": "TE_R08", "orgUnit": "OU_DEPT_1", "inactive": false, "potentialDuplicate": false,
+      "attributes": [
+        { "attribute": "yQwpowV0o08", "value": "PAT_R08" },
+        { "attribute": "ZbL9VmLRB6D", "value": "800" },
+        { "attribute": "qLGOhTzMVyY", "value": "25 +4" },
+        { "attribute": "Qyu9KOWyazL", "value": "349" }
+      ]
+    },
+    {
+      "trackedEntity": "TE_R09", "orgUnit": "OU_DEPT_1", "inactive": false, "potentialDuplicate": false,
+      "attributes": [
+        { "attribute": "yQwpowV0o08", "value": "PAT_R09" },
+        { "attribute": "ZbL9VmLRB6D", "value": "1600" },
+        { "attribute": "qLGOhTzMVyY", "value": "31+6" },
+        { "attribute": "Qyu9KOWyazL", "value": "230" }
+      ]
+    },
+    {
+      "trackedEntity": "TE_R10", "orgUnit": "OU_DEPT_1", "inactive": false, "potentialDuplicate": false,
+      "attributes": [
+        { "attribute": "yQwpowV0o08", "value": "PAT_R10" },
+        { "attribute": "ZbL9VmLRB6D", "value": "1600" },
+        { "attribute": "qLGOhTzMVyY", "value": "32+0" },
+        { "attribute": "Qyu9KOWyazL", "value": "200" }
+      ]
+    },
+    {
+      "trackedEntity": "TE_R11", "orgUnit": "OU_DEPT_1", "inactive": false, "potentialDuplicate": false,
+      "attributes": [
+        { "attribute": "yQwpowV0o08", "value": "PAT_R11" },
+        { "attribute": "ZbL9VmLRB6D", "value": "800" },
+        { "attribute": "qLGOhTzMVyY", "value": "20+0" }
+      ]
+    }
+  ]
+}

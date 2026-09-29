@@ -1,0 +1,16 @@
+{
+  "enrollments": [
+    { "enrollment": "ENR_R01", "trackedEntity": "TE_R01", "enrolledAt": "2024-03-01T12:00:00.000", "followUp": false, "orgUnit": "OU_DEPT_1" },
+    { "enrollment": "ENR_R01B", "trackedEntity": "TE_R01", "enrolledAt": "2024-05-01T12:00:00.000", "followUp": false, "orgUnit": "OU_DEPT_1" },
+    { "enrollment": "ENR_R02", "trackedEntity": "TE_R02", "enrolledAt": "2024-03-01T12:00:00.000", "followUp": false, "orgUnit": "OU_DEPT_1" },
+    { "enrollment": "ENR_R03", "trackedEntity": "TE_R03", "enrolledAt": "2024-03-01T12:00:00.000", "followUp": false, "orgUnit": "OU_DEPT_1" },
+    { "enrollment": "ENR_R04", "trackedEntity": "TE_R04", "enrolledAt": "2024-03-01T12:00:00.000", "followUp": false, "orgUnit": "OU_DEPT_1" },
+    { "enrollment": "ENR_R05", "trackedEntity": "TE_R05", "enrolledAt": "2024-03-01T12:00:00.000", "followUp": false, "orgUnit": "OU_DEPT_1" },
+    { "enrollment": "ENR_R06", "trackedEntity": "TE_R06", "enrolledAt": "2024-03-01T12:00:00.000", "followUp": false, "orgUnit": "OU_DEPT_1" },
+    { "enrollment": "ENR_R07", "trackedEntity": "TE_R07", "enrolledAt": "2024-03-01T12:00:00.000", "followUp": false, "orgUnit": "OU_DEPT_1" },
+    { "enrollment": "ENR_R08", "trackedEntity": "TE_R08", "enrolledAt": "2024-03-01T12:00:00.000", "followUp": false, "orgUnit": "OU_DEPT_1" },
+    { "enrollment": "ENR_R09", "trackedEntity": "TE_R09", "enrolledAt": "2024-03-01T12:00:00.000", "followUp": false, "orgUnit": "OU_DEPT_1" },
+    { "enrollment": "ENR_R10", "trackedEntity": "TE_R10", "enrolledAt": "2024-03-01T12:00:00.000", "followUp": false, "orgUnit": "OU_DEPT_1" },
+    { "enrollment": "ENR_R11", "trackedEntity": "TE_R11", "enrolledAt": "2024-03-01T12:00:00.000", "followUp": false, "orgUnit": "OU_DEPT_1" }
+  ]
+}

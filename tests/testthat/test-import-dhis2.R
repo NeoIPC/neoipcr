@@ -1088,22 +1088,30 @@ test_that("import_dhis2 reads the multiple-birth flag and the number of infants 
     fx
   }
 
+  # The number of infants the finding recorded, which is `NA` where the
+  # dataset does not return it.
+  siblings_of <- function(ds) {
+    finding <- ds$validationResults[ds$validationResults$rule_id == 56L, ]
+    expect_equal(nrow(finding), 1L)
+    expect_named(finding$context[[1L]], "siblings")
+    finding$context[[1L]]$siblings
+  }
+
   # The full tier reads both attributes for the pass whatever
-  # `patient_columns` selects and drops them again unless selected.
+  # `patient_columns` selects and drops them again unless selected, and the
+  # number the finding recorded with them.
   m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
   httr2::local_mocked_responses(m$mock)
   ds <- import_dhis2(test_conn(), import_test_opts(include_invalid_patients = FALSE))
   expect_false(any(c("multiple_birth", "siblings") %in% names(ds$patients)))
-  finding <- ds$validationResults[ds$validationResults$rule_id == 56L, ]
-  expect_equal(nrow(finding), 1L)
-  expect_equal(finding$context[[1L]]$siblings, 1L)
+  expect_identical(siblings_of(ds), NA_integer_)
   m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
   httr2::local_mocked_responses(m$mock)
   ds <- import_dhis2(test_conn(), import_test_opts(
     patient_columns          = c("id", "multiple_birth", "siblings"),
     include_invalid_patients = FALSE))
   expect_true(all(c("multiple_birth", "siblings") %in% names(ds$patients)))
-  expect_equal(sum(ds$validationResults$rule_id == 56L), 1L)
+  expect_identical(siblings_of(ds), 1L)
   # Without the pass the selection alone decides.
   m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
   httr2::local_mocked_responses(m$mock)
@@ -1111,14 +1119,14 @@ test_that("import_dhis2 reads the multiple-birth flag and the number of infants 
   expect_false(any(c("multiple_birth", "siblings") %in% names(ds$patients)))
 
   # The pseudonymized tier reads both for the pass and narrows to its key
-  # afterwards.
+  # afterwards, the finding's number with it.
   m <- new_dhis2_mock(with_multiple_birth(import_test_fixtures()))
   httr2::local_mocked_responses(m$mock)
   ds <- import_dhis2(test_conn(), import_test_opts(
     include_patient          = "pseudo",
     include_invalid_patients = FALSE))
   expect_named(ds$patients, "patient_key")
-  expect_equal(sum(ds$validationResults$rule_id == 56L), 1L)
+  expect_identical(siblings_of(ds), NA_integer_)
 })
 
 test_that("import_dhis2 leaves the eligibility rule out of its pass when ineligible patients are requested", {
@@ -1202,6 +1210,8 @@ test_that("import_dhis2 keeps an admission without a day of life for its pass, w
   expect_equal(as.character(ds$patients$patient_id), "PAT_2")
   expect_equal(nrow(ds$enrollments), 1L)
   expect_equal(nrow(ds$admissionData), 1L)
+  # The client's day 1 is what the reconciliation stores for it.
+  expect_identical(ds$admissionData$dol, 1L)
   per_rule <- ds$validationSummary[ds$validationSummary$rule_id %in% 46L, ]
   expect_equal(as.character(per_rule$record_kind), "enrollments")
   expect_equal(per_rule$n_removed, 1L)
@@ -1272,6 +1282,40 @@ test_that("import_dhis2 keeps a patient that records none of the selected attrib
 
   expect_equal(sort(ds$patients$birth_weight, na.last = TRUE), c(1200L, NA))
   expect_equal(nrow(ds$enrollments), 2L)
+})
+
+test_that("import_dhis2 judges eligibility by a gestational-age text in the required format where the total is missing", {
+  # Neither patient records a birth weight or a total, only the text: 33+0
+  # (231 days) is ineligible, 25+4 (179 days) eligible. As stored, with no
+  # reconciliation to compute the total, the eligibility filter judges the
+  # total the client computes from the text, and the stored total stays
+  # missing.
+  fx <- import_test_fixtures(patient_eligibility = TRUE) |>
+    with_attributes(1L, list(
+      list(attribute = "yQwpowV0o08", value = "PAT_1"),
+      list(attribute = "qLGOhTzMVyY", value = "33+0"))) |>
+    with_attributes(2L, list(
+      list(attribute = "yQwpowV0o08", value = "PAT_2"),
+      list(attribute = "qLGOhTzMVyY", value = "25+4")))
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    patient_columns             = c("id", "gestational_age"),
+    include_ineligible_patients = FALSE,
+    reconcile                   = FALSE))
+
+  expect_equal(as.character(ds$patients$patient_id), "PAT_2")
+  expect_identical(ds$patients$gest_age, "25+4")
+  expect_identical(ds$patients$total_gestation_days, NA_integer_)
+
+  # The filter reads the text whatever `patient_columns` selects, and drops
+  # it again.
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_ineligible_patients = FALSE,
+    reconcile                   = FALSE))
+  expect_equal(as.character(ds$patients$patient_id), "PAT_2")
+  expect_false(any(c("gest_age", "total_gestation_days") %in% names(ds$patients)))
 })
 
 test_that("import_dhis2 validates pseudonymized patients none of which records an attribute its pass reads", {
@@ -1963,4 +2007,501 @@ test_that("import_dhis2 refuses a trial_filter that selects no department it can
 
   # A missing code would match a trial group without a code.
   expect_error(dhis2_dataset_options(trial_filter = NA_character_), "trial_filter")
+})
+
+# ---------------------------------------------------------------------------
+# The coordinating centre's reconciliations end to end (`reconcile`). The
+# reconciliation mock adds the sepsis and SSI stages and eleven patients, all
+# in one department and enrolled on 2024-03-01 unless said otherwise:
+#   PAT_R01  25+4 with a stale total of 170 (3); enrolled on day 150 with a
+#            type-1 admission (1), a sepsis form whose day of life 160 the
+#            client derived from it (2), one on day 7 and a culture-negative
+#            one meeting the clinical-sepsis definition beside its agent (6),
+#            and an SSI with a secondary agent under No (5); readmitted on
+#            2024-05-01 with a type-1 admission on day 5, rule 47's finding;
+#            both stays end, on 2024-04-10 and 2024-05-20.
+#   PAT_R02  25+4 with a matching total; a type-2 admission without a day of
+#            life (1), and an SSI without one (2), whose section under No
+#            follow-up holds a name alone (5); the stay ends on 2024-03-20.
+#   PAT_R03  no text and a total of 0 (4), 1600 g; a type-3 admission.
+#   PAT_R04  neither text nor birth weight, a total of 350 (4); an admission
+#            without a type on day 150.
+#   PAT_R05  19+6 and 139 (4); a sepsis form with an agent.
+#   PAT_R06  25+7 and 140, left as stored; a culture-negative sepsis whose
+#            only agent slot holds a name (6).
+#   PAT_R07  49+6 and 349; a culture-negative sepsis without the therapy
+#            beside two agents, reported (6).
+#   PAT_R08  25 +4 and 349, left as stored; an SSI with two secondary agents
+#            and an unanswered item (5), and one with a secondary agent
+#            under Yes.
+#   PAT_R09  31+6 and 230, 1600 g (3): eligible only as reconciled.
+#   PAT_R10  32+0 and 200, 1600 g (3): eligible only as stored.
+#   PAT_R11  20+0 without a total (3); an SSI whose only stored value is a
+#            secondary agent, so it has no form row (5).
+# Every admission of PAT_R05 to PAT_R11 is of type 1 on day 1.
+# ---------------------------------------------------------------------------
+
+reconciliation_fixtures <- function(version = "2.40.12.0") {
+  fx <- import_test_fixtures(version)
+  fx$metadata <- build_metadata_response(
+    version, surveillance_end = TRUE, patient_eligibility = TRUE,
+    reconciliation = TRUE)
+  fx$trackedEntities <- read_fixture_text("tracker-trackedEntities-reconciliation.json")
+  fx$enrollments     <- read_fixture_text("tracker-enrollments-reconciliation.json")
+  fx$events          <- read_fixture_text("tracker-events-reconciliation.json")
+  fx
+}
+
+reconciliation_patients <- sprintf("PAT_R%02d", 1:11)
+
+# The records of the mock each reconciliation acts on, by the patient they
+# belong to; no patient has more than one of a reconciliation's records.
+reconciled_in_mock <- tibble::tribble(
+  ~reconciliation_id, ~action,  ~patient_id,
+  1L,                 "repair", "PAT_R01",
+  1L,                 "repair", "PAT_R02",
+  2L,                 "repair", "PAT_R01",
+  2L,                 "repair", "PAT_R02",
+  3L,                 "repair", "PAT_R01",
+  3L,                 "repair", "PAT_R09",
+  3L,                 "repair", "PAT_R10",
+  3L,                 "repair", "PAT_R11",
+  4L,                 "repair", "PAT_R03",
+  4L,                 "repair", "PAT_R04",
+  4L,                 "repair", "PAT_R05",
+  5L,                 "repair", "PAT_R01",
+  5L,                 "repair", "PAT_R02",
+  5L,                 "repair", "PAT_R08",
+  5L,                 "repair", "PAT_R11",
+  6L,                 "repair", "PAT_R01",
+  6L,                 "repair", "PAT_R06",
+  6L,                 "report", "PAT_R07")
+
+# The reconciliation summary of a dataset holding the patients `patient_ids`
+# of the mock with every record of theirs.
+expected_reconciliation_summary <- function(patient_ids) {
+  held <- reconciled_in_mock[reconciled_in_mock$patient_id %in% patient_ids, ]
+  count <- function(action)
+    vapply(1:6, \(id) sum(held$reconciliation_id == id & held$action == action),
+           integer(1))
+  tibble::tibble(
+    reconciliation_id = 1:6,
+    record_kind       = factor(
+      c("enrollments", "events", "patients", "patients", "events", "events"),
+      levels = c("patients", "enrollments", "events")),
+    n_repaired        = count("repair"),
+    n_reported        = count("report"))
+}
+
+# A form slot of `ds` with each form's patient id and event date.
+located_forms <- function(ds, slot)
+  ds[[slot]] |>
+    dplyr::inner_join(
+      ds$events |>
+        dplyr::select("event_key", "patient_key", "occurredAt"),
+      dplyr::join_by("event_key")) |>
+    dplyr::inner_join(
+      ds$patients |>
+        dplyr::select("patient_key", "patient_id"),
+      dplyr::join_by("patient_key"))
+
+# The day of life of the form of `slot` that the patient `patient_id` has on
+# `date`.
+form_dol <- function(ds, slot, patient_id, date) {
+  forms <- located_forms(ds, slot)
+  forms$dol[forms$patient_id == patient_id & forms$occurredAt == as.Date(date)]
+}
+
+# The number of findings on the events of type `type` that the patient
+# `patient_id` has on `date`, and whether each is a secondary-BSI finding.
+findings_of <- function(ds, patient_id, type, date) {
+  located <- ds$infectiousAgentFindings |>
+    dplyr::inner_join(
+      ds$events |>
+        dplyr::select("event_key", "patient_key", "event_type_key", "occurredAt"),
+      dplyr::join_by("event_key")) |>
+    dplyr::inner_join(
+      ds$patients |>
+        dplyr::select("patient_key", "patient_id"),
+      dplyr::join_by("patient_key"))
+  located$secondary_bsi[
+    located$patient_id == patient_id & located$event_type_key == type &
+      located$occurredAt == as.Date(date)]
+}
+
+test_that("import_dhis2 reconciles every reconciliation's records and counts them in the dataset it returns", {
+  m <- new_dhis2_mock(reconciliation_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    patient_columns = c("id", "gestational_age")))
+
+  expect_schema_matches(
+    ds$reconciliationSummary,
+    neoipcr:::get_reconciliationSummary_schema(ds$metadata$dataset_options))
+  expect_equal(ds$reconciliationSummary,
+               expected_reconciliation_summary(reconciliation_patients))
+  # Every reconciliation acts on something, so one that silently read
+  # nothing fails here rather than pass as a zero.
+  expect_true(all(ds$reconciliationSummary$n_repaired +
+                    ds$reconciliationSummary$n_reported > 0L))
+  # The per-record log leaves with the other internal lookups.
+  expect_false(any(startsWith(names(ds$metadata), ".")))
+
+  # 1: the first stays' type-1 and type-2 admissions get day 1; the
+  # readmission, the type-3 and the untyped admission keep theirs.
+  expect_identical(form_dol(ds, "admissionData", "PAT_R01", "2024-03-01"), 1L)
+  expect_identical(form_dol(ds, "admissionData", "PAT_R01", "2024-05-01"), 5L)
+  expect_identical(form_dol(ds, "admissionData", "PAT_R02", "2024-03-01"), 1L)
+  expect_identical(form_dol(ds, "admissionData", "PAT_R03", "2024-03-01"), 2L)
+  expect_identical(form_dol(ds, "admissionData", "PAT_R04", "2024-03-01"), 150L)
+  # 2: the form derived from day 150 and the one without a day of life are
+  # derived from day 1; the others keep their own.
+  expect_identical(form_dol(ds, "sepsisData", "PAT_R01", "2024-03-11"), 11L)
+  expect_identical(form_dol(ds, "sepsisData", "PAT_R01", "2024-03-15"), 7L)
+  expect_identical(form_dol(ds, "sepsisData", "PAT_R01", "2024-03-20"), 20L)
+  expect_identical(form_dol(ds, "ssiData", "PAT_R02", "2024-03-10"), 10L)
+  expect_identical(form_dol(ds, "ssiData", "PAT_R01", "2024-03-25"), 25L)
+  # 3 and 4.
+  totals <- rlang::set_names(ds$patients$total_gestation_days, ds$patients$patient_id)
+  expect_identical(
+    totals[reconciliation_patients],
+    rlang::set_names(
+      c(179L, 179L, NA, NA, NA, 140L, 349L, 349L, 223L, 224L, 140L),
+      reconciliation_patients))
+  # 5: the hidden secondary sections go, the primary agent and the section
+  # under Yes stay.
+  expect_identical(findings_of(ds, "PAT_R01", "ssi", "2024-03-25"), FALSE)
+  expect_length(findings_of(ds, "PAT_R02", "ssi", "2024-03-10"), 0L)
+  expect_length(findings_of(ds, "PAT_R08", "ssi", "2024-03-10"), 0L)
+  expect_identical(findings_of(ds, "PAT_R08", "ssi", "2024-03-20"), TRUE)
+  expect_length(findings_of(ds, "PAT_R11", "ssi", "2024-03-10"), 0L)
+  # 6: the agent of the form that is a clinical sepsis without it goes, as
+  # does a name alone; the form without the therapy keeps both agents; a
+  # form not recorded as culture-negative keeps its own.
+  expect_length(findings_of(ds, "PAT_R01", "bsi", "2024-03-20"), 0L)
+  expect_length(findings_of(ds, "PAT_R06", "bsi", "2024-03-05"), 0L)
+  expect_length(findings_of(ds, "PAT_R07", "bsi", "2024-03-05"), 2L)
+  expect_length(findings_of(ds, "PAT_R05", "bsi", "2024-03-05"), 1L)
+  expect_length(findings_of(ds, "PAT_R01", "bsi", "2024-03-11"), 1L)
+  expect_equal(nrow(ds$infectiousAgentFindings), 7L)
+  # Both free-text names stood in removed sections.
+  expect_equal(nrow(ds$unknownPathogenNames), 0L)
+  # The repaired culture-negative forms keep the culture result and the
+  # antibiotic therapy as stored.
+  stored <- import_dhis2(test_conn(), import_test_opts(
+    patient_columns = c("id", "gestational_age"), reconcile = FALSE))
+  sepsis_items <- function(ds, patient_id, date) {
+    forms <- located_forms(ds, "sepsisData")
+    forms[forms$patient_id == patient_id & forms$occurredAt == as.Date(date),
+          c("no_pos_culture", "ab_treatment")]
+  }
+  for (form in list(c("PAT_R01", "2024-03-20"), c("PAT_R06", "2024-03-05"))) {
+    reconciled_items <- sepsis_items(ds, form[[1]], form[[2]])
+    expect_identical(reconciled_items$no_pos_culture, TRUE, info = form[[1]])
+    expect_identical(reconciled_items,
+                     sepsis_items(stored, form[[1]], form[[2]]), info = form[[1]])
+  }
+})
+
+test_that("import_dhis2 keeps every value as stored under reconcile = FALSE", {
+  m <- new_dhis2_mock(reconciliation_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    patient_columns = c("id", "gestational_age"), reconcile = FALSE))
+
+  expect_equal(dim(ds$reconciliationSummary), c(0L, 0L))
+  expect_identical(form_dol(ds, "admissionData", "PAT_R01", "2024-03-01"), 150L)
+  expect_identical(form_dol(ds, "admissionData", "PAT_R02", "2024-03-01"), NA_integer_)
+  expect_identical(form_dol(ds, "sepsisData", "PAT_R01", "2024-03-11"), 160L)
+  expect_identical(form_dol(ds, "ssiData", "PAT_R02", "2024-03-10"), NA_integer_)
+  totals <- rlang::set_names(ds$patients$total_gestation_days, ds$patients$patient_id)
+  expect_identical(
+    totals[reconciliation_patients],
+    rlang::set_names(
+      c(170L, 179L, 0L, 350L, 139L, 140L, 349L, 349L, 230L, 200L, NA),
+      reconciliation_patients))
+  expect_equal(nrow(ds$infectiousAgentFindings), 14L)
+  expect_setequal(ds$unknownPathogenNames$name, c("Mystery agent", "Unnamed agent"))
+  expect_false(any(startsWith(names(ds$metadata), ".")))
+})
+
+test_that("reconciliation_details lists on the stored values what the import repairs", {
+  m <- new_dhis2_mock(reconciliation_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  reconciled <- import_dhis2(test_conn(), import_test_opts())
+  stored <- import_dhis2(test_conn(), import_test_opts(
+    patient_columns = c("id", "gestational_age"), reconcile = FALSE))
+
+  details <- reconciliation_details(stored)
+
+  counted <- details |>
+    dplyr::count(.data$reconciliation_id, .data$action)
+  summary <- reconciled$reconciliationSummary
+  for (id in reconciliation_ids()) {
+    expect_equal(
+      sum(counted$n[counted$reconciliation_id == id & counted$action == "repair"]),
+      summary$n_repaired[summary$reconciliation_id == id], info = id)
+    expect_equal(
+      sum(counted$n[counted$reconciliation_id == id & counted$action == "report"]),
+      summary$n_reported[summary$reconciliation_id == id], info = id)
+  }
+  stale <- details[details$reconciliation_id == 3L, ] |>
+    dplyr::inner_join(
+      stored$patients |>
+        dplyr::select("patient_key", "patient_id"),
+      dplyr::join_by("patient_key"))
+  first <- stale$context[[which(stale$patient_id == "PAT_R01")]]
+  expect_equal(first$gest_age, "25+4")
+  expect_equal(first$total_gestation_days, 170L)
+  expect_equal(first$total_gestation_days_reconciled, 179L)
+
+  # The reconciled dataset holds no stored values to list.
+  expect_error(reconciliation_details(reconciled),
+               class = "neoipcr_reconciliation_needs_stored_values")
+})
+
+test_that("import_dhis2 applies its eligibility filter to the reconciled values", {
+  m <- new_dhis2_mock(reconciliation_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  patient_columns <- c("id", "birth_weight", "gestational_age")
+  eligible <- function(reconcile)
+    import_dhis2(test_conn(), import_test_opts(
+      include_ineligible_patients = FALSE, reconcile = reconcile,
+      patient_columns = patient_columns))
+  # The patient ids of `ds` that the validation rule `rule` flags.
+  flagged <- function(ds, rule)
+    as.character(ds$patients$patient_id[
+      ds$patients$patient_key %in% neoipcr::validate(ds, rules = rule)$patient_key])
+
+  ds <- eligible(TRUE)
+  # PAT_R03 (1600 g) loses its total of 0 and with it the eligibility the 0
+  # gave it; PAT_R10 (1600 g) reaches 224 days. PAT_R04 has neither value
+  # once its total of 350 is removed, and stays for rule 57; PAT_R09 reaches
+  # 223 days.
+  expect_setequal(
+    as.character(ds$patients$patient_id),
+    setdiff(reconciliation_patients, c("PAT_R03", "PAT_R10")))
+  expect_identical(flagged(ds, 57L), "PAT_R04")
+  # The texts in the wrong format are rule 58's findings.
+  expect_setequal(flagged(ds, 58L), c("PAT_R05", "PAT_R06", "PAT_R08"))
+  # As stored, with the patient kept, the total of 350 is a value, and rule
+  # 57 has nothing to report: its finding is the reconciliation's doing.
+  stored <- import_dhis2(test_conn(), import_test_opts(
+    reconcile = FALSE, patient_columns = patient_columns))
+  expect_true("PAT_R04" %in% as.character(stored$patients$patient_id))
+  expect_length(flagged(stored, 57L), 0L)
+  # The type-1 admission stored on day 150 is on day 1 and stays; the
+  # untyped one on day 150 leaves.
+  expect_identical(form_dol(ds, "admissionData", "PAT_R01", "2024-03-01"), 1L)
+  expect_length(form_dol(ds, "admissionData", "PAT_R04", "2024-03-01"), 0L)
+  # The patients the filter removed are not counted.
+  expect_equal(
+    ds$reconciliationSummary,
+    expected_reconciliation_summary(
+      setdiff(reconciliation_patients, c("PAT_R03", "PAT_R10"))))
+
+  # As stored, the filter decides the other way on the four patients, and
+  # removes the admission stored on day 150.
+  ds <- eligible(FALSE)
+  expect_setequal(
+    as.character(ds$patients$patient_id),
+    setdiff(reconciliation_patients, c("PAT_R04", "PAT_R09")))
+  expect_length(form_dol(ds, "admissionData", "PAT_R01", "2024-03-01"), 0L)
+})
+
+test_that("import_dhis2 applies its gestational-age range filters to the reconciled totals", {
+  m <- new_dhis2_mock(reconciliation_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  within <- function(reconcile, ...)
+    as.character(import_dhis2(test_conn(), import_test_opts(
+      reconcile = reconcile, ...))$patients$patient_id)
+
+  # Up to 31 completed weeks, below 224 days. A removed total fails the
+  # filter. As stored, PAT_R11's missing total is judged by its text, 20+0.
+  expect_setequal(
+    within(TRUE, gestational_age_to = 31L),
+    c("PAT_R01", "PAT_R02", "PAT_R06", "PAT_R09", "PAT_R11"))
+  expect_setequal(
+    within(FALSE, gestational_age_to = 31L),
+    c("PAT_R01", "PAT_R02", "PAT_R03", "PAT_R05", "PAT_R06", "PAT_R10",
+      "PAT_R11"))
+  # From 20 completed weeks, 140 days on.
+  expect_setequal(
+    within(TRUE, gestational_age_from = 20L),
+    setdiff(reconciliation_patients, c("PAT_R03", "PAT_R04", "PAT_R05")))
+  expect_setequal(
+    within(FALSE, gestational_age_from = 20L),
+    setdiff(reconciliation_patients, c("PAT_R03", "PAT_R05")))
+})
+
+test_that("import_dhis2 records rule 58's text only where the returned patients carry the gestational age", {
+  m <- new_dhis2_mock(reconciliation_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  # The texts rule 58's findings record, one per patient with a text in the
+  # wrong format: PAT_R05, PAT_R06 and PAT_R08.
+  texts <- function(...) {
+    ds <- import_dhis2(test_conn(), import_test_opts(
+      include_invalid_patients = FALSE, ...))
+    findings <- ds$validationResults[ds$validationResults$rule_id == 58L, ]
+    for (context in findings$context)
+      expect_named(context, "gest_age")
+    vapply(findings$context, \(context) context$gest_age, character(1))
+  }
+
+  expect_setequal(texts(patient_columns = c("id", "gestational_age")),
+                  c("19+6", "25+7", "25 +4"))
+  # The pass read the text for the rule, but the dataset does not return it.
+  expect_identical(texts(patient_columns = "id"), rep(NA_character_, 3L))
+  expect_identical(texts(include_patient = "pseudo"), rep(NA_character_, 3L))
+})
+
+test_that("import_dhis2 counts the reconciled records the reporting period keeps", {
+  m <- new_dhis2_mock(reconciliation_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  # From April only PAT_R01's two stays ended in the period; every other
+  # patient leaves with its stay.
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    surveillance_end_from = as.Date("2024-04-01")))
+  expect_equal(as.character(ds$patients$patient_id), "PAT_R01")
+  expect_equal(ds$reconciliationSummary, expected_reconciliation_summary("PAT_R01"))
+
+  # From May only the readmission did. The patient stays, and so does its
+  # reconciled total, but the first stay's reconciled records do not. The
+  # readmission's type-1 admission follows the first stay, which the import
+  # read although the period leaves it out, so it keeps its stored day of
+  # life as it does without a period.
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    surveillance_end_from = as.Date("2024-05-01")))
+  expect_equal(as.character(ds$patients$patient_id), "PAT_R01")
+  expect_equal(nrow(ds$enrollments), 1L)
+  expect_equal(ds$reconciliationSummary$n_repaired, c(0L, 0L, 1L, 0L, 0L, 0L))
+  expect_equal(ds$reconciliationSummary$n_reported, rep(0L, 6L))
+  expect_identical(form_dol(ds, "admissionData", "PAT_R01", "2024-05-01"), 5L)
+})
+
+# Exception records exempting every finding `validate()` makes on the
+# patients `patient_ids` of `ds`, each at its rule's level.
+exceptions_for <- function(ds, patient_ids) {
+  levels <- neoipcr:::.rule_levels()
+  neoipcr::validate(ds) |>
+    dplyr::inner_join(
+      ds$patients |>
+        dplyr::select("patient_key", "patient_id"),
+      dplyr::join_by("patient_key")) |>
+    dplyr::filter(.data$patient_id %in% patient_ids) |>
+    dplyr::left_join(
+      ds$enrollments |>
+        dplyr::select("enrollment_key", "enrolledAt"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::left_join(
+      ds$events |>
+        dplyr::select("event_key", "event_type_key", "occurredAt"),
+      dplyr::join_by("event_key")) |>
+    dplyr::mutate(
+      level             = unname(levels[as.character(.data$rule_id)]),
+      RULE_ID           = .data$rule_id,
+      NEOIPC_PATIENT_ID = .data$patient_id,
+      ENROLMENT_DATE    = dplyr::if_else(
+        .data$level == "patient", as.Date(NA), .data$enrolledAt),
+      EVENT_TYPE        = dplyr::if_else(
+        .data$level == "event", as.character(.data$event_type_key), NA_character_),
+      EVENT_DATE        = dplyr::if_else(
+        .data$level == "event", .data$occurredAt, as.Date(NA)),
+      .keep = "none") |>
+    dplyr::select(!"level") |>
+    dplyr::distinct()
+}
+
+test_that("import_dhis2 counts the reconciled records the validation pass keeps", {
+  m <- new_dhis2_mock(reconciliation_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  unvalidated <- import_dhis2(test_conn(), import_test_opts(
+    patient_columns = character()))
+  flagged <- unique(as.character(
+    unvalidated$patients$patient_id[
+      unvalidated$patients$patient_key %in% neoipcr::validate(unvalidated)$patient_key]))
+  # The pass would remove PAT_R01 and patients the mock reconciles, so an
+  # exception list keeping PAT_R01 alone tells the counts of the records the
+  # pass removed from the ones it kept.
+  expect_true("PAT_R01" %in% flagged)
+  removed <- setdiff(flagged, "PAT_R01")
+  expect_true(any(reconciled_in_mock$patient_id %in% removed))
+
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    patient_columns          = character(),
+    include_invalid_patients = exceptions_for(unvalidated, "PAT_R01")))
+
+  kept <- setdiff(reconciliation_patients, removed)
+  expect_setequal(as.character(ds$patients$patient_id), kept)
+  expect_equal(ds$reconciliationSummary, expected_reconciliation_summary(kept))
+})
+
+test_that("import_dhis2 reconciles the same records under the pseudonymized tiers", {
+  m <- new_dhis2_mock(reconciliation_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  full <- import_dhis2(test_conn(), import_test_opts())
+
+  pseudo <- import_dhis2(test_conn(), import_test_opts(
+    include_patient    = "pseudo",
+    include_enrollment = "pseudo",
+    include_event      = "pseudo"))
+
+  expect_equal(pseudo$reconciliationSummary, full$reconciliationSummary)
+  # The forms keep their values under the pseudonymized event tier, and show
+  # the same repairs.
+  expect_equal(sort(pseudo$admissionData$dol), sort(full$admissionData$dol))
+  expect_equal(sort(pseudo$sepsisData$dol), sort(full$sepsisData$dol))
+  expect_equal(sort(pseudo$ssiData$dol), sort(full$ssiData$dol))
+  expect_equal(nrow(pseudo$infectiousAgentFindings), nrow(full$infectiousAgentFindings))
+  expect_equal(nrow(pseudo$unknownPathogenNames), 0L)
+})
+
+test_that("import_dhis2 leaves a count missing where it could not read the records a reconciliation acts on", {
+  m <- new_dhis2_mock(reconciliation_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  patient_counts <- expected_reconciliation_summary(reconciliation_patients)$n_repaired[3:4]
+
+  # Without the enrolments the import reads neither enrolments nor events,
+  # and so no form.
+  ds <- import_dhis2(test_conn(), import_test_opts(include_enrollment = "no"))
+  expect_equal(ds$reconciliationSummary$n_repaired,
+               c(NA, NA, patient_counts, NA, NA))
+  expect_equal(ds$reconciliationSummary$n_reported,
+               c(NA, NA, 0L, 0L, NA, NA))
+  # Without the events it holds the enrolments but reads no admission form,
+  # so reconciliation 1 could not look at any: its count is missing, not 0.
+  ds <- import_dhis2(test_conn(), import_test_opts(include_event = "no"))
+  expect_gt(nrow(ds$enrollments), 0L)
+  expect_equal(ds$reconciliationSummary$n_repaired,
+               c(NA, NA, patient_counts, NA, NA))
+  expect_equal(ds$reconciliationSummary$n_reported,
+               c(NA, NA, 0L, 0L, NA, NA))
+
+  # Without patients the import reconciles nothing.
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_patient = "no", include_enrollment = "no", include_event = "no"))
+  expect_equal(dim(ds$reconciliationSummary), c(0L, 0L))
+})
+
+test_that("import_dhis2 writes a summary at zero where nothing needs reconciling", {
+  # The baseline mock has neither infection forms nor gestational ages, so
+  # the findings reader takes its early return.
+  m <- new_dhis2_mock(import_test_fixtures())
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts())
+  expect_equal(ds$reconciliationSummary$reconciliation_id, reconciliation_ids())
+  expect_equal(ds$reconciliationSummary$n_repaired, rep(0L, 6L))
+  expect_equal(ds$reconciliationSummary$n_reported, rep(0L, 6L))
+
+  # Nor does an import that reads no tracked entity at all.
+  fx <- import_test_fixtures()
+  fx$trackedEntities <- '{"trackedEntities":[]}'
+  m <- new_dhis2_mock(fx)
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts())
+  expect_equal(nrow(ds$patients), 0L)
+  expect_equal(ds$reconciliationSummary$n_repaired, rep(0L, 6L))
 })

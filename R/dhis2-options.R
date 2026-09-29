@@ -40,10 +40,12 @@
 #' @param birth_weight_to The highest birth weight (in grams) of patient
 #'  records to include into the dataset.
 #' @param gestational_age_from The lowest gestational age (in completed weeks)
-#'  of patient records to include into the dataset.
+#'  of patient records to include into the dataset, judged by the total
+#'  gestation days as `include_ineligible_patients` describes.
 #' @param gestational_age_to The highest gestational age (in completed weeks) of
-#'  patient records to include into the dataset. The bound covers the whole
-#'  completed week: `31` keeps 31+0 through 31+6.
+#'  patient records to include into the dataset, judged by the total
+#'  gestation days as `include_ineligible_patients` describes. The bound
+#'  covers the whole completed week: `31` keeps 31+0 through 31+6.
 #' @param country_filter ISO 3166 country codes	of the countries the enrolling
 #'  departments are located in to include into the dataset.
 #' @param department_filter NeoIPC department codes of the departments to
@@ -93,11 +95,16 @@
 #'  Choices: "id", "birth_weight", "sex", "delivery_mode", "multiple_birth",
 #'  "siblings", "gestational_age", "inactive", "potentialDuplicate". Empty (the
 #'  default) means all of them. The validation pass reads `multiple_birth`
-#'  and `siblings` (rule 56) and `birth_weight` and `gestational_age` (rule
-#'  57) whatever the selection and drops them again unless selected, so the
-#'  dataset holds only what was asked for; a later [validate()] on a dataset
-#'  without them skips the rule that reads them. Ignored when
-#'  `include_patient` is "no" or "pseudo".
+#'  and `siblings` (rule 56), `birth_weight` (rule 57) and `gestational_age`
+#'  (rules 57 and 58) whatever the selection and drops them again unless
+#'  selected; a later [validate()] on a dataset without them skips the rule
+#'  that reads them. Rules 56 and 58 record the value they compared in their
+#'  finding's context, `siblings` and the gestational-age text `gest_age`,
+#'  and `validationResults` keeps that value only where the returned
+#'  patients carry the attribute: under `include_patient = "pseudo"`, or
+#'  with the attribute left out of the selection, the field is `NA`. So the
+#'  dataset holds only the patient attributes that were asked for. Ignored
+#'  when `include_patient` is "no" or "pseudo".
 #' @param include_enrollment Include the enrollment tibble into the dataset
 #'  and expose the `enrollment_key` link column on downstream tibbles. Same
 #'  three-mode semantics as `include_patient`.
@@ -132,7 +139,15 @@
 #'  admission form without a day of life and a patient with neither birth
 #'  weight nor gestational age stay for the validation pass, which reports the
 #'  first under rule 46 when the admission type is 3 and the second under
-#'  rule 57 (see [validate()]), rather than leaving the dataset unreported.
+#'  rule 57, or under rule 58 where it records a gestational-age text in the
+#'  wrong format (see [validate()]), rather than leaving the dataset
+#'  unreported. The filter judges the values as `reconcile` leaves them, and
+#'  where the total gestation days are missing it judges the total the
+#'  registration form computes from a gestational-age text in the required
+#'  format, so that a patient whose only gestational age is such a text is
+#'  judged by it under `reconcile = FALSE` as well, its stored values staying
+#'  as they are; under the default, reconciliation 3 stores that total
+#'  first. The range filters on the gestational age judge the same total.
 #' @param include_unenrolled_patients Include the NeoIPC patient records that
 #'  are not enrolled in the surveillance program as well: they are requested
 #'  by tracked-entity type rather than by program, and the removal of orphan
@@ -149,7 +164,8 @@
 #' @param include_test_data Include data from test departments into the dataset.
 #' @param include_invalid_patients Include data from patient records that
 #'  could have validation errors: `FALSE` (the default) removes them, `TRUE`
-#'  skips the validation pass altogether, and a data frame of exception
+#'  skips the validation pass altogether, though not the reconciliation
+#'  `reconcile` asks for, and a data frame of exception
 #'  records — as [read_validation_exceptions()] returns it — keeps the named
 #'  records despite the rule that flags them. `TRUE` also keeps the
 #'  enrolments without an admission form, which the removal of orphan
@@ -193,6 +209,59 @@
 #' @param include_notes Include notes into the dataset. Possible values are
 #'  "enrollments" and "events"
 #' @param include_deleted Include deleted records into the dataset.
+#' @param reconcile Repair, before the import's filters and its validation
+#'  pass, the stored values the NeoIPC coordinating centre reconciles: values
+#'  Tracker Capture derives itself and the partner never chooses, and values
+#'  it keeps in a section it hides. The client assigns a day of life
+#'  whenever it processes a form that can still be edited, and saves it, so a
+#'  different stored value survives only on a completed form or a form of a
+#'  completed enrolment, which it shows read-only as stored until the form is
+#'  reopened, or where the value was stored around the client; it computes
+#'  the total gestation days into a field the partner cannot edit; and a
+#'  section it hides stays hidden with what it holds. `TRUE` (the default)
+#'  repairs six of them, each numbered as [reconciliation_ids()] lists it:
+#'  1. an admission form of an infant admitted from the delivery room or on
+#'     the day of birth (admission types 1 and 2) gets day of life 1, which
+#'     the client assigns, unless the import read an earlier enrolment of the
+#'     patient, whether or not a reporting period keeps it: the admission's
+#'     type is then what is wrong, which validation rule 47 reports where the
+#'     dataset holds both enrolments. An admission form without a type, to
+#'     which the client assigns day 1 as well, is left as stored: under the
+#'     default options one stored above day 120 is then dropped by the
+#'     admission filter (see `include_ineligible_patients`) with no finding,
+#'     since no validation rule checks a missing admission type;
+#'  2. on an enrolment reconciliation 1 repaired, the day of life of an
+#'     infection or procedure form that the client derived from the stored
+#'     admission value, or that is missing, is derived again from day 1;
+#'  3. a total of gestation days that differs from the gestational-age text,
+#'     or is missing beside it, where that text is in the format the
+#'     registration form requires, is computed from the text;
+#'  4. a total of gestation days outside 140 to 349 without a text in that
+#'     format is removed. A total within that range is left as stored beside
+#'     a text in another format, which validation rule 58 reports, and beside
+#'     no text at all or an empty one, which no rule reports, since rule 57
+#'     counts the total alone as a recorded gestational age;
+#'  5. the secondary-BSI infectious agents of a surgical site infection form
+#'     whose secondary-BSI item is not Yes are removed;
+#'  6. the infectious agents of a sepsis form recorded as culture-negative are
+#'     removed, unless the form names an infectious agent and would not then
+#'     meet the clinical-sepsis definition: such a form is reported, not
+#'     repaired. The configuration also hides the culture-negative item once
+#'     the first agent slot names an infectious agent
+#'     (`NEOIPC_BSI_NO_POS_CULTURE_HIDE_IF_AGENT_RECORDED`), so the client,
+#'     once it processes the reopened form, blanks the flag when slot 1 holds
+#'     an agent; the reconciliation follows the completed form instead, which
+#'     is what the team sees, and keeps the flag and the antibiotic therapy.
+#'
+#'  A repaired value's audit fields (`_storedBy`, `_createdBy`, `_updatedBy`,
+#'  `_createdAt`, `_updatedAt`) become missing, since they describe the stored
+#'  value. `reconciliationSummary` counts the records of the returned dataset
+#'  each reconciliation repaired or reported (see [import_dhis2()]). The
+#'  eligibility and range filters and the validation pass judge the
+#'  reconciled values, so a reconciliation can change which patients and
+#'  admissions the dataset keeps. `FALSE` keeps every value as stored, which a
+#'  copy of the stored record under Article 15 of the GDPR requires, and which
+#'  [reconciliation_details()] needs.
 #' @param translate Translate DHIS2 metadata
 #' @param locale The locale to translate DHIS2 metadata to
 #'
@@ -227,6 +296,7 @@ dhis2_dataset_options <- function(
     include_incomplete = character(),
     include_notes = character(),
     include_deleted = FALSE,
+    reconcile = TRUE,
     translate = TRUE,
     locale = NULL)
 {
@@ -251,6 +321,7 @@ dhis2_dataset_options <- function(
   check_bool(include_unenrolled_patients)
   #check_bool(include_invalid_patients) # ToDo: validate
   check_bool(include_deleted)
+  check_bool(reconcile)
   check_bool(translate)
 
   if(!is.null(surveillance_end_from))
@@ -303,6 +374,7 @@ dhis2_dataset_options <- function(
       c("enrollments","events"),
       multiple = TRUE),
     include_deleted = include_deleted,
+    reconcile = reconcile,
     translate = translate,
     locale = locale
     # Inherit "list" so jsonlite (and other serialisers) handle it as its

@@ -46,7 +46,8 @@ read_enrollments <- function(enrollments, patients, metadata, dataset_options)
       internal_map = tibble::tibble(
         enrollment_key = integer(),
         enrollment     = character(),
-        patient_key    = integer()))
+        patient_key    = integer(),
+        enrolledAt     = as.Date(character())))
 
   if (opts$include_enrollment == "no")
     return(.empty_result())
@@ -116,9 +117,11 @@ read_enrollments <- function(enrollments, patients, metadata, dataset_options)
     dplyr::select(!tidyselect::any_of("orgUnit")) |>
     add_key_column("enrollment_key")
 
+  # The enrolment date rides along for the reconciliation of the day of life,
+  # which reads it whatever tier the public enrolments carry.
   internal_map <- enrollments |>
     dplyr::select("enrollment_key", "enrollment",
-                  tidyselect::any_of("patient_key"))
+                  tidyselect::any_of("patient_key"), "enrolledAt")
 
   # Narrow to the public schema + loud-assert.
   enrollments <- enrollments |>

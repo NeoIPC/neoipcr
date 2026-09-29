@@ -161,3 +161,31 @@ assert_validation_summary <- function(x, fn_name) {
       "i" = "Import the dataset again with this version of neoipcr; see `?import_dhis2`."))
   invisible(x)
 }
+
+# Assert that a dataset's reconciliation summary, where it has one, is the
+# slot the import writes: its schema's columns, or 0×0 where the import
+# reconciled nothing. `fn_name` names the caller in the message, as above.
+#
+# NEOIPC-PERMANENT(dataset-format): never refuse a dataset without the slot.
+# A raw dataset is kept as a backup, and one written before the slot existed
+# carries none; a file on disk outlives the code that wrote it, so no
+# condition retires this, and the calculation carries `NULL` for it.
+assert_reconciliation_summary <- function(x, fn_name) {
+  summary <- x$reconciliationSummary
+  if (is.null(summary))
+    return(invisible(x))
+  declared <- purrr::map_chr(reconciliationSummary_cols, "name")
+  if (!is.data.frame(summary) ||
+      !(ncol(summary) == 0L || identical(names(summary), declared)))
+    rlang::abort(c(
+      sprintf("%s() needs a dataset whose reconciliation summary is the one an import writes.", fn_name),
+      "x" = if (is.data.frame(summary))
+        sprintf("`x$reconciliationSummary` has the columns %s.",
+                paste0("`", names(summary), "`", collapse = ", "))
+      else "`x$reconciliationSummary` is not a data frame.",
+      "i" = sprintf(
+        "An import writes %s, or no column where it reconciled nothing; see `?import_dhis2`.",
+        paste0("`", declared, "`", collapse = ", "))),
+      class = "neoipcr_malformed_reconciliation_summary")
+  invisible(x)
+}

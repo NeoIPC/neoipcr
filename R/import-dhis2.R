@@ -5,7 +5,10 @@
 #' @param dataset_options The options to use for the dataset configuration
 #'
 #' @returns A NeoIPC dataset. Its `validationResults` slot holds the findings
-#'  of the import's validation pass in the shape [validate()] returns, and
+#'  of the import's validation pass in the shape [validate()] returns, except
+#'  that a context value the pass read from a patient attribute the returned
+#'  `patients` does not carry is `NA` (rule 56's `siblings` and rule 58's
+#'  `gest_age`, see `patient_columns` on [dhis2_dataset_options()]), and
 #'  `validationSummary` counts them: one row per rule that flagged or
 #'  exempted a record, with the rule's record kind — `patients`,
 #'  `enrollments` or `events`, the level it is recorded on; see the table on
@@ -30,6 +33,25 @@
 #'  `include_invalid_patients = TRUE`, which runs no pass. Both slots are
 #'  0×0 when the pass does not run: with `include_invalid_patients = TRUE`,
 #'  or without patients.
+#'
+#'  Its `reconciliationSummary` slot counts the stored values the import
+#'  repaired under `reconcile = TRUE` (see [dhis2_dataset_options()]) before
+#'  its filters and the pass: one row per reconciliation, in the order of
+#'  [reconciliation_ids()], zero counts included, with `reconciliation_id`;
+#'  `record_kind`, the kind of record it acts on — `patients`, `enrollments`
+#'  or `events`; `n_repaired`, the distinct records of that kind in the
+#'  returned dataset it repaired; and `n_reported`, the ones it reported
+#'  without repairing them. A record the import reconciled and then left out
+#'  — outside the reporting period, or removed by a filter or by the pass —
+#'  is not counted, so the summary describes the dataset it comes with. The
+#'  counts are `NA` where the import could not read the records the
+#'  reconciliation acts on, so that a 0 always means it read them and found
+#'  none to change: reconciliations 1, 2, 5 and 6 act on the forms, which
+#'  are read through their events and the events through their enrolments,
+#'  so they count `NA` under `include_enrollment` or `include_event`
+#'  `"no"`. The slot is 0×0 when the import reconciles nothing:
+#'  under `reconcile = FALSE`, or without patients.
+#'  [reconciliation_details()] lists the records themselves.
 #' @export
 import_dhis2 <- function(
     connection_options = dhis2_connection_options(),
@@ -261,11 +283,12 @@ import_dhis2 <- function(
 
   # The validation pass reads patient attributes whatever the caller selected
   # (`.pass_patient_columns`: rule 56 the multiple-birth flag and the number of
-  # infants, rule 57 the birth weight and the gestational age): with the pass
-  # to run, the patients are read as the full tier with those added to the
-  # selection (the pseudonymized tier's selection being its key alone), and
-  # are narrowed to the requested shape once the pass has run, so the dataset
-  # holds only what was asked for.
+  # infants, rule 57 the birth weight and the gestational age, rule 58 the
+  # gestational-age text): with the pass to run, the patients are read as the
+  # full tier with those added to the selection (the pseudonymized tier's
+  # selection being its key alone), and are narrowed to the requested shape
+  # once the pass has run, the findings' context with them, so the dataset
+  # holds only the patient attributes that were asked for.
   patient_read_options <- dataset_options
   if (.validation_pass_runs(dataset_options)) {
     patient_read_options$include_patient <- "full"
@@ -277,6 +300,9 @@ import_dhis2 <- function(
   patients_result <- read_patients(trackedEntities_raw, metadata, patient_read_options)
   patients <- patients_result$public
   metadata$.patients_internal_map <- patients_result$internal_map
+  # The records the reconciliations act on, from the patient reader on; the
+  # summary counts the ones the returned dataset still holds.
+  metadata$.reconciliation_log <- patients_result$reconciliation_log
 
   enrollments_result <- read_enrollments(enrollments_raw, patients, metadata, dataset_options)
   enrollments <- enrollments_result$public
@@ -306,9 +332,6 @@ import_dhis2 <- function(
 
   admissionData <- read_event_data(
     events_raw, metadata$.events_internal_map, metadata, dataset_options, "adm")
-
-  admissionData <- admissionData |>
-    filter_admissions(dataset_options$include_ineligible_patients)
 
   metadata$dataset_options <- dataset_options
 
@@ -343,6 +366,44 @@ import_dhis2 <- function(
   substanceDays <- read_substance_days(
     events_raw, metadata$.events_internal_map, metadata, dataset_options)
   # read_substance_days_details
+
+  # The coordinating centre's reconciliation of the forms (see `reconcile` on
+  # `dhis2_dataset_options()`), before the admission filter below and the
+  # pass, which judge the reconciled values. It reads the links and dates off
+  # the internal maps, which carry them whatever tier the public tibbles
+  # have. The event map is narrowed to the reporting period, so only the
+  # forms the dataset holds are touched; the enrolment map is not, so that a
+  # readmission is told from a first admission by every enrolment of the
+  # patient the import read, whether or not the period keeps it.
+  if (.form_reconciliations_run(dataset_options)) {
+    reconciled <- .reconcile_event_data(
+      list(
+        admissionData           = admissionData,
+        sepsisData              = sepsisData,
+        necData                 = necData,
+        pneumoniaData           = pneumoniaData,
+        surgeryData             = surgeryData,
+        ssiData                 = ssiData,
+        infectiousAgentFindings = infectiousAgentFindings,
+        unknownPathogenNames    = unknownPathogenNames),
+      frame       = metadata$.events_internal_map,
+      enrollments = metadata$.enrollments_internal_map,
+      findings    = findings_pair$internal_map)
+    admissionData           <- reconciled$data$admissionData
+    sepsisData              <- reconciled$data$sepsisData
+    necData                 <- reconciled$data$necData
+    pneumoniaData           <- reconciled$data$pneumoniaData
+    surgeryData             <- reconciled$data$surgeryData
+    ssiData                 <- reconciled$data$ssiData
+    infectiousAgentFindings <- reconciled$data$infectiousAgentFindings
+    unknownPathogenNames    <- reconciled$data$unknownPathogenNames
+    metadata$.reconciliation_log <- dplyr::bind_rows(
+      metadata$.reconciliation_log,
+      .reconciliation_log(reconciled$changes))
+  }
+
+  admissionData <- admissionData |>
+    filter_admissions(dataset_options$include_ineligible_patients)
 
   class(patients) <- c("neoipcr_pat", class(patients))
   class(enrollments) <- c("neoipcr_enr", class(enrollments))
@@ -386,6 +447,10 @@ import_dhis2 <- function(
       # 0×0 where it does not.
       validationResults = compile_schema(validationResults_cols, dataset_options),
       validationSummary = compile_schema(validationSummary_cols, dataset_options),
+      # Likewise the reconciliation summary, filled once the dataset has its
+      # final shape.
+      reconciliationSummary = compile_schema(
+        reconciliationSummary_cols, dataset_options),
       metadata = metadata,
       `.cache` = new.env(parent = emptyenv())),
     class = c("neoipcr_ds", "list"))
@@ -430,16 +495,25 @@ import_dhis2 <- function(
   }
 
   # The patients read wider for the pass narrow to the requested shape (see
-  # the patient read above); the pass columns leave unless selected.
+  # the patient read above); the pass columns, which the schema declares,
+  # leave by its selection under the requested options unless selected, and
+  # so do the values of them the findings recorded.
   if (.validation_pass_runs(dataset_options)) {
-    narrowed <- finalize_to_schema(
-      r$patients, patients_cols, dataset_options, scratch = .pass_patient_columns)
+    narrowed <- finalize_to_schema(r$patients, patients_cols, dataset_options)
     class(narrowed) <- c("neoipcr_pat", setdiff(class(narrowed), "neoipcr_pat"))
     r$patients <- narrowed
+    r$validationResults <- .mask_unreturned_patient_context(
+      r$validationResults, r$patients)
   }
 
   r <- r |>
     apply_postfilter()
+
+  # The reconciliations count the records the dataset holds now, after the
+  # reporting period, the filters, the pass and the orphan removal.
+  if (.reconciliation_runs(dataset_options))
+    r$reconciliationSummary <- .reconciliation_summary(
+      r$metadata$.reconciliation_log, r)
 
   # Strip orchestrator-internal lookups — they are not part of the
   # public `neoipcr_metadata` shape. Must happen after
@@ -457,6 +531,7 @@ import_dhis2 <- function(
   r$metadata$.patients_internal_map    <- NULL
   r$metadata$.enrollments_internal_map <- NULL
   r$metadata$.events_internal_map      <- NULL
+  r$metadata$.reconciliation_log       <- NULL
 
   r |>
     assert_data_protection(dataset_options)

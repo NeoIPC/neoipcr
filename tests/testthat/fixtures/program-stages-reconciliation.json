@@ -1,0 +1,79 @@
+{
+  "programStages": [
+    {
+      "id": "wDQxhhyAkEU",
+      "code": "NEOIPC_STG_BSI",
+      "name": "Primary Sepsis/BSI",
+      "displayName": "Primary Sepsis/BSI",
+      "displayFormName": "Primary Sepsis/BSI",
+      "displayDescription": "The surveillance event where a primary bloodstream infection (including clinical sepsis) is recorded.",
+      "programStageDataElements": [
+        { "dataElement": { "id": "tj1LewUMIT5", "code": "NEOIPC_BSI_DOL", "valueType": "INTEGER_POSITIVE", "displayName": "NeoIPC BSI Day of life", "displayShortName": "NeoIPC BSI DOL", "displayFormName": "Day of life" } },
+        { "dataElement": { "id": "HpyUpoaGumw", "code": "NEOIPC_BSI_LOS", "valueType": "INTEGER_ZERO_OR_POSITIVE", "displayName": "NeoIPC BSI Length of Stay", "displayShortName": "NeoIPC BSI LOS", "displayFormName": "Day of occurrence after admission" } },
+        { "dataElement": { "id": "i4yQcpPDttA", "code": "NEOIPC_BSI_NO_POS_CULTURE", "valueType": "TRUE_ONLY", "displayName": "NeoIPC BSI No positive culture", "displayShortName": "NeoIPC BSI No positive culture", "displayFormName": "No positive blood culture" } },
+        { "dataElement": { "id": "NjFq3pakY2I", "code": "NEOIPC_BSI_AB_TREATMENT", "valueType": "TRUE_ONLY", "displayName": "NeoIPC BSI Antibiotic treatment", "displayShortName": "NeoIPC BSI AB treatment", "displayFormName": "Intravenous antibiotic therapy for five or more days initiated" } },
+        { "dataElement": { "id": "kjLgZFbq5fZ", "code": "NEOIPC_BSI_TEMPERATURE", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI Temperature", "displayShortName": "NeoIPC BSI Temperature", "displayFormName": "Temperature abnormalities" } },
+        { "dataElement": { "id": "A639BT2Jccy", "code": "NEOIPC_BSI_BRADYCARDIA", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI Bradycardias", "displayShortName": "NeoIPC BSI Bradys", "displayFormName": "New/more frequent bradycardia or tachycardia" } },
+        { "dataElement": { "id": "O3baDjV2eeW", "code": "NEOIPC_BSI_PERFUSION", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI Perfusion", "displayShortName": "NeoIPC BSI Perfusion", "displayFormName": "Impaired perfusion" } },
+        { "dataElement": { "id": "iQpOYLxp4eD", "code": "NEOIPC_BSI_APNOEA", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI Apnoea", "displayShortName": "NeoIPC BSI Apnoea", "displayFormName": "New/more frequent episodes of apnea" } },
+        { "dataElement": { "id": "vQxPyDZzK2K", "code": "NEOIPC_BSI_FEEDING_INTOLERANCE", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI Feeding intolerance", "displayShortName": "NeoIPC BSI Feeding intolerance", "displayFormName": "Feeding intolerance" } },
+        { "dataElement": { "id": "rIgNb8wNw5f", "code": "NEOIPC_BSI_IRRITABILITY", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI Irritability", "displayShortName": "NeoIPC BSI Irritability", "displayFormName": "Irritability, lethargy or hypotonia" } },
+        { "dataElement": { "id": "ER7WiNywdyP", "code": "NEOIPC_BSI_ACIDOSIS", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI Acidosis", "displayShortName": "NeoIPC BSI Acidosis", "displayFormName": "Metabolic acidosis" } },
+        { "dataElement": { "id": "wgpBMLzukh9", "code": "NEOIPC_BSI_HYPERGLYCAEMIA", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI Hyperglycaemia", "displayShortName": "NeoIPC BSI Hyperglycaemia", "displayFormName": "Hyperglycaemia" } },
+        { "dataElement": { "id": "si9TqVvY3ZS", "code": "NEOIPC_BSI_WBC", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI White blood cell count", "displayShortName": "NeoIPC BSI WBC", "displayFormName": "Decreased or increased white blood cell count" } },
+        { "dataElement": { "id": "mSf2s0OS0gP", "code": "NEOIPC_BSI_PLATELET_COUNT", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI Platelet count", "displayShortName": "NeoIPC BSI Platelets", "displayFormName": "Decreased platelet count" } },
+        { "dataElement": { "id": "nHtkCl6Er79", "code": "NEOIPC_BSI_CRP", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI CRP", "displayShortName": "NeoIPC BSI CRP", "displayFormName": "Increased level of CRP" } },
+        { "dataElement": { "id": "e39P0lfTptd", "code": "NEOIPC_BSI_PROCALCITONIN", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI Procalcitonin", "displayShortName": "NeoIPC BSI PCT", "displayFormName": "Increased level of procalcitonin" } },
+        { "dataElement": { "id": "dogXmeDeHnc", "code": "NEOIPC_BSI_IT_RATIO", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI I/T ratio", "displayShortName": "NeoIPC BSI I/T ratio", "displayFormName": "Increased I/T ratio" } },
+        { "dataElement": { "id": "oPIcLjRmNgC", "code": "NEOIPC_BSI_INTERLEUKIN", "valueType": "BOOLEAN", "displayName": "NeoIPC BSI Interleukin", "displayShortName": "NeoIPC BSI IL", "displayFormName": "Increased level of interleukin" } },
+        { "dataElement": { "id": "aeua6ZD9pb7", "code": "NEOIPC_BSI_PATHOGEN_1", "valueType": "INTEGER_ZERO_OR_POSITIVE", "displayName": "NeoIPC BSI Organism 1", "displayShortName": "NeoIPC BSI Org. 1", "displayFormName": "Organism 1" } },
+        { "dataElement": { "id": "DaNS1ETTD3Z", "code": "NEOIPC_BSI_PATHOGEN_1_NAME", "valueType": "TEXT", "displayName": "NeoIPC BSI Organism 1 name", "displayShortName": "NeoIPC BSI Org. 1 name", "displayFormName": "- Name" } },
+        { "dataElement": { "id": "Cl0jt4EHzvY", "code": "NEOIPC_BSI_PATHOGEN_1_SOURCE", "valueType": "INTEGER_POSITIVE", "displayName": "NeoIPC BSI Organism 1 source", "displayShortName": "NeoIPC BSI Org. 1 source", "displayFormName": "- Source", "optionSet": { "code": "NEOIPC_BSI_PATHOGEN_RECOVERED_FROM" } } },
+        { "dataElement": { "id": "TKuYdRqfqC4", "code": "NEOIPC_BSI_PATHOGEN_1_MRSA", "valueType": "INTEGER", "displayName": "NeoIPC BSI Organism 1 MRSA", "displayShortName": "NeoIPC BSI Org. 1 MRSA", "displayFormName": "- MRSA", "optionSet": { "code": "NEOIPC_YES_NO_NOT_TESTED" } } },
+        { "dataElement": { "id": "tAx6dWqnOIx", "code": "NEOIPC_BSI_PATHOGEN_2", "valueType": "INTEGER_ZERO_OR_POSITIVE", "displayName": "NeoIPC BSI Organism 2", "displayShortName": "NeoIPC BSI Org. 2", "displayFormName": "Organism 2" } },
+        { "dataElement": { "id": "S7Dulo4dt8O", "code": "NEOIPC_BSI_PATHOGEN_2_NAME", "valueType": "TEXT", "displayName": "NeoIPC BSI Organism 2 name", "displayShortName": "NeoIPC BSI Org. 2 name", "displayFormName": "- Name" } },
+        { "dataElement": { "id": "TsoCuWLh71j", "code": "NEOIPC_BSI_PATHOGEN_3", "valueType": "INTEGER_ZERO_OR_POSITIVE", "displayName": "NeoIPC BSI Organism 3", "displayShortName": "NeoIPC BSI Org. 3", "displayFormName": "Organism 3" } },
+        { "dataElement": { "id": "UptqkgrbXy6", "code": "NEOIPC_BSI_PATHOGEN_3_NAME", "valueType": "TEXT", "displayName": "NeoIPC BSI Organism 3 name", "displayShortName": "NeoIPC BSI Org. 3 name", "displayFormName": "- Name" } }
+      ]
+    },
+    {
+      "id": "cZhr3Wm2fc8",
+      "code": "NEOIPC_STG_SSI",
+      "name": "Surgical Site Infection",
+      "displayName": "Surgical Site Infection",
+      "displayFormName": "Surgical Site Infection",
+      "displayDescription": "The surveillance event where a surgical site infection is recorded.",
+      "programStageDataElements": [
+        { "dataElement": { "id": "YHYi79E8xhN", "code": "NEOIPC_SSI_DOL", "valueType": "INTEGER_POSITIVE", "displayName": "NeoIPC SSI Day of life", "displayShortName": "NeoIPC SSI DOL", "displayFormName": "Day of life" } },
+        { "dataElement": { "id": "LCX6yQP1K3D", "code": "NEOIPC_SSI_LOS", "valueType": "INTEGER_ZERO_OR_POSITIVE", "displayName": "NeoIPC SSI length of stay", "displayShortName": "NeoIPC SSI LOS", "displayFormName": "Day of occurrence after admission" } },
+        { "dataElement": { "id": "bRwNwkGZDnx", "code": "NEOIPC_SSI_INFECTION_TYPE", "valueType": "INTEGER_POSITIVE", "displayName": "NeoIPC SSI Infection type", "displayShortName": "NeoIPC SSI Inf. type", "displayFormName": "Infection involves...", "optionSet": { "code": "NEOIPC_SSI_TYPE" } } },
+        { "dataElement": { "id": "SWwmWqVfFX4", "code": "NEOIPC_SSI_SEC_BSI", "valueType": "INTEGER", "displayName": "NeoIPC SSI Secondary bloodstream infection", "displayShortName": "NeoIPC SSI Sec. BSI", "displayFormName": "Secondary bloodstream infection", "optionSet": { "code": "NEOIPC_YES_NO_NO_FOLLOWUP" } } },
+        { "dataElement": { "id": "P38wa79hn0H", "code": "NEOIPC_SSI_PURULENT_DRAINAGE_SUPERF", "valueType": "BOOLEAN", "displayName": "NeoIPC SSI Purulent drainage superficial incision", "displayShortName": "NeoIPC SSI Purulent drain. superf. inc.", "displayFormName": "Purulent drainage from the superficial incision" } },
+        { "dataElement": { "id": "vNw0rqjhgW1", "code": "NEOIPC_SSI_ORGANISMS_SUPERF", "valueType": "INTEGER", "displayName": "NeoIPC SSI Organisms identified from superficial incision", "displayShortName": "NeoIPC SSI Organisms from superficial incision", "displayFormName": "Organism(s) identified from superficial incision", "optionSet": { "code": "NEOIPC_YES_NO_NOT_TESTED" } } },
+        { "dataElement": { "id": "Au49L8nPTTv", "code": "NEOIPC_SSI_PATHOGEN_1", "valueType": "INTEGER_ZERO_OR_POSITIVE", "displayName": "NeoIPC SSI Organism 1", "displayShortName": "NeoIPC SSI Org. 1", "displayFormName": "Organism 1" } },
+        { "dataElement": { "id": "HkACxREEfaT", "code": "NEOIPC_SSI_SEC_BSI_PATHOGEN_1", "valueType": "INTEGER_ZERO_OR_POSITIVE", "displayName": "NeoIPC SSI Secondary BSI organism 1", "displayShortName": "NeoIPC SSI Sec. BSI org. 1", "displayFormName": "Organism 1" } },
+        { "dataElement": { "id": "C6vqhkpgeWV", "code": "NEOIPC_SSI_SEC_BSI_PATHOGEN_1_NAME", "valueType": "TEXT", "displayName": "NeoIPC SSI Secondary BSI organism 1 name", "displayShortName": "NeoIPC SSI Sec. BSI org. 1 name", "displayFormName": "- Name" } },
+        { "dataElement": { "id": "Y89nfwG2uxQ", "code": "NEOIPC_SSI_SEC_BSI_PATHOGEN_1_MRSA", "valueType": "INTEGER", "displayName": "NeoIPC SSI Secondary BSI organism 1 MRSA", "displayShortName": "NeoIPC SSI Sec. BSI org. 1 MRSA", "displayFormName": "- MRSA", "optionSet": { "code": "NEOIPC_YES_NO_NOT_TESTED" } } },
+        { "dataElement": { "id": "pXWj4HIcVEx", "code": "NEOIPC_SSI_SEC_BSI_PATHOGEN_2", "valueType": "INTEGER_ZERO_OR_POSITIVE", "displayName": "NeoIPC SSI Secondary BSI organism 2", "displayShortName": "NeoIPC SSI Sec. BSI org. 2", "displayFormName": "Organism 2" } },
+        { "dataElement": { "id": "PodwECDyBas", "code": "NEOIPC_SSI_SEC_BSI_PATHOGEN_2_NAME", "valueType": "TEXT", "displayName": "NeoIPC SSI Secondary BSI organism 2 name", "displayShortName": "NeoIPC SSI Sec. BSI org. 2 name", "displayFormName": "- Name" } }
+      ]
+    }
+  ],
+  "options": [
+    { "code": "1", "displayName": "Admitted from delivery room", "displayFormName": "Admitted from delivery room", "sortOrder": 1, "optionSet": { "code": "NEOIPC_ADMISSION_TYPES" } },
+    { "code": "2", "displayName": "Transferred or readmitted on the day of birth", "displayFormName": "Transferred or readmitted on the day of birth", "sortOrder": 2, "optionSet": { "code": "NEOIPC_ADMISSION_TYPES" } },
+    { "code": "3", "displayName": "Transferred or readmitted the day after birth or later", "displayFormName": "Transferred or readmitted the day after birth or later", "sortOrder": 3, "optionSet": { "code": "NEOIPC_ADMISSION_TYPES" } },
+    { "code": "1", "displayName": "Blood", "displayFormName": "Blood", "sortOrder": 1, "optionSet": { "code": "NEOIPC_BSI_PATHOGEN_RECOVERED_FROM" } },
+    { "code": "2", "displayName": "Cerebrospinal fluid", "displayFormName": "Cerebrospinal fluid", "sortOrder": 2, "optionSet": { "code": "NEOIPC_BSI_PATHOGEN_RECOVERED_FROM" } },
+    { "code": "3", "displayName": "Blood and Cerebrospinal fluid", "displayFormName": "Blood and Cerebrospinal fluid", "sortOrder": 3, "optionSet": { "code": "NEOIPC_BSI_PATHOGEN_RECOVERED_FROM" } },
+    { "code": "1", "displayName": "...only skin and subcutaneous tissue of the incision", "displayFormName": "...only skin and subcutaneous tissue of the incision", "sortOrder": 1, "optionSet": { "code": "NEOIPC_SSI_TYPE" } },
+    { "code": "2", "displayName": "...deep soft tissues of the incision", "displayFormName": "...deep soft tissues of the incision", "sortOrder": 2, "optionSet": { "code": "NEOIPC_SSI_TYPE" } },
+    { "code": "3", "displayName": "...tissue deeper than fascial/muscle layer", "displayFormName": "...tissue deeper than fascial/muscle layer", "sortOrder": 3, "optionSet": { "code": "NEOIPC_SSI_TYPE" } },
+    { "code": "1", "displayName": "Yes", "displayFormName": "Yes", "sortOrder": 1, "optionSet": { "code": "NEOIPC_YES_NO_NO_FOLLOWUP" } },
+    { "code": "0", "displayName": "No", "displayFormName": "No", "sortOrder": 2, "optionSet": { "code": "NEOIPC_YES_NO_NO_FOLLOWUP" } },
+    { "code": "-1", "displayName": "No follow-up", "displayFormName": "No follow-up", "sortOrder": 3, "optionSet": { "code": "NEOIPC_YES_NO_NO_FOLLOWUP" } },
+    { "code": "1", "displayName": "Yes", "displayFormName": "Yes", "sortOrder": 1, "optionSet": { "code": "NEOIPC_YES_NO_NOT_TESTED" } },
+    { "code": "0", "displayName": "No", "displayFormName": "No", "sortOrder": 2, "optionSet": { "code": "NEOIPC_YES_NO_NOT_TESTED" } },
+    { "code": "-1", "displayName": "Not tested", "displayFormName": "Not tested", "sortOrder": 3, "optionSet": { "code": "NEOIPC_YES_NO_NOT_TESTED" } }
+  ]
+}

@@ -22,5 +22,7 @@ empty filter, which the import does not apply, leaves as \code{NULL} — so
 reference data names neither the records a list exempted nor the
 departments it was built from. \code{validationSummary} is the dataset's
 validation summary (see \code{\link[=import_dhis2]{import_dhis2()}}); a dataset without it is
-refused.
+refused. \code{reconciliationSummary} is the dataset's reconciliation summary
+(see \code{\link[=import_dhis2]{import_dhis2()}}), \code{NULL} for a dataset written before the summary
+existed; a summary of another shape is refused.
 }

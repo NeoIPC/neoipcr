@@ -70,6 +70,7 @@ expect_schema_matches <- function(x, expected)
   include_event            = c("no", "pseudo", "full"),
   include_timestamps       = c(FALSE, TRUE),
   include_test_data        = c(FALSE, TRUE),
+  reconcile                = c(FALSE, TRUE),
   # A multi-valued option: each catalogue entry is one value of the whole
   # character vector, so this field is a list rather than a vector.
   include_custom_attributes = list(

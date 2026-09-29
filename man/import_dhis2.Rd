@@ -17,7 +17,10 @@ server.}
 }
 \value{
 A NeoIPC dataset. Its \code{validationResults} slot holds the findings
-of the import's validation pass in the shape \code{\link[=validate]{validate()}} returns, and
+of the import's validation pass in the shape \code{\link[=validate]{validate()}} returns, except
+that a context value the pass read from a patient attribute the returned
+\code{patients} does not carry is \code{NA} (rule 56's \code{siblings} and rule 58's
+\code{gest_age}, see \code{patient_columns} on \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}), and
 \code{validationSummary} counts them: one row per rule that flagged or
 exempted a record, with the rule's record kind — \code{patients},
 \code{enrollments} or \code{events}, the level it is recorded on; see the table on
@@ -42,6 +45,25 @@ the admission-form invariant stands aside only under
 \code{include_invalid_patients = TRUE}, which runs no pass. Both slots are
 0×0 when the pass does not run: with \code{include_invalid_patients = TRUE},
 or without patients.
+
+Its \code{reconciliationSummary} slot counts the stored values the import
+repaired under \code{reconcile = TRUE} (see \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}) before
+its filters and the pass: one row per reconciliation, in the order of
+\code{\link[=reconciliation_ids]{reconciliation_ids()}}, zero counts included, with \code{reconciliation_id};
+\code{record_kind}, the kind of record it acts on — \code{patients}, \code{enrollments}
+or \code{events}; \code{n_repaired}, the distinct records of that kind in the
+returned dataset it repaired; and \code{n_reported}, the ones it reported
+without repairing them. A record the import reconciled and then left out
+— outside the reporting period, or removed by a filter or by the pass —
+is not counted, so the summary describes the dataset it comes with. The
+counts are \code{NA} where the import could not read the records the
+reconciliation acts on, so that a 0 always means it read them and found
+none to change: reconciliations 1, 2, 5 and 6 act on the forms, which
+are read through their events and the events through their enrolments,
+so they count \code{NA} under \code{include_enrollment} or \code{include_event}
+\code{"no"}. The slot is 0×0 when the import reconciles nothing:
+under \code{reconcile = FALSE}, or without patients.
+\code{\link[=reconciliation_details]{reconciliation_details()}} lists the records themselves.
 }
 \description{
 Import data from a NeoIPC DHIS2 server

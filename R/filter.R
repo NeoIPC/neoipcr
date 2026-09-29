@@ -166,8 +166,9 @@ filter_admissions <- function(
 
 # Whether `filter_patients()` reads a patient attribute under `opts`: the
 # eligibility filter and the range filters compare the birth weight and the
-# total gestation days, which the reader therefore fetches whatever
-# `patient_columns` selects.
+# total gestation days, the latter computed from the gestational-age text
+# where it is missing, which the reader therefore fetches, all three,
+# whatever `patient_columns` selects.
 .patient_filters_run <- function(opts)
   !isTRUE(opts$include_ineligible_patients) ||
     !is.null(opts$birth_weight_from) || !is.null(opts$birth_weight_to) ||
@@ -181,6 +182,19 @@ filter_patients <- function(
     gestational_age_to = NULL,
     include_ineligible_patients = FALSE)
 {
+  # The gestational age the filters judge: the stored total, and where it is
+  # missing the total the client computes from a gestational-age text in the
+  # required format (`.gestation_days_from_text()`), so that a patient whose
+  # only gestational age is such a text is judged the way the client judges
+  # it, whether or not `reconcile` stored that total. The stored values stay
+  # as they are. A patients tibble without the text, which `filter_dataset()`
+  # may be handed, is judged by the stored total alone.
+  gestation_days <- if ("gest_age" %in% names(patients))
+    rlang::quo(dplyr::coalesce(
+      .data$total_gestation_days, .gestation_days_from_text(.data$gest_age)))
+  else
+    rlang::quo(.data$total_gestation_days)
+
   if(!is.null(birth_weight_from))
     patients <- patients |>
       dplyr::filter(.data$birth_weight >= birth_weight_from)
@@ -189,12 +203,12 @@ filter_patients <- function(
       dplyr::filter(.data$birth_weight <= birth_weight_to)
   if(!is.null(gestational_age_from))
     patients <- patients |>
-      dplyr::filter(.data$total_gestation_days >= (gestational_age_from * 7))
+      dplyr::filter((!!gestation_days) >= (gestational_age_from * 7))
   # `gestational_age_to` is a completed week, so the bound covers the whole
   # week: `to = 31` keeps 31+0 through 31+6 (days 217 to 223) and drops 32+0.
   if(!is.null(gestational_age_to))
     patients <- patients |>
-      dplyr::filter(.data$total_gestation_days < ((gestational_age_to + 1L) * 7L))
+      dplyr::filter((!!gestation_days) < ((gestational_age_to + 1L) * 7L))
   # The protocol admits an infant with a birth weight below 1500 g or a
   # gestational age below 32 weeks (224 days); either criterion suffices. A
   # patient whose one recorded criterion fails while the other is missing is
@@ -203,13 +217,15 @@ filter_patients <- function(
   # NEOIPC_ALL_PATIENTS_ELIGIBLE, and inside them it is an infant registered
   # without the value that could have made it eligible. A patient with neither
   # value is not judged here but kept for the validation pass, which reports
-  # it under rule 57; removed here, it would leave with no finding to say why.
+  # it under rule 57, or under rule 58 where it records a gestational-age text
+  # in the wrong format; removed here, it would leave with no finding to say
+  # why.
   if(!include_ineligible_patients)
     patients <- patients |>
       dplyr::filter(
-        dplyr::coalesce(.data$total_gestation_days < 224L, FALSE) |
+        dplyr::coalesce((!!gestation_days) < 224L, FALSE) |
           dplyr::coalesce(.data$birth_weight < 1500L, FALSE) |
-          (is.na(.data$total_gestation_days) & is.na(.data$birth_weight)))
+          (is.na(!!gestation_days) & is.na(.data$birth_weight)))
   return(patients)
 }
 

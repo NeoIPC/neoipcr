@@ -67,7 +67,10 @@ read_events <- function(events, enrollments, metadata, dataset_options)
         event          = character(),
         event_type_key = factor(
           character(),
-          levels = c("adm","pro","bsi","nec","ssi","hap","end"))))
+          levels = c("adm","pro","bsi","nec","ssi","hap","end")),
+        enrollment_key = integer(),
+        patient_key    = integer(),
+        occurredAt     = as.Date(character())))
 
   if (opts$include_event == "no")
     return(.empty_result())
@@ -82,13 +85,16 @@ read_events <- function(events, enrollments, metadata, dataset_options)
   # `enrollment_key` + `patient_key` substitution via internal maps.
   # `.enrollments_internal_map` carries enrollment_key + enrollment +
   # patient_key (patient_key derived from the enrollment→patient chain
-  # inside read_enrollments, not from trackedEntity on the raw events).
+  # inside read_enrollments, not from trackedEntity on the raw events),
+  # and the enrolment date, which the events schema does not declare, so
+  # the join takes only the link columns.
   events <- events |>
     dplyr::inner_join(
       metadata$.eventTypes_internal_map,
       dplyr::join_by("programStage")) |>
     dplyr::inner_join(
-      metadata$.enrollments_internal_map,
+      metadata$.enrollments_internal_map |>
+        dplyr::select("enrollment_key", "enrollment", "patient_key"),
       dplyr::join_by("enrollment")) |>
     dplyr::mutate(
       occurredAt = readr::parse_date(
@@ -167,8 +173,11 @@ read_events <- function(events, enrollments, metadata, dataset_options)
   events <- events |>
     add_key_column("event_key")
 
+  # The links and the date ride along for the reconciliations, which read
+  # them whatever tier the public events carry.
   internal_map <- events |>
-    dplyr::select("event_key", "event", "event_type_key")
+    dplyr::select("event_key", "event", "event_type_key", "enrollment_key",
+                  "patient_key", "occurredAt")
 
   events <- events |>
     finalize_to_schema(
@@ -486,6 +495,13 @@ read_infectious_agent_findings <- function(events_raw, processed_events, metadat
 
   unknownPathogenNames <- split_unknown_pathogen_names(intermediate, opts)
 
+  # Every finding's slot and concept for the reconciliations, which read them
+  # whatever tier the public findings carry: the pseudonymized tier leaves
+  # them out.
+  internal_map <- intermediate |>
+    dplyr::select("agent_finding_key", "event_key", "secondary_bsi", "index",
+                  "pathogen_key")
+
   findings <- intermediate |>
     finalize_to_schema(
       findings_cols, opts,
@@ -494,7 +510,8 @@ read_infectious_agent_findings <- function(events_raw, processed_events, metadat
 
   list(
     infectiousAgentFindings = findings,
-    unknownPathogenNames    = unknownPathogenNames)
+    unknownPathogenNames    = unknownPathogenNames,
+    internal_map            = internal_map)
 }
 
 # Pre-finalize-intermediate → `unknownPathogenNames`. Reads the still-
@@ -528,7 +545,13 @@ empty_findings_pair <- function(opts)
 {
   list(
     infectiousAgentFindings = compile_schema(findings_cols, opts),
-    unknownPathogenNames    = compile_schema(unknownPathogenNames_cols, opts))
+    unknownPathogenNames    = compile_schema(unknownPathogenNames_cols, opts),
+    internal_map            = tibble::tibble(
+      agent_finding_key = integer(),
+      event_key         = integer(),
+      secondary_bsi     = logical(),
+      index             = integer(),
+      pathogen_key      = integer()))
 }
 
 read_substance_days <- function(events_raw, processed_events, metadata, dataset_options)

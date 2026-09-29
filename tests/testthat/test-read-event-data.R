@@ -602,6 +602,49 @@ test_that("gap 10: read_events works without trackedEntity on raw events", {
   expect_equal(nrow(imap), 2L)
 })
 
+test_that("read_events carries the links and dates the reconciliations read on its map, and not the enrolment date on the events", {
+  # The enrolment map carries the enrolment date the reconciliations read,
+  # which the events schema does not declare; the pseudonymized event tier
+  # leaves the links and the date out of the public events.
+  raw_events <- tibble::tibble(
+    event        = c("EVT_1", "EVT_2"),
+    programStage = c("PS_ADM", "PS_BSI"),
+    enrollment   = c("ENR_1", "ENR_1"),
+    occurredAt   = c("2024-01-15T00:00:00.000", "2024-01-20T00:00:00.000"),
+    orgUnit      = c("OU_DEPT_1", "OU_DEPT_1"),
+    followup     = c(FALSE, FALSE),
+    dataValues   = list(list(), list()))
+  metadata <- list(
+    .departments_internal_map = tibble::tibble(orgUnit = "OU_DEPT_1"),
+    .enrollments_internal_map = tibble::tibble(
+      enrollment_key = 7L,
+      enrollment     = "ENR_1",
+      patient_key    = 3L,
+      enrolledAt     = as.Date("2024-01-15")),
+    .eventTypes_internal_map  = tibble::tibble(
+      programStage   = c("PS_ADM", "PS_BSI"),
+      event_type_key = factor(c("adm", "bsi"),
+        levels = c("adm", "pro", "bsi", "nec", "ssi", "hap", "end"))))
+
+  for (tier in c("pseudo", "full")) {
+    opts <- neoipcr::dhis2_dataset_options(
+      include_event = tier, include_enrollment = "full", include_patient = "full")
+    result <- neoipcr:::read_events(raw_events, tibble::tibble(), metadata, opts)
+
+    expect_identical(
+      names(result$public),
+      names(neoipcr:::compile_schema(neoipcr:::events_cols, opts)), info = tier)
+    expect_false("enrolledAt" %in% names(result$public), info = tier)
+    map <- result$internal_map[order(result$internal_map$event), ]
+    expect_named(map, c("event_key", "event", "event_type_key", "enrollment_key",
+                        "patient_key", "occurredAt"))
+    expect_equal(map$enrollment_key, c(7L, 7L), info = tier)
+    expect_equal(map$patient_key, c(3L, 3L), info = tier)
+    expect_equal(map$occurredAt, as.Date(c("2024-01-15", "2024-01-20")), info = tier)
+    expect_equal(as.character(map$event_type_key), c("adm", "bsi"), info = tier)
+  }
+})
+
 
 # ---- Additional: companion columns under include_user/include_timestamps ------
 

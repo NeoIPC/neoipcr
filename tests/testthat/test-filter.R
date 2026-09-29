@@ -161,6 +161,7 @@ test_that("filter_patients judges eligibility on the recorded value when the oth
   # the patient out as ineligible, as registration treats it.
   patients <- make_test_patients(4,
     birth_weight         = c(1200L, NA, 1600L, NA),
+    gest_age             = rep(NA_character_, 4L),
     total_gestation_days = c(NA, 210L, NA, 230L))
   result <- neoipcr:::filter_patients(patients, include_ineligible_patients = FALSE)
   expect_setequal(result$patient_key, 1:2)
@@ -171,8 +172,50 @@ test_that("filter_patients keeps a patient with neither birth weight nor gestati
   # for the validation pass, where rule 57 reports it.
   patients <- make_test_patients(2,
     birth_weight         = c(NA, 2500L),
+    gest_age             = rep(NA_character_, 2L),
     total_gestation_days = c(NA, 280L))
   result <- neoipcr:::filter_patients(patients, include_ineligible_patients = FALSE)
+  expect_equal(result$patient_key, 1L)
+})
+
+test_that("filter_patients judges a gestational-age text in the required format where the total is missing", {
+  # As under `reconcile = FALSE`, the text is the only gestational age of the
+  # first three patients, none of whom records a birth weight: 33+0 (231
+  # days) is ineligible and 25+4 (179 days) eligible, and a text in another
+  # format gives no total, so its patient stays for the validation pass,
+  # where rule 58 reports it. A stored total decides over the text.
+  patients <- make_test_patients(4,
+    birth_weight         = rep(NA_integer_, 4L),
+    gest_age             = c("33+0", "25+4", "25 +4", "25+4"),
+    total_gestation_days = c(NA, NA, NA, 280L))
+
+  result <- neoipcr:::filter_patients(patients, include_ineligible_patients = FALSE)
+
+  expect_equal(result$patient_key, 2:3)
+  # The stored values stay as they are.
+  expect_identical(result$total_gestation_days, c(NA_integer_, NA_integer_))
+  expect_identical(result$gest_age, c("25+4", "25 +4"))
+
+  # The range filters judge the same total.
+  expect_equal(
+    neoipcr:::filter_patients(patients, gestational_age_to = 31,
+                              include_ineligible_patients = TRUE)$patient_key,
+    2L)
+  expect_equal(
+    neoipcr:::filter_patients(patients, gestational_age_from = 32,
+                              include_ineligible_patients = TRUE)$patient_key,
+    c(1L, 4L))
+})
+
+test_that("filter_patients judges the stored total alone on patients without the gestational-age text", {
+  patients <- make_test_patients(3,
+    birth_weight         = rep(NA_integer_, 3L),
+    total_gestation_days = c(179L, 231L, NA))
+  patients$gest_age <- NULL
+
+  result <- neoipcr:::filter_patients(
+    patients, gestational_age_from = 20, include_ineligible_patients = FALSE)
+
   expect_equal(result$patient_key, 1L)
 })
 
@@ -272,6 +315,15 @@ test_that("filter_dataset(opts) with default opts does not crash", {
   opts <- dhis2_dataset_options()
   result <- neoipcr:::filter_dataset(ds, opts, remove_orphans = FALSE)
   expect_s3_class(result, "neoipcr_ds")
+})
+
+test_that("filter_dataset(opts) judges the stored total of a dataset without the gestational-age text", {
+  ds <- make_populated_test_ds()
+  ds$patients$gest_age <- NULL
+  ds$patients$total_gestation_days <- c(210L, 280L, NA)
+  ds$patients$birth_weight <- rep(NA_integer_, 3L)
+  result <- neoipcr:::filter_dataset(ds, dhis2_dataset_options(), remove_orphans = FALSE)
+  expect_equal(result$patients$patient_key, c(1L, 3L))
 })
 
 test_that("filter_dataset(opts) with birth_weight_from narrows patients", {
