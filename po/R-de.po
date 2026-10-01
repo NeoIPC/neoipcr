@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-10-02 01:37+0200\n"
+"POT-Creation-Date: 2026-10-02 01:40+0200\n"
 "PO-Revision-Date: 2025-05-27 16:54+0200\n"
 "Last-Translator: Brar Piening <brar.piening@charite.de>\n"
 "Language-Team: NeoIPC-Support <NeoIPC-Support@charite.de>\n"
@@ -110,8 +110,7 @@ msgid ""
 msgstr ""
 
 #: R/dhis2-connect.R:100
-#, fuzzy
-msgid "Please enter your password for %s: "
+msgid "Please enter your password for %s:"
 msgstr "Bitte geben Sie Ihr Passwort für %s ein:"
 
 #: R/dhis2-connect.R:103
@@ -144,8 +143,7 @@ msgid ""
 msgstr ""
 
 #: R/dhis2-connect.R:130
-#, fuzzy
-msgid "Please enter your username for %s: "
+msgid "Please enter your username for %s:"
 msgstr "Bitte geben Sie Ihren Benutzernamen für %s ein:"
 
 #: R/dhis2-connect.R:133

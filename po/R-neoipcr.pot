@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.0.0.9007\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-10-02 01:37+0200\n"
+"POT-Creation-Date: 2026-10-02 01:40+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -106,7 +106,7 @@ msgid "Interactive password prompting is only available in interactive R session
 msgstr ""
 
 #: R/dhis2-connect.R:100
-msgid "Please enter your password for %s: "
+msgid "Please enter your password for %s:"
 msgstr ""
 
 #: R/dhis2-connect.R:103
@@ -131,7 +131,7 @@ msgid "Interactive username/password prompting is only available in interactive 
 msgstr ""
 
 #: R/dhis2-connect.R:130
-msgid "Please enter your username for %s: "
+msgid "Please enter your username for %s:"
 msgstr ""
 
 #: R/dhis2-connect.R:133

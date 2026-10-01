@@ -12,23 +12,66 @@ update_po <- function(dir = ".", verbose = FALSE) {
   {
     extract_gettext <- function(dir = ".", verbose = FALSE)
     {
+      # The argument expressions of the call whose parse id is `call_id`, each
+      # with the name it is passed under, "" for a positional one.
+      call_arguments <- function(x, call_id)
+      {
+        children <- x |>
+          dplyr::filter(.data$parent == call_id) |>
+          dplyr::arrange(.data$line1, .data$col1)
+        args <- tibble::tibble(name = character(), id = integer())
+        in_args <- FALSE
+        name <- ""
+        for (i in seq_len(nrow(children))) {
+          token <- children$token[i]
+          if (token == "'('")
+            in_args <- TRUE
+          else if (token == "SYMBOL_SUB")
+            name <- children$text[i]
+          else if (token == "','")
+            name <- ""
+          else if (in_args && token == "expr")
+            args <- tibble::add_row(args, name = name, id = children$id[i])
+        }
+        args
+      }
+
+      # gettext() looks a message up without its leading and trailing blanks,
+      # tabs, and newlines, and tools::xgettext() strips them the same way.
+      trim_msgid <- function(s) sub("[ \t\n]*$", "", sub("^[ \t\n]*", "", s))
+
+      # Collects what tools::xgettext() collects from the same calls: every
+      # literal argument of gettext() but `domain`, and only the format string
+      # of gettextf(), whose other arguments are values, not messages.
       find_gettext_strings <- function(f)
       {
         e <- parse(file = f, keep.source = TRUE)
         x <- utils::getParseData(e)
-        x |> dplyr::filter(
-          token == "SYMBOL_FUNCTION_CALL" &
-            text %in% c("gettext","gettextf")) |>
-          dplyr::select(p1 = parent) |>
+        calls <- x |>
+          dplyr::filter(
+            token == "SYMBOL_FUNCTION_CALL" &
+              text %in% c("gettext","gettextf")) |>
+          dplyr::select(fun = "text", p1 = "parent") |>
           dplyr::inner_join(x, dplyr::join_by("p1" == "id")) |>
-          dplyr::select(p1, p2 = parent) |>
-          dplyr::inner_join(x, dplyr::join_by("p2" == "parent")) |>
-          dplyr::select(p1,p2,id) |>
+          dplyr::select("fun", call_id = "parent")
+        message_args <- tibble::tibble(id = integer())
+        for (i in seq_len(nrow(calls))) {
+          args <- call_arguments(x, calls$call_id[i])
+          if (calls$fun[i] == "gettextf") {
+            fmt <- dplyr::filter(args, .data$name == "fmt")
+            if (nrow(fmt) == 0L)
+              fmt <- dplyr::slice_head(dplyr::filter(args, .data$name == ""), n = 1L)
+            args <- fmt
+          } else
+            args <- dplyr::filter(args, .data$name != "domain")
+          message_args <- dplyr::bind_rows(message_args, dplyr::select(args, "id"))
+        }
+        message_args |>
           dplyr::inner_join(x, dplyr::join_by("id" == "parent")) |>
           dplyr::filter(token == "STR_CONST") |>
           dplyr::mutate(
             reference = paste0("#: ", sub(paste0("^", stringr::str_escape(tools::file_path_as_absolute(".")), "/?"), "", tools::file_path_as_absolute(f)), ":", line1),
-            msgid = as.character(sapply(.data$text, \(x) eval(parse(text=x)))),
+            msgid = trim_msgid(as.character(sapply(.data$text, \(x) eval(parse(text=x))))),
             .keep = "none")
       }
 
@@ -67,7 +110,6 @@ update_po <- function(dir = ".", verbose = FALSE) {
       msgids_info <- msgids_info |> dplyr::mutate(msgid = shQuote(encodeString(.data$msgid), type = "cmd"))
     msgids_plural <- tools::xngettext(dir)
     msgids_plural_uniqe <- unique(unlist(msgids_plural))
-    # ToDo: Read plurals with references
     # Binary, not "wt". A text-mode connection translates LF to CRLF on Windows, and every
     # writeLines() below goes through this one connection — so "wt" would emit a CRLF .pot on
     # Windows and an LF one elsewhere. A gettext catalogue is rewritten in turn by msgmerge,
