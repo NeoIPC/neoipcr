@@ -4,9 +4,9 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: neoipcr 0.0.0.9001\n"
+"Project-Id-Version: neoipcr 0.0.0.9007\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-09-18 14:12+0200\n"
+"POT-Creation-Date: 2026-10-02 01:37+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -15,28 +15,28 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: R/calc-api.R:843
+#: R/calc-api.R:893
 #: R/calc-procedure-categories.R:45
 msgid "Procedure category"
 msgstr ""
 
-#: R/calc-api.R:843
+#: R/calc-api.R:893
 msgid "N"
 msgstr ""
 
-#: R/calc-api.R:843
+#: R/calc-api.R:893
 msgid "Pooled"
 msgstr ""
 
-#: R/calc-api.R:843
+#: R/calc-api.R:893
 msgid "Q1"
 msgstr ""
 
-#: R/calc-api.R:843
+#: R/calc-api.R:893
 msgid "Q2"
 msgstr ""
 
-#: R/calc-api.R:843
+#: R/calc-api.R:893
 msgid "Q3"
 msgstr ""
 
