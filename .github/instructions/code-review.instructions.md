@@ -18,8 +18,8 @@ Read these before generating review comments on this repository. They cover (1) 
 
 DHIS2 attribute, data-element, and option codes used by this package are defined on the **NeoIPC DHIS2 server** and have whatever casing and prefixing the server's metadata declares. Local R code MUST match the server's casing exactly, otherwise joins on `code` silently lose rows.
 
-- `NeoIPC_TEA_TOTAL_GESTATION_DAYS` — mixed-case `NeoIPC_` prefix — is the actual upstream attribute code, and the one code with a mixed-case prefix: collected data and downstream consumers depend on it, so it keeps its spelling. Do NOT flag it as a typo.
-- Every other NeoIPC code uses the all-uppercase `NEOIPC_` prefix. A mixed-case prefix anywhere else is worth flagging, since a join on it would match nothing.
+- `NeoIPC_TEA_TOTAL_GESTATION_DAYS` — mixed-case `NeoIPC_` prefix — is the actual upstream attribute code: collected data and downstream consumers depend on it, so it keeps its spelling. Do NOT flag it as a typo.
+- Not every code carries the `NEOIPC_` prefix: the organisation-unit attributes include the mixed-case `IsTestunit`, the `NEODECO_` trial dates, and the unprefixed `OPERATIONAL_CONTACT` and `REPRESENTATIVE`. A code is right when it matches the server's metadata (the Surveillance-Toolkit's canonical `metadata/common/` files), not when it follows a prefix pattern; flag only a code that matches nothing there, since a join on it would match nothing.
 
 ## Library and API Conventions
 
