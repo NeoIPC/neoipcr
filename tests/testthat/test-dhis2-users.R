@@ -62,6 +62,26 @@ test_that("get_user_info names the URL it requested when access is denied", {
                fixed = TRUE)
 })
 
+test_that("get_user_info tells a JSON body that does not parse from a response that is not JSON", {
+  httr2::local_mocked_responses(list(mock_json_response(
+    "https://dhis2.example.org/api/me", "{\"id\": ")))
+  cnd <- expect_error(neoipcr:::get_user_info(me_request()))
+  expect_match(conditionMessage(cnd),
+               "DHIS2 returned a JSON response that does not parse (HTTP 200, URL: https://dhis2.example.org/api/me).",
+               fixed = TRUE)
+  expect_no_match(conditionMessage(cnd), "content type", fixed = TRUE)
+
+  httr2::local_mocked_responses(list(httr2::response(
+    status_code = 200L,
+    url = "https://dhis2.example.org/api/me",
+    method = "GET",
+    headers = list(`Content-Type` = "text/plain"),
+    body = charToRaw("not JSON"))))
+  cnd <- expect_error(neoipcr:::get_user_info(me_request()))
+  expect_match(conditionMessage(cnd),
+               "Unexpected DHIS2 response content type: text/plain", fixed = TRUE)
+})
+
 test_that("get_user_info reports an HTTP error status as one, not as a failure to connect", {
   # The server answered, so the connection did not fail.
   for (status in c(404L, 500L)) {

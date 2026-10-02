@@ -57,29 +57,39 @@ get_user_info <- function(req)
 
   log_dhis2_request(resp, "me")
 
-  raw_info <- tryCatch(
-    resp |>
-      httr2::resp_check_status() |>
-      httr2::resp_body_json(simplifyVector = TRUE),
-    error = function(cnd) {
-      ct <- httr2::resp_content_type(resp)
-      sc <- httr2::resp_status(resp)
-      url <- resp$url
-      if (grepl("text/html", ct, fixed = TRUE)) {
-        rlang::abort(c(
-          gettextf("DHIS2 returned an HTML page instead of JSON (HTTP %d, URL: %s).", sc, url),
-          i = gettext("This usually means the server redirected to a login page."),
-          i = gettext("Your credentials may be missing, expired, or incorrect."),
-          i = gettextf("Token auth: set the %s environment variable.", "NEOIPC_DHIS2_TOKEN"),
-          i = gettextf(
-            "Basic auth: set %s and %s environment variables.",
-            "NEOIPC_DHIS2_USER", "NEOIPC_DHIS2_PASSWORD")
-        ), call = NULL)
-      }
+  # The content type is checked before the body is parsed, so that a response
+  # that is not JSON and a JSON body that does not parse are told apart.
+  sc <- httr2::resp_status(resp)
+  url <- resp$url
+  wrong_type <- tryCatch({
+    httr2::resp_check_content_type(
+      resp, valid_types = "application/json", valid_suffix = "json")
+    NULL
+  }, error = identity)
+  if (!is.null(wrong_type)) {
+    ct <- httr2::resp_content_type(resp)
+    if (grepl("text/html", ct, fixed = TRUE)) {
       rlang::abort(c(
-        gettextf("Unexpected DHIS2 response content type: %s", ct),
-        i = conditionMessage(cnd)
-      ), parent = cnd)
+        gettextf("DHIS2 returned an HTML page instead of JSON (HTTP %d, URL: %s).", sc, url),
+        i = gettext("This usually means the server redirected to a login page."),
+        i = gettext("Your credentials may be missing, expired, or incorrect."),
+        i = gettextf("Token auth: set the %s environment variable.", "NEOIPC_DHIS2_TOKEN"),
+        i = gettextf(
+          "Basic auth: set %s and %s environment variables.",
+          "NEOIPC_DHIS2_USER", "NEOIPC_DHIS2_PASSWORD")
+      ), call = NULL)
+    }
+    rlang::abort(c(
+      gettextf("Unexpected DHIS2 response content type: %s", ct),
+      i = conditionMessage(wrong_type)
+    ), parent = wrong_type)
+  }
+  raw_info <- tryCatch(
+    httr2::resp_body_json(resp, simplifyVector = TRUE),
+    error = function(cnd) {
+      rlang::abort(
+        gettextf("DHIS2 returned a JSON response that does not parse (HTTP %d, URL: %s).", sc, url),
+        parent = cnd)
     }
   )
 
