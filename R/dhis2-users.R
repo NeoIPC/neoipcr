@@ -6,10 +6,11 @@ get_user_info <- function(req)
   # got no answer at all (httr2's `httr2_failure`: DNS failure, refused
   # connection, timeout) as a failure to connect. Any other error propagates
   # unchanged.
+  me_req <- req |>
+    httr2::req_url_path_append("me")
   resp <- tryCatch(
     tryCatch(
-      req |>
-        httr2::req_url_path_append("me") |>
+      me_req |>
         # `lastLogin` lives under the `userCredentials` back-compat shim on the
         # /me response for 2.40 and 2.41. Newer lines (2.42+) drop
         # `userCredentials` from /me and expose `lastLogin` nowhere, so it reads
@@ -33,7 +34,7 @@ get_user_info <- function(req)
           gettextf("DHIS2 access denied (HTTP 403) at %s.", req$url),
           i = gettextf(
             "Your credentials were accepted but you lack permission to access %s.",
-            "/api/me"),
+            me_req$url),
           i = gettext("Contact a DHIS2 administrator to check your user role.")
         ), class = "neoipcr_dhis2_error", call = NULL)
       }

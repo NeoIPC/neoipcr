@@ -50,6 +50,18 @@ test_that("get_user_info passes a rejected login through as the authentication e
   expect_match(cnd$message, "^DHIS2 authentication failed")
 })
 
+test_that("get_user_info names the URL it requested when access is denied", {
+  # A server whose API is not at /api, so the URL is the connection's.
+  httr2::local_mocked_responses(list(mock_json_response(
+    "https://dhis2.example.org/dhis/api/me", "{}", status = 403L)))
+  cnd <- expect_error(
+    neoipcr:::get_user_info(httr2::request("https://dhis2.example.org/dhis/api")),
+    class = "neoipcr_dhis2_error")
+  expect_match(conditionMessage(cnd),
+               "you lack permission to access https://dhis2.example.org/dhis/api/me.",
+               fixed = TRUE)
+})
+
 test_that("get_user_info reports an HTTP error status as one, not as a failure to connect", {
   # The server answered, so the connection did not fail.
   for (status in c(404L, 500L)) {
