@@ -75,11 +75,14 @@ import_dhis2 <- function(
       (dataset_options$include_enrollment != "full" ||
        dataset_options$include_event != "full"))
     rlang::abort(c(
-      "Validating patients needs the full enrollments and events to check them against.",
-      x = sprintf(
-        "`include_enrollment` is \"%s\" and `include_event` is \"%s\", while `include_invalid_patients` asks for validation.",
-        dataset_options$include_enrollment, dataset_options$include_event),
-      i = "Import both with \"full\", or set `include_invalid_patients = TRUE` to keep every patient unvalidated."),
+      gettext("Validating patients needs the full enrollments and events to check them against."),
+      x = gettextf(
+        "%s is \"%s\" and %s is \"%s\", while %s asks for validation.",
+        "`include_enrollment`", dataset_options$include_enrollment,
+        "`include_event`", dataset_options$include_event,
+        "`include_invalid_patients`"),
+      i = gettextf("Import both with %s, or set %s to keep every patient unvalidated.",
+                   "\"full\"", "`include_invalid_patients = TRUE`")),
       class = "neoipcr_validation_needs_facts")
   # An exception list is mapped onto the imported records by its record
   # columns and by the patients' ids, which only the full patient tier
@@ -90,18 +93,21 @@ import_dhis2 <- function(
       !rlang::is_bool(dataset_options$include_invalid_patients)) {
     dataset_options$include_invalid_patients <- check_exception_list(
       dataset_options$include_invalid_patients,
-      "`include_invalid_patients` must be `TRUE`, `FALSE` or a data frame of exception records.")
+      gettextf("%s must be %s, %s or a data frame of exception records.",
+               "`include_invalid_patients`", "`TRUE`", "`FALSE`"))
     if (dataset_options$include_patient != "full")
       rlang::abort(c(
-        "An exception list needs the full patient tier: its records are matched by patient id.",
-        x = sprintf("`include_patient` is \"%s\".", dataset_options$include_patient),
-        i = "Set `include_patient = \"full\"` (`patient_id` is kept for the matching whatever `patient_columns` says), or drop the exception list."),
+        gettext("An exception list needs the full patient tier: its records are matched by patient id."),
+        x = gettextf("%s is \"%s\".", "`include_patient`", dataset_options$include_patient),
+        i = gettextf("Set %s (%s is kept for the matching whatever %s says), or drop the exception list.",
+                     "`include_patient = \"full\"`", "`patient_id`", "`patient_columns`")),
         class = "neoipcr_validation_needs_facts")
     if (dataset_options$include_department == "no")
       rlang::abort(c(
-        "An exception list needs a department tier: its records are matched within their department.",
-        x = "`include_department` is \"no\".",
-        i = "Set `include_department` to \"pseudo\" or \"full\", or drop the exception list."),
+        gettext("An exception list needs a department tier: its records are matched within their department."),
+        x = gettextf("%s is \"%s\".", "`include_department`", "no"),
+        i = gettextf("Set %s to %s or %s, or drop the exception list.",
+                     "`include_department`", "\"pseudo\"", "\"full\"")),
         class = "neoipcr_validation_needs_facts")
   }
 
@@ -122,9 +128,14 @@ import_dhis2 <- function(
       nrow(metadata$.departments_internal_map) > 1L &&
       !("DEPARTMENT_CODE" %in% names(dataset_options$include_invalid_patients)))
     rlang::abort(c(
-      "The exception list needs `DEPARTMENT_CODE` when more than one department is imported.",
-      x = sprintf("%d departments were imported.", nrow(metadata$.departments_internal_map)),
-      i = "Add the column, or narrow the import to one department with `department_filter`."),
+      gettextf("The exception list needs %s when more than one department is imported.",
+               "`DEPARTMENT_CODE`"),
+      x = sprintf(ngettext(nrow(metadata$.departments_internal_map),
+                           "%d department was imported.",
+                           "%d departments were imported."),
+                  nrow(metadata$.departments_internal_map)),
+      i = gettextf("Add the column, or narrow the import to one department with %s.",
+                   "`department_filter`")),
       class = "neoipcr_invalid_exception_list")
 
   tracker_req <- d2req_base |>
@@ -179,16 +190,23 @@ import_dhis2 <- function(
     if (length(dept_ids) == 0L) {
       by_department <- length(dataset_options$department_filter) > 0
       by_trial <- length(dataset_options$trial_filter) > 0
+      # Both filters make a plural subject, which a translation may have to
+      # agree with, so each case is a sentence of its own.
+      headline <- if (by_department && by_trial)
+        gettextf(
+          "%s and %s matched no accessible %s org unit after metadata filtering; a tracker query with no org unit would be rejected by DHIS2.",
+          "department_filter", "trial_filter", "NEO_DEPARTMENT")
+      else
+        gettextf(
+          "%s matched no accessible %s org unit after metadata filtering; a tracker query with no org unit would be rejected by DHIS2.",
+          if (by_department) "department_filter" else "trial_filter", "NEO_DEPARTMENT")
       rlang::abort(
-        c(sprintf(
-            "%s matched no accessible NEO_DEPARTMENT org unit after metadata filtering; a tracker query with no org unit would be rejected by DHIS2.",
-            paste(c("department_filter", "trial_filter")[c(by_department, by_trial)],
-                  collapse = " and ")),
+        c(headline,
           "i" = if (by_department)
-            sprintf("If a test department was selected, set include_test_data = TRUE (it is %s).",
-                    dataset_options$include_test_data),
+            gettextf("If a test department was selected, set %s (it is %s).",
+                     "include_test_data = TRUE", dataset_options$include_test_data),
           "i" = if (by_trial)
-            "A trial's member departments may lie outside the org units the account can see."),
+            gettext("A trial's member departments may lie outside the org units the account can see.")),
         class = "neoipcr_empty_department_filter")
     }
 
@@ -256,9 +274,9 @@ import_dhis2 <- function(
       status <- tryCatch(
         httr2::resp_status(resp),
         error = \(e) "unknown")
-      rlang::abort(paste0(
-        "DHIS2 tracker/", endpoints[i], " returned HTTP ", status, ".\n",
-        "Response body:\n", body))
+      rlang::abort(gettextf(
+        "DHIS2 %s returned HTTP %s.\nResponse body:\n%s",
+        paste0("tracker/", endpoints[i]), status, body))
     }
   }
 
@@ -597,13 +615,12 @@ warn_if_unsupported_dhis2 <- function(version)
 {
   if(!version_line(version) %in% supported_dhis2_lines())
     rlang::warn(c(
-      sprintf("DHIS2 version %s is outside neoipcr's supported range.", version),
-      "i" = sprintf(
+      gettextf("DHIS2 version %s is outside neoipcr's supported range.", version),
+      "i" = gettextf(
         "Supported DHIS2 lines: %s.",
         paste(supported_dhis2_lines(), collapse = ", ")),
-      "i" = paste(
-        "Reading an unsupported server is unverified: it may fail outright, or",
-        "return incomplete data without reporting an error.")),
+      "i" = gettext(
+        "Reading an unsupported server is unverified: it may fail outright, or return incomplete data without reporting an error.")),
       class = "neoipcr_unsupported_dhis2_version")
 }
 
