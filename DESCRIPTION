@@ -13,7 +13,6 @@ Description: Tools for working with NeoIPC Surveillance data.
 BugReports: https://github.com/NeoIPC/neoipcr/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
-LazyData: true
 Roxygen: list(markdown = TRUE)
 Depends:
     R (>= 4.4)
