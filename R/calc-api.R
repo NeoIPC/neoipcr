@@ -369,7 +369,7 @@ get_benchmark_data <- function(...) {
   x <- list(...)
   if (length(x) == 0L)
     rlang::abort(
-      "No dataset to benchmark: pass at least one calculated dataset.",
+      gettext("No dataset to benchmark: pass at least one calculated dataset."),
       class = "neoipcr_no_benchmark_datasets")
   ds_names = rlang::names2(x)
   output <- list(
