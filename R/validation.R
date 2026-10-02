@@ -371,7 +371,7 @@ validation_rules <- list(
     # A record with no key at all could name nothing; an empty table is
     # the resolver's own shape for a list without records.
     if (nrow(exceptions) > 0L && !any(record_keys %in% names(exceptions)))
-      gettextf("a record names its record through at least one of %s",
+      gettextf("an exception record must name the dataset record it exempts through at least one of %s",
                paste0("`", record_keys, "`", collapse = ", ")),
     if (length(not_integer) > 0L)
       gettextf("%s must hold integer keys or %s",
