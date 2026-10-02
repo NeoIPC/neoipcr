@@ -18,6 +18,7 @@ paths: "**/*.R,**/*.Rmd"
 
 - **Exported functions first**, internal helpers below; peers follow the domain's logical progression (epidemiologically: usage, incidence, detection, resistance).
 - When touching `R/`, flag to the user any function that has drifted into the wrong file (a helper added to a table builder's file during a rushed fix) rather than move it silently: the user may know why it is there.
+- **If in doubt** where a new function belongs, ask the user rather than guess: a function in the wrong file costs more than a brief conversation.
 
 ### Writing Text Files
 
