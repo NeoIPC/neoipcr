@@ -82,6 +82,18 @@ test_that("get_user_info tells a JSON body that does not parse from a response t
                "Unexpected DHIS2 response content type: text/plain", fixed = TRUE)
 })
 
+test_that("get_user_info does not quote a /me body that does not parse", {
+  # The /me body holds the account's name and e-mail address, and the JSON
+  # parser's own error quotes the text around the fault.
+  httr2::local_mocked_responses(list(mock_json_response(
+    "https://dhis2.example.org/api/me",
+    "{\"username\": \"u\", \"email\": \"someone@example.org\" \"surname\": \"S\"}")))
+  cnd <- expect_error(neoipcr:::get_user_info(me_request()))
+  expect_match(conditionMessage(cnd), "does not parse", fixed = TRUE)
+  expect_null(cnd$parent)
+  expect_no_match(paste(format(cnd), collapse = "\n"), "someone@example.org", fixed = TRUE)
+})
+
 test_that("get_user_info reports an HTTP error status as one, not as a failure to connect", {
   # The server answered, so the connection did not fail.
   for (status in c(404L, 500L)) {

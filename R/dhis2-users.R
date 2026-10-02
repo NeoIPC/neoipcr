@@ -84,12 +84,13 @@ get_user_info <- function(req)
       i = conditionMessage(wrong_type)
     ), parent = wrong_type)
   }
+  # No parent condition: the JSON parser's message quotes the body around the
+  # fault, and the /me body holds the account's name and e-mail address.
   raw_info <- tryCatch(
     httr2::resp_body_json(resp, simplifyVector = TRUE),
     error = function(cnd) {
       rlang::abort(
-        gettextf("DHIS2 returned a JSON response that does not parse (HTTP %d, URL: %s).", sc, url),
-        parent = cnd)
+        gettextf("DHIS2 returned a JSON response that does not parse (HTTP %d, URL: %s).", sc, url))
     }
   )
 
