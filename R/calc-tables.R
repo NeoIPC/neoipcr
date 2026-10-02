@@ -923,18 +923,21 @@ get_cumulative_incidence_table <- function(
     "events")
 
   if (!is.data.frame(windows))
-    rlang::abort("`windows` must be a data frame.")
+    rlang::abort(gettextf("%s must be a data frame.", "`windows`"))
   missing_cols <- setdiff(c("department_key", "window", "start", "end"), names(windows))
   if (length(missing_cols) > 0L)
     rlang::abort(c(
-      "`windows` lacks required column(s):",
+      gettextf("%s lacks required column(s):", "`windows`"),
       "x" = paste(missing_cols, collapse = ", ")))
   if (!inherits(windows$start, "Date") || !inherits(windows$end, "Date"))
-    rlang::abort("`windows$start` and `windows$end` must be Date columns.")
+    rlang::abort(gettextf(
+      "%s and %s must be Date columns.", "`windows$start`", "`windows$end`"))
   if (any(is.na(windows$start) | is.na(windows$end) | windows$start > windows$end))
-    rlang::abort("Every window needs `start <= end`, with neither date missing.")
+    rlang::abort(gettextf(
+      "Every window needs %s, with neither date missing.", "`start <= end`"))
   if (any(is.na(windows$department_key)))
-    rlang::abort("Every window must have a non-missing `department_key`.")
+    rlang::abort(gettextf(
+      "Every window must have a non-missing %s.", "`department_key`"))
 
   event_types <- rlang::arg_match(
     event_types, c("bsi", "nec", "hap", "ssi"), multiple = TRUE)
