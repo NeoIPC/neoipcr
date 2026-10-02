@@ -1,11 +1,11 @@
 get_user_info <- function(req)
 {
-  # Two-level tryCatch: inner level translates specific HTTP errors into
-
-  # user-friendly messages; outer level catches everything else (DNS failure,
-  # timeout, etc.) and wraps with a generic connection message.  The outer
-
-  # handler passes through errors already translated by the inner level.
+  # Two-level tryCatch: the inner level translates the authentication and
+  # permission failures (HTTP 401 and 403) into user-friendly messages; the
+  # outer level reports any other HTTP error status as one, and a request that
+  # got no answer at all (httr2's `httr2_failure`: DNS failure, refused
+  # connection, timeout) as a failure to connect. Any other error propagates
+  # unchanged.
   resp <- tryCatch(
     tryCatch(
       req |>
@@ -38,8 +38,14 @@ get_user_info <- function(req)
         ), class = "neoipcr_dhis2_error", call = NULL)
       }
     ),
-    error = function(cnd) {
-      if (inherits(cnd, "neoipcr_dhis2_error")) rlang::cnd_signal(cnd)
+    httr2_http = function(cnd) {
+      rlang::abort(c(
+        gettextf("DHIS2 answered with an error (HTTP %d) at %s.",
+                 httr2::resp_status(cnd$resp), req$url),
+        i = conditionMessage(cnd)
+      ), class = "neoipcr_dhis2_error", call = NULL)
+    },
+    httr2_failure = function(cnd) {
       rlang::abort(c(
         gettextf("Failed to connect to DHIS2 at %s.", req$url),
         i = gettext("Check your network connection and DHIS2 server URL."),

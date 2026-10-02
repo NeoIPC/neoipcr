@@ -50,6 +50,35 @@ test_that("get_user_info passes a rejected login through as the authentication e
   expect_match(cnd$message, "^DHIS2 authentication failed")
 })
 
+test_that("get_user_info reports an HTTP error status as one, not as a failure to connect", {
+  # The server answered, so the connection did not fail.
+  for (status in c(404L, 500L)) {
+    httr2::local_mocked_responses(list(mock_json_response(
+      "https://dhis2.example.org/api/me", "{}", status = status)))
+    cnd <- expect_error(
+      neoipcr:::get_user_info(me_request()), class = "neoipcr_dhis2_error")
+    expect_match(conditionMessage(cnd),
+                 sprintf("DHIS2 answered with an error (HTTP %d) at https://dhis2.example.org/api.", status),
+                 fixed = TRUE, info = status)
+    expect_no_match(conditionMessage(cnd), "Failed to connect", fixed = TRUE)
+  }
+})
+
+test_that("get_user_info reports a request that got no answer as a failure to connect", {
+  # httr2 raises an `httr2_failure`, with curl's error as its parent, when a
+  # request gets no answer; the mock raises the same condition in curl's place.
+  httr2::local_mocked_responses(function(req)
+    rlang::abort(
+      "Failed to perform HTTP request.",
+      class = c("httr2_failure", "httr2_error"),
+      parent = simpleError("Could not resolve host: dhis2.example.org")))
+  cnd <- expect_error(
+    neoipcr:::get_user_info(me_request()), class = "neoipcr_dhis2_error")
+  expect_match(conditionMessage(cnd),
+               "Failed to connect to DHIS2 at https://dhis2.example.org/api.", fixed = TRUE)
+  expect_match(conditionMessage(cnd), "Could not resolve host", fixed = TRUE)
+})
+
 # ---- resolve_user_fields() ---------------------------------------------------
 
 users_metadata <- list(.users_internal_map = tibble::tibble(
