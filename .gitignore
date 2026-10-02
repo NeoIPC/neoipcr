@@ -60,3 +60,6 @@ lib/
 
 # Local-only sensitive data (the protected-dir convention)
 data/
+
+# Claude Code's per-machine settings; the shared ones are .claude/settings.json.
+.claude/settings.local.json
