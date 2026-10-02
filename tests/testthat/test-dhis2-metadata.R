@@ -58,9 +58,16 @@ test_that("read_metadata requires exactly one NeoIPC Patient tracked-entity type
 })
 
 test_that("read_metadata aborts when programStages are missing", {
-  expect_error(
+  error <- expect_error(
     read_test_metadata(exclude = "program_stages"),
     class = "neoipcr_metadata_programStages_missing")
+  expect_match(conditionMessage(error), "The programStages list is missing.", fixed = TRUE)
+  # The data-element reader, which reads the same list, refuses its absence
+  # in the same words.
+  error <- expect_error(
+    neoipcr:::read_metadata_dataElements(list(programs = list(list(id = "PRG")))),
+    class = "neoipcr_metadata_programStages_missing")
+  expect_match(conditionMessage(error), "The programStages list is missing.", fixed = TRUE)
 })
 
 test_that("event_type_key_of resolves a program stage by its code", {

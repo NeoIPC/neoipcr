@@ -164,7 +164,7 @@ read_metadata_dataElements <- function(metadata)
 
   if(rlang::is_null(programStages))
     rlang::abort(
-      gettextf("Invalid DHIS2 metadata. The %s element is missing.", "programStages"),
+      gettextf("Invalid DHIS2 metadata. The %s list is missing.", "programStages"),
       "neoipcr_metadata_programStages_missing")
 
   programStageTable <- programStages |>
