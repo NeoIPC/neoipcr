@@ -535,10 +535,14 @@ reconciliation_details <- function(x)
       purrr::map_chr(
         given(period),
         \(option) gettextf("`%s` is set: the reporting period removed enrolments.", option)),
+    # A tier an options object lacks reads `NULL`, which `gettextf()` would
+    # turn into no sentence at all, so the value is shown as text first.
     if (!is.null(opts))
       purrr::map_chr(
         tiers[vapply(tiers, \(tier) !identical(opts[[tier]], "full"), logical(1))],
-        \(tier) gettextf("`%s` is \"%s\", not %s.", tier, opts[[tier]], "\"full\"")),
+        \(tier) gettextf("`%s` is %s, not %s.", tier,
+                         if (is.null(opts[[tier]])) "`NULL`" else sprintf("\"%s\"", opts[[tier]]),
+                         "\"full\"")),
     if (!is.null(opts) &&
         !("gestational_age" %in% .selected_patient_columns(opts)))
       gettextf("%s leaves out %s.", "`patient_columns`", "\"gestational_age\""))
