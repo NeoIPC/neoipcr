@@ -173,6 +173,14 @@ test_that("validate refuses a rule id it does not know", {
   expect_s3_class(neoipcr::validate(ds, rules = 1), "tbl_df")
 })
 
+test_that("validate names one unknown rule id in the singular and several in the plural", {
+  ds <- make_populated_test_ds()
+  cnd <- expect_error(neoipcr::validate(ds, rules = 999L), class = "neoipcr_unknown_validation_rule")
+  expect_match(conditionMessage(cnd), "Unknown rule id: 999.", fixed = TRUE)
+  cnd <- expect_error(neoipcr::validate(ds, rules = c(998L, 999L)), class = "neoipcr_unknown_validation_rule")
+  expect_match(conditionMessage(cnd), "Unknown rule ids: 998, 999.", fixed = TRUE)
+})
+
 test_that("validate is exported and returns its result visibly", {
   # Read the NAMESPACE file rather than getNamespaceExports(): under
   # devtools::load_all() every object is exported, which would make the
@@ -268,7 +276,11 @@ test_that("a pass that could not run a rule is refused where it must read as com
     class = "neoipcr_validation_rule_skipped")
   expect_error(
     neoipcr:::.assert_no_rule_skipped(findings),
-    "18, 19")
+    "Rules 18, 19 did not run: the dataset lacks what they read")
+  attr(findings, "rules_skipped") <- 18L
+  expect_error(
+    neoipcr:::.assert_no_rule_skipped(findings),
+    "Rule 18 did not run: the dataset lacks what it reads")
 })
 
 test_that("validate carries a rule's values as a one-row tibble in context", {

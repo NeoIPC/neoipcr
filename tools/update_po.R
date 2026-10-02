@@ -1,7 +1,17 @@
-# This script is basically a replacement for tools::update_pkg_po to overcome
-# some problems and add some features
+# Builds the package's R message catalogue, in place of tools::update_pkg_po().
+#
+#   Rscript tools/update_po.R
+#     extracts po/R-<package>.pot from R/, merges it into each po/R-<lang>.po
+#     with msgmerge, and compiles each into
+#     inst/po/<lang>/LC_MESSAGES/R-<package>.mo with msgfmt; both are GNU
+#     gettext tools and must be on the PATH.
+#   Rscript tools/update_po.R --template <file>
+#     extracts the template into <file> and touches nothing under po/ or
+#     inst/po, so the R-CMD-check workflow can compare it with the committed
+#     template; where the default mode warns that its msgids differ from
+#     tools::xgettext()'s, this mode fails.
 
-update_po <- function(dir = ".", verbose = FALSE) {
+update_po <- function(dir = ".", verbose = FALSE, template = NULL) {
   # Each failure is reported as it happens, between the tools' own output,
   # rather than collected at the end.
   old_options <- options(warn = 1)
@@ -12,23 +22,68 @@ update_po <- function(dir = ".", verbose = FALSE) {
   {
     extract_gettext <- function(dir = ".", verbose = FALSE)
     {
+      # The argument expressions of the call whose parse id is `call_id`, each
+      # with the name it is passed under, "" for a positional one.
+      call_arguments <- function(x, call_id)
+      {
+        children <- x |>
+          dplyr::filter(.data$parent == call_id) |>
+          dplyr::arrange(.data$line1, .data$col1)
+        args <- tibble::tibble(name = character(), id = integer())
+        in_args <- FALSE
+        name <- ""
+        for (i in seq_len(nrow(children))) {
+          token <- children$token[i]
+          if (token == "'('")
+            in_args <- TRUE
+          else if (token == "SYMBOL_SUB")
+            name <- children$text[i]
+          else if (token == "','")
+            name <- ""
+          else if (in_args && token == "expr")
+            args <- tibble::add_row(args, name = name, id = children$id[i])
+        }
+        args
+      }
+
+      # gettext() looks a message up without its leading and trailing blanks,
+      # tabs, and newlines, and tools::xgettext() strips them the same way.
+      trim_msgid <- function(s) sub("[ \t\n]*$", "", sub("^[ \t\n]*", "", s))
+
+      # Collects the direct literal arguments of every gettext() and gettextf()
+      # call, namespace-qualified ones included: all of gettext()'s but
+      # `domain`, and only gettextf()'s format string, whose other arguments
+      # are values, not messages. The comparison with tools::xgettext() below
+      # warns wherever the two extractors still differ.
       find_gettext_strings <- function(f)
       {
         e <- parse(file = f, keep.source = TRUE)
         x <- utils::getParseData(e)
-        x |> dplyr::filter(
-          token == "SYMBOL_FUNCTION_CALL" &
-            text %in% c("gettext","gettextf")) |>
-          dplyr::select(p1 = parent) |>
+        calls <- x |>
+          dplyr::filter(
+            token == "SYMBOL_FUNCTION_CALL" &
+              text %in% c("gettext","gettextf")) |>
+          dplyr::select(fun = "text", p1 = "parent") |>
           dplyr::inner_join(x, dplyr::join_by("p1" == "id")) |>
-          dplyr::select(p1, p2 = parent) |>
-          dplyr::inner_join(x, dplyr::join_by("p2" == "parent")) |>
-          dplyr::select(p1,p2,id) |>
+          dplyr::select("fun", call_id = "parent")
+        message_args <- tibble::tibble(id = integer())
+        for (i in seq_len(nrow(calls))) {
+          args <- call_arguments(x, calls$call_id[i])
+          if (calls$fun[i] == "gettextf") {
+            fmt <- dplyr::filter(args, .data$name == "fmt")
+            if (nrow(fmt) == 0L)
+              fmt <- dplyr::slice_head(dplyr::filter(args, .data$name == ""), n = 1L)
+            args <- fmt
+          } else
+            args <- dplyr::filter(args, .data$name != "domain")
+          message_args <- dplyr::bind_rows(message_args, dplyr::select(args, "id"))
+        }
+        message_args |>
           dplyr::inner_join(x, dplyr::join_by("id" == "parent")) |>
           dplyr::filter(token == "STR_CONST") |>
           dplyr::mutate(
             reference = paste0("#: ", sub(paste0("^", stringr::str_escape(tools::file_path_as_absolute(".")), "/?"), "", tools::file_path_as_absolute(f)), ":", line1),
-            msgid = as.character(sapply(.data$text, \(x) eval(parse(text=x)))),
+            msgid = trim_msgid(as.character(sapply(.data$text, \(x) eval(parse(text=x))))),
             .keep = "none")
       }
 
@@ -61,13 +116,16 @@ update_po <- function(dir = ".", verbose = FALSE) {
     msgids <- msgids[nzchar(msgids)]
     msgids_info <- extract_gettext(dir, verbose = verbose)
     msgids2 <- msgids_info |> dplyr::pull(msgid)
-    if(length(msgids) != length(msgids2) || !all(msgids == msgids2))
-      rlang::warn("The generated msgids differ from the ones generated by tools::xgettext")
+    # The template mode serves the CI check, where a mismatch fails the run;
+    # a catalogue run only warns, so that the catalogue is still written.
+    if(length(msgids) != length(msgids2) || !all(msgids == msgids2)) {
+      mismatch <- "The generated msgids differ from the ones generated by tools::xgettext"
+      if (is.null(template)) rlang::warn(mismatch) else rlang::abort(mismatch)
+    }
     if(nrow(msgids_info) > 0)
       msgids_info <- msgids_info |> dplyr::mutate(msgid = shQuote(encodeString(.data$msgid), type = "cmd"))
     msgids_plural <- tools::xngettext(dir)
     msgids_plural_uniqe <- unique(unlist(msgids_plural))
-    # ToDo: Read plurals with references
     # Binary, not "wt". A text-mode connection translates LF to CRLF on Windows, and every
     # writeLines() below goes through this one connection — so "wt" would emit a CRLF .pot on
     # Windows and an LF one elsewhere. A gettext catalogue is rewritten in turn by msgmerge,
@@ -128,13 +186,19 @@ update_po <- function(dir = ".", verbose = FALSE) {
         }
   }
 
+  # Resolved before setwd(dir), since a relative path names a file relative to
+  # the caller's working directory.
+  if (!is.null(template))
+    template <- file.path(normalizePath(dirname(template), winslash = "/", mustWork = TRUE),
+                          basename(template))
   wd_bkp <- getwd()
-  on.exit(setwd(wd_bkp))
+  on.exit(setwd(wd_bkp), add = TRUE)
   setwd(dir)
   collation_bkp <- Sys.getlocale("LC_COLLATE")
   on.exit(Sys.setlocale("LC_COLLATE", collation_bkp), add = TRUE)
   Sys.setlocale("LC_COLLATE", "C")
-  dir.create("po", FALSE)
+  if (is.null(template))
+    dir.create("po", FALSE)
   po_files <- list.files(path = "po", pattern = "^R-.+\\.pot?$",
                          full.names = TRUE)
   description_info <- read.dcf(
@@ -160,6 +224,14 @@ update_po <- function(dir = ".", verbose = FALSE) {
     unlist() |>
     trimws()
   encoding <- description_info[5L]
+
+  if (!is.null(template)) {
+    if (verbose)
+      message("Creating pot: ", sQuote(template), domain = NA)
+    extract_gettext2pot(pot_file = template, package = package_name, copyright,
+                        encoding, version, bugs, dir = ".", verbose = verbose)
+    return(invisible())
+  }
 
   po_inst_dir <- file.path("inst", "po")
   tmp_file <- tempfile(fileext = "pot")
@@ -233,4 +305,12 @@ update_po <- function(dir = ".", verbose = FALSE) {
   invisible()
 }
 
-update_po()
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) == 0L) {
+  update_po()
+} else if (length(args) == 2L && args[1L] == "--template") {
+  update_po(template = args[2L])
+} else
+  rlang::abort(c(
+    "Unrecognized arguments.",
+    i = "Usage: Rscript tools/update_po.R [--template <file>]"))

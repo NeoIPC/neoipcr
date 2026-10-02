@@ -415,11 +415,16 @@ spread_typed_values <- function(
   if (any(failed)) {
     if (!is.null(code_col) && code_col %in% names(tbl)) {
       counts <- table(tbl[[code_col]][failed])
-      detail <- sprintf("%s (%d)", names(counts), as.integer(counts))
+      detail <- gettextf("%s (%d)", names(counts), as.integer(counts))
     } else
-      detail <- sprintf("%d value(s)", sum(failed))
+      detail <- sprintf(ngettext(sum(failed), "%d value", "%d values"), sum(failed))
     rlang::warn(c(
-      "Custom attribute value(s) that do not parse under their attribute's value type were set to NA:",
+      if (sum(failed) == 1L)
+        gettextf("A custom attribute value that does not parse under its attribute's value type was set to %s:",
+                 "`NA`")
+      else
+        gettextf("Custom attribute values that do not parse under their attribute's value type were set to %s:",
+                 "`NA`"),
       rlang::set_names(detail, rep("x", length(detail)))),
       class = "neoipcr_attribute_value_parse_failure")
   }

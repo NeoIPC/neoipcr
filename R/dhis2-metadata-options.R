@@ -4,8 +4,9 @@ read_metadata_options <- function(metadata)
     purrr::pluck("options")
 
   if(rlang::is_null(options))
-    rlang::abort("Invalid DHIS2 metadata. The options list is missing.",
-                 "neoipcr_metadata_options_missing")
+    rlang::abort(
+      gettextf("Invalid DHIS2 metadata. The %s list is missing.", "options"),
+      "neoipcr_metadata_options_missing")
 
   options |>
     tibble::tibble() |>

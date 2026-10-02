@@ -28,9 +28,12 @@ dhis2_connection_options <- function(
   }
   if(is.null(hostname))
     rlang::abort(c(
-      "No DHIS2 hostname provided.",
-      "i" = "Pass a `hostname` (e.g. dhis2_connection_options(hostname = \"dhis2.example.org\")), or set the NEOIPC_DHIS2_HOST environment variable.",
-      "i" = "neoipcr does not default to any deployment's host; the caller supplies it."),
+      gettext("No DHIS2 hostname provided."),
+      "i" = gettextf(
+        "Pass a %s (e.g. %s), or set the %s environment variable.",
+        "`hostname`", "dhis2_connection_options(hostname = \"dhis2.example.org\")",
+        "NEOIPC_DHIS2_HOST"),
+      "i" = gettext("neoipcr does not default to any deployment's host; the caller supplies it.")),
       class = "neoipcr_missing_hostname")
 
   if(is.character(port)) port <- as.integer(port)
@@ -42,7 +45,9 @@ dhis2_connection_options <- function(
   ret <- switch(
     rlang::check_exclusive(token, username, session_id, .require = FALSE),
     token = c(ret, list(token = read_token(token))),
-    username = c(ret, list(username = username, password = get_password(ret$base_url))),
+    username = c(ret, list(
+      username = username,
+      password = get_password(ret$base_url, username_from_env = FALSE))),
     session_id = c(ret, list(session_id = session_id)),
     c(ret, get_auth_data(ret$base_url))
   )
@@ -53,16 +58,16 @@ dhis2_connection_options <- function(
 #' @export
 print.neoipcr_dhis2_conopt <- function(x, ...)
 {
-  parts <- paste0("Base URL: ", x$base_url)
+  parts <- gettextf("Base URL: %s", x$base_url)
   if(!is.null(x$token)) {
-    parts <- c(parts, "Authentication: Token")
+    parts <- c(parts, gettextf("Authentication: %s", "Token"))
   } else if(!is.null(x$session_id)) {
-    parts <- c(parts, "Authentication: Cookie")
+    parts <- c(parts, gettextf("Authentication: %s", "Cookie"))
   } else if(!is.null(x$username)) {
     parts <- c(
       parts,
-      "Authentication: Basic",
-      paste0("Username: ", x$username))
+      gettextf("Authentication: %s", "Basic"),
+      gettextf("Username: %s", x$username))
   }
 
   writeLines(parts)
@@ -85,15 +90,23 @@ read_token <- function(token)
   rlang::abort(gettext("Invalid DHIS2 personal access token."))
 }
 
-get_password <- function(url)
+# `username_from_env` says whether the username came from NEOIPC_DHIS2_USER
+# rather than from the `username` argument or the prompt, so that the message
+# names the environment variable only where it is the source.
+get_password <- function(url, username_from_env)
 {
   pw <- Sys.getenv("NEOIPC_DHIS2_PASSWORD", unset = NA)
   if(!is.na(pw)) return(pw)
 
   if(!interactive()) rlang::abort(c(
     gettext("No password found"),
-    "i" = gettext("NEOIPC_DHIS2_USER is set but NEOIPC_DHIS2_PASSWORD is not."),
-    "i" = gettext("Set the NEOIPC_DHIS2_PASSWORD environment variable, or use a personal access token (NEOIPC_DHIS2_TOKEN) instead."),
+    "i" = if(username_from_env)
+      gettextf("%s is set but %s is not.", "NEOIPC_DHIS2_USER", "NEOIPC_DHIS2_PASSWORD")
+    else
+      gettextf("A username was given, but %s is not set.", "NEOIPC_DHIS2_PASSWORD"),
+    "i" = gettextf(
+      "Set the %s environment variable, or use a personal access token (%s) instead.",
+      "NEOIPC_DHIS2_PASSWORD", "NEOIPC_DHIS2_TOKEN"),
     "i" = gettext("Interactive password prompting is only available in interactive R sessions.")))
 
   pw <- askpass::askpass(
@@ -101,7 +114,7 @@ get_password <- function(url)
 
   if(is.null(pw)) rlang::abort(c(
     gettext("No password provided"),
-    "i" = gettext("Please provide username and password, a personal access token or a session id to authenticate to DHIS2.")))
+    "i" = gettext("Please provide username and password, a personal access token, or a session ID to authenticate to DHIS2.")))
 
   pw
 }
@@ -118,11 +131,13 @@ get_auth_data <- function(url)
 
   env_user <- Sys.getenv("NEOIPC_DHIS2_USER", unset = NA)
   if(!is.na(env_user) && nzchar(env_user))
-    return(list(username = env_user, password = get_password(url)))
+    return(list(username = env_user, password = get_password(url, username_from_env = TRUE)))
 
   if(!interactive()) rlang::abort(c(
     gettext("No authentication credentials found"),
-    "i" = gettext("Set the NEOIPC_DHIS2_TOKEN, NEOIPC_DHIS2_SESSION_ID, or NEOIPC_DHIS2_USER environment variable."),
+    "i" = gettextf(
+      "Set the %s, %s, or %s environment variable.",
+      "NEOIPC_DHIS2_TOKEN", "NEOIPC_DHIS2_SESSION_ID", "NEOIPC_DHIS2_USER"),
     "i" = gettext("Interactive username/password prompting is only available in interactive R sessions.")))
 
   user <- readline(
@@ -131,7 +146,7 @@ get_auth_data <- function(url)
 
   if(!nzchar(user)) rlang::abort(c(
     gettext("No username provided"),
-    "i" = gettext("Please provide username and password, a personal access token or a session id to authenticate to DHIS2.")))
+    "i" = gettext("Please provide username and password, a personal access token, or a session ID to authenticate to DHIS2.")))
 
-  list(username = user, password = get_password(url))
+  list(username = user, password = get_password(url, username_from_env = FALSE))
 }

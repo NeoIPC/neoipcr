@@ -54,7 +54,7 @@ validation_rule_57 <- function(x, exceptions)
   if (!all(c("birth_weight", "total_gestation_days", "gest_age") %in%
            names(x$patients)))
     return(.rule_skipped(
-      57L, "the patients' birth weight, total gestation days and gestational-age text"))
+      57L, "the patients' birth weight, total gestation days, and gestational-age text"))
 
   x$patients |>
     dplyr::filter(is.na(.data$birth_weight) &

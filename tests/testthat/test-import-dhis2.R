@@ -1062,11 +1062,12 @@ test_that("import_dhis2 runs the open-enrolment rules on the active enrolments i
   m <- new_dhis2_mock(with_active(
     import_test_fixtures(patient_eligibility = TRUE), event_status = FALSE))
   httr2::local_mocked_responses(m$mock)
-  expect_error(
+  error <- expect_error(
     import_dhis2(test_conn(), import_test_opts(
       include_incomplete       = "enrollments",
       include_invalid_patients = FALSE)),
     class = "neoipcr_validation_rule_skipped")
+  expect_match(conditionMessage(error), "Rule 43 did not run: the dataset lacks what it reads")
   # Without the pass the import succeeds, and a later pass names the rule.
   ds <- import_dhis2(test_conn(), import_test_opts(
     include_incomplete       = "enrollments",

@@ -559,6 +559,11 @@ test_that("get_cumulative_incidence_table rejects malformed windows, unknown eve
 
   no_end <- windows[, c("department_key", "window", "start")]
   expect_error(get_cumulative_incidence_table(calc_ds, no_end), "end")
+  cnd <- expect_error(get_cumulative_incidence_table(calc_ds, no_end))
+  expect_match(conditionMessage(cnd), "`windows` lacks a required column:", fixed = TRUE)
+  no_dates <- windows[, c("department_key", "window")]
+  cnd <- expect_error(get_cumulative_incidence_table(calc_ds, no_dates))
+  expect_match(conditionMessage(cnd), "`windows` lacks required columns:", fixed = TRUE)
 
   no_department <- windows
   no_department$department_key <- NA_integer_

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-09-18 14:12+0200\n"
+"POT-Creation-Date: 2026-10-02 20:16+0200\n"
 "PO-Revision-Date: 2025-05-27 16:54+0200\n"
 "Last-Translator: Brar Piening <brar.piening@charite.de>\n"
 "Language-Team: NeoIPC-Support <NeoIPC-Support@charite.de>\n"
@@ -14,29 +14,34 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: R/calc-api.R:843 R/calc-procedure-categories.R:45
+#: R/calc-api.R:372
+msgid "No dataset to benchmark: pass at least one calculated dataset."
+msgstr ""
+
+#: R/calc-api.R:893 R/calc-procedure-categories.R:45
 msgid "Procedure category"
 msgstr "Prozedur-Kategorie"
 
-#: R/calc-api.R:843
+#: R/calc-api.R:893
 msgid "N"
 msgstr "N"
 
-#: R/calc-api.R:843
+#: R/calc-api.R:893
 #, fuzzy
 msgid "Pooled"
 msgstr "Gepoolt"
 
-#: R/calc-api.R:843
+#: R/calc-api.R:893
 msgid "Q1"
 msgstr "Q₁"
 
-#: R/calc-api.R:843
+#: R/calc-api.R:893
 msgid "Q2"
 msgstr "Q₂"
 
-#: R/calc-api.R:843
+#: R/calc-api.R:893
 msgid "Q3"
 msgstr "Q₃"
 
@@ -85,72 +90,740 @@ msgstr "Kein chirurgischer Eingriff"
 msgid "Not yet categorized"
 msgstr "Noch nicht kategorisiert"
 
-#: R/dhis2-connect.R:85
+#: R/calc-tables.R:926
+msgid "%s must be a data frame."
+msgstr ""
+
+#: R/calc-tables.R:931
+msgid "%s lacks a required column:"
+msgstr ""
+
+#: R/calc-tables.R:933
+msgid "%s lacks required columns:"
+msgstr ""
+
+#: R/calc-tables.R:937
+msgid "%s and %s must be %s columns."
+msgstr ""
+
+#: R/calc-tables.R:940
+msgid "Every window needs %s, with neither date missing."
+msgstr ""
+
+#: R/calc-tables.R:943
+msgid "Every window must have a non-missing %s."
+msgstr ""
+
+#: R/ci.R:91
+msgid "%s must be <= %s."
+msgstr ""
+
+#: R/ci.R:226
+msgid "%s and %s must have the same length."
+msgstr ""
+
+#: R/ci.R:230
+msgid "%s must be a vector of whole numbers (%s allowed)."
+msgstr ""
+
+#: R/ci.R:234
+msgid "%s must be a numeric vector (%s allowed)."
+msgstr ""
+
+#: R/ci.R:245
+msgid "%s must be non-negative."
+msgstr ""
+
+#: R/ci.R:248
+msgid "%s must be strictly positive."
+msgstr ""
+
+#: R/ci.R:251
+msgid "%s must be <= %s for binomial type."
+msgstr ""
+
+#: R/ci.R:256
+msgid "%s must be whole numbers for binomial type."
+msgstr ""
+
+#: R/ci.R:257
+msgid "%s is the trial count %s; non-integer values would be coerced by %s."
+msgstr ""
+
+#: R/dhis2-connect.R:31
+#, fuzzy
+msgid "No DHIS2 hostname provided."
+msgstr "Kein Benutzername angegeben"
+
+#: R/dhis2-connect.R:33
+msgid "Pass a %s (e.g. %s), or set the %s environment variable."
+msgstr ""
+
+#: R/dhis2-connect.R:36
+msgid ""
+"neoipcr does not default to any deployment's host; the caller supplies it."
+msgstr ""
+
+#: R/dhis2-connect.R:61
+msgid "Base URL: %s"
+msgstr ""
+
+#: R/dhis2-connect.R:63 R/dhis2-connect.R:65 R/dhis2-connect.R:69
+msgid "Authentication: %s"
+msgstr ""
+
+#: R/dhis2-connect.R:70
+msgid "Username: %s"
+msgstr ""
+
+#: R/dhis2-connect.R:90
 msgid "Invalid DHIS2 personal access token."
 msgstr "Ungültiges persönliches Zugriffstoken für DHIS2."
 
-#: R/dhis2-connect.R:94
+#: R/dhis2-connect.R:102
 #, fuzzy
 msgid "No password found"
 msgstr "Kein Passwort angegeben"
 
-#: R/dhis2-connect.R:95
-msgid "NEOIPC_DHIS2_USER is set but NEOIPC_DHIS2_PASSWORD is not."
+#: R/dhis2-connect.R:104
+msgid "%s is set but %s is not."
 msgstr ""
 
-#: R/dhis2-connect.R:96
+#: R/dhis2-connect.R:106
+msgid "A username was given, but %s is not set."
+msgstr ""
+
+#: R/dhis2-connect.R:108
 msgid ""
-"Set the NEOIPC_DHIS2_PASSWORD environment variable, or use a personal access "
-"token (NEOIPC_DHIS2_TOKEN) instead."
+"Set the %s environment variable, or use a personal access token (%s) instead."
 msgstr ""
 
-#: R/dhis2-connect.R:97
+#: R/dhis2-connect.R:110
 msgid ""
 "Interactive password prompting is only available in interactive R sessions."
 msgstr ""
 
-#: R/dhis2-connect.R:100
-#, fuzzy
-msgid "Please enter your password for %s: "
+#: R/dhis2-connect.R:113
+msgid "Please enter your password for %s:"
 msgstr "Bitte geben Sie Ihr Passwort für %s ein:"
 
-#: R/dhis2-connect.R:103
+#: R/dhis2-connect.R:116
 msgid "No password provided"
 msgstr "Kein Passwort angegeben"
 
-#: R/dhis2-connect.R:104 R/dhis2-connect.R:134
+#: R/dhis2-connect.R:117 R/dhis2-connect.R:149
 #, fuzzy
 msgid ""
-"Please provide username and password, a personal access token or a session "
-"id to authenticate to DHIS2."
+"Please provide username and password, a personal access token, or a session "
+"ID to authenticate to DHIS2."
 msgstr ""
 "Bitte übergeben Sie einen Benutzernamen und ein Passwort, ein persönliches "
 "Zugriffstoken oder eine Sitzungs-Id für DHIS2"
 
-#: R/dhis2-connect.R:124
+#: R/dhis2-connect.R:137
 msgid "No authentication credentials found"
 msgstr ""
 
-#: R/dhis2-connect.R:125
-msgid ""
-"Set the NEOIPC_DHIS2_TOKEN, NEOIPC_DHIS2_SESSION_ID, or NEOIPC_DHIS2_USER "
-"environment variable."
+#: R/dhis2-connect.R:139
+msgid "Set the %s, %s, or %s environment variable."
 msgstr ""
 
-#: R/dhis2-connect.R:126
+#: R/dhis2-connect.R:141
 msgid ""
 "Interactive username/password prompting is only available in interactive R "
 "sessions."
 msgstr ""
 
-#: R/dhis2-connect.R:130
-#, fuzzy
-msgid "Please enter your username for %s: "
+#: R/dhis2-connect.R:145
+msgid "Please enter your username for %s:"
 msgstr "Bitte geben Sie Ihren Benutzernamen für %s ein:"
 
-#: R/dhis2-connect.R:133
+#: R/dhis2-connect.R:148
 msgid "No username provided"
 msgstr "Kein Benutzername angegeben"
+
+#: R/dhis2-metadata-options.R:8 R/dhis2-metadata-reference.R:70
+#: R/dhis2-metadata-reference.R:167 R/dhis2-metadata-reference.R:176
+#: R/dhis2-metadata-reference.R:195 R/dhis2-metadata-reference.R:213
+#: R/dhis2-metadata-reference.R:597
+msgid "Invalid DHIS2 metadata. The %s list is missing."
+msgstr ""
+
+#: R/dhis2-metadata-orgunits.R:418
+msgid "%s (%d)"
+msgstr ""
+
+#: R/dhis2-metadata-orgunits.R:423
+msgid ""
+"A custom attribute value that does not parse under its attribute's value "
+"type was set to %s:"
+msgstr ""
+
+#: R/dhis2-metadata-orgunits.R:426
+msgid ""
+"Custom attribute values that do not parse under their attribute's value type "
+"were set to %s:"
+msgstr ""
+
+#: R/dhis2-metadata-reference.R:6 R/dhis2-metadata-reference.R:34
+msgid "Invalid DHIS2 metadata. The %s element is missing."
+msgstr ""
+
+#: R/dhis2-metadata-reference.R:40
+msgid "Invalid DHIS2 metadata. The %s element has no %s."
+msgstr ""
+
+#: R/dhis2-metadata-reference.R:305
+msgid "%s names trials the DHIS2 instance does not have."
+msgstr ""
+
+#: R/dhis2-metadata-reference.R:308
+msgid ""
+"A trial is an organisation unit group of the group set %s, named by its code."
+msgstr ""
+
+#: R/dhis2-metadata-reference.R:608
+msgid ""
+"Invalid DHIS2 metadata. The %s list does not contain elements with code %s."
+msgstr ""
+
+#: R/dhis2-metadata.R:66
+msgid "DHIS2 %s (the %s test-unit lookup) could not be performed: %s"
+msgstr ""
+
+#: R/dhis2-metadata.R:69 R/import-dhis2.R:276
+msgid "unknown"
+msgstr ""
+
+#: R/dhis2-metadata.R:70
+msgid "DHIS2 %s (the %s test-unit lookup) returned HTTP %s."
+msgstr ""
+
+#: R/dhis2-metadata.R:482
+msgid "Invalid DHIS2 metadata. The %s tracked-entity type is missing."
+msgstr ""
+
+#: R/dhis2-users.R:24
+msgid "DHIS2 authentication failed (HTTP 401) at %s."
+msgstr ""
+
+#: R/dhis2-users.R:25
+msgid "Check that your token or username/password is correct."
+msgstr ""
+
+#: R/dhis2-users.R:26 R/dhis2-users.R:76
+msgid "Token auth: set the %s environment variable."
+msgstr ""
+
+#: R/dhis2-users.R:28 R/dhis2-users.R:78
+msgid "Basic auth: set %s and %s environment variables."
+msgstr ""
+
+#: R/dhis2-users.R:34
+msgid "DHIS2 access denied (HTTP 403) at %s."
+msgstr ""
+
+#: R/dhis2-users.R:36
+msgid "Your credentials were accepted but you lack permission to access %s."
+msgstr ""
+
+#: R/dhis2-users.R:38
+msgid "Contact a DHIS2 administrator to check your user role."
+msgstr ""
+
+#: R/dhis2-users.R:44
+msgid "DHIS2 answered with an error (HTTP %d) at %s."
+msgstr ""
+
+#: R/dhis2-users.R:51
+msgid "Failed to connect to DHIS2 at %s."
+msgstr ""
+
+#: R/dhis2-users.R:52
+msgid "Check your network connection and DHIS2 server URL."
+msgstr ""
+
+#: R/dhis2-users.R:73
+msgid "DHIS2 returned an HTML page instead of JSON (HTTP %d, URL: %s)."
+msgstr ""
+
+#: R/dhis2-users.R:74
+msgid "This usually means the server redirected to a login page."
+msgstr ""
+
+#: R/dhis2-users.R:75
+msgid "Your credentials may be missing, expired, or incorrect."
+msgstr ""
+
+#: R/dhis2-users.R:83
+msgid "Unexpected DHIS2 response content type: %s"
+msgstr ""
+
+#: R/dhis2-users.R:93
+msgid "DHIS2 returned a JSON response that does not parse (HTTP %d, URL: %s)."
+msgstr ""
+
+#: R/import-dhis2.R:78
+msgid ""
+"Validating patients needs the full enrollments and events to check them "
+"against."
+msgstr ""
+
+#: R/import-dhis2.R:80
+msgid "%s is \"%s\" and %s is \"%s\", while %s asks for validation."
+msgstr ""
+
+#: R/import-dhis2.R:84
+msgid "Import both with %s, or set %s to keep every patient unvalidated."
+msgstr ""
+
+#: R/import-dhis2.R:96
+msgid "%s must be %s, %s, or a data frame of exception records."
+msgstr ""
+
+#: R/import-dhis2.R:100
+msgid ""
+"An exception list needs the full patient tier: its records are matched by "
+"patient id."
+msgstr ""
+
+#: R/import-dhis2.R:101 R/import-dhis2.R:108 R/validation-exceptions.R:37
+msgid "%s is \"%s\"."
+msgstr ""
+
+#: R/import-dhis2.R:102
+msgid ""
+"Set %s (%s is kept for the matching whatever %s says), or drop the exception "
+"list."
+msgstr ""
+
+#: R/import-dhis2.R:107 R/validation-exceptions.R:169
+msgid ""
+"An exception list needs a department tier: its records are matched within "
+"their department."
+msgstr ""
+
+#: R/import-dhis2.R:109
+msgid "Set %s to %s or %s, or drop the exception list."
+msgstr ""
+
+#: R/import-dhis2.R:131 R/validation-exceptions.R:177
+msgid "The exception list needs %s when more than one department is imported."
+msgstr ""
+
+#: R/import-dhis2.R:137 R/validation-exceptions.R:183
+msgid "Add the column, or narrow the import to one department with %s."
+msgstr ""
+
+#: R/import-dhis2.R:197
+msgid ""
+"%s and %s matched no accessible %s org unit after metadata filtering; a "
+"tracker query with no org unit would be rejected by DHIS2."
+msgstr ""
+
+#: R/import-dhis2.R:201
+msgid ""
+"%s matched no accessible %s org unit after metadata filtering; a tracker "
+"query with no org unit would be rejected by DHIS2."
+msgstr ""
+
+#: R/import-dhis2.R:206
+msgid "If a test department was selected, set %s (it is %s)."
+msgstr ""
+
+#: R/import-dhis2.R:209
+msgid ""
+"A trial's member departments may lie outside the org units the account can "
+"see."
+msgstr ""
+
+#: R/import-dhis2.R:278
+msgid ""
+"DHIS2 %s returned HTTP %s.\n"
+"Response body:\n"
+"%s"
+msgstr ""
+
+#: R/import-dhis2.R:618
+msgid "DHIS2 version %s is outside neoipcr's supported range."
+msgstr ""
+
+#: R/import-dhis2.R:620
+msgid "Supported DHIS2 lines: %s."
+msgstr ""
+
+#: R/import-dhis2.R:623
+msgid ""
+"Reading an unsupported server is unverified: it may fail outright, or return "
+"incomplete data without reporting an error."
+msgstr ""
+
+#: R/reconciliation.R:520
+msgid "The dataset carries no import options."
+msgstr ""
+
+#: R/reconciliation.R:522
+msgid "%s is %s: the import repaired the values."
+msgstr ""
+
+#: R/reconciliation.R:525
+msgid "%s is not %s: the validation pass removed patients."
+msgstr ""
+
+#: R/reconciliation.R:528
+msgid "%s is not %s: the eligibility filters removed patients and admissions."
+msgstr ""
+
+#: R/reconciliation.R:533
+msgid "`%s` is set: the range filter removed patients by their stored values."
+msgstr ""
+
+#: R/reconciliation.R:537
+msgid "`%s` is set: the reporting period removed enrolments."
+msgstr ""
+
+#: R/reconciliation.R:543
+msgid "`%s` is %s, not %s."
+msgstr ""
+
+#: R/reconciliation.R:548
+msgid "%s leaves out %s."
+msgstr ""
+
+#: R/reconciliation.R:551
+msgid ""
+"Listing the reconciliations needs a dataset imported with every record and "
+"every value as stored."
+msgstr ""
+
+#: R/reconciliation.R:554
+msgid ""
+"Import with %s, %s, %s, no range filter and no reporting period, the full "
+"patient, enrolment, and event tiers, and %s among %s."
+msgstr ""
+
+#: R/types-check.R:122
+msgid "%s() requires a %s with import options attached."
+msgstr ""
+
+#: R/types-check.R:124
+msgid "The dataset must have been imported via %s."
+msgstr ""
+
+#: R/types-check.R:126 R/types-check.R:168
+msgid "%s is %s."
+msgstr ""
+
+#: R/types-check.R:139
+msgid "`%s` is %s; need one of %s."
+msgstr ""
+
+#: R/types-check.R:147
+msgid "%s() requires specific import options."
+msgstr ""
+
+#: R/types-check.R:149
+msgid "Re-import via %s with the required options set."
+msgstr ""
+
+#: R/types-check.R:167
+msgid "%s() needs a dataset that carries its validation summary."
+msgstr ""
+
+#: R/types-check.R:169
+msgid "Import the dataset again with this version of neoipcr; see %s."
+msgstr ""
+
+#: R/types-check.R:190
+msgid ""
+"%s() needs a dataset whose reconciliation summary is the one an import "
+"writes."
+msgstr ""
+
+#: R/types-check.R:192
+msgid "%s is not a data frame."
+msgstr ""
+
+#: R/types-check.R:194
+msgid "%s has the column %s."
+msgstr ""
+
+#: R/types-check.R:196
+msgid "%s has the columns %s."
+msgstr ""
+
+#: R/types-check.R:199
+msgid "An import writes %s, or no column where it reconciled nothing; see %s."
+msgstr ""
+
+#: R/validation-exceptions.R:36
+#, fuzzy
+msgid "The validation exception file does not exist."
+msgstr "Ausführung der Validierungsregel %i fehlgeschlagen."
+
+#: R/validation-exceptions.R:40
+msgid "The validation exception file \"%s\" does not hold exception records."
+msgstr ""
+
+#: R/validation-exceptions.R:62
+msgid "Line %d has %s where the header has %s."
+msgstr ""
+
+#: R/validation-exceptions.R:70 R/validation-exceptions.R:234
+msgid "Missing column: %s."
+msgstr ""
+
+#: R/validation-exceptions.R:72 R/validation-exceptions.R:236
+msgid "Missing columns: %s."
+msgstr ""
+
+#: R/validation-exceptions.R:73 R/validation-exceptions.R:237
+msgid ""
+"An exception record carries %s (and %s when more than one department is "
+"imported)."
+msgstr ""
+
+#: R/validation-exceptions.R:146 R/validation.R:358
+msgid "%s must be a data frame of exception records."
+msgstr ""
+
+#: R/validation-exceptions.R:154
+msgid ""
+"An exception list is matched by patient id, which this dataset does not "
+"carry."
+msgstr ""
+
+#: R/validation-exceptions.R:155
+msgid "Import with %s and %s in %s, or pass the list to the import as %s."
+msgstr ""
+
+#: R/validation-exceptions.R:170
+msgid "This dataset carries no departments."
+msgstr ""
+
+#: R/validation-exceptions.R:171
+msgid "Import with %s (one department) or %s."
+msgstr ""
+
+#: R/validation-exceptions.R:188
+msgid ""
+"An exception list for more than one department is matched by department "
+"code, which this dataset does not carry."
+msgstr ""
+
+#: R/validation-exceptions.R:189
+msgid "Import with %s."
+msgstr ""
+
+#: R/validation-exceptions.R:232
+msgid "Got %s."
+msgstr ""
+
+#: R/validation-exceptions.R:244 R/validation-exceptions.R:246
+msgid "%s is not a %s"
+msgstr ""
+
+#: R/validation-exceptions.R:249 R/validation-exceptions.R:253
+msgid "%s is not %s"
+msgstr ""
+
+#: R/validation-exceptions.R:251
+msgid "%s is empty on some record"
+msgstr ""
+
+#: R/validation-exceptions.R:256
+msgid ""
+"%s is empty on some record (fill it on every record, or leave it empty "
+"throughout for a single-department list)"
+msgstr ""
+
+#: R/validation-exceptions.R:259
+msgid "%s outside %s or %s"
+msgstr ""
+
+#: R/validation-exceptions.R:262
+msgid ""
+"%s and %s not both set or both %s (an enrolment-level record has neither)"
+msgstr ""
+
+#: R/validation-exceptions.R:266
+msgid "An exception list's columns must be of the types the records join on."
+msgstr ""
+
+#: R/validation-exceptions.R:273
+msgid "An exception record is written at the level of the rule it names."
+msgstr ""
+
+#: R/validation-exceptions.R:275
+msgid "The %s section of %s lists each rule's level and event types."
+msgstr ""
+
+#: R/validation-exceptions.R:315
+msgid "`%s` is not %s"
+msgstr ""
+
+#: R/validation-exceptions.R:317
+msgid "`%s` is empty or not a whole number on some record"
+msgstr ""
+
+#: R/validation-exceptions.R:319
+msgid "`%s` names rules that do not exist: %s"
+msgstr ""
+
+#: R/validation-exceptions.R:353
+msgid "rule %s concerns the patient alone: its records leave %s empty"
+msgstr ""
+
+#: R/validation-exceptions.R:355
+msgid "rules %s concern the patient alone: their records leave %s empty"
+msgstr ""
+
+#: R/validation-exceptions.R:361
+msgid "rule %s is recorded on the enrolment or an event: its records name %s"
+msgstr ""
+
+#: R/validation-exceptions.R:364
+msgid ""
+"rules %s are recorded on the enrolment or an event: their records name %s"
+msgstr ""
+
+#: R/validation-exceptions.R:370
+msgid "rule %s is not recorded on an event: its records leave %s and %s empty"
+msgstr ""
+
+#: R/validation-exceptions.R:373
+msgid ""
+"rules %s are not recorded on an event: their records leave %s and %s empty"
+msgstr ""
+
+#: R/validation-exceptions.R:379
+msgid "rule %s is recorded on an event: its records name %s and %s"
+msgstr ""
+
+#: R/validation-exceptions.R:382
+msgid "rules %s are recorded on an event: their records name %s and %s"
+msgstr ""
+
+#: R/validation-exceptions.R:388
+msgid "rule %s does not concern the %s its records name"
+msgstr ""
+
+#: R/validation-exceptions.R:390
+msgid "rules %s do not concern the %s their records name"
+msgstr ""
+
+#: R/validation.R:236
+msgid "%s must be a single %s."
+msgstr ""
+
+#: R/validation.R:252
+msgid ""
+"The age of an open enrolment is measured against the date the data was read, "
+"which this dataset does not carry."
+msgstr ""
+
+#: R/validation.R:253
+msgid "An import records it on %s; pass %s to %s otherwise."
+msgstr ""
+
+#: R/validation.R:311
+msgid "The validation pass could not run every rule on this dataset."
+msgstr ""
+
+#: R/validation.R:313
+msgid ""
+"Rule %s did not run: the dataset lacks what it reads, which the log names."
+msgstr ""
+
+#: R/validation.R:315
+msgid ""
+"Rules %s did not run: the dataset lacks what they read, which the log names "
+"for each."
+msgstr ""
+
+#: R/validation.R:317
+msgid ""
+"The pass needs the full enrolment and event tiers with every column they "
+"declare, and the events that are not completed whenever the enrolments that "
+"are not completed are requested."
+msgstr ""
+
+#: R/validation.R:359
+msgid "Pass the list %s returns, or the key form %s returns."
+msgstr ""
+
+#: R/validation.R:375
+msgid ""
+"an exception record must name the dataset record it exempts through at least "
+"one of %s"
+msgstr ""
+
+#: R/validation.R:378
+msgid "%s must hold integer keys or %s"
+msgstr ""
+
+#: R/validation.R:382
+msgid "%s in key form must name existing rules through integer keys."
+msgstr ""
+
+#: R/validation.R:765
+msgid "%s must be a vector of whole numbers naming validation rules."
+msgstr ""
+
+#: R/validation.R:771
+msgid "%s names validation rules that do not exist."
+msgstr ""
+
+#: R/validation.R:773
+msgid "Unknown rule id: %s."
+msgstr ""
+
+#: R/validation.R:775
+msgid "Unknown rule ids: %s."
+msgstr ""
+
+#: R/validation.R:776
+msgid "The rules are numbered %d to %d; see %s."
+msgstr ""
+
+msgid "%d value"
+msgid_plural "%d values"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid ""
+"Invalid DHIS2 metadata. %d tracked-entity type is named %s where exactly one "
+"is expected."
+msgid_plural ""
+"Invalid DHIS2 metadata. %d tracked-entity types are named %s where exactly "
+"one is expected."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "%d department was imported."
+msgid_plural "%d departments were imported."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "%d field"
+msgid_plural "%d fields"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "%d column"
+msgid_plural "%d columns"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "`%s` holds %d value that cannot be read as a whole number: %s."
+msgid_plural "`%s` holds %d values that cannot be read as a whole number: %s."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "`%s` holds %d value that cannot be read as a date: %s."
+msgid_plural "`%s` holds %d values that cannot be read as a date: %s."
+msgstr[0] ""
+msgstr[1] ""
 
 #~ msgid "The patient record does not have an enrolment."
 #~ msgstr "Die Patientenakte hat keine Patientenregistrierung."
@@ -198,9 +871,6 @@ msgstr "Kein Benutzername angegeben"
 #~ msgstr ""
 #~ "Bitte übergeben Sie einen Benutzernamen und ein Passwort, ein "
 #~ "persönliches Zugriffstoken oder eine Sitzungs-Id für DHIS2"
-
-#~ msgid "Validation rule %i failed to execute."
-#~ msgstr "Ausführung der Validierungsregel %i fehlgeschlagen."
 
 #~ msgid ""
 #~ "The dataset must contain the enrolment status and the event status to "

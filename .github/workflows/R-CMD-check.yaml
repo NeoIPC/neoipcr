@@ -132,6 +132,53 @@ jobs:
           fi
           echo "NEWS.md documents $ver."
 
+  po-template:
+    # The committed message template must hold the msgids that tools/update_po.R extracts from R/: the
+    # po/*.po files are merged from it, so a message added or reworded since the last run reaches neither
+    # translators nor the compiled catalogues. Its own job, outside the matrix below, for the same reason
+    # text-hygiene is: the template is a property of the tree.
+    name: Message template is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      # What tools/update_po.R calls beyond base R, without the package's other dependencies.
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::dplyr, any::rlang, any::stringr, any::tibble
+          dependencies: '"hard"'
+
+      - name: Install GNU gettext
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends gettext
+
+      - name: Compare the committed template's msgids with a regenerated one's
+        shell: bash
+        run: |
+          Rscript tools/update_po.R --template "$RUNNER_TEMP/R-neoipcr.pot"
+          # The files differ in POT-Creation-Date on every run, and in their #: references whenever a
+          # line moves, so they are compared as their messages alone: msgcomm drops the header entry
+          # and the references, and sorts what remains, keeping each msgid with its msgid_plural, which
+          # msgcmp does not compare. msgcomm needs two input files, so the second is empty, and
+          # --more-than=0 keeps every message of the first; --force-po writes the output even when no
+          # message is left.
+          : > "$RUNNER_TEMP/empty.pot"
+          messages() {
+            msgcomm --more-than=0 --omit-header --no-location --no-wrap --sort-output --force-po \
+              -o "$2" "$1" "$RUNNER_TEMP/empty.pot"
+          }
+          messages po/R-neoipcr.pot "$RUNNER_TEMP/committed.msgids"
+          messages "$RUNNER_TEMP/R-neoipcr.pot" "$RUNNER_TEMP/regenerated.msgids"
+          if ! diff -u --label committed --label regenerated \
+            "$RUNNER_TEMP/committed.msgids" "$RUNNER_TEMP/regenerated.msgids"; then
+            echo "::error file=po/R-neoipcr.pot::po/R-neoipcr.pot is stale: its msgids differ from those R/ yields (diff above). Run 'Rscript tools/update_po.R' and commit the template, the merged po/*.po files, and the compiled inst/po files."
+            exit 1
+          fi
+          echo "po/R-neoipcr.pot holds the msgids R/ yields."
+
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
 

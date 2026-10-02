@@ -2,8 +2,9 @@ read_metadata_system <- function(metadata)
 {
   system <- purrr::pluck(metadata, "system")
   if(rlang::is_null(system))
-    rlang::abort("Invalid DHIS2 metadata. The system element is missing.",
-                 "neoipcr_metadata_system_missing")
+    rlang::abort(
+      gettextf("Invalid DHIS2 metadata. The %s element is missing.", "system"),
+      "neoipcr_metadata_system_missing")
 
   version <- as.numeric_version(system$version)
   warn_if_unsupported_dhis2(version)
@@ -25,12 +26,19 @@ read_metadata_system <- function(metadata)
 
 read_metadata_program_id <- function(metadata)
 {
-  program_id <- metadata |>
-    purrr::pluck("programs", 1, "id")
+  program <- metadata |>
+    purrr::pluck("programs", 1)
 
+  if(rlang::is_null(program))
+    rlang::abort(
+      gettextf("Invalid DHIS2 metadata. The %s element is missing.", "program"),
+      "neoipcr_metadata_program_missing")
+
+  program_id <- purrr::pluck(program, "id")
   if(rlang::is_null(program_id))
-    rlang::abort("Invalid DHIS2 metadata. The program element is missing.",
-                 "neoipcr_metadata_program_missing")
+    rlang::abort(
+      gettextf("Invalid DHIS2 metadata. The %s element has no %s.", "program", "id"),
+      "neoipcr_metadata_program_missing")
 
   program_id
 }
@@ -58,8 +66,9 @@ read_metadata_programStages <- function(metadata, dataset_options)
     purrr::pluck("programs", 1, "programStages")
 
   if(rlang::is_null(programStages))
-    rlang::abort("Invalid DHIS2 metadata. The programStages list is missing.",
-                 "neoipcr_metadata_programStages_missing")
+    rlang::abort(
+      gettextf("Invalid DHIS2 metadata. The %s list is missing.", "programStages"),
+      "neoipcr_metadata_programStages_missing")
 
   unnested <- programStages |>
     tibble::tibble() |>
@@ -155,7 +164,7 @@ read_metadata_dataElements <- function(metadata)
 
   if(rlang::is_null(programStages))
     rlang::abort(
-      "Invalid DHIS2 metadata. The programStages element is missing.",
+      gettextf("Invalid DHIS2 metadata. The %s list is missing.", "programStages"),
       "neoipcr_metadata_programStages_missing")
 
   programStageTable <- programStages |>
@@ -164,7 +173,7 @@ read_metadata_dataElements <- function(metadata)
 
   if(!("programStageDataElements" %in% names(programStageTable)))
     rlang::abort(
-      "Invalid DHIS2 metadata. The programStageDataElements list is missing.",
+      gettextf("Invalid DHIS2 metadata. The %s list is missing.", "programStageDataElements"),
       "neoipcr_metadata_programStageDataElements_missing")
 
   programStageTable |>
@@ -183,7 +192,7 @@ read_metadata_trackedEntityAttributes <- function(metadata)
 
   if(rlang::is_null(programTrackedEntityAttributes))
     rlang::abort(
-      "Invalid DHIS2 metadata. The programTrackedEntityAttributes list is missing.",
+      gettextf("Invalid DHIS2 metadata. The %s list is missing.", "programTrackedEntityAttributes"),
       "neoipcr_metadata_programTrackedEntityAttributes_missing")
 
   programTrackedEntityAttributes |>
@@ -200,8 +209,9 @@ read_metadata_AntimicrobialSubstances <- function(metadata)
     purrr::pluck("optionGroupSets")
 
   if(rlang::is_null(optionGroupSets))
-    rlang::abort("Invalid DHIS2 metadata. The optionGroupSets list is missing.",
-                 "neoipcr_metadata_optionGroupSets_missing")
+    rlang::abort(
+      gettextf("Invalid DHIS2 metadata. The %s list is missing.", "optionGroupSets"),
+      "neoipcr_metadata_optionGroupSets_missing")
 
   optionGroupSets <- optionGroupSets |>
     tibble::tibble() |>
@@ -292,9 +302,11 @@ read_metadata_trials <- function(metadata, dataset_options)
   unknown <- setdiff(dataset_options$trial_filter, trials$code)
   if (length(unknown) > 0L)
     rlang::abort(c(
-      "`trial_filter` names trials the DHIS2 instance does not have.",
+      gettextf("%s names trials the DHIS2 instance does not have.", "`trial_filter`"),
       "x" = paste(unknown, collapse = ", "),
-      "i" = "A trial is an organisation unit group of the group set NEOIPC_TRIALS, named by its code."),
+      "i" = gettextf(
+        "A trial is an organisation unit group of the group set %s, named by its code.",
+        "NEOIPC_TRIALS")),
       class = "neoipcr_unknown_trial")
 
   trials <- trials |>
@@ -581,8 +593,9 @@ read_metadata_optionGroupSets <- function(
     purrr::pluck("optionGroupSets")
 
   if(rlang::is_null(optionGroupSets))
-    rlang::abort("Invalid DHIS2 metadata. The optionGroupSets list is missing.",
-                 "neoipcr_metadata_optionGroupSets_missing")
+    rlang::abort(
+      gettextf("Invalid DHIS2 metadata. The %s list is missing.", "optionGroupSets"),
+      "neoipcr_metadata_optionGroupSets_missing")
 
   optionGroupSets <- optionGroupSets |>
     tibble::tibble() |>
@@ -591,9 +604,9 @@ read_metadata_optionGroupSets <- function(
 
   if(nrow(optionGroupSets) < 1)
     rlang::abort(
-      sprintf(
-        "Invalid DHIS2 metadata. The optionGroupSets list does not contain elements with code %s.",
-        filter), "neoipcr_metadata_optionGroupSets_code_missing")
+      gettextf(
+        "Invalid DHIS2 metadata. The %s list does not contain elements with code %s.",
+        "optionGroupSets", filter), "neoipcr_metadata_optionGroupSets_code_missing")
 
   optionGroupSets <- optionGroupSets |>
     dplyr::select(2) |>

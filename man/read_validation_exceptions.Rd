@@ -27,8 +27,8 @@ validation rule that flags them, from the CSV file the Validation Report
 and the reporting tools exchange. Its columns are \code{RULE_ID},
 \code{DEPARTMENT_CODE}, \code{NEOIPC_PATIENT_ID}, \code{ENROLMENT_DATE}, \code{EVENT_TYPE} and
 \code{EVENT_DATE}. A record is written at the level of the rule it names, as
-the "Context fields" section of \code{\link[=validate]{validate()}} lists it: for rule 1 the
-patient alone, with \code{ENROLMENT_DATE}, \code{EVENT_TYPE} and \code{EVENT_DATE} empty;
+the "Context fields" section of \code{\link[=validate]{validate()}} lists it: for rules 1 and
+56–58 the patient alone, with \code{ENROLMENT_DATE}, \code{EVENT_TYPE} and \code{EVENT_DATE} empty;
 for an enrolment-level rule the patient and \code{ENROLMENT_DATE}, with the
 event columns empty or, where the rule shows its finding on a form,
 naming that form's type and date; for an event-level rule the event's

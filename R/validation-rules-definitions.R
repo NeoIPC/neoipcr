@@ -116,7 +116,7 @@ validation_rule_59 <- function(x, exceptions)
       !all(c("secondary_bsi", "index", "pathogen_key") %in%
            names(x$infectiousAgentFindings)))
     return(.rule_skipped(
-      59L, "the sepsis form's culture result, antibiotic therapy, clinical signs and laboratory findings, and the findings' slot, secondary-BSI flag and infectious agent"))
+      59L, "the sepsis form's culture result, antibiotic therapy, clinical signs and laboratory findings, and the findings' slot, secondary-BSI flag, and infectious agent"))
 
   with_agent <- .primary_slot_rows(x$infectiousAgentFindings) |>
     dplyr::filter(!is.na(.data$pathogen_key)) |>
@@ -164,7 +164,7 @@ validation_rule_60 <- function(x, exceptions)
              .nec_surgical_findings)
   if (!all(items %in% names(x$necData)))
     return(.rule_skipped(
-      60L, "the NEC form's imaging, clinical and surgical findings"))
+      60L, "the NEC form's imaging, clinical, and surgical findings"))
 
   .completed_forms(x, "nec", x$necData, items) |>
     dplyr::mutate(

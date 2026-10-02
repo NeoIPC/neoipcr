@@ -88,7 +88,7 @@ neoipc_poisson_ci <- function(events, exposure,
 neoipc_wilson_ci <- function(x, n, conf.level = 0.95) {
   check_number_whole(x, min = 0)
   check_number_whole(n, min = 1)
-  if (x > n) rlang::abort("`x` must be <= `n`.")
+  if (x > n) rlang::abort(gettextf("%s must be <= %s.", "`x`", "`n`"))
   check_number_decimal(conf.level, min = .Machine$double.eps, max = 1 - .Machine$double.eps)
 
   z <- stats::qnorm(1 - (1 - conf.level) / 2)
@@ -223,13 +223,16 @@ bootstrap_quantile_ci <- function(events, exposure,
   check_number_decimal(conf.level, min = .Machine$double.eps, max = 1 - .Machine$double.eps)
 
   if (length(events) != length(exposure)) {
-    rlang::abort("`events` and `exposure` must have the same length.")
+    rlang::abort(gettextf("%s and %s must have the same length.",
+                          "`events`", "`exposure`"))
   }
   if (!is.numeric(events) || any(stats::na.omit(events) != as.integer(stats::na.omit(events)))) {
-    rlang::abort("`events` must be a vector of whole numbers (NA allowed).")
+    rlang::abort(gettextf("%s must be a vector of whole numbers (%s allowed).",
+                          "`events`", "`NA`"))
   }
   if (!is.numeric(exposure)) {
-    rlang::abort("`exposure` must be a numeric vector (NA allowed).")
+    rlang::abort(gettextf("%s must be a numeric vector (%s allowed).",
+                          "`exposure`", "`NA`"))
   }
 
   # Filter out NA pairs — departments without this metric are structurally
@@ -239,18 +242,20 @@ bootstrap_quantile_ci <- function(events, exposure,
   exposure <- exposure[valid]
 
   if (any(events < 0)) {
-    rlang::abort("`events` must be non-negative.")
+    rlang::abort(gettextf("%s must be non-negative.", "`events`"))
   }
   if (any(exposure <= 0)) {
-    rlang::abort("`exposure` must be strictly positive.")
+    rlang::abort(gettextf("%s must be strictly positive.", "`exposure`"))
   }
   if (type == "binomial" && any(events > exposure)) {
-    rlang::abort("`events` must be <= `exposure` for binomial type.")
+    rlang::abort(gettextf("%s must be <= %s for binomial type.",
+                          "`events`", "`exposure`"))
   }
   if (type == "binomial" && any(exposure != as.integer(exposure))) {
     rlang::abort(c(
-      "`exposure` must be whole numbers for binomial type.",
-      "i" = "`exposure` is the trial count `n`; non-integer values would be coerced by `stats::rbinom()`."))
+      gettextf("%s must be whole numbers for binomial type.", "`exposure`"),
+      "i" = gettextf("%s is the trial count %s; non-integer values would be coerced by %s.",
+                     "`exposure`", "`n`", "`stats::rbinom()`")))
   }
 
   k <- length(events)

@@ -378,7 +378,7 @@ event_data_cols_for <- function(event_type_key)
     "pro" = surgeryData_cols,
     "ssi" = ssiData_cols,
     rlang::abort(sprintf(
-      "Unknown event_type_key: %s", event_type_key))
+      "Unknown event_type_key: %s", event_type_key), .internal = TRUE)
   )
 }
 

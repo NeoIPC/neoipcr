@@ -62,14 +62,15 @@ get_test_unit_attribute_ids <- function(req_base, definitions_map)
   if (rlang::is_error(resp)) {
     # A connection failure carries no response; an HTTP error carries the
     # one that was answered.
-    outcome <- if (is.null(resp$resp))
-      paste0("could not be performed: ", conditionMessage(resp))
-    else
-      paste0("returned HTTP ", tryCatch(
-        httr2::resp_status(resp$resp), error = \(e) "unknown"), ".")
-    rlang::abort(
-      paste0("DHIS2 organisationUnits (the IsTestunit test-unit lookup) ", outcome),
-      parent = resp)
+    failure <- if (is.null(resp$resp))
+      gettextf("DHIS2 %s (the %s test-unit lookup) could not be performed: %s",
+               "organisationUnits", "IsTestunit", conditionMessage(resp))
+    else {
+      status <- tryCatch(httr2::resp_status(resp$resp), error = \(e) gettext("unknown"))
+      gettextf("DHIS2 %s (the %s test-unit lookup) returned HTTP %s.",
+               "organisationUnits", "IsTestunit", status)
+    }
+    rlang::abort(failure, parent = resp)
   }
   read_test_unit_attribute_ids(httr2::resp_body_json(resp))
 }
@@ -462,7 +463,7 @@ read_metadata_reponse <- function(resp, dataset_options)
   else if(stringr::str_ends(path, "/organisationUnits"))
     return(json |> read_organisationUnits(dataset_options))
 
-  rlang::abort("Unexpected DHIS2 metadata response.")
+  rlang::abort("Unexpected DHIS2 metadata response.", .internal = TRUE)
 }
 
 read_metadata <- function(metadata, dataset_options)
@@ -478,13 +479,17 @@ read_metadata <- function(metadata, dataset_options)
     unlist(use.names = FALSE)
   if (length(trackedEntityTypeId) == 0L)
     rlang::abort(
-      "Invalid DHIS2 metadata. The NeoIPC Patient tracked-entity type is missing.",
+      gettextf("Invalid DHIS2 metadata. The %s tracked-entity type is missing.",
+               "NeoIPC Patient"),
       "neoipcr_metadata_tracked_entity_type_missing")
   if (length(trackedEntityTypeId) > 1L)
     rlang::abort(
       sprintf(
-        "Invalid DHIS2 metadata. %d tracked-entity types are named NeoIPC Patient where exactly one is expected.",
-        length(trackedEntityTypeId)),
+        ngettext(
+          length(trackedEntityTypeId),
+          "Invalid DHIS2 metadata. %d tracked-entity type is named %s where exactly one is expected.",
+          "Invalid DHIS2 metadata. %d tracked-entity types are named %s where exactly one is expected."),
+        length(trackedEntityTypeId), "NeoIPC Patient"),
       "neoipcr_metadata_tracked_entity_type_ambiguous")
   # `read_metadata_programStages()` now returns `list(public,
   # internal_map)`. `internal_map` is consumed by `read_events()` for

@@ -50,6 +50,79 @@ test_that("get_user_info passes a rejected login through as the authentication e
   expect_match(cnd$message, "^DHIS2 authentication failed")
 })
 
+test_that("get_user_info names the URL it requested when access is denied", {
+  # A server whose API is not at /api, so the URL is the connection's.
+  httr2::local_mocked_responses(list(mock_json_response(
+    "https://dhis2.example.org/dhis/api/me", "{}", status = 403L)))
+  cnd <- expect_error(
+    neoipcr:::get_user_info(httr2::request("https://dhis2.example.org/dhis/api")),
+    class = "neoipcr_dhis2_error")
+  expect_match(conditionMessage(cnd),
+               "you lack permission to access https://dhis2.example.org/dhis/api/me.",
+               fixed = TRUE)
+})
+
+test_that("get_user_info tells a JSON body that does not parse from a response that is not JSON", {
+  httr2::local_mocked_responses(list(mock_json_response(
+    "https://dhis2.example.org/api/me", "{\"id\": ")))
+  cnd <- expect_error(neoipcr:::get_user_info(me_request()))
+  expect_match(conditionMessage(cnd),
+               "DHIS2 returned a JSON response that does not parse (HTTP 200, URL: https://dhis2.example.org/api/me).",
+               fixed = TRUE)
+  expect_no_match(conditionMessage(cnd), "content type", fixed = TRUE)
+
+  httr2::local_mocked_responses(list(httr2::response(
+    status_code = 200L,
+    url = "https://dhis2.example.org/api/me",
+    method = "GET",
+    headers = list(`Content-Type` = "text/plain"),
+    body = charToRaw("not JSON"))))
+  cnd <- expect_error(neoipcr:::get_user_info(me_request()))
+  expect_match(conditionMessage(cnd),
+               "Unexpected DHIS2 response content type: text/plain", fixed = TRUE)
+})
+
+test_that("get_user_info does not quote a /me body that does not parse", {
+  # The /me body holds the account's name and e-mail address, and the JSON
+  # parser's own error quotes the text around the fault.
+  httr2::local_mocked_responses(list(mock_json_response(
+    "https://dhis2.example.org/api/me",
+    "{\"username\": \"u\", \"email\": \"someone@example.org\" \"surname\": \"S\"}")))
+  cnd <- expect_error(neoipcr:::get_user_info(me_request()))
+  expect_match(conditionMessage(cnd), "does not parse", fixed = TRUE)
+  expect_null(cnd$parent)
+  expect_no_match(paste(format(cnd), collapse = "\n"), "someone@example.org", fixed = TRUE)
+})
+
+test_that("get_user_info reports an HTTP error status as one, not as a failure to connect", {
+  # The server answered, so the connection did not fail.
+  for (status in c(404L, 500L)) {
+    httr2::local_mocked_responses(list(mock_json_response(
+      "https://dhis2.example.org/api/me", "{}", status = status)))
+    cnd <- expect_error(
+      neoipcr:::get_user_info(me_request()), class = "neoipcr_dhis2_error")
+    expect_match(conditionMessage(cnd),
+                 sprintf("DHIS2 answered with an error (HTTP %d) at https://dhis2.example.org/api.", status),
+                 fixed = TRUE, info = status)
+    expect_no_match(conditionMessage(cnd), "Failed to connect", fixed = TRUE)
+  }
+})
+
+test_that("get_user_info reports a request that got no answer as a failure to connect", {
+  # httr2 raises an `httr2_failure`, with curl's error as its parent, when a
+  # request gets no answer; the mock raises the same condition in curl's place.
+  httr2::local_mocked_responses(function(req)
+    rlang::abort(
+      "Failed to perform HTTP request.",
+      class = c("httr2_failure", "httr2_error"),
+      parent = simpleError("Could not resolve host: dhis2.example.org")))
+  cnd <- expect_error(
+    neoipcr:::get_user_info(me_request()), class = "neoipcr_dhis2_error")
+  expect_match(conditionMessage(cnd),
+               "Failed to connect to DHIS2 at https://dhis2.example.org/api.", fixed = TRUE)
+  expect_match(conditionMessage(cnd), "Could not resolve host", fixed = TRUE)
+})
+
 # ---- resolve_user_fields() ---------------------------------------------------
 
 users_metadata <- list(.users_internal_map = tibble::tibble(

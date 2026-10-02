@@ -5,8 +5,8 @@
 #' and the reporting tools exchange. Its columns are `RULE_ID`,
 #' `DEPARTMENT_CODE`, `NEOIPC_PATIENT_ID`, `ENROLMENT_DATE`, `EVENT_TYPE` and
 #' `EVENT_DATE`. A record is written at the level of the rule it names, as
-#' the "Context fields" section of [validate()] lists it: for rule 1 the
-#' patient alone, with `ENROLMENT_DATE`, `EVENT_TYPE` and `EVENT_DATE` empty;
+#' the "Context fields" section of [validate()] lists it: for rules 1 and
+#' 56–58 the patient alone, with `ENROLMENT_DATE`, `EVENT_TYPE` and `EVENT_DATE` empty;
 #' for an enrolment-level rule the patient and `ENROLMENT_DATE`, with the
 #' event columns empty or, where the rule shows its finding on a form,
 #' naming that form's type and date; for an event-level rule the event's
@@ -33,10 +33,10 @@ read_validation_exceptions <- function(path)
   check_string(path)
   if (!file.exists(path) || dir.exists(path))
     rlang::abort(c(
-      "The validation exception file does not exist.",
-      x = sprintf("`path` is \"%s\".", path)),
+      gettext("The validation exception file does not exist."),
+      x = gettextf("%s is \"%s\".", "`path`", path)),
       class = "neoipcr_invalid_exception_list")
-  header <- sprintf(
+  header <- gettextf(
     "The validation exception file \"%s\" does not hold exception records.", path)
 
   # Every column arrives as text and is parsed below, where a value that
@@ -49,31 +49,50 @@ read_validation_exceptions <- function(path)
     show_col_types = FALSE,
     progress = FALSE))
   ragged <- readr::problems(ex)
-  if (nrow(ragged) > 0L)
+  if (nrow(ragged) > 0L) {
+    # The counts are taken here rather than from readr's own English
+    # "<n> columns" strings, so that the sentence translates as a whole;
+    # count_fields() numbers the records as problems() does.
+    line <- ragged$row[1]
+    fields <- readr::count_fields(path, readr::tokenizer_csv())[line]
+    line_has <- sprintf(ngettext(fields, "%d field", "%d fields"), fields)
+    header_has <- sprintf(ngettext(ncol(ex), "%d column", "%d columns"), ncol(ex))
     rlang::abort(c(
       header,
-      x = sprintf("Line %d has %s where the header has %s.",
-                  ragged$row[1], ragged$actual[1], ragged$expected[1])),
+      x = gettextf("Line %d has %s where the header has %s.", line, line_has, header_has)),
       class = "neoipcr_invalid_exception_list")
+  }
   missing_cols <- setdiff(.exception_list_cols, names(ex))
   if (length(missing_cols) > 0L)
     rlang::abort(c(
       header,
-      x = paste0("Missing column(s): ", paste(missing_cols, collapse = ", "), "."),
-      i = paste0("An exception record carries ", paste(.exception_list_cols, collapse = ", "),
-                 " (and DEPARTMENT_CODE when more than one department is imported).")),
+      x = if (length(missing_cols) == 1L)
+            gettextf("Missing column: %s.", missing_cols)
+          else
+            gettextf("Missing columns: %s.", paste(missing_cols, collapse = ", ")),
+      i = gettextf("An exception record carries %s (and %s when more than one department is imported).",
+                   paste(.exception_list_cols, collapse = ", "), "DEPARTMENT_CODE")),
       class = "neoipcr_invalid_exception_list")
 
+  # `what` picks the whole sentence rather than a phrase pasted into one,
+  # since a translation may need to inflect or move the phrase.
   parse <- function(values, parser, column, what) {
     parsed <- suppressWarnings(parser(values))
     bad <- readr::problems(parsed)
     if (nrow(bad) > 0L) {
       shown <- unique(bad$actual)
+      shown <- paste(shown[seq_len(min(3L, length(shown)))], collapse = ", ")
       rlang::abort(c(
         header,
-        x = sprintf("`%s` holds %d value(s) that cannot be read as %s: %s.",
-                    column, nrow(bad), what,
-                    paste(shown[seq_len(min(3L, length(shown)))], collapse = ", "))),
+        x = switch(what,
+          whole_number = sprintf(ngettext(nrow(bad),
+            "`%s` holds %d value that cannot be read as a whole number: %s.",
+            "`%s` holds %d values that cannot be read as a whole number: %s."),
+            column, nrow(bad), shown),
+          date = sprintf(ngettext(nrow(bad),
+            "`%s` holds %d value that cannot be read as a date: %s.",
+            "`%s` holds %d values that cannot be read as a date: %s."),
+            column, nrow(bad), shown))),
         class = "neoipcr_invalid_exception_list")
     }
     parsed
@@ -81,9 +100,9 @@ read_validation_exceptions <- function(path)
   # Assigned outside `dplyr::mutate()`, which rethrows an error raised in
   # one of its expressions under its own class and would hide the documented
   # class from a caller's handler.
-  ex$RULE_ID        <- parse(ex$RULE_ID, readr::parse_integer, "RULE_ID", "a whole number")
-  ex$ENROLMENT_DATE <- parse(ex$ENROLMENT_DATE, readr::parse_date, "ENROLMENT_DATE", "a date")
-  ex$EVENT_DATE     <- parse(ex$EVENT_DATE, readr::parse_date, "EVENT_DATE", "a date")
+  ex$RULE_ID        <- parse(ex$RULE_ID, readr::parse_integer, "RULE_ID", "whole_number")
+  ex$ENROLMENT_DATE <- parse(ex$ENROLMENT_DATE, readr::parse_date, "ENROLMENT_DATE", "date")
+  ex$EVENT_DATE     <- parse(ex$EVENT_DATE, readr::parse_date, "EVENT_DATE", "date")
   check_exception_list(ex, header)
 }
 
@@ -124,7 +143,7 @@ resolve_validation_exceptions <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
   exceptions <- check_exception_list(
-    exceptions, "`exceptions` must be a data frame of exception records.")
+    exceptions, gettextf("%s must be a data frame of exception records.", "`exceptions`"))
   assert_options_for(x, required = list(
     include_patient    = "full",
     include_enrollment = "full",
@@ -132,8 +151,10 @@ resolve_validation_exceptions <- function(x, exceptions)
   ), fn_name = "resolve_validation_exceptions")
   if (!"patient_id" %in% names(x$patients))
     rlang::abort(c(
-      "An exception list is matched by patient id, which this dataset does not carry.",
-      i = "Import with `include_patient = \"full\"` and `\"id\"` in `patient_columns`, or pass the list to the import as `include_invalid_patients`."),
+      gettext("An exception list is matched by patient id, which this dataset does not carry."),
+      i = gettextf("Import with %s and %s in %s, or pass the list to the import as %s.",
+                   "`include_patient = \"full\"`", "`\"id\"`", "`patient_columns`",
+                   "`include_invalid_patients`")),
       class = "neoipcr_validation_needs_facts")
 
   # The import resolves before it strips its internal maps, which carry the
@@ -145,21 +166,27 @@ resolve_validation_exceptions <- function(x, exceptions)
     departments <- x$metadata$departments
   if (is.null(departments) || ncol(departments) == 0L)
     rlang::abort(c(
-      "An exception list needs a department tier: its records are matched within their department.",
-      x = "This dataset carries no departments.",
-      i = "Import with `include_department = \"pseudo\"` (one department) or `\"full\"`."),
+      gettext("An exception list needs a department tier: its records are matched within their department."),
+      x = gettext("This dataset carries no departments."),
+      i = gettextf("Import with %s (one department) or %s.",
+                   "`include_department = \"pseudo\"`", "`\"full\"`")),
       class = "neoipcr_validation_needs_facts")
   if (nrow(departments) > 1L) {
     if (!"DEPARTMENT_CODE" %in% names(exceptions))
       rlang::abort(c(
-        "The exception list needs `DEPARTMENT_CODE` when more than one department is imported.",
-        x = sprintf("%d departments were imported.", nrow(departments)),
-        i = "Add the column, or narrow the import to one department with `department_filter`."),
+        gettextf("The exception list needs %s when more than one department is imported.",
+                 "`DEPARTMENT_CODE`"),
+        x = sprintf(ngettext(nrow(departments),
+                             "%d department was imported.",
+                             "%d departments were imported."),
+                    nrow(departments)),
+        i = gettextf("Add the column, or narrow the import to one department with %s.",
+                     "`department_filter`")),
         class = "neoipcr_invalid_exception_list")
     if (!"code" %in% names(departments))
       rlang::abort(c(
-        "An exception list for more than one department is matched by department code, which this dataset does not carry.",
-        i = "Import with `include_department = \"full\"`."),
+        gettext("An exception list for more than one department is matched by department code, which this dataset does not carry."),
+        i = gettextf("Import with %s.", "`include_department = \"full\"`")),
         class = "neoipcr_validation_needs_facts")
   }
   transform_user_exceptions(exceptions, x, departments)
@@ -201,42 +228,52 @@ check_exception_list <- function(ex, header)
   if (!is.data.frame(ex) || length(missing_cols) > 0L)
     rlang::abort(c(
       header,
-      x = if (is.data.frame(ex))
-            paste0("Missing column(s): ", paste(missing_cols, collapse = ", "), ".")
+      x = if (!is.data.frame(ex))
+            gettextf("Got %s.", obj_type_friendly(ex))
+          else if (length(missing_cols) == 1L)
+            gettextf("Missing column: %s.", missing_cols)
           else
-            paste0("Got ", obj_type_friendly(ex), "."),
-      i = paste0("An exception record carries ", paste(.exception_list_cols, collapse = ", "),
-                 " (and DEPARTMENT_CODE when more than one department is imported).")),
+            gettextf("Missing columns: %s.", paste(missing_cols, collapse = ", ")),
+      i = gettextf("An exception record carries %s (and %s when more than one department is imported).",
+                   paste(.exception_list_cols, collapse = ", "), "DEPARTMENT_CODE")),
       class = "neoipcr_invalid_exception_list")
 
   event_types <- tolower(as.character(ex$EVENT_TYPE))
   wrong <- c(
-    if (!inherits(ex$ENROLMENT_DATE, "Date")) "`ENROLMENT_DATE` is not a `Date`",
-    if (!inherits(ex$EVENT_DATE, "Date")) "`EVENT_DATE` is not a `Date`",
+    if (!inherits(ex$ENROLMENT_DATE, "Date"))
+      gettextf("%s is not a %s", "`ENROLMENT_DATE`", "`Date`"),
+    if (!inherits(ex$EVENT_DATE, "Date"))
+      gettextf("%s is not a %s", "`EVENT_DATE`", "`Date`"),
     .rule_id_problem(ex$RULE_ID, "RULE_ID"),
-    if (!is.character(ex$NEOIPC_PATIENT_ID)) "`NEOIPC_PATIENT_ID` is not character"
-    else if (any(.blank(ex$NEOIPC_PATIENT_ID))) "`NEOIPC_PATIENT_ID` is empty on some record",
+    if (!is.character(ex$NEOIPC_PATIENT_ID))
+      gettextf("%s is not %s", "`NEOIPC_PATIENT_ID`", "`character`")
+    else if (any(.blank(ex$NEOIPC_PATIENT_ID)))
+      gettextf("%s is empty on some record", "`NEOIPC_PATIENT_ID`"),
     if ("DEPARTMENT_CODE" %in% names(ex) && !is.character(ex$DEPARTMENT_CODE))
-      "`DEPARTMENT_CODE` is not character"
+      gettextf("%s is not %s", "`DEPARTMENT_CODE`", "`character`")
     else if ("DEPARTMENT_CODE" %in% names(ex) && any(.blank(ex$DEPARTMENT_CODE)) &&
              !all(.blank(ex$DEPARTMENT_CODE)))
-      "`DEPARTMENT_CODE` is empty on some record (fill it on every record, or leave it empty throughout for a single-department list)",
+      gettextf("%s is empty on some record (fill it on every record, or leave it empty throughout for a single-department list)",
+               "`DEPARTMENT_CODE`"),
     if (!all(is.na(event_types) | event_types %in% .exception_event_types))
-      paste0("`EVENT_TYPE` outside ", paste(.exception_event_types, collapse = "/"), " or `NA`"),
+      gettextf("%s outside %s or %s",
+               "`EVENT_TYPE`", paste(.exception_event_types, collapse = "/"), "`NA`"),
     if (inherits(ex$EVENT_DATE, "Date") && any(is.na(event_types) != is.na(ex$EVENT_DATE)))
-      "`EVENT_TYPE` and `EVENT_DATE` not both set or both `NA` (an enrollment-level record has neither)")
+      gettextf("%s and %s not both set or both %s (an enrolment-level record has neither)",
+               "`EVENT_TYPE`", "`EVENT_DATE`", "`NA`"))
   if (length(wrong) > 0L)
     rlang::abort(c(
-      "An exception list's columns must be of the types the records join on.",
+      gettext("An exception list's columns must be of the types the records join on."),
       rlang::set_names(wrong, rep("x", length(wrong)))),
       class = "neoipcr_invalid_exception_list")
 
   misplaced <- .record_level_problems(ex, event_types)
   if (length(misplaced) > 0L)
     rlang::abort(c(
-      "An exception record is written at the level of the rule it names.",
+      gettext("An exception record is written at the level of the rule it names."),
       rlang::set_names(misplaced, rep("x", length(misplaced))),
-      i = "The \"Context fields\" section of `?validate` lists each rule's level and event types."),
+      i = gettextf("The %s section of %s lists each rule's level and event types.",
+                   "\"Context fields\"", "`?validate`")),
       class = "neoipcr_invalid_exception_list")
 
   # A `DEPARTMENT_CODE` column left empty throughout is the single-department
@@ -275,12 +312,12 @@ check_exception_list <- function(ex, header)
 .rule_id_problem <- function(ids, column)
 {
   if (!is.numeric(ids))
-    sprintf("`%s` is not numeric", column)
+    gettextf("`%s` is not %s", column, "`numeric`")
   else if (anyNA(ids) || !.whole_or_na(ids))
-    sprintf("`%s` is empty or not a whole number on some record", column)
+    gettextf("`%s` is empty or not a whole number on some record", column)
   else if (!all(ids %in% validation_rule_ids()))
-    sprintf("`%s` names rules that do not exist: %s", column,
-            paste(sort(unique(setdiff(ids, validation_rule_ids()))), collapse = ", "))
+    gettextf("`%s` names rules that do not exist: %s", column,
+             paste(sort(unique(setdiff(ids, validation_rule_ids()))), collapse = ", "))
 }
 
 # Which records of `ex` — whose rule ids and column types have passed — are
@@ -306,23 +343,52 @@ check_exception_list <- function(ex, header)
     \(i) !has_event[i] || names_no_form[i] || event_types[i] %in% allowed[[i]],
     logical(1))
   rules_where <- function(cond)
-    paste(sort(unique(ids[cond])), collapse = ", ")
+    sort(unique(ids[cond]))
+  listed <- function(rules)
+    paste(rules, collapse = ", ")
   c(
-    if (any(level == "patient" & has_enrolment))
-      sprintf("rule %s concerns the patient alone: its records leave `ENROLMENT_DATE` empty",
-              rules_where(level == "patient" & has_enrolment)),
-    if (any(level != "patient" & !has_enrolment))
-      sprintf("rule(s) %s are recorded on the enrolment or an event: their records name `ENROLMENT_DATE`",
-              rules_where(level != "patient" & !has_enrolment)),
-    if (any(names_no_form))
-      sprintf("rule(s) %s are not recorded on an event: their records leave `EVENT_TYPE` and `EVENT_DATE` empty",
-              rules_where(names_no_form)),
-    if (any(level == "event" & !has_event))
-      sprintf("rule(s) %s are recorded on an event: their records name `EVENT_TYPE` and `EVENT_DATE`",
-              rules_where(level == "event" & !has_event)),
-    if (!all(type_fits))
-      sprintf("rule(s) %s do not concern the `EVENT_TYPE` their records name",
-              rules_where(!type_fits)))
+    if (any(level == "patient" & has_enrolment)) {
+      rules <- rules_where(level == "patient" & has_enrolment)
+      if (length(rules) == 1L)
+        gettextf("rule %s concerns the patient alone: its records leave %s empty", rules, "`ENROLMENT_DATE`")
+      else
+        gettextf("rules %s concern the patient alone: their records leave %s empty",
+                 listed(rules), "`ENROLMENT_DATE`")
+    },
+    if (any(level != "patient" & !has_enrolment)) {
+      rules <- rules_where(level != "patient" & !has_enrolment)
+      if (length(rules) == 1L)
+        gettextf("rule %s is recorded on the enrolment or an event: its records name %s",
+                 rules, "`ENROLMENT_DATE`")
+      else
+        gettextf("rules %s are recorded on the enrolment or an event: their records name %s",
+                 listed(rules), "`ENROLMENT_DATE`")
+    },
+    if (any(names_no_form)) {
+      rules <- rules_where(names_no_form)
+      if (length(rules) == 1L)
+        gettextf("rule %s is not recorded on an event: its records leave %s and %s empty",
+                 rules, "`EVENT_TYPE`", "`EVENT_DATE`")
+      else
+        gettextf("rules %s are not recorded on an event: their records leave %s and %s empty",
+                 listed(rules), "`EVENT_TYPE`", "`EVENT_DATE`")
+    },
+    if (any(level == "event" & !has_event)) {
+      rules <- rules_where(level == "event" & !has_event)
+      if (length(rules) == 1L)
+        gettextf("rule %s is recorded on an event: its records name %s and %s",
+                 rules, "`EVENT_TYPE`", "`EVENT_DATE`")
+      else
+        gettextf("rules %s are recorded on an event: their records name %s and %s",
+                 listed(rules), "`EVENT_TYPE`", "`EVENT_DATE`")
+    },
+    if (!all(type_fits)) {
+      rules <- rules_where(!type_fits)
+      if (length(rules) == 1L)
+        gettextf("rule %s does not concern the %s its records name", rules, "`EVENT_TYPE`")
+      else
+        gettextf("rules %s do not concern the %s their records name", listed(rules), "`EVENT_TYPE`")
+    })
 }
 
 # Map the records onto the dataset's keys. Every join matches on the values

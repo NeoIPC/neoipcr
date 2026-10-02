@@ -1,15 +1,16 @@
 get_user_info <- function(req)
 {
-  # Two-level tryCatch: inner level translates specific HTTP errors into
-
-  # user-friendly messages; outer level catches everything else (DNS failure,
-  # timeout, etc.) and wraps with a generic connection message.  The outer
-
-  # handler passes through errors already translated by the inner level.
+  # Two-level tryCatch: the inner level translates the authentication and
+  # permission failures (HTTP 401 and 403) into user-friendly messages; the
+  # outer level reports any other HTTP error status as one, and a request that
+  # got no answer at all (httr2's `httr2_failure`: DNS failure, refused
+  # connection, timeout) as a failure to connect. Any other error propagates
+  # unchanged.
+  me_req <- req |>
+    httr2::req_url_path_append("me")
   resp <- tryCatch(
     tryCatch(
-      req |>
-        httr2::req_url_path_append("me") |>
+      me_req |>
         # `lastLogin` lives under the `userCredentials` back-compat shim on the
         # /me response for 2.40 and 2.41. Newer lines (2.42+) drop
         # `userCredentials` from /me and expose `lastLogin` nowhere, so it reads
@@ -20,25 +21,35 @@ get_user_info <- function(req)
         httr2::req_perform(),
       httr2_http_401 = function(cnd) {
         rlang::abort(c(
-          sprintf("DHIS2 authentication failed (HTTP 401) at %s.", req$url),
-          i = "Check that your token or username/password is correct.",
-          i = "Token auth: set the NEOIPC_DHIS2_TOKEN environment variable.",
-          i = "Basic auth: set NEOIPC_DHIS2_USER and NEOIPC_DHIS2_PASSWORD environment variables."
+          gettextf("DHIS2 authentication failed (HTTP 401) at %s.", req$url),
+          i = gettext("Check that your token or username/password is correct."),
+          i = gettextf("Token auth: set the %s environment variable.", "NEOIPC_DHIS2_TOKEN"),
+          i = gettextf(
+            "Basic auth: set %s and %s environment variables.",
+            "NEOIPC_DHIS2_USER", "NEOIPC_DHIS2_PASSWORD")
         ), class = "neoipcr_dhis2_error", call = NULL)
       },
       httr2_http_403 = function(cnd) {
         rlang::abort(c(
-          sprintf("DHIS2 access denied (HTTP 403) at %s.", req$url),
-          i = "Your credentials were accepted but you lack permission to access /api/me.",
-          i = "Contact a DHIS2 administrator to check your user role."
+          gettextf("DHIS2 access denied (HTTP 403) at %s.", req$url),
+          i = gettextf(
+            "Your credentials were accepted but you lack permission to access %s.",
+            me_req$url),
+          i = gettext("Contact a DHIS2 administrator to check your user role.")
         ), class = "neoipcr_dhis2_error", call = NULL)
       }
     ),
-    error = function(cnd) {
-      if (inherits(cnd, "neoipcr_dhis2_error")) rlang::cnd_signal(cnd)
+    httr2_http = function(cnd) {
       rlang::abort(c(
-        sprintf("Failed to connect to DHIS2 at %s.", req$url),
-        i = "Check your network connection and DHIS2 server URL.",
+        gettextf("DHIS2 answered with an error (HTTP %d) at %s.",
+                 httr2::resp_status(cnd$resp), req$url),
+        i = conditionMessage(cnd)
+      ), class = "neoipcr_dhis2_error", call = NULL)
+    },
+    httr2_failure = function(cnd) {
+      rlang::abort(c(
+        gettextf("Failed to connect to DHIS2 at %s.", req$url),
+        i = gettext("Check your network connection and DHIS2 server URL."),
         i = conditionMessage(cnd)
       ), class = "neoipcr_dhis2_error", call = NULL)
     }
@@ -46,27 +57,40 @@ get_user_info <- function(req)
 
   log_dhis2_request(resp, "me")
 
-  raw_info <- tryCatch(
-    resp |>
-      httr2::resp_check_status() |>
-      httr2::resp_body_json(simplifyVector = TRUE),
-    error = function(cnd) {
-      ct <- httr2::resp_content_type(resp)
-      sc <- httr2::resp_status(resp)
-      url <- resp$url
-      if (grepl("text/html", ct, fixed = TRUE)) {
-        rlang::abort(c(
-          sprintf("DHIS2 returned an HTML page instead of JSON (HTTP %d, URL: %s).", sc, url),
-          i = "This usually means the server redirected to a login page.",
-          i = "Your credentials may be missing, expired, or incorrect.",
-          i = "Token auth: set the NEOIPC_DHIS2_TOKEN environment variable.",
-          i = "Basic auth: set NEOIPC_DHIS2_USER and NEOIPC_DHIS2_PASSWORD environment variables."
-        ), call = NULL)
-      }
+  # The content type is checked before the body is parsed, so that a response
+  # that is not JSON and a JSON body that does not parse are told apart.
+  sc <- httr2::resp_status(resp)
+  url <- resp$url
+  wrong_type <- tryCatch({
+    httr2::resp_check_content_type(
+      resp, valid_types = "application/json", valid_suffix = "json")
+    NULL
+  }, error = identity)
+  if (!is.null(wrong_type)) {
+    ct <- httr2::resp_content_type(resp)
+    if (grepl("text/html", ct, fixed = TRUE)) {
       rlang::abort(c(
-        sprintf("Unexpected DHIS2 response content type: %s", ct),
-        i = conditionMessage(cnd)
-      ), parent = cnd)
+        gettextf("DHIS2 returned an HTML page instead of JSON (HTTP %d, URL: %s).", sc, url),
+        i = gettext("This usually means the server redirected to a login page."),
+        i = gettext("Your credentials may be missing, expired, or incorrect."),
+        i = gettextf("Token auth: set the %s environment variable.", "NEOIPC_DHIS2_TOKEN"),
+        i = gettextf(
+          "Basic auth: set %s and %s environment variables.",
+          "NEOIPC_DHIS2_USER", "NEOIPC_DHIS2_PASSWORD")
+      ), call = NULL)
+    }
+    rlang::abort(c(
+      gettextf("Unexpected DHIS2 response content type: %s", ct),
+      i = conditionMessage(wrong_type)
+    ), parent = wrong_type)
+  }
+  # No parent condition: the JSON parser's message quotes the body around the
+  # fault, and the /me body holds the account's name and e-mail address.
+  raw_info <- tryCatch(
+    httr2::resp_body_json(resp, simplifyVector = TRUE),
+    error = function(cnd) {
+      rlang::abort(
+        gettextf("DHIS2 returned a JSON response that does not parse (HTTP %d, URL: %s).", sc, url))
     }
   )
 

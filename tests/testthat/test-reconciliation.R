@@ -560,6 +560,9 @@ test_that("reconciliation_details refuses a dataset without every record and val
     expect_match(
       conditionMessage(do.call(refused, rlang::set_names(list("pseudo"), tier))),
       sprintf("`%s` is \"pseudo\"", tier), info = tier)
+  # A tier the options object lacks is named like any other.
+  expect_match(conditionMessage(refused(include_event = NULL)),
+               "`include_event` is `NULL`, not \"full\".", fixed = TRUE)
   expect_match(conditionMessage(refused(patient_columns = "id")),
                "leaves out \"gestational_age\"")
   # Every requirement missed is named at once.

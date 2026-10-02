@@ -69,7 +69,7 @@ test_that("read_validation_exceptions reads a record naming the form its rule's 
   expect_error(
     neoipcr::read_validation_exceptions(
       write_exception_csv(rows |> dplyr::mutate(EVENT_TYPE = c("END", "ADM", "ADM")))),
-    regexp = "rule\\(s\\) 5, 18, 44 do not concern",
+    regexp = "rules 5, 18, 44 do not concern",
     class = "neoipcr_invalid_exception_list")
 })
 
@@ -96,6 +96,26 @@ test_that("read_validation_exceptions refuses a file without the record columns"
     class = "neoipcr_invalid_exception_list")
 })
 
+test_that("the exception-list checks name one missing column in the singular and several in the plural", {
+  one <- write_exception_csv(exception_rows() |> dplyr::select(!"ENROLMENT_DATE"))
+  cnd <- expect_error(neoipcr::read_validation_exceptions(one), class = "neoipcr_invalid_exception_list")
+  expect_match(conditionMessage(cnd), "Missing column: ENROLMENT_DATE.", fixed = TRUE)
+
+  two <- write_exception_csv(exception_rows() |> dplyr::select(!c("ENROLMENT_DATE", "EVENT_DATE")))
+  cnd <- expect_error(neoipcr::read_validation_exceptions(two), class = "neoipcr_invalid_exception_list")
+  expect_match(conditionMessage(cnd), "Missing columns: ENROLMENT_DATE, EVENT_DATE.", fixed = TRUE)
+
+  ex <- neoipcr::read_validation_exceptions(write_exception_csv(exception_rows()))
+  cnd <- expect_error(
+    neoipcr:::check_exception_list(ex[, setdiff(names(ex), "EVENT_TYPE")], "header"),
+    class = "neoipcr_invalid_exception_list")
+  expect_match(conditionMessage(cnd), "Missing column: EVENT_TYPE.", fixed = TRUE)
+  cnd <- expect_error(
+    neoipcr:::check_exception_list(ex[, setdiff(names(ex), c("RULE_ID", "EVENT_TYPE"))], "header"),
+    class = "neoipcr_invalid_exception_list")
+  expect_match(conditionMessage(cnd), "Missing columns: RULE_ID, EVENT_TYPE.", fixed = TRUE)
+})
+
 test_that("read_validation_exceptions refuses a row with the wrong number of fields", {
   path <- write_exception_csv(exception_rows())
   # A record short of its two event fields would otherwise be read as an
@@ -110,7 +130,19 @@ test_that("read_validation_exceptions refuses a row with the wrong number of fie
   # were it let through, would be it and fail the class check.
   cnd <- rlang::catch_cnd(neoipcr::read_validation_exceptions(path))
   expect_true(inherits(cnd, "neoipcr_invalid_exception_list"))
-  expect_match(conditionMessage(cnd), "Line 4")
+  expect_match(conditionMessage(cnd), "Line 4 has 4 fields where the header has 6 columns.",
+               fixed = TRUE)
+})
+
+test_that("read_validation_exceptions counts a one-field row in the singular", {
+  path <- write_exception_csv(exception_rows())
+  lines <- c(readLines(path), "3")
+  con <- file(path, open = "wb")
+  writeLines(lines, con, sep = "\n", useBytes = TRUE)
+  close(con)
+  cnd <- rlang::catch_cnd(neoipcr::read_validation_exceptions(path))
+  expect_true(inherits(cnd, "neoipcr_invalid_exception_list"))
+  expect_match(conditionMessage(cnd), "Line 4 has 1 field where", fixed = TRUE)
 })
 
 test_that("read_validation_exceptions refuses a record without a patient id or department code", {
@@ -159,11 +191,17 @@ test_that("read_validation_exceptions names a value that does not parse", {
   cnd <- rlang::catch_cnd(neoipcr::read_validation_exceptions(write_exception_csv(bad_date)))
   expect_true(inherits(cnd, "neoipcr_invalid_exception_list"))
   expect_match(conditionMessage(cnd), "EVENT_DATE.*06\\.01\\.2024")
+  expect_match(conditionMessage(cnd), "holds 1 value that cannot be read as a date")
   bad_rule <- exception_rows()
   bad_rule$RULE_ID[1] <- "three"
   cnd <- rlang::catch_cnd(neoipcr::read_validation_exceptions(write_exception_csv(bad_rule)))
   expect_true(inherits(cnd, "neoipcr_invalid_exception_list"))
   expect_match(conditionMessage(cnd), "RULE_ID.*three")
+  expect_match(conditionMessage(cnd), "holds 1 value that cannot be read as a whole number")
+  # The count is the number of values that do not parse, in the plural from two.
+  bad_rule$RULE_ID[2] <- "twelve"
+  cnd <- rlang::catch_cnd(neoipcr::read_validation_exceptions(write_exception_csv(bad_rule)))
+  expect_match(conditionMessage(cnd), "holds 2 values that cannot be read as a whole number: three, twelve")
 })
 
 test_that("read_validation_exceptions refuses a rule id no rule carries", {
@@ -297,7 +335,13 @@ test_that("resolve_validation_exceptions refuses a record written at another lev
   # The message names the rules concerned.
   refuse(written_exceptions() |> dplyr::mutate(EVENT_TYPE = c("end", "bsi", NA),
                                               EVENT_DATE = as.Date(c("2024-01-01", "2024-01-06", NA))),
-         "rule\\(s\\) 3")
+         "rule 3 does not concern")
+  # Rules 1 and 56 both concern the patient alone, and one sentence names
+  # them together.
+  refuse(dplyr::bind_rows(written_exceptions()[3, ],
+                          written_exceptions()[3, ] |> dplyr::mutate(RULE_ID = 56L)) |>
+           dplyr::mutate(ENROLMENT_DATE = as.Date("2024-01-01")),
+         "rules 1, 56 concern the patient alone: their records leave")
 })
 
 test_that("resolve_validation_exceptions lets an enrolment-level record name its rule's form", {

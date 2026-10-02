@@ -233,7 +233,7 @@ validation_rules <- list(
 {
   if (!is.null(as_of) &&
       (!inherits(as_of, "Date") || length(as_of) != 1L || is.na(as_of)))
-    rlang::abort("`as_of` must be a single `Date`.")
+    rlang::abort(gettextf("%s must be a single %s.", "`as_of`", "`Date`"))
 }
 
 # The date the dated rules measure a record's age against: `as_of` when the
@@ -249,8 +249,9 @@ validation_rules <- list(
   stamp <- x$metadata$system$server_date
   if (is.null(stamp) || length(stamp) != 1L || is.na(stamp))
     rlang::abort(c(
-      "The age of an open enrolment is measured against the date the data was read, which this dataset does not carry.",
-      i = "An import records it on `metadata$system$server_date`; pass `as_of` to `validate()` otherwise."),
+      gettext("The age of an open enrolment is measured against the date the data was read, which this dataset does not carry."),
+      i = gettextf("An import records it on %s; pass %s to %s otherwise.",
+                   "`metadata$system$server_date`", "`as_of`", "`validate()`")),
       class = "neoipcr_validation_needs_facts")
   # NEOIPC-PERMANENT(dataset-format): never replace this conversion by a
   # class check. A dataset restored from a serialization carries the day as
@@ -307,10 +308,13 @@ validation_rules <- list(
   skipped <- attr(findings, "rules_skipped")
   if (length(skipped) > 0L)
     rlang::abort(c(
-      "The validation pass could not run every rule on this dataset.",
-      x = sprintf("Rule(s) %s found no column to read; the log names it.",
-                  paste(skipped, collapse = ", ")),
-      i = "The pass needs the full enrollment and event tiers with every column they declare, and the events that are not completed whenever the enrolments that are not completed are requested."),
+      gettext("The validation pass could not run every rule on this dataset."),
+      x = if (length(skipped) == 1L)
+            gettextf("Rule %s did not run: the dataset lacks what it reads, which the log names.", skipped)
+          else
+            gettextf("Rules %s did not run: the dataset lacks what they read, which the log names for each.",
+                     paste(skipped, collapse = ", ")),
+      i = gettext("The pass needs the full enrolment and event tiers with every column they declare, and the events that are not completed whenever the enrolments that are not completed are requested.")),
       class = "neoipcr_validation_rule_skipped")
   invisible(findings)
 }
@@ -351,8 +355,9 @@ validation_rules <- list(
     return(resolve_validation_exceptions(x, exceptions))
   if (!is.data.frame(exceptions) || !"rule_id" %in% names(exceptions))
     rlang::abort(c(
-      "`exceptions` must be a data frame of exception records.",
-      i = "Pass the list `read_validation_exceptions()` returns, or the key form `resolve_validation_exceptions()` returns."),
+      gettextf("%s must be a data frame of exception records.", "`exceptions`"),
+      i = gettextf("Pass the list %s returns, or the key form %s returns.",
+                   "`read_validation_exceptions()`", "`resolve_validation_exceptions()`")),
       class = "neoipcr_invalid_exception_list")
 
   key_cols <- c("department_key", "patient_key", "enrollment_key", "event_key")
@@ -367,14 +372,14 @@ validation_rules <- list(
     # A record with no key at all could name nothing; an empty table is
     # the resolver's own shape for a list without records.
     if (nrow(exceptions) > 0L && !any(record_keys %in% names(exceptions)))
-      sprintf("a record names its record through at least one of %s",
-              paste0("`", record_keys, "`", collapse = ", ")),
+      gettextf("an exception record must name the dataset record it exempts through at least one of %s",
+               paste0("`", record_keys, "`", collapse = ", ")),
     if (length(not_integer) > 0L)
-      sprintf("%s must hold integer keys or `NA`",
-              paste0("`", not_integer, "`", collapse = ", ")))
+      gettextf("%s must hold integer keys or %s",
+               paste0("`", not_integer, "`", collapse = ", "), "`NA`"))
   if (length(wrong) > 0L)
     rlang::abort(c(
-      "`exceptions` in key form must name existing rules through integer keys.",
+      gettextf("%s in key form must name existing rules through integer keys.", "`exceptions`"),
       rlang::set_names(wrong, rep("x", length(wrong)))),
       class = "neoipcr_invalid_exception_list")
 
@@ -757,16 +762,19 @@ validate <- function(x, rules = NULL, exceptions = NULL, as_of = NULL)
   if (!is.null(rules)) {
     if (!is.numeric(rules) || anyNA(rules) || !.whole_or_na(rules))
       rlang::abort(
-        "`rules` must be a vector of whole numbers naming validation rules.",
+        gettextf("%s must be a vector of whole numbers naming validation rules.", "`rules`"),
         class = "neoipcr_unknown_validation_rule")
     rules <- as.integer(rules)
     unknown <- setdiff(rules, ids)
     if (length(unknown) > 0L)
       rlang::abort(c(
-        "`rules` names validation rules that do not exist.",
-        x = sprintf("Unknown rule id(s): %s.", paste(unknown, collapse = ", ")),
-        i = sprintf("The rules are numbered %d to %d; see `validation_rule_ids()`.",
-                    min(ids), max(ids))),
+        gettextf("%s names validation rules that do not exist.", "`rules`"),
+        x = if (length(unknown) == 1L)
+              gettextf("Unknown rule id: %s.", unknown)
+            else
+              gettextf("Unknown rule ids: %s.", paste(unknown, collapse = ", ")),
+        i = gettextf("The rules are numbered %d to %d; see %s.",
+                     min(ids), max(ids), "`validation_rule_ids()`")),
         class = "neoipcr_unknown_validation_rule")
   }
   exceptions <- .exceptions_in_key_form(x, exceptions)
@@ -831,6 +839,7 @@ validate <- function(x, rules = NULL, exceptions = NULL, as_of = NULL)
     rlang::abort(c(
       "A validation rule recorded context fields its registry entry does not declare.",
       x = sprintf("Rule(s): %s.",
-                  paste(sort(unique(findings$rule_id[undeclared])), collapse = ", "))))
+                  paste(sort(unique(findings$rule_id[undeclared])), collapse = ", "))),
+      .internal = TRUE)
   invisible(findings)
 }
