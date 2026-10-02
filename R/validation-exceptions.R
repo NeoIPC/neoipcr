@@ -75,11 +75,13 @@ read_validation_exceptions <- function(path)
       rlang::abort(c(
         header,
         x = switch(what,
-          whole_number = gettextf(
-            "`%s` holds %d value(s) that cannot be read as a whole number: %s.",
+          whole_number = sprintf(ngettext(nrow(bad),
+            "`%s` holds %d value that cannot be read as a whole number: %s.",
+            "`%s` holds %d values that cannot be read as a whole number: %s."),
             column, nrow(bad), shown),
-          date = gettextf(
-            "`%s` holds %d value(s) that cannot be read as a date: %s.",
+          date = sprintf(ngettext(nrow(bad),
+            "`%s` holds %d value that cannot be read as a date: %s.",
+            "`%s` holds %d values that cannot be read as a date: %s."),
             column, nrow(bad), shown))),
         class = "neoipcr_invalid_exception_list")
     }

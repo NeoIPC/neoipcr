@@ -417,7 +417,7 @@ spread_typed_values <- function(
       counts <- table(tbl[[code_col]][failed])
       detail <- gettextf("%s (%d)", names(counts), as.integer(counts))
     } else
-      detail <- gettextf("%d value(s)", sum(failed))
+      detail <- sprintf(ngettext(sum(failed), "%d value", "%d values"), sum(failed))
     rlang::warn(c(
       gettext("Custom attribute value(s) that do not parse under their attribute's value type were set to NA:"),
       rlang::set_names(detail, rep("x", length(detail)))),

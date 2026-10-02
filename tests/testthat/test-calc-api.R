@@ -238,8 +238,13 @@ test_that("the calculation functions refuse a reconciliation summary of another 
   ds <- make_calc_test_ds()
   ds$reconciliationSummary <- tibble::tibble(reconciliation_id = 1L)
   expect_error(calculate_department_data(ds, use_cache = FALSE),
-               "reconciliation_id", class = "neoipcr_malformed_reconciliation_summary")
+               "has the column `reconciliation_id`\\.",
+               class = "neoipcr_malformed_reconciliation_summary")
   expect_error(calculate_reference_data(ds, use_cache = FALSE),
+               class = "neoipcr_malformed_reconciliation_summary")
+  ds$reconciliationSummary <- tibble::tibble(reconciliation_id = 1L, n = 1L)
+  expect_error(calculate_department_data(ds, use_cache = FALSE),
+               "has the columns `reconciliation_id`, `n`\\.",
                class = "neoipcr_malformed_reconciliation_summary")
   ds$reconciliationSummary <- list(n_repaired = 1L)
   expect_error(calculate_department_data(ds, use_cache = FALSE),

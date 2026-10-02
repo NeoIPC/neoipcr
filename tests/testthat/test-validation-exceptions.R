@@ -159,11 +159,17 @@ test_that("read_validation_exceptions names a value that does not parse", {
   cnd <- rlang::catch_cnd(neoipcr::read_validation_exceptions(write_exception_csv(bad_date)))
   expect_true(inherits(cnd, "neoipcr_invalid_exception_list"))
   expect_match(conditionMessage(cnd), "EVENT_DATE.*06\\.01\\.2024")
+  expect_match(conditionMessage(cnd), "holds 1 value that cannot be read as a date")
   bad_rule <- exception_rows()
   bad_rule$RULE_ID[1] <- "three"
   cnd <- rlang::catch_cnd(neoipcr::read_validation_exceptions(write_exception_csv(bad_rule)))
   expect_true(inherits(cnd, "neoipcr_invalid_exception_list"))
   expect_match(conditionMessage(cnd), "RULE_ID.*three")
+  expect_match(conditionMessage(cnd), "holds 1 value that cannot be read as a whole number")
+  # The count is the number of values that do not parse, in the plural from two.
+  bad_rule$RULE_ID[2] <- "twelve"
+  cnd <- rlang::catch_cnd(neoipcr::read_validation_exceptions(write_exception_csv(bad_rule)))
+  expect_match(conditionMessage(cnd), "holds 2 values that cannot be read as a whole number: three, twelve")
 })
 
 test_that("read_validation_exceptions refuses a rule id no rule carries", {

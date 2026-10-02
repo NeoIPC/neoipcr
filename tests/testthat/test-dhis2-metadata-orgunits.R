@@ -355,6 +355,15 @@ test_that("spread_typed_values sets an unparseable value to NA and warns once, b
   expect_false(grepl("not a date", msg, fixed = TRUE))
 })
 
+test_that("spread_typed_values counts the failures in total when the tibble has no code column", {
+  warned <- function(values) conditionMessage(tryCatch(
+    neoipcr:::spread_typed_values(
+      tibble::tibble(valueType = rep("INTEGER", length(values)), value = values)),
+    warning = identity))
+  expect_match(warned(c("twelve", "12")), " 1 value$")
+  expect_match(warned(c("twelve", "thirteen")), " 2 values$")
+})
+
 test_that("spread_typed_values keeps the six typed columns on a 0-row input", {
   result <- neoipcr:::spread_typed_values(tibble::tibble(
     attribute_code = character(), valueType = character(), value = character()))
