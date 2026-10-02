@@ -26,12 +26,18 @@ read_metadata_system <- function(metadata)
 
 read_metadata_program_id <- function(metadata)
 {
-  program_id <- metadata |>
-    purrr::pluck("programs", 1, "id")
+  program <- metadata |>
+    purrr::pluck("programs", 1)
 
-  if(rlang::is_null(program_id))
+  if(rlang::is_null(program))
     rlang::abort(
       gettextf("Invalid DHIS2 metadata. The %s element is missing.", "program"),
+      "neoipcr_metadata_program_missing")
+
+  program_id <- purrr::pluck(program, "id")
+  if(rlang::is_null(program_id))
+    rlang::abort(
+      gettextf("Invalid DHIS2 metadata. The %s element has no %s.", "program", "id"),
       "neoipcr_metadata_program_missing")
 
   program_id

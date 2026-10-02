@@ -32,15 +32,19 @@ test_that("read_metadata aborts when system metadata is missing", {
 })
 
 test_that("read_metadata aborts when program key is entirely absent", {
-  expect_error(
+  error <- expect_error(
     read_test_metadata(exclude = "program"),
     class = "neoipcr_metadata_program_missing")
+  expect_match(conditionMessage(error), "The program element is missing.", fixed = TRUE)
 })
 
 test_that("read_metadata aborts when program exists but id is missing", {
-  expect_error(
+  # The program is there, so the message says what it lacks rather than
+  # calling it missing.
+  error <- expect_error(
     read_test_metadata(exclude = "program_id"),
     class = "neoipcr_metadata_program_missing")
+  expect_match(conditionMessage(error), "The program element has no id.", fixed = TRUE)
 })
 
 test_that("read_metadata requires exactly one NeoIPC Patient tracked-entity type", {
