@@ -119,10 +119,11 @@ assert_options_for <- function(x, required, fn_name) {
   opts <- x$metadata$dataset_options
   if (is.null(opts))
     rlang::abort(c(
-      sprintf("%s() requires a neoipcr_ds with import options attached.",
-              fn_name),
-      "i" = "The dataset must have been imported via `import_dhis2()`.",
-      "x" = "`x$metadata$dataset_options` is NULL."))
+      gettextf("%s() requires a %s with import options attached.",
+               fn_name, "neoipcr_ds"),
+      "i" = gettextf("The dataset must have been imported via %s.",
+                     "`import_dhis2()`"),
+      "x" = gettextf("%s is NULL.", "`x$metadata$dataset_options`")))
 
   violations <- character()
   for (opt_name in names(required)) {
@@ -135,17 +136,18 @@ assert_options_for <- function(x, required, fn_name) {
       shown_accepted <- paste(paste0('"', accepted, '"'), collapse = " / ")
       violations <- c(
         violations,
-        sprintf("`%s` is %s; need one of %s.",
-                opt_name, shown_actual, shown_accepted))
+        gettextf("`%s` is %s; need one of %s.",
+                 opt_name, shown_actual, shown_accepted))
     }
   }
 
   if (length(violations) == 0L) return(invisible(NULL))
 
   rlang::abort(c(
-    sprintf("%s() requires specific import options.", fn_name),
+    gettextf("%s() requires specific import options.", fn_name),
     rlang::set_names(violations, rep("x", length(violations))),
-    "i" = "Re-import via `import_dhis2(dhis2_dataset_options(...))` with the required options set."))
+    "i" = gettextf("Re-import via %s with the required options set.",
+                   "`import_dhis2(dhis2_dataset_options(...))`")))
 }
 
 # Assert that a dataset carries its validation summary. A calculated dataset
@@ -156,9 +158,10 @@ assert_options_for <- function(x, required, fn_name) {
 assert_validation_summary <- function(x, fn_name) {
   if (is.null(x$validationSummary))
     rlang::abort(c(
-      sprintf("%s() needs a dataset that carries its validation summary.", fn_name),
-      "x" = "`x$validationSummary` is NULL.",
-      "i" = "Import the dataset again with this version of neoipcr; see `?import_dhis2`."))
+      gettextf("%s() needs a dataset that carries its validation summary.", fn_name),
+      "x" = gettextf("%s is NULL.", "`x$validationSummary`"),
+      "i" = gettextf("Import the dataset again with this version of neoipcr; see %s.",
+                     "`?import_dhis2`")))
   invisible(x)
 }
 
@@ -178,14 +181,14 @@ assert_reconciliation_summary <- function(x, fn_name) {
   if (!is.data.frame(summary) ||
       !(ncol(summary) == 0L || identical(names(summary), declared)))
     rlang::abort(c(
-      sprintf("%s() needs a dataset whose reconciliation summary is the one an import writes.", fn_name),
+      gettextf("%s() needs a dataset whose reconciliation summary is the one an import writes.", fn_name),
       "x" = if (is.data.frame(summary))
-        sprintf("`x$reconciliationSummary` has the columns %s.",
-                paste0("`", names(summary), "`", collapse = ", "))
-      else "`x$reconciliationSummary` is not a data frame.",
-      "i" = sprintf(
-        "An import writes %s, or no column where it reconciled nothing; see `?import_dhis2`.",
-        paste0("`", declared, "`", collapse = ", "))),
+        gettextf("%s has the columns %s.", "`x$reconciliationSummary`",
+                 paste0("`", names(summary), "`", collapse = ", "))
+      else gettextf("%s is not a data frame.", "`x$reconciliationSummary`"),
+      "i" = gettextf(
+        "An import writes %s, or no column where it reconciled nothing; see %s.",
+        paste0("`", declared, "`", collapse = ", "), "`?import_dhis2`")),
       class = "neoipcr_malformed_reconciliation_summary")
   invisible(x)
 }
