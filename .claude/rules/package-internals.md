@@ -105,12 +105,14 @@ The raw string is not kept. A value that does not parse under its family becomes
 
 ## Gestational Age
 
-Two tracked-entity attributes store gestational age, and both **must** be set consistently when importing data:
+Two tracked-entity attributes store gestational age, and stored data does not always hold them consistently:
 
 | Attribute code | Format | Example | Purpose |
 |---|---|---|---|
 | `NEOIPC_TEA_GEST_AGE` | `weeks+days` (text) | `25+4` | Display in the DHIS2 user interface |
-| `NeoIPC_TEA_TOTAL_GESTATION_DAYS` | integer (total days) | `179` | Used by neoipcr and DHIS2 program rules for all calculations |
+| `NeoIPC_TEA_TOTAL_GESTATION_DAYS` | integer (total days) | `179` | Read by neoipcr and DHIS2 program rules |
+
+Reconciliations 3 and 4 recompute a stale or impossible total from a text in the required format, and the eligibility and range filters read that text where the total is missing.
 
 **Note the inconsistent casing** of `NeoIPC_TEA_TOTAL_GESTATION_DAYS`: downstream dependencies keep it from being changed.
 
