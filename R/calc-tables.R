@@ -927,7 +927,10 @@ get_cumulative_incidence_table <- function(
   missing_cols <- setdiff(c("department_key", "window", "start", "end"), names(windows))
   if (length(missing_cols) > 0L)
     rlang::abort(c(
-      gettextf("%s lacks required column(s):", "`windows`"),
+      if (length(missing_cols) == 1L)
+        gettextf("%s lacks a required column:", "`windows`")
+      else
+        gettextf("%s lacks required columns:", "`windows`"),
       "x" = paste(missing_cols, collapse = ", ")))
   if (!inherits(windows$start, "Date") || !inherits(windows$end, "Date"))
     rlang::abort(gettextf(

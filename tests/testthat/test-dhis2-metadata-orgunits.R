@@ -325,6 +325,25 @@ test_that("spread_typed_values fills exactly the column of each value's family",
   expect_equal(attr(result$value_datetime, "tzone"), "UTC")
 })
 
+test_that("spread_typed_values words its warning for one unparseable value and for several", {
+  one <- tibble::tibble(attribute_code = "D", valueType = "DATE", value = "not a date")
+  cnd <- expect_warning(
+    neoipcr:::spread_typed_values(one, code_col = "attribute_code"),
+    class = "neoipcr_attribute_value_parse_failure")
+  expect_match(conditionMessage(cnd),
+               "A custom attribute value that does not parse under its attribute's value type was set to `NA`:",
+               fixed = TRUE)
+
+  two <- tibble::tibble(attribute_code = c("D", "I"), valueType = c("DATE", "INTEGER"),
+                        value = c("not a date", "twelve"))
+  cnd <- expect_warning(
+    neoipcr:::spread_typed_values(two, code_col = "attribute_code"),
+    class = "neoipcr_attribute_value_parse_failure")
+  expect_match(conditionMessage(cnd),
+               "Custom attribute values that do not parse under their attribute's value type were set to `NA`:",
+               fixed = TRUE)
+})
+
 test_that("spread_typed_values sets an unparseable value to NA and warns once, by attribute code and count", {
   tbl <- tibble::tibble(
     attribute_code = c("D", "D", "I", "T", "L", "N"),

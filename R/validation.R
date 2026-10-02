@@ -309,10 +309,11 @@ validation_rules <- list(
   if (length(skipped) > 0L)
     rlang::abort(c(
       gettext("The validation pass could not run every rule on this dataset."),
-      x = sprintf(ngettext(length(skipped),
-                           "Rule %s did not run: the dataset lacks what it reads, which the log names.",
-                           "Rules %s did not run: the dataset lacks what they read, which the log names for each."),
-                  paste(skipped, collapse = ", ")),
+      x = if (length(skipped) == 1L)
+            gettextf("Rule %s did not run: the dataset lacks what it reads, which the log names.", skipped)
+          else
+            gettextf("Rules %s did not run: the dataset lacks what they read, which the log names for each.",
+                     paste(skipped, collapse = ", ")),
       i = gettext("The pass needs the full enrolment and event tiers with every column they declare, and the events that are not completed whenever the enrolments that are not completed are requested.")),
       class = "neoipcr_validation_rule_skipped")
   invisible(findings)
@@ -768,7 +769,10 @@ validate <- function(x, rules = NULL, exceptions = NULL, as_of = NULL)
     if (length(unknown) > 0L)
       rlang::abort(c(
         gettextf("%s names validation rules that do not exist.", "`rules`"),
-        x = gettextf("Unknown rule id(s): %s.", paste(unknown, collapse = ", ")),
+        x = if (length(unknown) == 1L)
+              gettextf("Unknown rule id: %s.", unknown)
+            else
+              gettextf("Unknown rule ids: %s.", paste(unknown, collapse = ", ")),
         i = gettextf("The rules are numbered %d to %d; see %s.",
                      min(ids), max(ids), "`validation_rule_ids()`")),
         class = "neoipcr_unknown_validation_rule")

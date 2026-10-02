@@ -173,6 +173,14 @@ test_that("validate refuses a rule id it does not know", {
   expect_s3_class(neoipcr::validate(ds, rules = 1), "tbl_df")
 })
 
+test_that("validate names one unknown rule id in the singular and several in the plural", {
+  ds <- make_populated_test_ds()
+  cnd <- expect_error(neoipcr::validate(ds, rules = 999L), class = "neoipcr_unknown_validation_rule")
+  expect_match(conditionMessage(cnd), "Unknown rule id: 999.", fixed = TRUE)
+  cnd <- expect_error(neoipcr::validate(ds, rules = c(998L, 999L)), class = "neoipcr_unknown_validation_rule")
+  expect_match(conditionMessage(cnd), "Unknown rule ids: 998, 999.", fixed = TRUE)
+})
+
 test_that("validate is exported and returns its result visibly", {
   # Read the NAMESPACE file rather than getNamespaceExports(): under
   # devtools::load_all() every object is exported, which would make the

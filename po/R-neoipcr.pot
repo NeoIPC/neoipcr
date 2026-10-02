@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.0.0.9007\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-10-02 11:25+0200\n"
+"POT-Creation-Date: 2026-10-02 20:16+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -94,19 +94,23 @@ msgstr ""
 msgid "%s must be a data frame."
 msgstr ""
 
-#: R/calc-tables.R:930
-msgid "%s lacks required column(s):"
+#: R/calc-tables.R:931
+msgid "%s lacks a required column:"
 msgstr ""
 
-#: R/calc-tables.R:934
-msgid "%s and %s must be %s columns."
+#: R/calc-tables.R:933
+msgid "%s lacks required columns:"
 msgstr ""
 
 #: R/calc-tables.R:937
-msgid "Every window needs %s, with neither date missing."
+msgid "%s and %s must be %s columns."
 msgstr ""
 
 #: R/calc-tables.R:940
+msgid "Every window needs %s, with neither date missing."
+msgstr ""
+
+#: R/calc-tables.R:943
 msgid "Every window must have a non-missing %s."
 msgstr ""
 
@@ -243,8 +247,12 @@ msgstr ""
 msgid "%s (%d)"
 msgstr ""
 
-#: R/dhis2-metadata-orgunits.R:422
-msgid "Custom attribute value(s) that do not parse under their attribute's value type were set to NA:"
+#: R/dhis2-metadata-orgunits.R:423
+msgid "A custom attribute value that does not parse under its attribute's value type was set to %s:"
+msgstr ""
+
+#: R/dhis2-metadata-orgunits.R:426
+msgid "Custom attribute values that do not parse under their attribute's value type were set to %s:"
 msgstr ""
 
 #: R/dhis2-metadata-reference.R:6
@@ -378,7 +386,7 @@ msgid "Set %s (%s is kept for the matching whatever %s says), or drop the except
 msgstr ""
 
 #: R/import-dhis2.R:107
-#: R/validation-exceptions.R:166
+#: R/validation-exceptions.R:169
 msgid "An exception list needs a department tier: its records are matched within their department."
 msgstr ""
 
@@ -387,12 +395,12 @@ msgid "Set %s to %s or %s, or drop the exception list."
 msgstr ""
 
 #: R/import-dhis2.R:131
-#: R/validation-exceptions.R:174
+#: R/validation-exceptions.R:177
 msgid "The exception list needs %s when more than one department is imported."
 msgstr ""
 
 #: R/import-dhis2.R:137
-#: R/validation-exceptions.R:180
+#: R/validation-exceptions.R:183
 msgid "Add the column, or narrow the import to one department with %s."
 msgstr ""
 
@@ -505,11 +513,19 @@ msgstr ""
 msgid "%s() needs a dataset whose reconciliation summary is the one an import writes."
 msgstr ""
 
-#: R/types-check.R:195
+#: R/types-check.R:192
 msgid "%s is not a data frame."
 msgstr ""
 
-#: R/types-check.R:197
+#: R/types-check.R:194
+msgid "%s has the column %s."
+msgstr ""
+
+#: R/types-check.R:196
+msgid "%s has the columns %s."
+msgstr ""
+
+#: R/types-check.R:199
 msgid "An import writes %s, or no column where it reconciled nothing; see %s."
 msgstr ""
 
@@ -525,97 +541,142 @@ msgstr ""
 msgid "Line %d has %s where the header has %s."
 msgstr ""
 
-#: R/validation-exceptions.R:69
-#: R/validation-exceptions.R:229
-msgid "Missing column(s): %s."
+#: R/validation-exceptions.R:70
+#: R/validation-exceptions.R:234
+msgid "Missing column: %s."
 msgstr ""
 
-#: R/validation-exceptions.R:70
-#: R/validation-exceptions.R:232
+#: R/validation-exceptions.R:72
+#: R/validation-exceptions.R:236
+msgid "Missing columns: %s."
+msgstr ""
+
+#: R/validation-exceptions.R:73
+#: R/validation-exceptions.R:237
 msgid "An exception record carries %s (and %s when more than one department is imported)."
 msgstr ""
 
-#: R/validation-exceptions.R:143
-#: R/validation.R:357
+#: R/validation-exceptions.R:146
+#: R/validation.R:358
 msgid "%s must be a data frame of exception records."
 msgstr ""
 
-#: R/validation-exceptions.R:151
+#: R/validation-exceptions.R:154
 msgid "An exception list is matched by patient id, which this dataset does not carry."
 msgstr ""
 
-#: R/validation-exceptions.R:152
+#: R/validation-exceptions.R:155
 msgid "Import with %s and %s in %s, or pass the list to the import as %s."
 msgstr ""
 
-#: R/validation-exceptions.R:167
+#: R/validation-exceptions.R:170
 msgid "This dataset carries no departments."
 msgstr ""
 
-#: R/validation-exceptions.R:168
+#: R/validation-exceptions.R:171
 msgid "Import with %s (one department) or %s."
 msgstr ""
 
-#: R/validation-exceptions.R:185
+#: R/validation-exceptions.R:188
 msgid "An exception list for more than one department is matched by department code, which this dataset does not carry."
 msgstr ""
 
-#: R/validation-exceptions.R:186
+#: R/validation-exceptions.R:189
 msgid "Import with %s."
 msgstr ""
 
-#: R/validation-exceptions.R:231
+#: R/validation-exceptions.R:232
 msgid "Got %s."
 msgstr ""
 
-#: R/validation-exceptions.R:239
-#: R/validation-exceptions.R:241
+#: R/validation-exceptions.R:244
+#: R/validation-exceptions.R:246
 msgid "%s is not a %s"
 msgstr ""
 
-#: R/validation-exceptions.R:244
-#: R/validation-exceptions.R:248
+#: R/validation-exceptions.R:249
+#: R/validation-exceptions.R:253
 msgid "%s is not %s"
 msgstr ""
 
-#: R/validation-exceptions.R:246
+#: R/validation-exceptions.R:251
 msgid "%s is empty on some record"
 msgstr ""
 
-#: R/validation-exceptions.R:251
+#: R/validation-exceptions.R:256
 msgid "%s is empty on some record (fill it on every record, or leave it empty throughout for a single-department list)"
 msgstr ""
 
-#: R/validation-exceptions.R:254
+#: R/validation-exceptions.R:259
 msgid "%s outside %s or %s"
 msgstr ""
 
-#: R/validation-exceptions.R:257
+#: R/validation-exceptions.R:262
 msgid "%s and %s not both set or both %s (an enrolment-level record has neither)"
 msgstr ""
 
-#: R/validation-exceptions.R:261
+#: R/validation-exceptions.R:266
 msgid "An exception list's columns must be of the types the records join on."
 msgstr ""
 
-#: R/validation-exceptions.R:268
+#: R/validation-exceptions.R:273
 msgid "An exception record is written at the level of the rule it names."
 msgstr ""
 
-#: R/validation-exceptions.R:270
+#: R/validation-exceptions.R:275
 msgid "The %s section of %s lists each rule's level and event types."
 msgstr ""
 
-#: R/validation-exceptions.R:310
+#: R/validation-exceptions.R:315
 msgid "`%s` is not %s"
 msgstr ""
 
-#: R/validation-exceptions.R:312
+#: R/validation-exceptions.R:317
 msgid "`%s` is empty or not a whole number on some record"
 msgstr ""
 
-#: R/validation-exceptions.R:314
+#: R/validation-exceptions.R:319
 msgid "`%s` names rules that do not exist: %s"
+msgstr ""
+
+#: R/validation-exceptions.R:353
+msgid "rule %s concerns the patient alone: its records leave %s empty"
+msgstr ""
+
+#: R/validation-exceptions.R:355
+msgid "rules %s concern the patient alone: their records leave %s empty"
+msgstr ""
+
+#: R/validation-exceptions.R:361
+msgid "rule %s is recorded on the enrolment or an event: its records name %s"
+msgstr ""
+
+#: R/validation-exceptions.R:364
+msgid "rules %s are recorded on the enrolment or an event: their records name %s"
+msgstr ""
+
+#: R/validation-exceptions.R:370
+msgid "rule %s is not recorded on an event: its records leave %s and %s empty"
+msgstr ""
+
+#: R/validation-exceptions.R:373
+msgid "rules %s are not recorded on an event: their records leave %s and %s empty"
+msgstr ""
+
+#: R/validation-exceptions.R:379
+msgid "rule %s is recorded on an event: its records name %s and %s"
+msgstr ""
+
+#: R/validation-exceptions.R:382
+msgid "rules %s are recorded on an event: their records name %s and %s"
+msgstr ""
+
+#: R/validation-exceptions.R:388
+msgid "rule %s does not concern the %s its records name"
+msgstr ""
+
+#: R/validation-exceptions.R:390
+msgid "rules %s do not concern the %s their records name"
 msgstr ""
 
 #: R/validation.R:236
@@ -634,39 +695,51 @@ msgstr ""
 msgid "The validation pass could not run every rule on this dataset."
 msgstr ""
 
-#: R/validation.R:316
+#: R/validation.R:313
+msgid "Rule %s did not run: the dataset lacks what it reads, which the log names."
+msgstr ""
+
+#: R/validation.R:315
+msgid "Rules %s did not run: the dataset lacks what they read, which the log names for each."
+msgstr ""
+
+#: R/validation.R:317
 msgid "The pass needs the full enrolment and event tiers with every column they declare, and the events that are not completed whenever the enrolments that are not completed are requested."
 msgstr ""
 
-#: R/validation.R:358
+#: R/validation.R:359
 msgid "Pass the list %s returns, or the key form %s returns."
 msgstr ""
 
-#: R/validation.R:374
+#: R/validation.R:375
 msgid "an exception record must name the dataset record it exempts through at least one of %s"
 msgstr ""
 
-#: R/validation.R:377
+#: R/validation.R:378
 msgid "%s must hold integer keys or %s"
 msgstr ""
 
-#: R/validation.R:381
+#: R/validation.R:382
 msgid "%s in key form must name existing rules through integer keys."
 msgstr ""
 
-#: R/validation.R:764
+#: R/validation.R:765
 msgid "%s must be a vector of whole numbers naming validation rules."
 msgstr ""
 
-#: R/validation.R:770
+#: R/validation.R:771
 msgid "%s names validation rules that do not exist."
 msgstr ""
 
-#: R/validation.R:771
-msgid "Unknown rule id(s): %s."
+#: R/validation.R:773
+msgid "Unknown rule id: %s."
 msgstr ""
 
-#: R/validation.R:772
+#: R/validation.R:775
+msgid "Unknown rule ids: %s."
+msgstr ""
+
+#: R/validation.R:776
 msgid "The rules are numbered %d to %d; see %s."
 msgstr ""
 
@@ -682,11 +755,6 @@ msgstr[1]    ""
 
 msgid        "%d department was imported."
 msgid_plural "%d departments were imported."
-msgstr[0]    ""
-msgstr[1]    ""
-
-msgid        "%s has the column %s."
-msgid_plural "%s has the columns %s."
 msgstr[0]    ""
 msgstr[1]    ""
 
@@ -707,35 +775,5 @@ msgstr[1]    ""
 
 msgid        "`%s` holds %d value that cannot be read as a date: %s."
 msgid_plural "`%s` holds %d values that cannot be read as a date: %s."
-msgstr[0]    ""
-msgstr[1]    ""
-
-msgid        "rule %s concerns the patient alone: its records leave %s empty"
-msgid_plural "rules %s concern the patient alone: their records leave %s empty"
-msgstr[0]    ""
-msgstr[1]    ""
-
-msgid        "rule %s is recorded on the enrolment or an event: its records name %s"
-msgid_plural "rules %s are recorded on the enrolment or an event: their records name %s"
-msgstr[0]    ""
-msgstr[1]    ""
-
-msgid        "rule %s is not recorded on an event: its records leave %s and %s empty"
-msgid_plural "rules %s are not recorded on an event: their records leave %s and %s empty"
-msgstr[0]    ""
-msgstr[1]    ""
-
-msgid        "rule %s is recorded on an event: its records name %s and %s"
-msgid_plural "rules %s are recorded on an event: their records name %s and %s"
-msgstr[0]    ""
-msgstr[1]    ""
-
-msgid        "rule %s does not concern the %s its records name"
-msgid_plural "rules %s do not concern the %s their records name"
-msgstr[0]    ""
-msgstr[1]    ""
-
-msgid        "Rule %s did not run: the dataset lacks what it reads, which the log names."
-msgid_plural "Rules %s did not run: the dataset lacks what they read, which the log names for each."
 msgstr[0]    ""
 msgstr[1]    ""

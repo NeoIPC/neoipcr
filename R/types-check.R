@@ -188,11 +188,13 @@ assert_reconciliation_summary <- function(x, fn_name) {
       !(ncol(summary) == 0L || identical(names(summary), declared)))
     rlang::abort(c(
       gettextf("%s() needs a dataset whose reconciliation summary is the one an import writes.", fn_name),
-      "x" = if (is.data.frame(summary))
-        sprintf(ngettext(ncol(summary), "%s has the column %s.", "%s has the columns %s."),
-                "`x$reconciliationSummary`",
-                paste0("`", names(summary), "`", collapse = ", "))
-      else gettextf("%s is not a data frame.", "`x$reconciliationSummary`"),
+      "x" = if (!is.data.frame(summary))
+        gettextf("%s is not a data frame.", "`x$reconciliationSummary`")
+      else if (ncol(summary) == 1L)
+        gettextf("%s has the column %s.", "`x$reconciliationSummary`", paste0("`", names(summary), "`"))
+      else
+        gettextf("%s has the columns %s.", "`x$reconciliationSummary`",
+                 paste0("`", names(summary), "`", collapse = ", ")),
       "i" = gettextf(
         "An import writes %s, or no column where it reconciled nothing; see %s.",
         paste0("`", declared, "`", collapse = ", "), "`?import_dhis2`")),

@@ -66,7 +66,10 @@ read_validation_exceptions <- function(path)
   if (length(missing_cols) > 0L)
     rlang::abort(c(
       header,
-      x = gettextf("Missing column(s): %s.", paste(missing_cols, collapse = ", ")),
+      x = if (length(missing_cols) == 1L)
+            gettextf("Missing column: %s.", missing_cols)
+          else
+            gettextf("Missing columns: %s.", paste(missing_cols, collapse = ", ")),
       i = gettextf("An exception record carries %s (and %s when more than one department is imported).",
                    paste(.exception_list_cols, collapse = ", "), "DEPARTMENT_CODE")),
       class = "neoipcr_invalid_exception_list")
@@ -225,10 +228,12 @@ check_exception_list <- function(ex, header)
   if (!is.data.frame(ex) || length(missing_cols) > 0L)
     rlang::abort(c(
       header,
-      x = if (is.data.frame(ex))
-            gettextf("Missing column(s): %s.", paste(missing_cols, collapse = ", "))
+      x = if (!is.data.frame(ex))
+            gettextf("Got %s.", obj_type_friendly(ex))
+          else if (length(missing_cols) == 1L)
+            gettextf("Missing column: %s.", missing_cols)
           else
-            gettextf("Got %s.", obj_type_friendly(ex)),
+            gettextf("Missing columns: %s.", paste(missing_cols, collapse = ", ")),
       i = gettextf("An exception record carries %s (and %s when more than one department is imported).",
                    paste(.exception_list_cols, collapse = ", "), "DEPARTMENT_CODE")),
       class = "neoipcr_invalid_exception_list")
@@ -344,38 +349,45 @@ check_exception_list <- function(ex, header)
   c(
     if (any(level == "patient" & has_enrolment)) {
       rules <- rules_where(level == "patient" & has_enrolment)
-      sprintf(ngettext(length(rules),
-                       "rule %s concerns the patient alone: its records leave %s empty",
-                       "rules %s concern the patient alone: their records leave %s empty"),
-              listed(rules), "`ENROLMENT_DATE`")
+      if (length(rules) == 1L)
+        gettextf("rule %s concerns the patient alone: its records leave %s empty", rules, "`ENROLMENT_DATE`")
+      else
+        gettextf("rules %s concern the patient alone: their records leave %s empty",
+                 listed(rules), "`ENROLMENT_DATE`")
     },
     if (any(level != "patient" & !has_enrolment)) {
       rules <- rules_where(level != "patient" & !has_enrolment)
-      sprintf(ngettext(length(rules),
-                       "rule %s is recorded on the enrolment or an event: its records name %s",
-                       "rules %s are recorded on the enrolment or an event: their records name %s"),
-              listed(rules), "`ENROLMENT_DATE`")
+      if (length(rules) == 1L)
+        gettextf("rule %s is recorded on the enrolment or an event: its records name %s",
+                 rules, "`ENROLMENT_DATE`")
+      else
+        gettextf("rules %s are recorded on the enrolment or an event: their records name %s",
+                 listed(rules), "`ENROLMENT_DATE`")
     },
     if (any(names_no_form)) {
       rules <- rules_where(names_no_form)
-      sprintf(ngettext(length(rules),
-                       "rule %s is not recorded on an event: its records leave %s and %s empty",
-                       "rules %s are not recorded on an event: their records leave %s and %s empty"),
-              listed(rules), "`EVENT_TYPE`", "`EVENT_DATE`")
+      if (length(rules) == 1L)
+        gettextf("rule %s is not recorded on an event: its records leave %s and %s empty",
+                 rules, "`EVENT_TYPE`", "`EVENT_DATE`")
+      else
+        gettextf("rules %s are not recorded on an event: their records leave %s and %s empty",
+                 listed(rules), "`EVENT_TYPE`", "`EVENT_DATE`")
     },
     if (any(level == "event" & !has_event)) {
       rules <- rules_where(level == "event" & !has_event)
-      sprintf(ngettext(length(rules),
-                       "rule %s is recorded on an event: its records name %s and %s",
-                       "rules %s are recorded on an event: their records name %s and %s"),
-              listed(rules), "`EVENT_TYPE`", "`EVENT_DATE`")
+      if (length(rules) == 1L)
+        gettextf("rule %s is recorded on an event: its records name %s and %s",
+                 rules, "`EVENT_TYPE`", "`EVENT_DATE`")
+      else
+        gettextf("rules %s are recorded on an event: their records name %s and %s",
+                 listed(rules), "`EVENT_TYPE`", "`EVENT_DATE`")
     },
     if (!all(type_fits)) {
       rules <- rules_where(!type_fits)
-      sprintf(ngettext(length(rules),
-                       "rule %s does not concern the %s its records name",
-                       "rules %s do not concern the %s their records name"),
-              listed(rules), "`EVENT_TYPE`")
+      if (length(rules) == 1L)
+        gettextf("rule %s does not concern the %s its records name", rules, "`EVENT_TYPE`")
+      else
+        gettextf("rules %s do not concern the %s their records name", listed(rules), "`EVENT_TYPE`")
     })
 }
 

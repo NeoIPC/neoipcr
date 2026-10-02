@@ -96,6 +96,26 @@ test_that("read_validation_exceptions refuses a file without the record columns"
     class = "neoipcr_invalid_exception_list")
 })
 
+test_that("the exception-list checks name one missing column in the singular and several in the plural", {
+  one <- write_exception_csv(exception_rows() |> dplyr::select(!"ENROLMENT_DATE"))
+  cnd <- expect_error(neoipcr::read_validation_exceptions(one), class = "neoipcr_invalid_exception_list")
+  expect_match(conditionMessage(cnd), "Missing column: ENROLMENT_DATE.", fixed = TRUE)
+
+  two <- write_exception_csv(exception_rows() |> dplyr::select(!c("ENROLMENT_DATE", "EVENT_DATE")))
+  cnd <- expect_error(neoipcr::read_validation_exceptions(two), class = "neoipcr_invalid_exception_list")
+  expect_match(conditionMessage(cnd), "Missing columns: ENROLMENT_DATE, EVENT_DATE.", fixed = TRUE)
+
+  ex <- neoipcr::read_validation_exceptions(write_exception_csv(exception_rows()))
+  cnd <- expect_error(
+    neoipcr:::check_exception_list(ex[, setdiff(names(ex), "EVENT_TYPE")], "header"),
+    class = "neoipcr_invalid_exception_list")
+  expect_match(conditionMessage(cnd), "Missing column: EVENT_TYPE.", fixed = TRUE)
+  cnd <- expect_error(
+    neoipcr:::check_exception_list(ex[, setdiff(names(ex), c("RULE_ID", "EVENT_TYPE"))], "header"),
+    class = "neoipcr_invalid_exception_list")
+  expect_match(conditionMessage(cnd), "Missing columns: RULE_ID, EVENT_TYPE.", fixed = TRUE)
+})
+
 test_that("read_validation_exceptions refuses a row with the wrong number of fields", {
   path <- write_exception_csv(exception_rows())
   # A record short of its two event fields would otherwise be read as an

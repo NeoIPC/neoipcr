@@ -525,7 +525,7 @@ explicit function argument → dhis2_dataset_options()$locale → Sys.getlocale(
 
 ### §6.8. Message Catalogue
 
-The catalogue is `po/R-neoipcr.pot`, merged into `po/R-de.po` and `po/R-en.po` and compiled into `inst/po/<lang>/LC_MESSAGES/R-neoipcr.mo` for each of the two languages. It holds 171 msgids, 14 of them plural entries: 17 are the F- and C-class strings of §6.1.1, whose fate §6.6 decides, 2 are the credential prompts, and 152 are condition messages and the print method's text. `msgfmt --statistics -o /dev/null po/R-neoipcr.pot` counts them, as untranslated messages.
+The catalogue is `po/R-neoipcr.pot`, merged into `po/R-de.po` and `po/R-en.po` and compiled into `inst/po/<lang>/LC_MESSAGES/R-neoipcr.mo` for each of the two languages. It holds 182 msgids, 7 of them plural entries: 17 are the F- and C-class strings of §6.1.1, whose fate §6.6 decides, 2 are the credential prompts, and 163 are condition messages and the print method's text. `msgfmt --statistics -o /dev/null po/R-neoipcr.pot` counts them, as untranslated messages.
 
 #### §6.8.1. What Is Translated, and What Stays English
 
@@ -548,7 +548,7 @@ rlang::abort(c(
 ```
 
 1. **A literal at the call site.** Each string is the direct literal argument of a bare `gettext()`, of `gettextf()` as its format string, or of `ngettext()` as its singular and plural messages. A string assembled at run time, held in a variable, or nested in `paste0()` is never extracted, and one piped into the call (`"…" |> gettext()`) reaches only `tools::xgettext()` (§6.8.3, case 6). The translated result may be assigned to a variable before it reaches `abort()`.
-2. **One sentence, one literal.** A translator cannot reorder fragments pasted around a value, while a `%s` can move. `gettextf()` goes where `sprintf()` would, and a count goes through `sprintf(ngettext(n, singular, plural), n)`, since a count changes the grammar.
+2. **One sentence, one literal.** A translator cannot reorder fragments pasted around a value, while a `%s` can move. `gettextf()` goes where `sprintf()` would, and a count goes through `sprintf(ngettext(n, singular, plural), n)`, since a count changes the grammar. A sentence whose number follows a count it does not show (`"Missing columns: %s."` before a list) chooses with `if (n == 1) gettextf(singular) else gettextf(plural)` instead: `ngettext()` hands form 0 to 21, 31, and so on in languages such as Ukrainian, where only a shown number makes that form right, so the GNU gettext manual rules it out when neither message contains the number.
 3. **No `domain` argument.** The domain is inferred (§6.8.4), and `domain = NA` makes the two extractors disagree (§6.8.3, case 2).
 4. **Identifiers stay outside the literal** and reach it as values: codes, column names, URLs, and code identifiers go in through a placeholder (`trials_option_set` above), so a translator never sees one. A translated value is assigned to a variable before it goes into `gettextf()`, never nested in the call (§6.8.3, case 4).
 5. **Bullet names stay outside `gettext()`**: `"i" = gettext("…")`.
