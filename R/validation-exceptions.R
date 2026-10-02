@@ -5,8 +5,8 @@
 #' and the reporting tools exchange. Its columns are `RULE_ID`,
 #' `DEPARTMENT_CODE`, `NEOIPC_PATIENT_ID`, `ENROLMENT_DATE`, `EVENT_TYPE` and
 #' `EVENT_DATE`. A record is written at the level of the rule it names, as
-#' the "Context fields" section of [validate()] lists it: for rule 1 the
-#' patient alone, with `ENROLMENT_DATE`, `EVENT_TYPE` and `EVENT_DATE` empty;
+#' the "Context fields" section of [validate()] lists it: for rules 1 and
+#' 56–58 the patient alone, with `ENROLMENT_DATE`, `EVENT_TYPE` and `EVENT_DATE` empty;
 #' for an enrolment-level rule the patient and `ENROLMENT_DATE`, with the
 #' event columns empty or, where the rule shows its finding on a form,
 #' naming that form's type and date; for an event-level rule the event's
