@@ -30,13 +30,16 @@ schema_col <- function(name, type,
                        levels_source = c("fixed", "data"))
 {
   if (!is.character(name) || length(name) != 1L)
-    rlang::abort("`name` must be a single character string.")
+    rlang::abort("`name` must be a single character string.", .internal = TRUE)
   if (length(type) != 0L)
-    rlang::abort("`type` must be a zero-length vector (e.g. `integer()`).")
+    rlang::abort("`type` must be a zero-length vector (e.g. `integer()`).",
+                 .internal = TRUE)
   if (!is.function(include_when))
-    rlang::abort("`include_when` must be a function of `opts`.")
+    rlang::abort("`include_when` must be a function of `opts`.",
+                 .internal = TRUE)
   if (!is.null(factor_levels) && !is.character(factor_levels))
-    rlang::abort("`factor_levels` must be NULL or a character vector.")
+    rlang::abort("`factor_levels` must be NULL or a character vector.",
+                 .internal = TRUE)
   levels_source <- rlang::arg_match(levels_source)
 
   structure(
@@ -73,7 +76,7 @@ schema_col <- function(name, type,
 with_entity_gate <- function(cols, gate)
 {
   if (!is.function(gate))
-    rlang::abort("`gate` must be a function of `opts`.")
+    rlang::abort("`gate` must be a function of `opts`.", .internal = TRUE)
   attr(cols, "entity_gate") <- gate
   cols
 }
@@ -151,7 +154,7 @@ assert_schema <- function(x, cols, opts)
       "Schema mismatch: column names / order differ.",
       "i" = paste("expected:", paste(exp_names, collapse = ", ")),
       "x" = paste("actual:  ", paste(act_names, collapse = ", "))
-    ))
+    ), .internal = TRUE)
 
   # When the entity gate rejected `opts`, `exp_names` is empty and we
   # skip the per-atom iteration — the name-order equality above is the
@@ -168,7 +171,7 @@ assert_schema <- function(x, cols, opts)
         sprintf("Schema mismatch on column `%s`: class differs.", nm),
         "i" = paste("expected:", paste(class(expected[[nm]]), collapse = "/")),
         "x" = paste("actual:  ", paste(class(x[[nm]]), collapse = "/"))
-      ))
+      ), .internal = TRUE)
 
     if (is.factor(expected[[nm]]) &&
         col_map[[nm]]$levels_source == "fixed" &&
@@ -177,7 +180,7 @@ assert_schema <- function(x, cols, opts)
         sprintf("Schema mismatch on factor column `%s`: levels differ.", nm),
         "i" = paste("expected:", paste(levels(expected[[nm]]), collapse = ", ")),
         "x" = paste("actual:  ", paste(levels(x[[nm]]), collapse = ", "))
-      ))
+      ), .internal = TRUE)
   }
 
   invisible(x)
@@ -219,7 +222,7 @@ finalize_to_schema <- function(x, cols, opts, scratch = character())
       "Input has column(s) not declared in schema and not in `scratch`:",
       "x" = paste(undeclared, collapse = ", "),
       "i" = "Declare them in the schema or list them in `scratch = ...`."
-    ))
+    ), .internal = TRUE)
 
   # Materialize absent-but-declared columns with NA of the right type.
   # DHIS2's API omits fields that have null/empty values for all rows in
@@ -289,7 +292,8 @@ require_cols <- function(x, cols, entity_name)
       "i" = sprintf(
         paste0("Check that `%s_cols` schema declares these columns ",
                "under the current options."),
-        entity_name)))
+        entity_name)),
+      .internal = TRUE)
 
   invisible(x)
 }
