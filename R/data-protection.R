@@ -131,14 +131,16 @@ assert_serializable_dataset_options <- function(opts, allow_department_filter)
     rlang::abort(c(
       "A calculated dataset must not carry a data frame in its options.",
       "x" = paste(frames, collapse = ", "),
-      "i" = "Replace it with a marker in `serializable_dataset_options()`."))
+      "i" = "Replace it with a marker in `serializable_dataset_options()`."),
+      .internal = TRUE)
 
   if (!allow_department_filter) {
     for (filter in c("department_filter", "trial_filter"))
       if (!is.null(opts[[filter]]) && !identical(opts[[filter]], "applied"))
         rlang::abort(c(
           sprintf("Reference data must not carry the `%s` it was built from.", filter),
-          "i" = "`serializable_dataset_options()` replaces it with the marker \"applied\"."))
+          "i" = "`serializable_dataset_options()` replaces it with the marker \"applied\"."),
+          .internal = TRUE)
   }
 
   invisible(opts)
@@ -173,7 +175,7 @@ assert_serializable_dataset_options <- function(opts, allow_department_filter)
     "i" = paste0("Custom attribute values can carry personal data. Fix the ",
                  "reader that emits them -- this guardian asserts, it does ",
                  "not scrub.")
-  ))
+  ), .internal = TRUE)
 }
 
 
@@ -201,7 +203,7 @@ assert_serializable_dataset_options <- function(opts, allow_department_filter)
       "i" = paste0("A department's trials can narrow down which department a ",
                    "pseudonymized key stands for. Fix the reader that emits ",
                    "them -- this guardian asserts, it does not scrub.")
-    ))
+    ), .internal = TRUE)
   }
 }
 
@@ -219,7 +221,7 @@ assert_serializable_dataset_options <- function(opts, allow_department_filter)
         sprintf("`x$metadata$%s` carries `IsTestunit` rows.", tbl),
         "i" = paste0("The test-unit flag is represented by `isTest`; the ",
                      "orchestrator folds these rows in and drops them.")
-      ))
+      ), .internal = TRUE)
   }
 }
 
@@ -259,7 +261,7 @@ assert_serializable_dataset_options <- function(opts, allow_department_filter)
     "i" = paste0("Fix the reader that emits `", col_name,
                  "` on the tibble(s) above -- this guardian asserts, it ",
                  "does not scrub.")
-  ))
+  ), .internal = TRUE)
 }
 
 
@@ -291,7 +293,7 @@ assert_serializable_dataset_options <- function(opts, allow_department_filter)
           "x" = paste(leaked, collapse = ", "),
           "i" = paste0("Metadata entities are curated by NeoIPC, not ",
                        "partner sites. Drop these columns from the reader.")
-        ))
+        ), .internal = TRUE)
     }
   }
 }
