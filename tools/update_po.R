@@ -1,7 +1,16 @@
-# This script is basically a replacement for tools::update_pkg_po to overcome
-# some problems and add some features
+# Builds the package's R message catalogue, in place of tools::update_pkg_po().
+#
+#   Rscript tools/update_po.R
+#     extracts po/R-<package>.pot from R/, merges it into each po/R-<lang>.po
+#     with msgmerge, and compiles each into
+#     inst/po/<lang>/LC_MESSAGES/R-<package>.mo with msgfmt; both are GNU
+#     gettext tools and must be on the PATH.
+#   Rscript tools/update_po.R --template <file>
+#     extracts the template into <file> and touches nothing under po/ or
+#     inst/po, so the R-CMD-check workflow can compare it with the committed
+#     template.
 
-update_po <- function(dir = ".", verbose = FALSE) {
+update_po <- function(dir = ".", verbose = FALSE, template = NULL) {
   # Each failure is reported as it happens, between the tools' own output,
   # rather than collected at the end.
   old_options <- options(warn = 1)
@@ -172,13 +181,19 @@ update_po <- function(dir = ".", verbose = FALSE) {
         }
   }
 
+  # Resolved before setwd(dir), since a relative path names a file relative to
+  # the caller's working directory.
+  if (!is.null(template))
+    template <- file.path(normalizePath(dirname(template), winslash = "/", mustWork = TRUE),
+                          basename(template))
   wd_bkp <- getwd()
-  on.exit(setwd(wd_bkp))
+  on.exit(setwd(wd_bkp), add = TRUE)
   setwd(dir)
   collation_bkp <- Sys.getlocale("LC_COLLATE")
   on.exit(Sys.setlocale("LC_COLLATE", collation_bkp), add = TRUE)
   Sys.setlocale("LC_COLLATE", "C")
-  dir.create("po", FALSE)
+  if (is.null(template))
+    dir.create("po", FALSE)
   po_files <- list.files(path = "po", pattern = "^R-.+\\.pot?$",
                          full.names = TRUE)
   description_info <- read.dcf(
@@ -204,6 +219,14 @@ update_po <- function(dir = ".", verbose = FALSE) {
     unlist() |>
     trimws()
   encoding <- description_info[5L]
+
+  if (!is.null(template)) {
+    if (verbose)
+      message("Creating pot: ", sQuote(template), domain = NA)
+    extract_gettext2pot(pot_file = template, package = package_name, copyright,
+                        encoding, version, bugs, dir = ".", verbose = verbose)
+    return(invisible())
+  }
 
   po_inst_dir <- file.path("inst", "po")
   tmp_file <- tempfile(fileext = "pot")
@@ -277,4 +300,12 @@ update_po <- function(dir = ".", verbose = FALSE) {
   invisible()
 }
 
-update_po()
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) == 0L) {
+  update_po()
+} else if (length(args) == 2L && args[1L] == "--template") {
+  update_po(template = args[2L])
+} else
+  rlang::abort(c(
+    "Unrecognized arguments.",
+    i = "Usage: Rscript tools/update_po.R [--template <file>]"))
