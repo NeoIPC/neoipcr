@@ -93,7 +93,7 @@ import_dhis2 <- function(
       !rlang::is_bool(dataset_options$include_invalid_patients)) {
     dataset_options$include_invalid_patients <- check_exception_list(
       dataset_options$include_invalid_patients,
-      gettextf("%s must be %s, %s or a data frame of exception records.",
+      gettextf("%s must be %s, %s, or a data frame of exception records.",
                "`include_invalid_patients`", "`TRUE`", "`FALSE`"))
     if (dataset_options$include_patient != "full")
       rlang::abort(c(

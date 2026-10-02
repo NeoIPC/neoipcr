@@ -106,7 +106,7 @@ get_password <- function(url)
 
   if(is.null(pw)) rlang::abort(c(
     gettext("No password provided"),
-    "i" = gettext("Please provide username and password, a personal access token or a session id to authenticate to DHIS2.")))
+    "i" = gettext("Please provide username and password, a personal access token, or a session ID to authenticate to DHIS2.")))
 
   pw
 }
@@ -138,7 +138,7 @@ get_auth_data <- function(url)
 
   if(!nzchar(user)) rlang::abort(c(
     gettext("No username provided"),
-    "i" = gettext("Please provide username and password, a personal access token or a session id to authenticate to DHIS2.")))
+    "i" = gettext("Please provide username and password, a personal access token, or a session ID to authenticate to DHIS2.")))
 
   list(username = user, password = get_password(url))
 }

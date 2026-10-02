@@ -547,7 +547,7 @@ reconciliation_details <- function(x)
       gettext("Listing the reconciliations needs a dataset imported with every record and every value as stored."),
       rlang::set_names(unmet, rep("x", length(unmet))),
       i = gettextf(
-        "Import with %s, %s, %s, no range filter and no reporting period, the full patient, enrolment and event tiers, and %s among %s.",
+        "Import with %s, %s, %s, no range filter and no reporting period, the full patient, enrolment, and event tiers, and %s among %s.",
         "`reconcile = FALSE`", "`include_invalid_patients = TRUE`",
         "`include_ineligible_patients = TRUE`", "\"gestational_age\"",
         "`patient_columns`")),
