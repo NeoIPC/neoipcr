@@ -245,7 +245,7 @@ check_exception_list <- function(ex, header)
       gettextf("%s outside %s or %s",
                "`EVENT_TYPE`", paste(.exception_event_types, collapse = "/"), "`NA`"),
     if (inherits(ex$EVENT_DATE, "Date") && any(is.na(event_types) != is.na(ex$EVENT_DATE)))
-      gettextf("%s and %s not both set or both %s (an enrollment-level record has neither)",
+      gettextf("%s and %s not both set or both %s (an enrolment-level record has neither)",
                "`EVENT_TYPE`", "`EVENT_DATE`", "`NA`"))
   if (length(wrong) > 0L)
     rlang::abort(c(
@@ -332,7 +332,7 @@ check_exception_list <- function(ex, header)
     paste(sort(unique(ids[cond])), collapse = ", ")
   c(
     if (any(level == "patient" & has_enrolment))
-      gettextf("rule %s concerns the patient alone: its records leave %s empty",
+      gettextf("rule(s) %s concern the patient alone: their records leave %s empty",
                rules_where(level == "patient" & has_enrolment), "`ENROLMENT_DATE`"),
     if (any(level != "patient" & !has_enrolment))
       gettextf("rule(s) %s are recorded on the enrolment or an event: their records name %s",

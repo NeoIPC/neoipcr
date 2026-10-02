@@ -298,6 +298,12 @@ test_that("resolve_validation_exceptions refuses a record written at another lev
   refuse(written_exceptions() |> dplyr::mutate(EVENT_TYPE = c("end", "bsi", NA),
                                               EVENT_DATE = as.Date(c("2024-01-01", "2024-01-06", NA))),
          "rule\\(s\\) 3")
+  # Rules 1 and 56 both concern the patient alone, and one sentence names
+  # them together.
+  refuse(dplyr::bind_rows(written_exceptions()[3, ],
+                          written_exceptions()[3, ] |> dplyr::mutate(RULE_ID = 56L)) |>
+           dplyr::mutate(ENROLMENT_DATE = as.Date("2024-01-01")),
+         "rule\\(s\\) 1, 56 concern the patient alone: their records leave")
 })
 
 test_that("resolve_validation_exceptions lets an enrolment-level record name its rule's form", {
