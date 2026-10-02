@@ -112,7 +112,7 @@ Two tracked-entity attributes store gestational age, and stored data does not al
 | `NEOIPC_TEA_GEST_AGE` | `weeks+days` (text) | `25+4` | Display in the DHIS2 user interface |
 | `NeoIPC_TEA_TOTAL_GESTATION_DAYS` | integer (total days) | `179` | Read by neoipcr and DHIS2 program rules |
 
-Reconciliations 3 and 4 recompute a stale or impossible total from a text in the required format, and the eligibility and range filters read that text where the total is missing.
+Reconciliation 3 recomputes a missing or stale total from a text in the required format, reconciliation 4 removes a total outside 140 to 349 days that has no such text beside it, and the eligibility and range filters read the text where the total is missing.
 
 **Note the inconsistent casing** of `NeoIPC_TEA_TOTAL_GESTATION_DAYS`: downstream dependencies keep it from being changed.
 
