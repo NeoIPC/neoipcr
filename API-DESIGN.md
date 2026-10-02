@@ -21,7 +21,7 @@
 - [x] Each of the four custom classes (`neoipcr_ds`, `neoipcr_rep_ds`, `neoipcr_ref_ds`, `neoipcr_tbl_sr_ref`) has a §4 subsection with constructor site, columns, invariants, and pointer to the relevant `R/schema-*.R`.
 - [x] The `_iaf` / `_sbd` / `_udr` subclasses each have a §4 row (§4.5) under the post-task-1.2 names with an explicit "depends on task 1.2" callout. Three additional subclasses surfaced and are flagged in §3.2 for task 1.2 expansion.
 - [x] Every helper from the Phase 2 sketch of the task file appears in §5 (46 rows) with target `R/*.R` file + signature. Rejected promotions listed in §5.2 with rationale.
-- [x] Every `gettext` / `gettextf` call site in `R/` is classified in §6.1. F-class + C-class (13 sites) individually enumerated in §6.1.1; the M-class sites, every condition message and the print method's text, share a single migration action in §6.1.2, and §6.8 describes their catalogue.
+- [x] Every `gettext` / `gettextf` call site in `R/` is classified in §6.1. F-class + C-class (13 sites) individually enumerated in §6.1.1; the M-class sites, every condition message, the two credential prompts, and the print method's text, share a single migration action in §6.1.2, and §6.8 describes their catalogue.
 - [x] §6 states the architectural split (messages vs. data) as a decision, not a proposal — §6.5, governed by D-H (§10.8) for PI confirmation.
 - [x] §6 cites 5 established R-ecosystem precedents — §6.4 (countrycode, Writing R Extensions, scales, rlang/cli, potools).
 - [x] The unified locale-resolution chain is stated in §6.7 and referenced from relevant decisions in §10.
@@ -44,7 +44,7 @@
 | D-D | CI-function prefix unification | Rename all three to `neoipcr_*_ci()` (matches package name) | pending |
 | D-E | Long table-function-name shortening | Keep as-is; rely on `@family` grouping | pending |
 | D-F | Accessor-vs-raw-data per package-data candidate | Accessor per taxonomy (follows `get_pathogen_taxonomy()`) | pending |
-| D-G | Message-catalog scope | Single `R-neoipcr.pot` | pending |
+| D-G | Message-catalogue scope | Single `R-neoipcr.pot` | pending |
 | D-H | Localization architecture split | See §10 / §6 for the full proposal | pending |
 | D-I | Cross-surface naming alignment (9 surfaces, code + report display) | Master-name + heading-treatment table in §9.5.4 / §10.9; supersedes parts of task 1.2; alignment extends to PDF display strings via po4a cycle | pending |
 
@@ -54,7 +54,7 @@
 
 **In scope (this note).** Inventory and design paperwork only. Produces commitments for later phases of task 1.1 to execute.
 
-**Out of scope (this note).** Every code change. Specifically: no new `R/*.R` files, no `NAMESPACE` edits, no roxygen regeneration, no `DESCRIPTION` edits, no rename applied anywhere, no Surveillance-Toolkit `_setup.qmd` / `Generate-*.R` edits, no `data-raw/sysdata.R` extensions, no `po/` catalog regeneration, no `man/*.Rd` edits, no vignettes / README.Rmd / `_pkgdown.yml`, no convenience-layer (`neoipcr_quickstart()`). Those all happen in Phases 2–6 of the task file — governed by the commitments below.
+**Out of scope (this note).** Every code change. Specifically: no new `R/*.R` files, no `NAMESPACE` edits, no roxygen regeneration, no `DESCRIPTION` edits, no rename applied anywhere, no Surveillance-Toolkit `_setup.qmd` / `Generate-*.R` edits, no `data-raw/sysdata.R` extensions, no `po/` catalogue regeneration, no `man/*.Rd` edits, no vignettes / README.Rmd / `_pkgdown.yml`, no convenience-layer (`neoipcr_quickstart()`). Those all happen in Phases 2–6 of the task file — governed by the commitments below.
 
 **Out of scope (permanently or by handoff to sibling tasks).** Listed in §12.
 
@@ -365,20 +365,21 @@ Already present: `dplyr`, `lubridate`, `rlang`, `readr`, `stringr`, `tidyr`, `ti
 
 ---
 
-## §6. Localization architecture + resolution chain
+## §6. Localization Architecture + Resolution Chain
 
 > **Section status.** §6.1 through §6.3 describe the current state: the classified `gettext()` call sites, the locale flow, and the `display*` inventory. §6.4 through §6.7 propose the messages-versus-data architecture and its migration, governed by D-H (§10.8). §6.8 describes the message catalogue as it is: what is translated, how a message is written, and how the catalogue is built and checked.
 
-### §6.1. Current-state summary
+### §6.1. Current-State Summary
 
-**Scope of the problem is narrower than feared.** Every `gettext()`, `gettextf()`, and `ngettext()` call in this package's `R/` belongs to one of two groups:
+**Scope of the problem is narrower than feared.** Every `gettext()`, `gettextf()`, and `ngettext()` call in this package's `R/` belongs to one of three groups:
 
 1. the **condition messages**, every user-facing string of an `rlang::abort()` or `rlang::warn()` call and the text of `print.neoipcr_dhis2_conopt()`, spread across many files of `R/` and governed by §6.8;
-2. **13 call sites that translate labels rather than messages**, classified and enumerated below.
+2. the **two credential prompts** of [R/dhis2-connect.R](R/dhis2-connect.R), the password prompt of `get_password()` and the username prompt of `get_auth_data()`, which a person reads in an interactive session and which §6.8 governs as well;
+3. **13 call sites that translate labels rather than messages**, classified and enumerated below.
 
 | Classification | Count | Locations |
 |---|---|---|
-| M — Message (a condition or console text a person reads) | every condition message | §6.1.2, §6.8 |
+| M — Message (a condition, a prompt, or console text a person reads) | every condition message and both prompts | §6.1.2, §6.8 |
 | C — Column header | 2 | [R/calc-api.R:893](R/calc-api.R#L893) and [R/calc-procedure-categories.R:45](R/calc-procedure-categories.R#L45) |
 | F — Factor-level label | 11 | All in [R/calc-procedure-categories.R:215–231](R/calc-procedure-categories.R#L215-L231) (`get_procedure_category_pretty()`; the eleventh, at :231, is the `NEOIPC-PERMANENT(dataset-format)` recode of the pre-`-ize` category spelling) |
 | D — DHIS2-display passthrough (redundant wrap) | 0 | — |
@@ -391,7 +392,7 @@ Two corrections to the A4 problem-statement in the plan file:
 
 The real issue is confined to **two files and one function family**: the 11 factor-level label calls in `get_procedure_category_pretty()` and the two column-header calls.
 
-#### §6.1.1. All F-class and C-class call sites (individually enumerated)
+#### §6.1.1. All F-Class and C-Class Call Sites (Individually Enumerated)
 
 The 13 non-M sites each need distinct treatment in Phase 2, so they're individually enumerated here. M-class sites follow in §6.1.2.
 
@@ -413,20 +414,20 @@ The 13 non-M sites each need distinct treatment in Phase 2, so they're individua
 
 The 11 F-class calls at lines 215–231 also require removing the `Sys.getlocale("LC_MESSAGES")` fallback at [R/calc-procedure-categories.R:14](R/calc-procedure-categories.R#L14), in the `pretty` branch of `get_procedure_categories()` — the accessor pattern honours the resolution chain via the explicit `locale` argument instead.
 
-#### §6.1.2. M-class call sites
+#### §6.1.2. M-Class Call Sites
 
-Every M-class site is a condition message or the print method's text, and all of them have the same migration action: **stay on `gettext()`, `gettextf()`, or `ngettext()`**. They are spread across many files of `R/`, so they are not enumerated here: §6.8.1 says which strings are translated and which stay English, and §6.8.2 how a message is written.
+Every M-class site is a condition message, a credential prompt, or the print method's text, and all of them have the same migration action: **stay on `gettext()`, `gettextf()`, or `ngettext()`**. They are spread across many files of `R/`, so they are not enumerated here: §6.8.1 says which strings are translated and which stay English, and §6.8.2 how a message is written.
 
 Validation findings and reconciliation counts carry no message. `validate()` returns data — the rule id, the keys of the record a finding refers to and a one-row `context` tibble of the values the rule compared — and the sentence a reader sees is composed and translated by the document that renders it (the Validation Report's string resources). The exception list is public API alongside: `read_validation_exceptions()` reads the user's CSV, `resolve_validation_exceptions()` maps it onto a dataset's keys, `validation_rule_ids()` lists the registry for consumers that keep a catalogue of rule descriptions, and `validation_rule_context_fields()` names the fields each rule records, so a consumer checks its templates' placeholders against the package rather than against a copied table. Likewise `reconciliationSummary` holds reconciliation ids and counts, the reports keep a label per reconciliation, and `reconciliation_ids()` is the list they check their labels against. The catalogue's entries from `R/validation.R` and `R/reconciliation.R` are the conditions their functions raise, such as a rule id `validate()` does not know.
 
-### §6.2. Locale parameter flow (current state)
+### §6.2. Locale Parameter Flow (Current State)
 
 - **Entry point**: `dhis2_dataset_options()` accepts `locale = NULL` (signature in [R/dhis2-options.R](R/dhis2-options.R)).
 - **Only correct consumer**: [R/dhis2-metadata.R:8–12](R/dhis2-metadata.R#L8) — passes `locale` to the DHIS2 API when `dataset_options$translate && rlang::is_character(dataset_options$locale, n = 1)`.
 - **Broken consumers**: every R-level `gettext` / `gettextf` call. They consult `Sys.getlocale("LC_MESSAGES")` and `Sys.getenv("LANGUAGE")` — not `opts$locale`. Concretely: [R/calc-procedure-categories.R:14](R/calc-procedure-categories.R#L14) falls back to `Sys.getlocale("LC_MESSAGES")` in the `pretty` branch of `get_procedure_categories()`, before it calls `get_procedure_category_pretty()`.
 - **Result**: a caller who sets `dhis2_dataset_options(locale = "de")` gets German-translated DHIS2 metadata, but condition messages and procedure-category labels in the R session's language, German only where the session's `LANGUAGE` or `LC_MESSAGES` selects it.
 
-### §6.3. `display*` field inventory (current)
+### §6.3. `display*` Field Inventory (Current)
 
 | Output surface | Tibble on `neoipcr_ds$metadata` | `display*` variant(s) used | Source |
 |---|---|---|---|
@@ -439,25 +440,25 @@ Validation findings and reconciliation counts carry no message. `validate()` ret
 
 All of these `display*` values are **preserved only when the relevant `include_*` gate is `"full"`**. Under `pseudo` / `no`, they are not written by the reader.
 
-### §6.4. Ecosystem precedents
+### §6.4. Ecosystem Precedents
 
 | # | Package / source | Mechanism demonstrated | Concrete example | Applicability to neoipcr |
 |---|------------------|------------------------|------------------|--------------------------|
 | 1 | **[`countrycode`](https://github.com/vincentarelbundock/countrycode)** | Locale-as-column-selector on taxonomy tibbles. Data is English-canonical; labels live in separate `country.name.en`, `country.name.de`, `country.name.fr` columns of the `codelist` tibble. Accessor takes a `destination` parameter and reads the appropriate column. | `codelist` (~600 rows) with ~30 locale-keyed columns, e.g. `country.name.en` / `country.name.de` / `country.name.fr`. No gettext wraps around row values. | Directly applicable to the 11 F-class calls. `get_procedure_category_pretty()` migrates to a `procedure_category_labels` tibble in `sysdata.Rda` with `label_en` / `label_de` columns, served by `get_procedure_category_labels(locale = NULL)`. neoipcr's own `get_pathogen_taxonomy()` already uses this idiom — we extend it. |
-| 2 | **"Writing R Extensions", § Translations** (R-core / CRAN manual) | Establishes that `gettext` / `gettextf` are for messages shown to users (errors, warnings, diagnostics). Data-layer labels (column names, factor levels, taxonomy terms) are not in scope for PO catalogs — they're part of the package's data contract. | The manual enumerates the set of `gettext`-wrapped user-facing messages and explicitly does not place factor labels, taxonomy tables, or column headers in that set. | Validates the split. The condition messages stay on `gettext()` / `gettextf()` / `ngettext()` (§6.8); the 11 F-class calls migrate to locale-keyed columns per #1 above. |
+| 2 | **"Writing R Extensions", § Translations** (R-core / CRAN manual) | Establishes that `gettext` / `gettextf` are for messages shown to users (errors, warnings, diagnostics). Data-layer labels (column names, factor levels, taxonomy terms) are not in scope for PO catalogues — they're part of the package's data contract. | The manual enumerates the set of `gettext`-wrapped user-facing messages and explicitly does not place factor labels, taxonomy tables, or column headers in that set. | Validates the split. The condition messages stay on `gettext()` / `gettextf()` / `ngettext()` (§6.8); the 11 F-class calls migrate to locale-keyed columns per #1 above. |
 | 3 | **[`scales`](https://scales.r-lib.org)** (tidyverse) | Separates formatter construction from locale consumption. `scales::label_date()`, `scales::label_number()`, `scales::label_currency()` take format strings and locale hints as **explicit parameters**; they do not consult `Sys.getlocale()` silently at definition time. | `scales::label_date(format = "%b %d", locale = "de")` — caller is responsible for passing the locale. | Informs the unified resolution chain (§6.7). Every neoipcr entry point that produces localized output accepts an explicit `locale` argument that wins over `opts$locale`, which wins over `Sys.getlocale("LC_MESSAGES")`, which wins over `"en"`. |
 | 4 | **[`rlang`](https://rlang.r-lib.org)** + **[`cli`](https://cli.r-lib.org)** (tidyverse) | Class-tagged condition system: `rlang::abort()` / `cli::cli_abort()` / `cli::cli_warn()` attach a class to the condition; error handlers and tests dispatch on the class, not on the human-readable message. Translation of the message is **orthogonal** — it happens via gettext if you want it, but the class is what programs check. | `rlang::abort(class = "neoipcr_missing_token", message = gettext("…"))`. Tests assert on `class`, not on the translated string. | **Adopted.** neoipcr raises every condition with `rlang::abort()` or `rlang::warn()` and wraps each user-facing string in `gettext()`, `gettextf()`, or `ngettext()` (§6.8.2). Tests run in the `C` language, so a test that matches a class is unaffected by translation, and one that matches English text still passes (§6.8.4). |
-| 5 | **[`potools`](https://cran.r-project.org/package=potools)** | Package-scoped message catalogs. `potools::create_catalog()` extracts every `gettext(...)` call from `R/` and writes a single `.pot`; translators add `.po` files. `potools` does not split catalogs by message class — the split happens **at the source level** before extraction. | `potools::create_catalog()` → `po/R-<pkg>.pot`. Data-layer labels (taxonomy tibbles in `sysdata.Rda`) are not scanned because they're not `gettext` calls. | Confirms D-G (single `R-neoipcr.pot`), which neoipcr builds with its own `tools/update_po.R` (§6.8.3). Once the 11 F-class calls migrate out of `gettext`, the catalogue holds the condition messages and the print method's text — no clutter from data labels, unless the `:45` call keeps its two column headers on `gettext` (§6.5 row C), which would add exactly those two. |
+| 5 | **[`potools`](https://cran.r-project.org/package=potools)** | Package-scoped message catalogues. `potools::create_catalog()` extracts every `gettext(...)` call from `R/` and writes a single `.pot`; translators add `.po` files. `potools` does not split catalogues by message class — the split happens **at the source level** before extraction. | `potools::create_catalog()` → `po/R-<pkg>.pot`. Data-layer labels (taxonomy tibbles in `sysdata.Rda`) are not scanned because they're not `gettext` calls. | Confirms D-G (single `R-neoipcr.pot`), which neoipcr builds with its own `tools/update_po.R` (§6.8.3). Once the 11 F-class calls migrate out of `gettext`, the catalogue holds the condition messages, the credential prompts, and the print method's text — no clutter from data labels, unless the `:45` call keeps its two column headers on `gettext` (§6.5 row C), which would add exactly those two. |
 
-**Mainstream consensus.** Five sources converge on: (i) `gettext` is for user-facing messages only; (ii) data labels live in locale-keyed columns or equivalent structured data (not in PO catalogs); (iii) locale selection is explicit (parameter or resolver), never implicit from `Sys.getlocale()` alone; (iv) a single `.pot` per package is standard. neoipcr is already close on (i), (iii-partial), and (iv); the M/F split is what brings it into (ii).
+**Mainstream consensus.** Five sources converge on: (i) `gettext` is for user-facing messages only; (ii) data labels live in locale-keyed columns or equivalent structured data (not in PO catalogues); (iii) locale selection is explicit (parameter or resolver), never implicit from `Sys.getlocale()` alone; (iv) a single `.pot` per package is standard. neoipcr is already close on (i), (iii-partial), and (iv); the M/F split is what brings it into (ii).
 
 **Class and translation together.** A class-tagged condition and a translated message are not alternatives (#4): neoipcr raises every condition with `rlang::abort()` or `rlang::warn()`, carrying a `class` where a caller needs one, and wraps each user-facing string for the catalogue (§6.8). `cli` is not among its dependencies.
 
-### §6.5. Proposed architecture (D-H concrete form)
+### §6.5. Proposed Architecture (D-H Concrete Form)
 
 **Principle.** Every user-facing string in `neoipcr` belongs to exactly one of two tracks:
 
-- **Messages track.** The user-facing strings of errors and warnings, and the console text of the print method, shown to a person at run time (§6.8.1; the `logger` messages stay English). Owned by gettext: `po/R-neoipcr.pot` and its `po/R-<lang>.po` files. Wrapped by `gettext()`, `gettextf()`, or `ngettext()` at the call site (§6.8.2). Translators work from the catalogue.
+- **Messages track.** The user-facing strings of errors and warnings, the credential prompts, and the console text of the print method, shown to a person at run time (§6.8.1; the `logger` messages stay English). Owned by gettext: `po/R-neoipcr.pot` and its `po/R-<lang>.po` files. Wrapped by `gettext()`, `gettextf()`, or `ngettext()` at the call site (§6.8.2). Translators work from the catalogue.
 - **Data track.** Column headers, factor labels, taxonomy terms, and any string that is part of the *value* returned by a neoipcr function. Owned by locale-keyed columns in `sysdata.Rda` tibbles or in ingested YAML resource cascades. Accessed via accessor functions that honour the locale-resolution chain.
 
 Nothing is in both tracks.
@@ -484,9 +485,9 @@ labels <- get_procedure_category_labels(locale = opts$locale)  # explicit arg wi
 # or: labels <- get_procedure_category_labels()  # resolution chain kicks in
 ```
 
-**What this looks like to a translator.** After the migration, `R-neoipcr.pot` holds the condition messages and the print method's text (§6.8), all of them messages a person reads, plus the two column headers of `calc-procedure-categories.R:45` if that call stays on `gettext` rather than moving to the YAML cascade. The F- and C-class calls account for 17 of today's msgids, fewer than their 19 strings, because duplicates collapse to one entry: the recode at `calc-procedure-categories.R:231` repeats the label at `:224`, and `"Procedure category"` heads both `calc-api.R:893` and `calc-procedure-categories.R:45`. Procedure-category labels are translated in the YAML / CSV under Surveillance-Toolkit's metadata/ (out of scope for this note; §7 row 2 coordinates with A5b).
+**What this looks like to a translator.** After the migration, `R-neoipcr.pot` holds the condition messages, the credential prompts, and the print method's text (§6.8), all of them messages a person reads, plus the two column headers of `calc-procedure-categories.R:45` if that call stays on `gettext` rather than moving to the YAML cascade. The F- and C-class calls account for 17 of today's msgids, fewer than their 19 strings, because duplicates collapse to one entry: the recode at `calc-procedure-categories.R:231` repeats the label at `:224`, and `"Procedure category"` heads both `calc-api.R:893` and `calc-procedure-categories.R:45`. Procedure-category labels are translated in the YAML / CSV under Surveillance-Toolkit's metadata/ (out of scope for this note; §7 row 2 coordinates with A5b).
 
-### §6.6. Migration plan for Phase 2
+### §6.6. Migration Plan for Phase 2
 
 | Call site | Classification | Action in Phase 2 |
 |---|---|---|
@@ -499,7 +500,7 @@ labels <- get_procedure_category_labels(locale = opts$locale)  # explicit arg wi
 
 **Catalogue regeneration.** After the F-class migration, run `Rscript tools/update_po.R` (§6.8.3), which regenerates `po/R-neoipcr.pot`, merges it into `po/R-de.po` and `po/R-en.po`, and recompiles `inst/po/{de,en}/LC_MESSAGES/R-neoipcr.mo`; the five files are committed with the code. Part of Phase 2.
 
-### §6.7. Unified locale resolution chain
+### §6.7. Unified Locale Resolution Chain
 
 Applies to **both** the messages track (gettext domain resolution) and the data track (column selection in `sysdata.Rda` label tibbles and path selection in the YAML resource cascade):
 
@@ -522,19 +523,19 @@ explicit function argument → dhis2_dataset_options()$locale → Sys.getlocale(
 
 **`dhis2_dataset_options(locale = ...)` already exists.** [R/dhis2-options.R](R/dhis2-options.R) accepts the parameter; the only broken piece is that it doesn't flow to the R-side message layer (§6.2). Phase 2 fixes the flow without changing the signature.
 
-### §6.8. Message catalogue
+### §6.8. Message Catalogue
 
-The catalogue is `po/R-neoipcr.pot`, merged into `po/R-de.po` and `po/R-en.po` and compiled into `inst/po/<lang>/LC_MESSAGES/R-neoipcr.mo` for each of the two languages. It holds 168 msgids, seven of them plural entries: 17 are the F- and C-class strings of §6.1.1, whose fate §6.6 decides, and 151 are condition messages and the print method's text. `msgfmt --statistics -o /dev/null po/R-neoipcr.pot` counts them, as untranslated messages.
+The catalogue is `po/R-neoipcr.pot`, merged into `po/R-de.po` and `po/R-en.po` and compiled into `inst/po/<lang>/LC_MESSAGES/R-neoipcr.mo` for each of the two languages. It holds 171 msgids, 14 of them plural entries: 17 are the F- and C-class strings of §6.1.1, whose fate §6.6 decides, 2 are the credential prompts, and 152 are condition messages and the print method's text. `msgfmt --statistics -o /dev/null po/R-neoipcr.pot` counts them, as untranslated messages.
 
-#### §6.8.1. What is translated, and what stays English
+#### §6.8.1. What Is Translated, and What Stays English
 
 1. **Every user-facing string of a condition is translated**, headline and bullets alike, in every `rlang::abort()` and `rlang::warn()` call of `R/`. Every condition is raised with one of the two, never with `stop()`, `warning()`, or `stopifnot()`, which raise unclassed conditions: `abort()` names the calling function, renders a message vector as a headline with `i` / `x` bullets, and takes a `class` that a caller or a test matches without parsing text.
-2. **The text of `print.neoipcr_dhis2_conopt()` is translated**, since a user reads it in the console. The values it shows (the base URL, the name of the authentication method, the username) reach it as values and stay as they are.
+2. **The text of `print.neoipcr_dhis2_conopt()` and the two credential prompts are translated**, since a user reads them in the console. The values they show (the base URL, the name of the authentication method, the username) reach them as values and stay as they are.
 3. **A developer-only assertion stays English**: a broken package invariant that no user can act on. Its literal stays unwrapped, so neither extractor sees it, and the call passes `.internal = TRUE` and nothing else to mark it. rlang then appends a footer, itself English, saying that the error is internal to neoipcr and asking the user to report it at the package's `BugReports` address with a reprex and the full backtrace; the argument states the same fact at the call site, where a comment could drift from the code. What decides is what a message asks of its reader: one that asks for a change to the package is developer-only even where a caller can reach it. `read_metadata_reponse()` fails on a response from a path it did not request, which nothing but a redirecting proxy produces; `require_cols()` and `assert_serializable_dataset_options()`, which checks the options a calculated dataset carries out of the package, can be reached from exported functions with an old or tampered dataset, but their bullets tell a developer what to fix. All three are developer-only.
 4. **The `logger` messages stay English and untranslated.** Their readers are the operators and supporters who run and debug the reports and the reporting service, not the people who enter data; English keeps them searchable across deployments and comparable in a support request; and the package's logger formats its messages with `logger::formatter_glue` (`R/log.R`), which would interpolate any braces a translation introduced.
 5. **The vendored rlang standalone files** (`R/import-standalone-obj-type.R`, `R/import-standalone-types-check.R`) keep their condition calls as rlang ships them.
 
-#### §6.8.2. Writing a translatable message
+#### §6.8.2. Writing a Translatable Message
 
 The headline and every bullet go through `gettext()`, `gettextf()`, or `ngettext()`, and `class` and `call` are untouched, as in this sketch of an invented condition:
 
@@ -553,7 +554,7 @@ rlang::abort(c(
 5. **Bullet names stay outside `gettext()`**: `"i" = gettext("…")`.
 6. **A developer-only assertion** keeps its literal unwrapped and passes `.internal = TRUE` (§6.8.1, item 3).
 
-#### §6.8.3. The catalogue tool
+#### §6.8.3. The Catalogue Tool
 
 `Rscript tools/update_po.R`, run from the package root, builds the catalogue in place of `tools::update_pkg_po()`, whose template writer opens a text-mode connection and so writes CRLF line endings on Windows. It needs GNU gettext's `msgmerge` and `msgfmt` on the `PATH`; Rtools provides both on Windows.
 
@@ -571,11 +572,11 @@ rlang::abort(c(
 4. **The `Plural-Forms` headers are maintained by hand.** `msgmerge` copies `POT-Creation-Date` and `Report-Msgid-Bugs-To` from the template into each `.po` file but never adds a `Plural-Forms` field that exists only there, so each language file carries its own: `po/R-de.po` and `po/R-en.po` both declare `nplurals=2; plural=(n != 1);`. A new language file needs the header for its language before `msgfmt` accepts its first translated plural entry.
 5. **The template mode and the check.** `Rscript tools/update_po.R --template <file>` writes the template to `<file>` and touches nothing under `po/` or `inst/po`. The `po-template` job of the `R-CMD-check` workflow runs it into a temporary file and fails when the regenerated template's messages differ from the committed template's. GNU gettext's `msgcomm` reduces both files to their messages first: it drops the header, whose `POT-Creation-Date` changes on every run, and the `#:` references, which change whenever a line moves, and sorts what remains, keeping each msgid with its `msgid_plural`, which `msgcmp` does not compare. The job therefore fails on a message added, removed, or reworded, or turned singular or plural, and not on a moved line. It also fails where the two extractors differ (item 2), since the template mode raises an error where a catalogue run only warns.
 
-#### §6.8.4. At run time
+#### §6.8.4. At Run Time
 
 1. **The domain is inferred.** When `gettext()` or `ngettext()` is called from a function in the namespace of package *pkg*, the domain is `R-pkg` (`?gettext`), here `R-neoipcr`, and `gettextf()` called from such a function translates through the same domain.
 2. **Lookups are trimmed.** `gettext()` and `gettextf()` look a message up without its leading and trailing whitespace (`trim = TRUE`), which is why the tool trims every singular msgid: a msgid kept with a trailing space would never be found.
-3. **Tests cannot show a translation.** testthat's third edition, which the package declares, runs each `test_that()` block with the language set to `C`, so a test sees the English source text: a test that matches a message's English text keeps passing after the message is wrapped, and the `class` is what a test matches. A translation shows only from an installed package, in a session whose language selects it, such as one started with `LANGUAGE=de` or switched with `Sys.setLanguage("de")`.
+3. **Tests cannot show a translation.** testthat's third edition, which the package declares, runs each `test_that()` block with the language set to `C`, so a test sees the English source text: a test that matches a message's English text keeps passing after the message is wrapped, and the `class` is what a test matches. A translation shows from an installed package or a `devtools::load_all()` session, since `pkgload::load_all()` binds the domain to a copy of the source tree's `inst/po`, in a session whose language selects it, such as one started with `LANGUAGE=de` or switched with `Sys.setLanguage("de")`.
 
 ---
 
@@ -1061,13 +1062,13 @@ We're already touching one of the three for the prefix-unification rename, and p
 
 **PI resolution:** _pending_
 
-### §10.7. D-G. Message-catalog scope
+### §10.7. D-G. Message-catalogue scope
 
-**Question.** One `R-neoipcr.pot` / `R-neoipcr.po` catalog for all M-class messages, or split catalogs by subject (e.g., auth vs. validation)?
+**Question.** One `R-neoipcr.pot` / `R-neoipcr.po` catalogue for all M-class messages, or split catalogues by subject (e.g., auth vs. validation)?
 
-**Recommendation.** Single catalog. Matches `potools` convention (§6.4 row 5), matches R's own convention, matches the current state. Splitting catalogs creates a coordination burden for translators with no operational benefit.
+**Recommendation.** Single catalogue. Matches `potools` convention (§6.4 row 5), matches R's own convention, matches the current state. Splitting catalogues creates a coordination burden for translators with no operational benefit.
 
-**Rationale.** After the F-class migration (§6.5), the catalogue holds the condition messages and the print method's text (§6.8) — plus the two column headers if the `:45` call keeps them on `gettext` — well within a single-file size. No need to complicate.
+**Rationale.** After the F-class migration (§6.5), the catalogue holds the condition messages, the credential prompts, and the print method's text (§6.8) — plus the two column headers if the `:45` call keeps them on `gettext` — well within a single-file size. No need to complicate.
 
 **PI resolution:** _pending_
 
