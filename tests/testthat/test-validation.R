@@ -268,7 +268,11 @@ test_that("a pass that could not run a rule is refused where it must read as com
     class = "neoipcr_validation_rule_skipped")
   expect_error(
     neoipcr:::.assert_no_rule_skipped(findings),
-    "18, 19")
+    "Rules 18, 19 did not run: the dataset lacks what they read")
+  attr(findings, "rules_skipped") <- 18L
+  expect_error(
+    neoipcr:::.assert_no_rule_skipped(findings),
+    "Rule 18 did not run: the dataset lacks what it reads")
 })
 
 test_that("validate carries a rule's values as a one-row tibble in context", {

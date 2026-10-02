@@ -309,8 +309,10 @@ validation_rules <- list(
   if (length(skipped) > 0L)
     rlang::abort(c(
       gettext("The validation pass could not run every rule on this dataset."),
-      x = gettextf("Rule(s) %s found no column to read; the log names it.",
-                   paste(skipped, collapse = ", ")),
+      x = sprintf(ngettext(length(skipped),
+                           "Rule %s did not run: the dataset lacks what it reads, which the log names.",
+                           "Rules %s did not run: the dataset lacks what they read, which the log names for each."),
+                  paste(skipped, collapse = ", ")),
       i = gettext("The pass needs the full enrollment and event tiers with every column they declare, and the events that are not completed whenever the enrolments that are not completed are requested.")),
       class = "neoipcr_validation_rule_skipped")
   invisible(findings)
