@@ -45,7 +45,9 @@ dhis2_connection_options <- function(
   ret <- switch(
     rlang::check_exclusive(token, username, session_id, .require = FALSE),
     token = c(ret, list(token = read_token(token))),
-    username = c(ret, list(username = username, password = get_password(ret$base_url))),
+    username = c(ret, list(
+      username = username,
+      password = get_password(ret$base_url, username_from_env = FALSE))),
     session_id = c(ret, list(session_id = session_id)),
     c(ret, get_auth_data(ret$base_url))
   )
@@ -88,14 +90,20 @@ read_token <- function(token)
   rlang::abort(gettext("Invalid DHIS2 personal access token."))
 }
 
-get_password <- function(url)
+# `username_from_env` says whether the username came from NEOIPC_DHIS2_USER
+# rather than from the `username` argument or the prompt, so that the message
+# names the environment variable only where it is the source.
+get_password <- function(url, username_from_env)
 {
   pw <- Sys.getenv("NEOIPC_DHIS2_PASSWORD", unset = NA)
   if(!is.na(pw)) return(pw)
 
   if(!interactive()) rlang::abort(c(
     gettext("No password found"),
-    "i" = gettextf("%s is set but %s is not.", "NEOIPC_DHIS2_USER", "NEOIPC_DHIS2_PASSWORD"),
+    "i" = if(username_from_env)
+      gettextf("%s is set but %s is not.", "NEOIPC_DHIS2_USER", "NEOIPC_DHIS2_PASSWORD")
+    else
+      gettextf("A username was given, but %s is not set.", "NEOIPC_DHIS2_PASSWORD"),
     "i" = gettextf(
       "Set the %s environment variable, or use a personal access token (%s) instead.",
       "NEOIPC_DHIS2_PASSWORD", "NEOIPC_DHIS2_TOKEN"),
@@ -123,7 +131,7 @@ get_auth_data <- function(url)
 
   env_user <- Sys.getenv("NEOIPC_DHIS2_USER", unset = NA)
   if(!is.na(env_user) && nzchar(env_user))
-    return(list(username = env_user, password = get_password(url)))
+    return(list(username = env_user, password = get_password(url, username_from_env = TRUE)))
 
   if(!interactive()) rlang::abort(c(
     gettext("No authentication credentials found"),
@@ -140,5 +148,5 @@ get_auth_data <- function(url)
     gettext("No username provided"),
     "i" = gettext("Please provide username and password, a personal access token, or a session ID to authenticate to DHIS2.")))
 
-  list(username = user, password = get_password(url))
+  list(username = user, password = get_password(url, username_from_env = FALSE))
 }

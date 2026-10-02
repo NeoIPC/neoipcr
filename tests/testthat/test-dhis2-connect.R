@@ -199,7 +199,7 @@ test_that("get_password returns password from env var", {
   withr::with_envvar(
     c(NEOIPC_DHIS2_PASSWORD = "secret123"),
     expect_equal(
-      neoipcr:::get_password("https://example.com"),
+      neoipcr:::get_password("https://example.com", username_from_env = TRUE),
       "secret123"))
 })
 
@@ -207,6 +207,33 @@ test_that("get_password aborts without env var (non-interactive)", {
   withr::with_envvar(
     c(NEOIPC_DHIS2_PASSWORD = NA_character_),
     expect_error(
-      neoipcr:::get_password("https://example.com"),
+      neoipcr:::get_password("https://example.com", username_from_env = TRUE),
       "No password found"))
+})
+
+test_that("the missing-password error names the source the username came from", {
+  # A username passed as an argument says nothing about NEOIPC_DHIS2_USER,
+  # which may be unset.
+  withr::with_envvar(
+    c(NEOIPC_DHIS2_USER = NA_character_, NEOIPC_DHIS2_PASSWORD = NA_character_),
+    {
+      error <- expect_error(
+        dhis2_connection_options(username = "admin", hostname = test_host),
+        "No password found")
+      expect_match(conditionMessage(error),
+                   "A username was given, but NEOIPC_DHIS2_PASSWORD is not set.", fixed = TRUE)
+      expect_no_match(conditionMessage(error), "NEOIPC_DHIS2_USER", fixed = TRUE)
+    })
+  withr::with_envvar(
+    c(NEOIPC_DHIS2_SESSION_ID = NA_character_,
+      NEOIPC_DHIS2_TOKEN      = NA_character_,
+      NEOIPC_DHIS2_USER       = "admin",
+      NEOIPC_DHIS2_PASSWORD   = NA_character_),
+    {
+      error <- expect_error(
+        dhis2_connection_options(hostname = test_host),
+        "No password found")
+      expect_match(conditionMessage(error),
+                   "NEOIPC_DHIS2_USER is set but NEOIPC_DHIS2_PASSWORD is not.", fixed = TRUE)
+    })
 })
