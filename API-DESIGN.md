@@ -773,7 +773,7 @@ PI flagged that result-table names diverge across six surfaces — function name
 | H | Heading key in `sR$headings$<key>` (English source in `_sR.yaml` / `common.yaml`) | snake_case | Surveillance-Toolkit reports |
 | D | Display heading string (per-locale, in `_sR.yaml` / `common.yaml` / glossary.yaml) | English source per AMA Manual; translations via po4a/Weblate | Surveillance-Toolkit reports + Weblate translators |
 
-The casing-per-layer convention is documented in [Surveillance-Toolkit CLAUDE.md](https://github.com/NeoIPC/Surveillance-Toolkit/blob/main/CLAUDE.md): "PS `PascalCase` → QMD `camelCase` → R `snake_case`, mapped once at each boundary." §9.5 extends this to: filesystem paths use kebab-case (Z), heading keys use snake_case (H), display strings follow the AMA Manual (D, with translations via po4a/Weblate).
+The casing-per-layer convention is documented in [the Surveillance-Toolkit's report-wrapper rules](https://github.com/NeoIPC/Surveillance-Toolkit/blob/main/.claude/rules/wrappers.md): "PowerShell `PascalCase` → Quarto document `camelCase` → R `snake_case`, mapped once at each boundary." §9.5 extends this to: filesystem paths use kebab-case (Z), heading keys use snake_case (H), display strings follow the AMA Manual (D, with translations via po4a/Weblate).
 
 One surface remains out of §9.5's scope:
 - **Per-factor rate column names within a table** (e.g. `cvc_rate`, `pvc_rate` inside `usage_density_rate_table`). These name the *factors* the table groups by, not the *table*. They follow their own per-domain conventions (device codes, infection-type codes, etc.) and are out of scope for the per-table master-name decision.

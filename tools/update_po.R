@@ -40,9 +40,11 @@ update_po <- function(dir = ".", verbose = FALSE) {
       # tabs, and newlines, and tools::xgettext() strips them the same way.
       trim_msgid <- function(s) sub("[ \t\n]*$", "", sub("^[ \t\n]*", "", s))
 
-      # Collects what tools::xgettext() collects from the same calls: every
-      # literal argument of gettext() but `domain`, and only the format string
-      # of gettextf(), whose other arguments are values, not messages.
+      # Collects the direct literal arguments of every gettext() and gettextf()
+      # call, namespace-qualified ones included: all of gettext()'s but
+      # `domain`, and only gettextf()'s format string, whose other arguments
+      # are values, not messages. The comparison with tools::xgettext() below
+      # warns wherever the two extractors still differ.
       find_gettext_strings <- function(f)
       {
         e <- parse(file = f, keep.source = TRUE)
