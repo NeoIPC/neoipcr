@@ -132,8 +132,8 @@ assert_options_for <- function(x, required, fn_name) {
     ok <- !is.null(actual) && all(actual %in% accepted)
     if (!ok) {
       shown_actual <- if (is.null(actual)) "NULL" else
-        paste0('"', paste(actual, collapse = '", "'), '"')
-      shown_accepted <- paste(paste0('"', accepted, '"'), collapse = " / ")
+        paste(.shown_option_values(actual), collapse = ", ")
+      shown_accepted <- paste(.shown_option_values(accepted), collapse = " / ")
       violations <- c(
         violations,
         gettextf("`%s` is %s; need one of %s.",
@@ -149,6 +149,12 @@ assert_options_for <- function(x, required, fn_name) {
     "i" = gettextf("Re-import via %s with the required options set.",
                    "`import_dhis2(dhis2_dataset_options(...))`")))
 }
+
+# Option values as `assert_options_for()` shows them: a string in double
+# quotes, any other value as code, so that the flag `TRUE` does not read as
+# the string "TRUE".
+.shown_option_values <- function(values)
+  if (is.character(values)) paste0('"', values, '"') else paste0("`", values, "`")
 
 # Assert that a dataset carries its validation summary. A calculated dataset
 # documents `validationSummary` as the summary of the dataset it was built
