@@ -65,10 +65,11 @@ get_test_unit_attribute_ids <- function(req_base, definitions_map)
     failure <- if (is.null(resp$resp))
       gettextf("DHIS2 %s (the %s test-unit lookup) could not be performed: %s",
                "organisationUnits", "IsTestunit", conditionMessage(resp))
-    else
+    else {
+      status <- tryCatch(httr2::resp_status(resp$resp), error = \(e) gettext("unknown"))
       gettextf("DHIS2 %s (the %s test-unit lookup) returned HTTP %s.",
-               "organisationUnits", "IsTestunit",
-               tryCatch(httr2::resp_status(resp$resp), error = \(e) "unknown"))
+               "organisationUnits", "IsTestunit", status)
+    }
     rlang::abort(failure, parent = resp)
   }
   read_test_unit_attribute_ids(httr2::resp_body_json(resp))

@@ -313,7 +313,7 @@ validation_rules <- list(
                            "Rule %s did not run: the dataset lacks what it reads, which the log names.",
                            "Rules %s did not run: the dataset lacks what they read, which the log names for each."),
                   paste(skipped, collapse = ", ")),
-      i = gettext("The pass needs the full enrollment and event tiers with every column they declare, and the events that are not completed whenever the enrolments that are not completed are requested.")),
+      i = gettext("The pass needs the full enrolment and event tiers with every column they declare, and the events that are not completed whenever the enrolments that are not completed are requested.")),
       class = "neoipcr_validation_rule_skipped")
   invisible(findings)
 }

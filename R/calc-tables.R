@@ -931,7 +931,7 @@ get_cumulative_incidence_table <- function(
       "x" = paste(missing_cols, collapse = ", ")))
   if (!inherits(windows$start, "Date") || !inherits(windows$end, "Date"))
     rlang::abort(gettextf(
-      "%s and %s must be Date columns.", "`windows$start`", "`windows$end`"))
+      "%s and %s must be %s columns.", "`windows$start`", "`windows$end`", "`Date`"))
   if (any(is.na(windows$start) | is.na(windows$end) | windows$start > windows$end))
     rlang::abort(gettextf(
       "Every window needs %s, with neither date missing.", "`start <= end`"))

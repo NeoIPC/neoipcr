@@ -273,7 +273,7 @@ import_dhis2 <- function(
         error = \(e) conditionMessage(err))
       status <- tryCatch(
         httr2::resp_status(resp),
-        error = \(e) "unknown")
+        error = \(e) gettext("unknown"))
       rlang::abort(gettextf(
         "DHIS2 %s returned HTTP %s.\nResponse body:\n%s",
         paste0("tracker/", endpoints[i]), status, body))

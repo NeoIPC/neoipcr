@@ -69,7 +69,7 @@ test_that("read_validation_exceptions reads a record naming the form its rule's 
   expect_error(
     neoipcr::read_validation_exceptions(
       write_exception_csv(rows |> dplyr::mutate(EVENT_TYPE = c("END", "ADM", "ADM")))),
-    regexp = "rule\\(s\\) 5, 18, 44 do not concern",
+    regexp = "rules 5, 18, 44 do not concern",
     class = "neoipcr_invalid_exception_list")
 })
 
@@ -110,7 +110,19 @@ test_that("read_validation_exceptions refuses a row with the wrong number of fie
   # were it let through, would be it and fail the class check.
   cnd <- rlang::catch_cnd(neoipcr::read_validation_exceptions(path))
   expect_true(inherits(cnd, "neoipcr_invalid_exception_list"))
-  expect_match(conditionMessage(cnd), "Line 4")
+  expect_match(conditionMessage(cnd), "Line 4 has 4 fields where the header has 6 columns.",
+               fixed = TRUE)
+})
+
+test_that("read_validation_exceptions counts a one-field row in the singular", {
+  path <- write_exception_csv(exception_rows())
+  lines <- c(readLines(path), "3")
+  con <- file(path, open = "wb")
+  writeLines(lines, con, sep = "\n", useBytes = TRUE)
+  close(con)
+  cnd <- rlang::catch_cnd(neoipcr::read_validation_exceptions(path))
+  expect_true(inherits(cnd, "neoipcr_invalid_exception_list"))
+  expect_match(conditionMessage(cnd), "Line 4 has 1 field where", fixed = TRUE)
 })
 
 test_that("read_validation_exceptions refuses a record without a patient id or department code", {
@@ -303,13 +315,13 @@ test_that("resolve_validation_exceptions refuses a record written at another lev
   # The message names the rules concerned.
   refuse(written_exceptions() |> dplyr::mutate(EVENT_TYPE = c("end", "bsi", NA),
                                               EVENT_DATE = as.Date(c("2024-01-01", "2024-01-06", NA))),
-         "rule\\(s\\) 3")
+         "rule 3 does not concern")
   # Rules 1 and 56 both concern the patient alone, and one sentence names
   # them together.
   refuse(dplyr::bind_rows(written_exceptions()[3, ],
                           written_exceptions()[3, ] |> dplyr::mutate(RULE_ID = 56L)) |>
            dplyr::mutate(ENROLMENT_DATE = as.Date("2024-01-01")),
-         "rule\\(s\\) 1, 56 concern the patient alone: their records leave")
+         "rules 1, 56 concern the patient alone: their records leave")
 })
 
 test_that("resolve_validation_exceptions lets an enrolment-level record name its rule's form", {

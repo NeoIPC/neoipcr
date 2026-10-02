@@ -49,12 +49,19 @@ read_validation_exceptions <- function(path)
     show_col_types = FALSE,
     progress = FALSE))
   ragged <- readr::problems(ex)
-  if (nrow(ragged) > 0L)
+  if (nrow(ragged) > 0L) {
+    # The counts are taken here rather than from readr's own English
+    # "<n> columns" strings, so that the sentence translates as a whole;
+    # count_fields() numbers the records as problems() does.
+    line <- ragged$row[1]
+    fields <- readr::count_fields(path, readr::tokenizer_csv())[line]
+    line_has <- sprintf(ngettext(fields, "%d field", "%d fields"), fields)
+    header_has <- sprintf(ngettext(ncol(ex), "%d column", "%d columns"), ncol(ex))
     rlang::abort(c(
       header,
-      x = gettextf("Line %d has %s where the header has %s.",
-                   ragged$row[1], ragged$actual[1], ragged$expected[1])),
+      x = gettextf("Line %d has %s where the header has %s.", line, line_has, header_has)),
       class = "neoipcr_invalid_exception_list")
+  }
   missing_cols <- setdiff(.exception_list_cols, names(ex))
   if (length(missing_cols) > 0L)
     rlang::abort(c(
@@ -234,11 +241,11 @@ check_exception_list <- function(ex, header)
       gettextf("%s is not a %s", "`EVENT_DATE`", "`Date`"),
     .rule_id_problem(ex$RULE_ID, "RULE_ID"),
     if (!is.character(ex$NEOIPC_PATIENT_ID))
-      gettextf("%s is not character", "`NEOIPC_PATIENT_ID`")
+      gettextf("%s is not %s", "`NEOIPC_PATIENT_ID`", "`character`")
     else if (any(.blank(ex$NEOIPC_PATIENT_ID)))
       gettextf("%s is empty on some record", "`NEOIPC_PATIENT_ID`"),
     if ("DEPARTMENT_CODE" %in% names(ex) && !is.character(ex$DEPARTMENT_CODE))
-      gettextf("%s is not character", "`DEPARTMENT_CODE`")
+      gettextf("%s is not %s", "`DEPARTMENT_CODE`", "`character`")
     else if ("DEPARTMENT_CODE" %in% names(ex) && any(.blank(ex$DEPARTMENT_CODE)) &&
              !all(.blank(ex$DEPARTMENT_CODE)))
       gettextf("%s is empty on some record (fill it on every record, or leave it empty throughout for a single-department list)",
@@ -300,7 +307,7 @@ check_exception_list <- function(ex, header)
 .rule_id_problem <- function(ids, column)
 {
   if (!is.numeric(ids))
-    gettextf("`%s` is not numeric", column)
+    gettextf("`%s` is not %s", column, "`numeric`")
   else if (anyNA(ids) || !.whole_or_na(ids))
     gettextf("`%s` is empty or not a whole number on some record", column)
   else if (!all(ids %in% validation_rule_ids()))
@@ -331,23 +338,45 @@ check_exception_list <- function(ex, header)
     \(i) !has_event[i] || names_no_form[i] || event_types[i] %in% allowed[[i]],
     logical(1))
   rules_where <- function(cond)
-    paste(sort(unique(ids[cond])), collapse = ", ")
+    sort(unique(ids[cond]))
+  listed <- function(rules)
+    paste(rules, collapse = ", ")
   c(
-    if (any(level == "patient" & has_enrolment))
-      gettextf("rule(s) %s concern the patient alone: their records leave %s empty",
-               rules_where(level == "patient" & has_enrolment), "`ENROLMENT_DATE`"),
-    if (any(level != "patient" & !has_enrolment))
-      gettextf("rule(s) %s are recorded on the enrolment or an event: their records name %s",
-               rules_where(level != "patient" & !has_enrolment), "`ENROLMENT_DATE`"),
-    if (any(names_no_form))
-      gettextf("rule(s) %s are not recorded on an event: their records leave %s and %s empty",
-               rules_where(names_no_form), "`EVENT_TYPE`", "`EVENT_DATE`"),
-    if (any(level == "event" & !has_event))
-      gettextf("rule(s) %s are recorded on an event: their records name %s and %s",
-               rules_where(level == "event" & !has_event), "`EVENT_TYPE`", "`EVENT_DATE`"),
-    if (!all(type_fits))
-      gettextf("rule(s) %s do not concern the %s their records name",
-               rules_where(!type_fits), "`EVENT_TYPE`"))
+    if (any(level == "patient" & has_enrolment)) {
+      rules <- rules_where(level == "patient" & has_enrolment)
+      sprintf(ngettext(length(rules),
+                       "rule %s concerns the patient alone: its records leave %s empty",
+                       "rules %s concern the patient alone: their records leave %s empty"),
+              listed(rules), "`ENROLMENT_DATE`")
+    },
+    if (any(level != "patient" & !has_enrolment)) {
+      rules <- rules_where(level != "patient" & !has_enrolment)
+      sprintf(ngettext(length(rules),
+                       "rule %s is recorded on the enrolment or an event: its records name %s",
+                       "rules %s are recorded on the enrolment or an event: their records name %s"),
+              listed(rules), "`ENROLMENT_DATE`")
+    },
+    if (any(names_no_form)) {
+      rules <- rules_where(names_no_form)
+      sprintf(ngettext(length(rules),
+                       "rule %s is not recorded on an event: its records leave %s and %s empty",
+                       "rules %s are not recorded on an event: their records leave %s and %s empty"),
+              listed(rules), "`EVENT_TYPE`", "`EVENT_DATE`")
+    },
+    if (any(level == "event" & !has_event)) {
+      rules <- rules_where(level == "event" & !has_event)
+      sprintf(ngettext(length(rules),
+                       "rule %s is recorded on an event: its records name %s and %s",
+                       "rules %s are recorded on an event: their records name %s and %s"),
+              listed(rules), "`EVENT_TYPE`", "`EVENT_DATE`")
+    },
+    if (!all(type_fits)) {
+      rules <- rules_where(!type_fits)
+      sprintf(ngettext(length(rules),
+                       "rule %s does not concern the %s its records name",
+                       "rules %s do not concern the %s their records name"),
+              listed(rules), "`EVENT_TYPE`")
+    })
 }
 
 # Map the records onto the dataset's keys. Every join matches on the values

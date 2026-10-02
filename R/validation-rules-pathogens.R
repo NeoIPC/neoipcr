@@ -13,7 +13,7 @@ validation_rule_20 <- function(x, exceptions)
            names(x$infectiousAgentFindings)) ||
       is.null(x$unknownPathogenNames))
     return(.rule_skipped(
-      20L, "the infectious-agent findings' pathogen and the unknown pathogen names"))
+      20L, "the infectious-agent keys of the findings and the free-text names of unlisted infectious agents"))
 
   x$infectiousAgentFindings |>
     dplyr::filter(.data$pathogen_key == 0L) |>

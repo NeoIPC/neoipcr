@@ -123,7 +123,7 @@ assert_options_for <- function(x, required, fn_name) {
                fn_name, "neoipcr_ds"),
       "i" = gettextf("The dataset must have been imported via %s.",
                      "`import_dhis2()`"),
-      "x" = gettextf("%s is NULL.", "`x$metadata$dataset_options`")))
+      "x" = gettextf("%s is %s.", "`x$metadata$dataset_options`", "`NULL`")))
 
   violations <- character()
   for (opt_name in names(required)) {
@@ -165,7 +165,7 @@ assert_validation_summary <- function(x, fn_name) {
   if (is.null(x$validationSummary))
     rlang::abort(c(
       gettextf("%s() needs a dataset that carries its validation summary.", fn_name),
-      "x" = gettextf("%s is NULL.", "`x$validationSummary`"),
+      "x" = gettextf("%s is %s.", "`x$validationSummary`", "`NULL`"),
       "i" = gettextf("Import the dataset again with this version of neoipcr; see %s.",
                      "`?import_dhis2`")))
   invisible(x)

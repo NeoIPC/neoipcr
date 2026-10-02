@@ -227,12 +227,12 @@ bootstrap_quantile_ci <- function(events, exposure,
                           "`events`", "`exposure`"))
   }
   if (!is.numeric(events) || any(stats::na.omit(events) != as.integer(stats::na.omit(events)))) {
-    rlang::abort(gettextf("%s must be a vector of whole numbers (NA allowed).",
-                          "`events`"))
+    rlang::abort(gettextf("%s must be a vector of whole numbers (%s allowed).",
+                          "`events`", "`NA`"))
   }
   if (!is.numeric(exposure)) {
-    rlang::abort(gettextf("%s must be a numeric vector (NA allowed).",
-                          "`exposure`"))
+    rlang::abort(gettextf("%s must be a numeric vector (%s allowed).",
+                          "`exposure`", "`NA`"))
   }
 
   # Filter out NA pairs — departments without this metric are structurally
