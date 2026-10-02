@@ -517,33 +517,40 @@ reconciliation_details <- function(x)
     options[vapply(options, \(option) !is.null(opts[[option]]), logical(1))]
   unmet <- c(
     if (is.null(opts))
-      "The dataset carries no import options.",
+      gettext("The dataset carries no import options."),
     if (isTRUE(opts$reconcile))
-      "`reconcile` is `TRUE`: the import repaired the values.",
+      gettextf("%s is %s: the import repaired the values.",
+               "`reconcile`", "`TRUE`"),
     if (!is.null(opts) && !isTRUE(opts$include_invalid_patients))
-      "`include_invalid_patients` is not `TRUE`: the validation pass removed patients.",
+      gettextf("%s is not %s: the validation pass removed patients.",
+               "`include_invalid_patients`", "`TRUE`"),
     if (!is.null(opts) && !isTRUE(opts$include_ineligible_patients))
-      "`include_ineligible_patients` is not `TRUE`: the eligibility filters removed patients and admissions.",
+      gettextf("%s is not %s: the eligibility filters removed patients and admissions.",
+               "`include_ineligible_patients`", "`TRUE`"),
     if (!is.null(opts))
       purrr::map_chr(
         given(range_filters),
-        \(option) sprintf("`%s` is set: the range filter removed patients by their stored values.", option)),
+        \(option) gettextf("`%s` is set: the range filter removed patients by their stored values.", option)),
     if (!is.null(opts))
       purrr::map_chr(
         given(period),
-        \(option) sprintf("`%s` is set: the reporting period removed enrolments.", option)),
+        \(option) gettextf("`%s` is set: the reporting period removed enrolments.", option)),
     if (!is.null(opts))
       purrr::map_chr(
         tiers[vapply(tiers, \(tier) !identical(opts[[tier]], "full"), logical(1))],
-        \(tier) sprintf("`%s` is \"%s\", not \"full\".", tier, opts[[tier]])),
+        \(tier) gettextf("`%s` is \"%s\", not %s.", tier, opts[[tier]], "\"full\"")),
     if (!is.null(opts) &&
         !("gestational_age" %in% .selected_patient_columns(opts)))
-      "`patient_columns` leaves out \"gestational_age\".")
+      gettextf("%s leaves out %s.", "`patient_columns`", "\"gestational_age\""))
   if (length(unmet) > 0L)
     rlang::abort(c(
-      "Listing the reconciliations needs a dataset imported with every record and every value as stored.",
+      gettext("Listing the reconciliations needs a dataset imported with every record and every value as stored."),
       rlang::set_names(unmet, rep("x", length(unmet))),
-      i = "Import with `reconcile = FALSE`, `include_invalid_patients = TRUE`, `include_ineligible_patients = TRUE`, no range filter and no reporting period, the full patient, enrolment and event tiers, and \"gestational_age\" among `patient_columns`."),
+      i = gettextf(
+        "Import with %s, %s, %s, no range filter and no reporting period, the full patient, enrolment and event tiers, and %s among %s.",
+        "`reconcile = FALSE`", "`include_invalid_patients = TRUE`",
+        "`include_ineligible_patients = TRUE`", "\"gestational_age\"",
+        "`patient_columns`")),
       class = "neoipcr_reconciliation_needs_stored_values")
 
   forms <- .reconcile_event_data(
