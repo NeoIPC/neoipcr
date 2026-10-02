@@ -133,7 +133,7 @@ validation_rule_55 <- function(x, exceptions)
       !"sec_bsi" %in% names(x$ssiData) ||
       !all(c("secondary_bsi", "pathogen_key") %in% names(x$infectiousAgentFindings)))
     return(.rule_skipped(
-      55L, "the secondary-BSI item on the NEC, pneumonia and SSI forms and the findings' secondary-BSI flag and pathogen"))
+      55L, "the secondary-BSI item on the NEC, pneumonia, and SSI forms and the findings' secondary-BSI flag and infectious agent"))
 
   items <- dplyr::bind_rows(
     x$necData       |> dplyr::select("event_key", "sec_bsi"),

@@ -207,7 +207,7 @@ validation_rule_53 <- function(x, exceptions)
   if (!.has_substance_slots(x) ||
       !all(c("ab_days", "patient_days") %in% names(x$surveillanceEndData)))
     return(.rule_skipped(
-      53L, "the substance slots' days, the substance option set and the surveillance-end form's antibiotic and patient days"))
+      53L, "the substance slots' days, the substance option set, and the surveillance-end form's antibiotic and patient days"))
 
   .substance_slots(x) |>
     dplyr::inner_join(
