@@ -21,8 +21,9 @@
 #'  `EVENT_DATE` (`Date`), and `DEPARTMENT_CODE` (character) when the file
 #'  carries it with a value — the shape [dhis2_dataset_options()] accepts as
 #'  `include_invalid_patients` and [validate()] as `exceptions`. A path that
-#'  is not a file, a file that lacks a record column, holds a row with the
-#'  wrong number of fields or a value that does not parse, names a rule
+#'  is not a file, a file that is not UTF-8 text (UTF-16, or a byte another
+#'  encoding wrote), lacks a record column, holds a row with the wrong number
+#'  of fields or a value that does not parse, names a rule
 #'  outside [validation_rule_ids()], or holds a record written at another
 #'  level than its rule's, is an error of class
 #'  `neoipcr_invalid_exception_list`.
@@ -38,6 +39,17 @@ read_validation_exceptions <- function(path)
       class = "neoipcr_invalid_exception_list")
   header <- gettextf(
     "The validation exception file \"%s\" does not hold exception records.", path)
+
+  # readr reads the file as UTF-8 without checking it: a UTF-16 file fails
+  # inside it on the NUL bytes, and a byte that is not UTF-8 fails a string
+  # function further on, both outside this function's class.
+  bytes <- readBin(path, "raw", n = file.size(path))
+  if (any(bytes == as.raw(0L)) || !validUTF8(rawToChar(bytes)))
+    rlang::abort(c(
+      header,
+      x = gettext("The file is not UTF-8 text."),
+      i = gettext("Save it as CSV in the UTF-8 encoding.")),
+      class = "neoipcr_invalid_exception_list")
 
   # Every column arrives as text and is parsed below, where a value that
   # does not parse can be named; readr's own guessing would coerce a whole
@@ -141,6 +153,96 @@ read_validation_exceptions <- function(path)
 #' @export
 resolve_validation_exceptions <- function(x, exceptions)
 {
+  checked <- .exception_resolution(x, exceptions, "resolve_validation_exceptions")
+  transform_user_exceptions(checked$exceptions, x, checked$departments)
+}
+
+#' How an exception list's records fare on a dataset
+#'
+#' For each record of an exception list that concerns the dataset's
+#' departments: whether it matches a record of the dataset, and how many
+#' records it exempted from its rule in a validation result. A record that
+#' matches nothing exempts nothing, and neither does one whose record its
+#' rule no longer flags; both are candidates for the list's upkeep. A
+#' record for a department the dataset does not hold is left out, since it
+#' describes that department.
+#'
+#' @param x A `neoipcr_ds`, as [resolve_validation_exceptions()] needs it. A
+#'  list carrying `DEPARTMENT_CODE` also needs the departments' codes
+#'  (`include_department = "full"`), by which other departments' records
+#'  are left out.
+#' @param exceptions The list as [read_validation_exceptions()] returns it.
+#' @param findings The result of [validate()] on `x` with `exceptions`, as
+#'  it returned it: only its attributes are read, which describe the whole
+#'  run.
+#'
+#' @returns The list's records for the dataset's departments, in the list's
+#'  order and with its columns, and `matched` (logical: the record resolves
+#'  onto the dataset) and `n_exempted` (integer: the distinct records, at
+#'  its rule's level, that it exempted from the rule; `NA` where the result
+#'  did not run the rule). A list without `DEPARTMENT_CODE`, which only a
+#'  single-department dataset accepts, is kept whole. A list with it, on a
+#'  dataset without the departments' codes, is an error of class
+#'  `neoipcr_validation_needs_facts`; findings without the attributes
+#'  [validate()] sets are an error of class
+#'  `neoipcr_invalid_validation_result`.
+#' @family validation
+#' @export
+validation_exception_usage <- function(x, exceptions, findings)
+{
+  run <- .validation_run(findings)
+  checked <- .exception_resolution(x, exceptions, "validation_exception_usage")
+  ex <- checked$exceptions
+  by_department <- "DEPARTMENT_CODE" %in% names(ex)
+  if (by_department && !"code" %in% names(checked$departments))
+    rlang::abort(c(
+      gettext("An exception list with department codes is narrowed to the dataset's departments by their codes, which this dataset does not carry."),
+      i = gettextf("Import with %s.", "`include_department = \"full\"`")),
+      class = "neoipcr_validation_needs_facts")
+  keep <- if (by_department)
+    ex$DEPARTMENT_CODE %in% checked$departments$code
+  else
+    rep(TRUE, nrow(ex))
+  ex <- ex[keep, ]
+  ex$.record <- seq_len(nrow(ex))
+
+  resolved <- transform_user_exceptions(ex, x, checked$departments, record = TRUE)
+  resolved$record_key <- .level_record_key(resolved)
+  exempted_records <- tibble::tibble(
+    rule_id    = run$exempted$rule_id,
+    record_key = .level_record_key(run$exempted),
+    exempted   = TRUE) |>
+    dplyr::distinct()
+  usage <- resolved |>
+    dplyr::left_join(
+      exempted_records,
+      dplyr::join_by("rule_id", "record_key"),
+      na_matches = "never") |>
+    dplyr::group_by(.data$.record) |>
+    dplyr::summarise(
+      matched    = any(!is.na(.data$patient_key)),
+      n_exempted = dplyr::n_distinct(
+        .data$record_key[dplyr::coalesce(.data$exempted, FALSE)], na.rm = TRUE),
+      .groups = "drop")
+
+  # The caller's records rather than the checked copy, which drops a
+  # `DEPARTMENT_CODE` column left empty throughout. A record for a rule the
+  # result did not run exempted nothing for want of a run, not of a record.
+  records <- exceptions[keep, , drop = FALSE]
+  records$.record <- seq_len(nrow(records))
+  records |>
+    dplyr::left_join(usage, dplyr::join_by(".record")) |>
+    dplyr::mutate(n_exempted = dplyr::if_else(
+      .data$RULE_ID %in% run$rules_run, .data$n_exempted, NA_integer_)) |>
+    dplyr::select(!".record")
+}
+
+# The list checked, and the departments it is resolved within: the
+# dataset's tiers and patient ids, and a department code on every record
+# wherever more than one department is imported. `fn_name` and `call` name
+# the exported function in a refusal.
+.exception_resolution <- function(x, exceptions, fn_name, call = rlang::caller_env())
+{
   check_neoipcr_ds(x)
   exceptions <- check_exception_list(
     exceptions, gettextf("%s must be a data frame of exception records.", "`exceptions`"))
@@ -148,14 +250,15 @@ resolve_validation_exceptions <- function(x, exceptions)
     include_patient    = "full",
     include_enrollment = "full",
     include_event      = "full"
-  ), fn_name = "resolve_validation_exceptions")
+  ), fn_name = fn_name)
   if (!"patient_id" %in% names(x$patients))
     rlang::abort(c(
       gettext("An exception list is matched by patient id, which this dataset does not carry."),
       i = gettextf("Import with %s and %s in %s, or pass the list to the import as %s.",
                    "`include_patient = \"full\"`", "`\"id\"`", "`patient_columns`",
                    "`include_invalid_patients`")),
-      class = "neoipcr_validation_needs_facts")
+      class = "neoipcr_validation_needs_facts",
+      call = call)
 
   # The import resolves before it strips its internal maps, which carry the
   # department codes whatever `include_department` says; a returned dataset
@@ -170,7 +273,8 @@ resolve_validation_exceptions <- function(x, exceptions)
       x = gettext("This dataset carries no departments."),
       i = gettextf("Import with %s (one department) or %s.",
                    "`include_department = \"pseudo\"`", "`\"full\"`")),
-      class = "neoipcr_validation_needs_facts")
+      class = "neoipcr_validation_needs_facts",
+      call = call)
   if (nrow(departments) > 1L) {
     if (!"DEPARTMENT_CODE" %in% names(exceptions))
       rlang::abort(c(
@@ -182,14 +286,16 @@ resolve_validation_exceptions <- function(x, exceptions)
                     nrow(departments)),
         i = gettextf("Add the column, or narrow the import to one department with %s.",
                      "`department_filter`")),
-        class = "neoipcr_invalid_exception_list")
+        class = "neoipcr_invalid_exception_list",
+        call = call)
     if (!"code" %in% names(departments))
       rlang::abort(c(
         gettext("An exception list for more than one department is matched by department code, which this dataset does not carry."),
         i = gettextf("Import with %s.", "`include_department = \"full\"`")),
-        class = "neoipcr_validation_needs_facts")
+        class = "neoipcr_validation_needs_facts",
+        call = call)
   }
-  transform_user_exceptions(exceptions, x, departments)
+  list(exceptions = exceptions, departments = departments)
 }
 
 # The columns an exception record carries in the form a user writes it (see
@@ -394,11 +500,14 @@ check_exception_list <- function(ex, header)
 # Map the records onto the dataset's keys. Every join matches on the values
 # a record gives, an `NA` matching nothing, and a record then resolves as a
 # whole or not at all. Only the record columns take part, so a stray column
-# that happens to share a key's name cannot derail a join.
-transform_user_exceptions <- function(ex, ds, departments)
+# that happens to share a key's name cannot derail a join; with `record`,
+# the caller's `.record` index rides along, so each result row can be traced
+# to the list record it came from.
+transform_user_exceptions <- function(ex, ds, departments, record = FALSE)
 {
+  carried <- if (record) ".record" else character()
   ex <- ex |>
-    dplyr::select(tidyselect::any_of(c(.exception_list_cols, "DEPARTMENT_CODE"))) |>
+    dplyr::select(tidyselect::any_of(c(.exception_list_cols, "DEPARTMENT_CODE", carried))) |>
     dplyr::mutate(
       event_type_key = factor(
         tolower(.data$EVENT_TYPE),
@@ -451,6 +560,6 @@ transform_user_exceptions <- function(ex, ds, departments)
         \(key) dplyr::if_else(.data$resolved, key, NA_integer_)),
       rule_id = as.integer(.data$RULE_ID)) |>
     dplyr::select(
-      "rule_id", tidyselect::any_of("department_key"),
+      tidyselect::any_of(carried), "rule_id", tidyselect::any_of("department_key"),
       "patient_key", "enrollment_key", "event_key")
 }

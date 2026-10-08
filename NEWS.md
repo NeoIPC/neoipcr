@@ -14,6 +14,43 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+* Validation rules have a severity, which the new `validation_rule_severities()` lists. An error flags
+  a record the analyses cannot use as recorded; a warning flags one they can, although it may hide a
+  mistake the record cannot prove. The validation pass of `import_dhis2()` runs both. It removes the
+  patients an error flags and keeps those only a warning flags. It reports a warning's findings in
+  `validationResults` and counts the records a warning flags in the new `validationSummary` column
+  `n_warned`, whether or not an error removed their patient. Rules 43 and 44 (an enrolment open for
+  more than 120 days) and rule 54 (a substance recorded in two slots of a surveillance-end form) are
+  warnings, so the pass no longer removes a patient they flag.
+* The new rule 62, an error, flags a substance whose slots on a surveillance-end form add up to more
+  days than the form's antibiotic days, one finding per substance and form. It records the substance
+  (`substance_code`, `substance`), the sum (`substance_days`), and the antibiotic days (`ab_days`).
+  Separate treatment courses cannot add up to more than the antibiotic days, so such slots count days
+  twice or wrongly. Only slots that hold days count, and the rule is skipped on a dataset without the
+  antibiotic days.
+* Rule 54's findings carry what tells a substance recorded once per treatment course from a course
+  entered twice: each slot's days as stored (`days`, `days_other`), their sum over all the substance's
+  slots on the form (`substance_days`), and the form's antibiotic days (`ab_days`). A value the form
+  does not hold is recorded as `NA`, and the pair is reported all the same, also where the
+  surveillance-end event has no form data or the dataset lacks the antibiotic days. A pair whose two
+  slots hold days that together with the substance's other slots exceed the antibiotic days is rule
+  62's, not rule 54's, also in a `validate()` call that does not select rule 62. An exception record
+  for rule 54 therefore no longer exempts such a pair; only a record for rule 62 does. The records for
+  rule 54 in a stored list need review: `validation_exception_usage()` shows those that now exempt
+  nothing, and each that still holds is to be written for rule 62.
+* `validate()` returns, beside `rules_skipped`, the rules it ran as the attribute `rules_run` and the
+  findings its exceptions exempted as `findings_exempted`. The new `validation_summary()` counts a
+  result's flagged and exempted records per rule and record kind, as `import_dhis2()` stores them in
+  `validationSummary`, which it now derives from `findings_exempted` rather than from a second pass of
+  its own.
+* The new `validation_exception_usage()` says, for each record of an exception list that concerns the
+  dataset's departments, whether it matches a record of the dataset and how many records it exempted,
+  so that a list's records that match nothing or exempt nothing can be found. A list with department
+  codes needs a dataset that carries them (`include_department = "full"`).
+* `read_validation_exceptions()` refuses a file that is not UTF-8 text, such as a UTF-16 export or a
+  file with a byte another encoding wrote, as `neoipcr_invalid_exception_list`, like its other defects.
+  Such a file used to fail with an error of another class.
+
 # neoipcr 0.0.0.9007
 
 * `import_dhis2()` reconciles, before its filters and its validation pass, the stored values the NeoIPC

@@ -5,13 +5,14 @@ NULL
 #   validationResults — one row per finding of the import's validation pass
 #   validationSummary — one row per rule that flagged or exempted a record,
 #                       and one per record kind, counting the distinct
-#                       records the pass removed and the ones the exception
-#                       list exempted
+#                       records the pass removed, the ones the exception
+#                       list exempted, and the ones a warning flagged, which
+#                       the pass kept unless an error flagged their patient
 #
 # Both slots exist on every dataset. Their entity gate is the validation pass
 # itself: the pass runs when patients are imported and
-# `include_invalid_patients` is not `TRUE` (`FALSE` removes the flagged
-# patients, an exception list keeps the named ones), so under `TRUE`, or with
+# `include_invalid_patients` is not `TRUE` (`FALSE` removes the patients an
+# error flags, an exception list keeps the named ones), so under `TRUE`, or with
 # no patients, both slots are 0×0 — there was no pass to report on. A consumer
 # that wants the findings of such a dataset calls `validate()` on it.
 #
@@ -45,7 +46,8 @@ validationSummary_cols <- with_entity_gate(
       "record_kind", factor(),
       factor_levels = c("patients", "enrollments", "events")),
     schema_col("n_removed",  integer()),
-    schema_col("n_exempted", integer())
+    schema_col("n_exempted", integer()),
+    schema_col("n_warned",   integer())
   ),
   gate = .validation_pass_runs
 )

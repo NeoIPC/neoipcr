@@ -163,7 +163,9 @@
 #'  first where it runs.
 #' @param include_test_data Include data from test departments into the dataset.
 #' @param include_invalid_patients Include data from patient records that
-#'  could have validation errors: `FALSE` (the default) removes them, `TRUE`
+#'  could have validation errors: `FALSE` (the default) removes the ones an
+#'  error flags and keeps those only a warning flags (see
+#'  [validation_rule_severities()]), `TRUE`
 #'  skips the validation pass altogether, though not the reconciliation
 #'  `reconcile` asks for, and a data frame of exception
 #'  records — as [read_validation_exceptions()] returns it — keeps the named
@@ -171,12 +173,11 @@
 #'  enrolments without an admission form, which the removal of orphan
 #'  records after the import otherwise drops, so a [validate()] on the
 #'  returned dataset can report them under rule 26. With active enrolments
-#'  requested (`include_incomplete`), the pass also removes a patient whose
+#'  requested (`include_incomplete`), the pass also reports a patient whose
 #'  enrolment rules 43 and 44 question for having stayed open more than 120
-#'  days, a genuine long stay included, unless an exception record names
-#'  it; and it refuses such an import that leaves out the events that are
-#'  not completed, since on that dataset rule 43 cannot tell a missing end
-#'  form from one that is open. An
+#'  days, and keeps it, both rules being warnings; and it refuses such an
+#'  import that leaves out the events that are not completed, since on that
+#'  dataset rule 43 cannot tell a missing end form from one that is open. An
 #'  exception record carries `RULE_ID` (numeric), `NEOIPC_PATIENT_ID`
 #'  (character), `ENROLMENT_DATE` and `EVENT_DATE` (`Date`), `EVENT_TYPE`
 #'  (one of `adm`, `pro`, `bsi`, `nec`, `ssi`, `hap`, `end`, in any case),

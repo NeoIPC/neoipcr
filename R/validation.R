@@ -4,13 +4,16 @@
 # name (the types an event-level rule concerns; for an enrolment-level rule
 # the form its finding is shown on, which a record may name or leave
 # empty), the fields the rule records in a finding's `context`, the
-# function that implements it, and `dated` on a rule that measures a
-# record's age against the date the data was read, which `validate()` then
-# passes as a third argument. A finding is data — keys and the values a
-# rule compared — never a sentence: the prose belongs to whichever document
-# renders the finding, where it can be localized, and the declared fields
-# are the contract its sentences are written against; `validate()` refuses
-# a finding whose fields differ from the declaration.
+# function that implements it, `dated` on a rule that measures a record's
+# age against the date the data was read, which `validate()` then passes as
+# a third argument, and `severity = "warning"` on a rule whose finding the
+# import's pass reports without removing the patient
+# (`validation_rule_severities()`); every other rule is an error. A finding
+# is data — keys and the values a rule compared — never a sentence: the
+# prose belongs to whichever document renders the finding, where it can be
+# localized, and the declared fields are the contract its sentences are
+# written against; `validate()` refuses a finding whose fields differ from
+# the declaration.
 .frame_fields <- function(type)
   c("enrolledAt", "admOccurredAt", "endOccurredAt", paste0(type, "OccurredAt"))
 
@@ -158,10 +161,10 @@ validation_rules <- list(
        context = c("dol", "dol_calc"), fun = validation_rule_41),
   list(id = 42L, level = "event", event_types = "ssi",
        context = c("los", "los_calc"), fun = validation_rule_42),
-  list(id = 43L, level = "enrollment", dated = TRUE,
+  list(id = 43L, level = "enrollment", dated = TRUE, severity = "warning",
        context = c("enrolledAt", "days_open"), fun = validation_rule_43),
   list(id = 44L, level = "enrollment", event_types = "end", dated = TRUE,
-       context = c("enrolledAt", "days_open", "status"),
+       severity = "warning", context = c("enrolledAt", "days_open", "status"),
        fun = validation_rule_44),
   list(id = 45L, level = "enrollment", event_types = "adm", context = "dol",
        fun = validation_rule_45),
@@ -186,8 +189,9 @@ validation_rules <- list(
        context = c("index", "substance_code", "substance", "days", "ab_days",
                    "patient_days"),
        fun = validation_rule_53),
-  list(id = 54L, level = "enrollment", event_types = "end",
-       context = c("substance_code", "substance", "index", "index_other"),
+  list(id = 54L, level = "enrollment", event_types = "end", severity = "warning",
+       context = c("substance_code", "substance", "index", "index_other",
+                   "days", "days_other", "ab_days", "substance_days"),
        fun = validation_rule_54),
   list(id = 55L, level = "event", event_types = c("nec", "hap", "ssi"),
        context = c("sec_bsi", "organisms"), fun = validation_rule_55),
@@ -203,7 +207,10 @@ validation_rules <- list(
        context = c("imaging_count", "clinical_count", "surgical_count"),
        fun = validation_rule_60),
   list(id = 61L, level = "event", event_types = "ssi",
-       context = "infection_type", fun = validation_rule_61))
+       context = "infection_type", fun = validation_rule_61),
+  list(id = 62L, level = "enrollment", event_types = "end",
+       context = c("substance_code", "substance", "substance_days", "ab_days"),
+       fun = validation_rule_62))
 
 # How long an enrolment may stay active after its enrolment date before
 # rules 43 and 44 question it. A neonatal stay past four months is
@@ -226,6 +233,18 @@ validation_rules <- list(
 
 .rule_event_types <- function(rule_id)
   validation_rules[[match(rule_id, validation_rule_ids())]]$event_types
+
+# The key a finding, or a resolved exception record, is identified by at its
+# rule's level: the key `validate()` exempts on and `.validation_summary()`
+# counts.
+.level_record_key <- function(f)
+{
+  level <- unname(.rule_levels()[as.character(f$rule_id)])
+  dplyr::case_when(
+    level == "patient"    ~ f$patient_key,
+    level == "enrollment" ~ f$enrollment_key,
+    .default = f$event_key)
+}
 
 # `as_of` is a single `Date` or nothing; a caller is told so whatever rules
 # it selected, rather than only when one of them reads the date.
@@ -416,25 +435,119 @@ validation_rule_context_fields <- function()
     lapply(validation_rules, \(r) r$context),
     validation_rule_ids())
 
+#' Severities of the validation rules
+#'
+#' Whether each rule is an error or a warning. [validate()] reports both
+#' alike, and the import's validation pass ([import_dhis2()]) runs both: it
+#' removes each patient an error flags a record of, unless an exception names
+#' that record, and keeps a patient whose records only warnings flag,
+#' counting the records a warning flags in `validationSummary` beside the
+#' others. A warning flags a record the analyses can use as it
+#' stands although it may hide a mistake the record cannot prove: an
+#' enrolment open for more than 120 days, which may be a stay still going on
+#' (rules 43 and 44), and a substance recorded in two slots of a form, most
+#' often one per treatment course, whose days the analyses add up (rule 54).
+#' The slots of one substance adding up to more days than the form's
+#' antibiotic days prove a mistake, and are an error (rule 62).
+#'
+#' @returns A character vector named by rule id, in the order of
+#'  [validation_rule_ids()], each element `"error"` or `"warning"`.
+#' @family validation
+#' @export
+validation_rule_severities <- function()
+  rlang::set_names(
+    vapply(validation_rules,
+           \(r) if (is.null(r$severity)) "error" else r$severity,
+           character(1)),
+    validation_rule_ids())
+
+# The ids of the rules the registry marks as warnings.
+.warning_rule_ids <- function()
+  validation_rule_ids()[validation_rule_severities() == "warning"]
+
+#' Count a validation result's flagged and exempted records
+#'
+#' Counts in records what [validate()] flagged and what its exception list
+#' exempted: one row per rule that flagged or exempted a record, with the
+#' rule's record kind, and one row per record kind, with `rule_id` `NA`,
+#' counting the distinct records of that kind the flagged findings concern
+#' (`n_flagged`) and the exempted findings concern (`n_exempted`). A rule's
+#' record kind is the level the "Context fields" section of [validate()]
+#' names for it, so a rule that records several findings on one record, as
+#' rules 51 to 54 do, counts that record once. These are the counts
+#' [import_dhis2()] stores as `validationSummary`, which splits the flagged
+#' records by severity ([validation_rule_severities()]): those an error
+#' flagged, which it removed with their patients (`n_removed`), and those a
+#' warning flagged (`n_warned`), which it kept unless an error flagged a
+#' record of the same patient. Here a rule's flagged records are counted
+#' whatever its severity.
+#'
+#' @param findings A result of [validate()] as it returned it. The exempted
+#'  findings are read from its `findings_exempted` attribute, which describes
+#'  the whole run and stays unchanged on a subset of the rows, so a subset
+#'  would be counted beside every exemption of the run. The import's
+#'  `validationResults` carries none of the attributes; its counts are
+#'  `validationSummary`.
+#'
+#' @returns A tibble with `rule_id` (integer), `record_kind` (a factor with
+#'  the levels `patients`, `enrollments` and `events`), `n_flagged` and
+#'  `n_exempted` (integers). Findings without the attributes [validate()]
+#'  sets are an error of class `neoipcr_invalid_validation_result`.
+#' @family validation
+#' @export
+validation_summary <- function(findings)
+{
+  run <- .validation_run(findings)
+  .validation_summary(findings, run$exempted) |>
+    dplyr::rename(n_flagged = "n_removed") |>
+    dplyr::select(!"n_warned")
+}
+
+# The bookkeeping `validate()` attaches to its result: the rules that ran and
+# the findings the exceptions exempted. Findings without it, built otherwise
+# or stripped of their attributes, are refused, naming the exported function
+# `call` belongs to.
+.validation_run <- function(findings, call = rlang::caller_env())
+{
+  run <- list(
+    rules_run = attr(findings, "rules_run"),
+    exempted  = attr(findings, "findings_exempted"))
+  lacking <- c(
+    if (!is.integer(run$rules_run)) "`rules_run`",
+    if (!is.data.frame(run$exempted)) "`findings_exempted`")
+  if (!is.data.frame(findings) || length(lacking) > 0L)
+    rlang::abort(c(
+      gettextf("%s must be a result of %s.", "`findings`", "`validate()`"),
+      x = if (length(lacking) > 0L)
+            gettextf("It carries no %s attribute.", lacking[1])
+          else
+            gettextf("Got %s.", obj_type_friendly(findings))),
+      class = "neoipcr_invalid_validation_result",
+      call = call)
+  run
+}
+
 # The summary of a validation pass: one row per rule that flagged or
 # exempted a record, with the rule's record kind and the distinct records
-# it removed and the exception list exempted from it — a record a rule
-# flags twice, as rule 20 does an event with two unknown pathogen names, is
-# one record — and one row per record kind (`rule_id` `NA`) with the
-# distinct records of that kind the findings concern: every finding
-# concerns its patient, a finding of an enrolment- or event-level rule also
-# concerns its enrolment, and a finding of an event-level rule also concerns
-# its event. The `patients` row is thus the
-# number of patients the pass removes, whatever level flagged them; the
-# orphan removal that follows the pass is not the pass's doing and may drop
-# more. A rule's record kind is the level the registry declares for it, so an
-# enrolment-level rule that names the form it compared still counts
-# enrolments, and its event is not among the events concerned. An exception
-# keeps a record from the rule it names, not from the others, so a record
-# exempted from one rule and flagged under another counts in both columns.
+# it removed, the exception list exempted from it, and it warned of — a
+# record a rule flags twice, as rule 20 does an event with two unknown
+# pathogen names, is one record — and one row per record kind (`rule_id`
+# `NA`) with the distinct records of that kind the findings concern: every
+# finding concerns its patient, a finding of an enrolment- or event-level
+# rule also concerns its enrolment, and a finding of an event-level rule
+# also concerns its event. The import passes the findings of the error rules
+# as `removed` and those of the warnings as `warned`, so the `patients` row's
+# `n_removed` is the number of patients the pass removes, whatever level
+# flagged them; the orphan removal that follows the pass is not the pass's
+# doing and may drop more. A rule's record kind is the level the registry
+# declares for it, so an enrolment-level rule that names the form it
+# compared still counts enrolments, and its event is not among the events
+# concerned. An exception keeps a record from the rule it names, not from
+# the others, so a record exempted from one rule and flagged under another
+# counts in both columns, and a warning keeps nothing another rule removes.
 # Every record kind has its totals row, at zero when nothing of that kind
 # was concerned.
-.validation_summary <- function(removed, exempted)
+.validation_summary <- function(removed, exempted, warned = removed[0L, ])
 {
   kinds   <- c(patient = "patients", enrollment = "enrollments",
                event = "events")
@@ -445,10 +558,7 @@ validation_rule_context_fields <- function()
     f <- findings |>
       dplyr::mutate(
         record_kind = unname(kind_of[as.character(.data$rule_id)]))
-    f$record_key <- dplyr::case_when(
-      f$record_kind == "patients"    ~ f$patient_key,
-      f$record_kind == "enrollments" ~ f$enrollment_key,
-      .default = f$event_key)
+    f$record_key <- .level_record_key(f)
     dplyr::bind_rows(
       f |>
         dplyr::group_by(.data$rule_id, .data$record_kind) |>
@@ -466,25 +576,27 @@ validation_rule_context_fields <- function()
             f$event_key[f$record_kind == "events"], na.rm = TRUE))))
   }
 
-  dplyr::full_join(
-    counts(removed,  "n_removed"),
-    counts(exempted, "n_exempted"),
-    dplyr::join_by("rule_id", "record_kind")) |>
+  by <- dplyr::join_by("rule_id", "record_kind")
+  counts(removed, "n_removed") |>
+    dplyr::full_join(counts(exempted, "n_exempted"), by) |>
+    dplyr::full_join(counts(warned, "n_warned"), by) |>
     dplyr::mutate(
       record_kind = factor(.data$record_kind, levels = unname(kinds)),
       n_removed   = tidyr::replace_na(.data$n_removed, 0L),
-      n_exempted  = tidyr::replace_na(.data$n_exempted, 0L)) |>
+      n_exempted  = tidyr::replace_na(.data$n_exempted, 0L),
+      n_warned    = tidyr::replace_na(.data$n_warned, 0L)) |>
     dplyr::arrange(.data$record_kind, .data$rule_id) |>
-    dplyr::select("rule_id", "record_kind", "n_removed", "n_exempted")
+    dplyr::select("rule_id", "record_kind", "n_removed", "n_exempted", "n_warned")
 }
 
 #' Validate a NeoIPC dataset against the protocol's validation rules
 #'
 #' Runs every registered validation rule, or the subset named in `rules`, over
 #' the dataset and returns the records each rule flags. [import_dhis2()] runs
-#' it by default and removes the flagged patients from the dataset; call it
-#' directly on a dataset imported with `include_invalid_patients = TRUE` to see
-#' which records would be removed and why.
+#' it by default and removes the patients an error flags from the dataset,
+#' keeping those only a warning flags (see the section on severities below);
+#' call it directly on a dataset imported with `include_invalid_patients =
+#' TRUE` to see which records would be flagged and why.
 #'
 #' A finding is data, never prose: the rule id, the keys that identify the
 #' record, and the values the rule compared. The sentence a reader sees is
@@ -498,7 +610,11 @@ validation_rule_context_fields <- function()
 #'  the form a user writes needs the patient id and a department tier on
 #'  top, as [resolve_validation_exceptions()] describes.
 #' @param rules Integer vector of rule ids to run; `NULL` (the default) runs all
-#'  of them. An id outside [validation_rule_ids()] is an error.
+#'  of them. An id outside [validation_rule_ids()] is an error. A rule's
+#'  findings are the same whatever else is selected, so rule 54, which
+#'  leaves to rule 62 a pair of slots whose days prove a mistake (see the
+#'  section on context fields), reports no such pair in a selection without
+#'  rule 62.
 #' @param exceptions The records to exempt from the rule that flags them:
 #'  either the list a user writes, as [read_validation_exceptions()] returns
 #'  it, or its resolved key form as [resolve_validation_exceptions()] returns
@@ -517,8 +633,8 @@ validation_rule_context_fields <- function()
 #'
 #' @returns A tibble with one row per finding — a flagged record, or one of
 #'  the several findings a rule records on one record: for rule 17 one of
-#'  the two enrolments of an overlapping pair, for rules 51 to 54 one per
-#'  count, slot or pair of slots: `rule_id`;
+#'  the two enrolments of an overlapping pair, for rules 51 to 54 and 62 one
+#'  per count, slot, pair of slots, or substance: `rule_id`;
 #'  `patient_key`, `enrollment_key` and
 #'  `event_key`, each naming the record the finding refers to at that level
 #'  and `NA` where there is none (an enrolment-level rule that compared a
@@ -526,12 +642,28 @@ validation_rule_context_fields <- function()
 #'  it; the level a rule is recorded and exempted on is the one the table
 #'  below names); and `context`, a list column holding a one-row tibble of
 #'  the values the finding refers to (`NULL` where the rule records none).
-#'  Zero rows when nothing is flagged. The result's `rules_skipped`
-#'  attribute names the selected rules that could not run because the
-#'  dataset lacks a column they read (an integer vector, empty when every
-#'  rule ran); such a rule logs a warning and flags nothing, so a caller
-#'  stating which rules a result rests on reads that attribute rather than
-#'  the selection.
+#'  Zero rows when nothing is flagged. Three attributes describe the run:
+#'  `rules_run` names the selected rules that ran, and `rules_skipped` those
+#'  that could not because the dataset lacks a column they read (integer
+#'  vectors, `rules_skipped` empty when every rule ran); a skipped rule logs
+#'  a warning and flags nothing, so a caller stating which rules a result
+#'  rests on reads `rules_run` rather than the selection.
+#'  `findings_exempted` holds, in the same shape, the findings the rules
+#'  that ran make without `exceptions` and not with them, zero rows when
+#'  nothing was exempted; [validation_summary()] counts both in records. The
+#'  attributes stay unchanged on a subset of the rows, and
+#'  `dplyr::bind_rows()` keeps those of its first input, so they are read
+#'  from the result as `validate()` returned it.
+#'
+#' @section Severities:
+#' An error flags a record the analyses cannot use as recorded. A warning
+#' flags one they can, although it may hide a mistake the record cannot
+#' prove: rules 43, 44, and 54 are warnings, every other rule an error, as
+#' [validation_rule_severities()] lists them. `validate()` reports both
+#' alike; the import's validation pass removes the patient records an error
+#' flags and keeps those only a warning flags, counting both in its
+#' `validationSummary` (see [import_dhis2()]). An exception exempts a
+#' record from a warning as from an error.
 #'
 #' @section Context fields:
 #' Each rule records the fields below in `context`, identifies its finding
@@ -547,9 +679,9 @@ validation_rule_context_fields <- function()
 #' enrolment-level rule that compares a form carries that form's event on
 #' its finding, so a document shows the finding on the form; a record for
 #' such a rule may name that form's type and date as well, or leave them
-#' empty, and is refused naming any other type (rules 3, 5 and 45–47 the
-#' admission form, 2, 4, 6, 18, 21, 44 and 51–54 the surveillance-end form;
-#' 17, 25, 26, 43 and 48 carry no event).
+#' empty, and is refused naming any other type (rules 3, 5, and 45–47 the
+#' admission form, 2, 4, 6, 18, 21, 44, 51–54, and 62 the surveillance-end
+#' form; 17, 25, 26, 43, and 48 carry no event).
 #' Dates are `Date`, statuses factors, counts integers. A dataset imported
 #' without incomplete enrolments or events (`include_incomplete`) carries no
 #' `status` column for them; the rules then treat every such record as
@@ -560,9 +692,10 @@ validation_rule_context_fields <- function()
 #' surveillance-end form, 44 one whose surveillance-end form is not
 #' completed. A neonatal stay that long is exceptional, so such a record is
 #' most often one nobody closed once the infant left; but the infant may
-#' still be admitted, in which case the finding is to be ignored, and an
-#' exception record keeps the enrolment out of the findings while the stay
-#' lasts. `days_open` is the whole days from the enrolment date to `as_of`.
+#' still be admitted, in which case the finding is to be ignored, so both
+#' rules are warnings, and an exception record keeps the enrolment out of the
+#' findings while the stay lasts. `days_open` is the whole days from the
+#' enrolment date to `as_of`.
 #' A dataset imported with the enrolments that are not completed but only
 #' the completed events holds no end form that is not completed, so on it a
 #' missing form and an open one look alike; rule 43 is skipped on that shape
@@ -622,15 +755,35 @@ validation_rule_context_fields <- function()
 #' per count, `count` being the count's column name (`cvc_days`, `pvc_days`,
 #' `inv_days`, `niv_days`, `vs_days` for the invasive and non-invasive
 #' ventilation days together, `ab_days`, `human_milk_days`,
-#' `kangaroo_care_days` or `probiotic_days`). Rules 52 to 54 read the
-#' antibiotic substance slots, one finding per slot or pair, naming the
-#' substance by the option code the form stores (`substance_code`) and by
-#' the name the form shows (`substance`, `NA` for a code the option set does
-#' not carry): 52 flags a slot
+#' `kangaroo_care_days` or `probiotic_days`). Rules 52 to 54 and 62 read
+#' the antibiotic substance slots, one finding per slot, pair, or substance,
+#' naming the substance by the option code the form stores
+#' (`substance_code`) and by the name the form shows (`substance`, `NA` for
+#' a code the option set does not carry): 52 flags a slot
 #' holding a substance without its days (a count of zero counting as none)
 #' or days without a substance, 53 one whose days exceed the form's
 #' antibiotic days or patient days, 54 a substance recorded in two slots of
-#' one form, one finding per pair with the lower slot as `index`. Rule 55
+#' one form, one finding per pair with the lower slot as `index`. Two slots
+#' of one substance may hold one treatment course each, which the analyses
+#' add up correctly, or one course entered twice, which they count twice,
+#' and the record cannot tell which, so rule 54 is a warning; to help tell
+#' these apart, it records each slot's days as stored (`days`,
+#' `days_other`; `NA` where the slot holds no value, while a zero, which
+#' rule 52 counts as none, is recorded as 0), their sum over all the
+#' substance's slots on the form (`substance_days`, `NA` when none of them
+#' holds a value), and the form's antibiotic days (`ab_days`). `ab_days` is
+#' `NA` where the form holds no value, where the surveillance-end event has
+#' no form data, and where the dataset lacks the column; unlike rules 21 and
+#' 53, rule 54 is not skipped for want of it. Separate courses cannot add up
+#' to more than the antibiotic days, so rule 62, an error, flags a substance
+#' whose slots that hold days add up to more (`substance_days`, beside
+#' `ab_days`), one finding per substance and form, and rule 54 leaves to it,
+#' whether rule 62 runs or not, a pair whose two slots hold days while the
+#' substance's slots add up to more. Rule
+#' 62 judges only a substance in two or more slots that hold days, a slot
+#' alone above the antibiotic days being rule 53's; it is skipped without
+#' the antibiotic days, and a form without a value or without form data is
+#' not judged. Rule 55
 #' flags a necrotizing enterocolitis, pneumonia or surgical site infection
 #' form whose secondary-BSI item is Yes without a secondary-BSI organism,
 #' and a necrotizing enterocolitis or pneumonia form with secondary-BSI
@@ -735,7 +888,7 @@ validation_rule_context_fields <- function()
 #' | 51 | `enrollment_key` | `count`, `days`, `patient_days` — one finding per count that exceeds the patient days |
 #' | 52 | `enrollment_key` | `index`, `substance_code`, `substance`, `days` — one finding per slot |
 #' | 53 | `enrollment_key` | `index`, `substance_code`, `substance`, `days`, `ab_days`, `patient_days` — one finding per slot |
-#' | 54 | `enrollment_key` | `substance_code`, `substance`, `index`, `index_other` — one finding per pair of slots |
+#' | 54 | `enrollment_key` | `substance_code`, `substance`, `index`, `index_other`, `days`, `days_other`, `ab_days`, `substance_days` — one finding per pair of slots |
 #' | 55 | `event_key` | `sec_bsi`, `organisms` |
 #' | 56 | `patient_key` | `siblings` |
 #' | 57 | `patient_key` | none |
@@ -743,6 +896,7 @@ validation_rule_context_fields <- function()
 #' | 59 | `event_key` | `findings` |
 #' | 60 | `event_key` | `imaging_count`, `clinical_count`, `surgical_count` |
 #' | 61 | `event_key` | `infection_type` |
+#' | 62 | `enrollment_key` | `substance_code`, `substance`, `substance_days`, `ab_days` — one finding per substance and form |
 #'
 #' @family validation
 #' @export
@@ -781,7 +935,8 @@ validate <- function(x, rules = NULL, exceptions = NULL, as_of = NULL)
 
   # A rule returns `NULL` when it cannot run for want of a column the dataset
   # does not hold; it has logged that, but a caller reporting which rules a
-  # result rests on needs the ids, so they ride along as an attribute.
+  # result rests on needs the ids, so the rules that ran and those that did
+  # not ride along as attributes.
   selected <- Filter(\(r) is.null(rules) || r$id %in% rules, validation_rules)
   # The reference date is resolved only when a dated rule is selected, so a
   # dataset without one still runs a selection that leaves those rules out.
@@ -789,40 +944,54 @@ validate <- function(x, rules = NULL, exceptions = NULL, as_of = NULL)
   dated <- vapply(selected, \(r) isTRUE(r$dated), logical(1))
   if (any(dated))
     as_of <- .reference_date(x, as_of)
-  results  <- lapply(selected, \(r)
-    if (isTRUE(r$dated)) r$fun(x, exceptions, as_of) else r$fun(x, exceptions))
-  skipped  <- vapply(selected, \(r) r$id, integer(1))[
-    vapply(results, is.null, logical(1))]
-
-  flagged <- results |>
-    dplyr::bind_rows() |>
-    dplyr::ungroup()
-
-  # The shape is the same whatever ran. `bind_rows()` takes its class,
-  # grouping and column types from the first rule's result, so the result is
-  # bound onto a plain template instead: a rule that skips itself, records no
-  # context or returns a grouped tibble, or a selection that flags nothing,
-  # still yields exactly these five columns with integer keys.
-  template <- tibble::tibble(
-    rule_id        = integer(),
-    patient_key    = integer(),
-    enrollment_key = integer(),
-    event_key      = integer(),
-    context        = list())
-  findings <- dplyr::bind_rows(template, flagged) |>
-    dplyr::mutate(dplyr::across(
-      c("rule_id", "patient_key", "enrollment_key", "event_key"),
-      as.integer)) |>
-    finalize_to_schema(
-      validation_finding_atoms, x$metadata$dataset_options)
+  run <- function(rule, exceptions)
+    if (isTRUE(rule$dated)) rule$fun(x, exceptions, as_of) else rule$fun(x, exceptions)
+  results  <- lapply(selected, run, exceptions = exceptions)
+  ran      <- !vapply(results, is.null, logical(1))
+  findings <- .bind_findings(results, x)
 
   # A finding carries the fields its rule's registry entry declares — the
   # contract a consumer's sentences are written against — so a drift
   # between a rule and its declaration surfaces here, not in a document.
   .assert_declared_context(findings, validation_rule_context_fields())
 
-  attr(findings, "rules_skipped") <- unname(skipped)
+  # The findings the list exempted are the ones its rules make without it
+  # and not with it, so the rules it names run again, those that ran: a
+  # skipped rule would only skip, and log so, a second time.
+  named <- Filter(\(r) r$id %in% exceptions$rule_id, selected[ran])
+  exempted <- if (length(named) == 0L) findings[0L, ] else
+    dplyr::anti_join(
+      .bind_findings(lapply(named, run, exceptions = .exception_keys()), x),
+      findings,
+      dplyr::join_by("rule_id", "patient_key", "enrollment_key", "event_key"))
+
+  selected_ids <- vapply(selected, \(r) r$id, integer(1))
+  attr(findings, "rules_run") <- unname(selected_ids[ran])
+  attr(findings, "rules_skipped") <- unname(selected_ids[!ran])
+  attr(findings, "findings_exempted") <- exempted
   findings
+}
+
+# The rules' results bound into one tibble of the finding shape. The shape is
+# the same whatever ran: `bind_rows()` takes its class, grouping and column
+# types from the first rule's result, so the results are bound onto a plain
+# template instead, and a rule that skips itself, records no context or
+# returns a grouped tibble, or a selection that flags nothing, still yields
+# exactly these five columns with integer keys.
+.bind_findings <- function(results, x)
+{
+  template <- tibble::tibble(
+    rule_id        = integer(),
+    patient_key    = integer(),
+    enrollment_key = integer(),
+    event_key      = integer(),
+    context        = list())
+  dplyr::bind_rows(template, dplyr::ungroup(dplyr::bind_rows(results))) |>
+    dplyr::mutate(dplyr::across(
+      c("rule_id", "patient_key", "enrollment_key", "event_key"),
+      as.integer)) |>
+    finalize_to_schema(
+      validation_finding_atoms, x$metadata$dataset_options)
 }
 
 # Refuse findings whose context fields are not the ones `declared` names for

@@ -2,7 +2,8 @@
 # summary the import derives from a validation pass.
 
 finding_cols <- c("rule_id", "patient_key", "enrollment_key", "event_key", "context")
-summary_cols <- c("rule_id", "record_kind", "n_removed", "n_exempted")
+summary_cols <- c("rule_id", "record_kind", "n_removed", "n_exempted",
+                  "n_warned")
 
 test_that("the validation slots exist exactly when the validation pass runs", {
   for (patient in c("no", "pseudo", "full")) {
@@ -21,6 +22,7 @@ test_that("the validation slots exist exactly when the validation pass runs", {
         expect_identical(
           levels(summary$record_kind), c("patients", "enrollments", "events"))
         expect_type(summary$n_removed, "integer")
+        expect_type(summary$n_warned, "integer")
       }
     }
   }
@@ -93,6 +95,37 @@ test_that("the validation summary counts distinct records per rule and the recor
   # admission forms rule 3 named are not events concerned, event 7 is.
   expect_equal(totals$n_removed, c(3L, 2L, 1L))
   expect_equal(totals$n_exempted, c(1L, 1L, 0L))
+  expect_equal(totals$n_warned, c(0L, 0L, 0L))
+})
+
+test_that("the validation summary counts a warning's records apart from the removed ones", {
+  finding <- function(rule_id, patient_key, enrollment_key = NA_integer_,
+                      event_key = NA_integer_)
+    tibble::tibble(
+      rule_id = rule_id, patient_key = patient_key,
+      enrollment_key = enrollment_key, event_key = event_key,
+      context = list(NULL))
+  # Rule 3, an error, flags enrolment 1 of patient 1. The warnings flag
+  # that enrolment too (rule 43), and enrolment 4 of patient 5 (rule 43, and
+  # rule 54 twice, naming the surveillance-end form it compared).
+  removed <- finding(3L, 1L, 1L, 11L)
+  warned <- dplyr::bind_rows(
+    finding(43L, 1L, 1L), finding(43L, 5L, 4L),
+    finding(54L, 5L, 4L, 14L), finding(54L, 5L, 4L, 14L))
+
+  s <- neoipcr:::.validation_summary(removed, removed[0L, ], warned)
+
+  expect_named(s, summary_cols)
+  per_rule <- s[!is.na(s$rule_id), ]
+  expect_equal(per_rule$rule_id, c(3L, 43L, 54L))
+  expect_equal(per_rule$n_removed, c(1L, 0L, 0L))
+  # Rule 54's two findings on one enrolment are one enrolment.
+  expect_equal(per_rule$n_warned, c(0L, 2L, 1L))
+  totals <- s[is.na(s$rule_id), ]
+  # Only the error's patient is removed; a warning keeps nothing an error
+  # removes, so patient 1 counts in both columns.
+  expect_equal(totals$n_removed, c(1L, 1L, 0L))
+  expect_equal(totals$n_warned, c(2L, 2L, 0L))
 })
 
 test_that("the validation summary of a pass with no findings has its totals rows at zero", {
@@ -102,4 +135,5 @@ test_that("the validation summary of a pass with no findings has its totals rows
   expect_equal(nrow(s), 3L)
   expect_true(all(is.na(s$rule_id)))
   expect_equal(s$n_removed, c(0L, 0L, 0L))
+  expect_equal(s$n_warned, c(0L, 0L, 0L))
 })
