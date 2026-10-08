@@ -344,6 +344,125 @@ test_that("resolve_validation_exceptions refuses a record written at another lev
          "rules 1, 56 concern the patient alone: their records leave")
 })
 
+test_that("validation_exception_usage reports how each record for the departments held fared", {
+  namespace <- readLines(system.file("NAMESPACE", package = "neoipcr"))
+  expect_true("export(validation_exception_usage)" %in% namespace)
+  ds <- resolvable_ds(n_departments = 2L)
+  # The admission is dated a day after the enrolment, so rule 3 flags it.
+  ds$events$occurredAt[1] <- as.Date("2024-01-02")
+  ex <- dplyr::bind_rows(
+    written_exceptions("DEPT_1"),
+    written_exceptions("DEPT_3")[1, ])
+  findings <- neoipcr::validate(ds, rules = c(1L, 3L, 12L), exceptions = ex)
+  usage <- neoipcr::validation_exception_usage(ds, ex, findings)
+  # The record for a department the dataset does not hold is left out.
+  expect_equal(nrow(usage), 3L)
+  expect_named(usage, c(names(ex), "matched", "n_exempted"))
+  expect_equal(usage$RULE_ID, c(3L, 12L, 1L))
+  # Rule 3's record exempts the enrolment; rule 12's matches a sepsis event
+  # the rule does not flag; rule 1's names a patient the dataset lacks.
+  expect_equal(usage$matched, c(TRUE, TRUE, FALSE))
+  expect_equal(usage$n_exempted, c(1L, 0L, 0L))
+})
+
+test_that("validation_exception_usage keeps a single-department list whole", {
+  ds <- resolvable_ds()
+  ex <- written_exceptions()
+  findings <- neoipcr::validate(ds, rules = c(1L, 3L, 12L), exceptions = ex)
+  usage <- neoipcr::validation_exception_usage(ds, ex, findings)
+  expect_equal(usage$RULE_ID, c(3L, 12L, 1L))
+  expect_equal(usage$n_exempted, c(0L, 0L, 0L))
+})
+
+test_that("validation_exception_usage keeps the list's columns", {
+  ds <- resolvable_ds()
+  # The six-column shape of a single-department list, its department code
+  # left empty throughout, and a column of the caller's own.
+  ex <- written_exceptions(NA_character_) |> dplyr::mutate(NOTE = c("a", "b", "c"))
+  usage <- neoipcr::validation_exception_usage(
+    ds, ex, neoipcr::validate(ds, rules = c(1L, 3L, 12L), exceptions = ex))
+  expect_named(usage, c(names(ex), "matched", "n_exempted"))
+  expect_equal(usage$NOTE, c("a", "b", "c"))
+})
+
+test_that("validation_exception_usage counts the distinct records a record exempted", {
+  # PAT_1's admission forms, each a day after its enrolment on 2024-01-01,
+  # which rule 3 flags.
+  late_admissions_ds <- function(enrollment_keys) {
+    n <- length(enrollment_keys)
+    ds <- make_test_ds(
+      patients    = make_test_patients(1),
+      enrollments = make_test_enrollments(max(enrollment_keys),
+        patient_keys = rep(1L, max(enrollment_keys)),
+        enrolledAt = rep(as.Date("2024-01-01"), max(enrollment_keys))),
+      events = make_test_events(n,
+        enrollment_keys = enrollment_keys,
+        patient_keys    = rep(1L, n),
+        event_type_keys = rep("adm", n),
+        occurredAt = rep(as.Date("2024-01-02"), n)))
+    ds$metadata$departments <- make_test_metadata_departments(n = 1)
+    ds
+  }
+  # Two enrolments on one day: the record fits, and exempts, both.
+  ds <- late_admissions_ds(c(1L, 2L))
+  ex <- written_exceptions()[1, ]
+  usage <- neoipcr::validation_exception_usage(
+    ds, ex, neoipcr::validate(ds, rules = 3L, exceptions = ex))
+  expect_equal(usage$n_exempted, 2L)
+  # One enrolment with two admission forms that day: a record naming the form
+  # fits both, and exempts the one enrolment the rule is recorded on.
+  ds <- late_admissions_ds(c(1L, 1L))
+  ex <- ex |> dplyr::mutate(EVENT_TYPE = "adm", EVENT_DATE = as.Date("2024-01-02"))
+  usage <- neoipcr::validation_exception_usage(
+    ds, ex, neoipcr::validate(ds, rules = 3L, exceptions = ex))
+  expect_equal(usage$n_exempted, 1L)
+})
+
+test_that("validation_exception_usage counts nothing exempted for a rule the result did not run", {
+  ds <- resolvable_ds()
+  ds$events$occurredAt[1] <- as.Date("2024-01-02")
+  ex <- written_exceptions()
+  # Rules 12 and 1 were not selected: their records match or not all the
+  # same, but exempted nothing for want of a run.
+  usage <- neoipcr::validation_exception_usage(
+    ds, ex, neoipcr::validate(ds, rules = 3L, exceptions = ex))
+  expect_equal(usage$matched, c(TRUE, TRUE, FALSE))
+  expect_equal(usage$n_exempted, c(1L, NA, NA))
+  # Likewise a rule that could not run: rule 18 reads the patient days, which
+  # this dataset lacks.
+  ds$surveillanceEndData$patient_days <- NULL
+  ex <- written_exceptions()[1, ] |> dplyr::mutate(RULE_ID = 18L)
+  findings <- neoipcr::validate(ds, rules = c(3L, 18L), exceptions = ex)
+  expect_identical(attr(findings, "rules_skipped"), 18L)
+  expect_true(is.na(neoipcr::validation_exception_usage(ds, ex, findings)$n_exempted))
+})
+
+test_that("validation_exception_usage needs the department codes to leave out other departments' records", {
+  # Under the pseudonymized department tier the dataset carries no codes, so
+  # another department's records could not be told from its own.
+  ds <- resolvable_ds(include_department = "pseudo")
+  ex <- written_exceptions("DEPT_1")
+  expect_error(
+    neoipcr::validation_exception_usage(
+      ds, ex, neoipcr::validate(ds, rules = 3L, exceptions = ex)),
+    regexp = "include_department",
+    class = "neoipcr_validation_needs_facts")
+  # A single-department list without the column is kept whole.
+  ex <- written_exceptions()
+  usage <- neoipcr::validation_exception_usage(
+    ds, ex, neoipcr::validate(ds, rules = 3L, exceptions = ex))
+  expect_equal(nrow(usage), 3L)
+})
+
+test_that("validation_exception_usage refuses findings that are not a result of validate", {
+  ds <- resolvable_ds()
+  findings <- neoipcr::validate(ds, rules = 3L)
+  attr(findings, "findings_exempted") <- NULL
+  expect_error(
+    neoipcr::validation_exception_usage(ds, written_exceptions(), findings),
+    class = "neoipcr_invalid_validation_result")
+})
+
 test_that("resolve_validation_exceptions lets an enrolment-level record name its rule's form", {
   ds <- resolvable_ds()
   # Rule 3 shows its finding on the admission form: a record naming that
@@ -430,10 +549,12 @@ test_that("resolve_validation_exceptions matches the event type in any case", {
 
 test_that("resolve_validation_exceptions joins on the department code with more than one department", {
   ds <- resolvable_ds(n_departments = 2L)
-  expect_error(
+  cnd <- expect_error(
     neoipcr::resolve_validation_exceptions(ds, written_exceptions()),
     regexp = "DEPARTMENT_CODE",
     class = "neoipcr_invalid_exception_list")
+  # The refusal names the function called, not the helper that checks.
+  expect_identical(rlang::call_name(cnd$call), "resolve_validation_exceptions")
   keys <- neoipcr::resolve_validation_exceptions(ds, written_exceptions("DEPT_1"))
   expect_named(keys, c("rule_id", "department_key", "patient_key", "enrollment_key", "event_key"))
   expect_equal(keys$event_key[2], 2L)

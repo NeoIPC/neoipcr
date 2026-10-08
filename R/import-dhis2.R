@@ -5,10 +5,12 @@
 #' @param dataset_options The options to use for the dataset configuration
 #'
 #' @returns A NeoIPC dataset. Its `validationResults` slot holds the findings
-#'  of the import's validation pass in the shape [validate()] returns, except
-#'  that a context value the pass read from a patient attribute the returned
-#'  `patients` does not carry is `NA` (rule 56's `siblings` and rule 58's
-#'  `gest_age`, see `patient_columns` on [dhis2_dataset_options()]), and
+#'  of the import's validation pass in the shape [validate()] returns, without
+#'  the attributes that describe its run (`rules_run`, `rules_skipped` and
+#'  `findings_exempted`) and with `NA` for a context value the pass read
+#'  from a patient attribute the returned `patients` does not carry (rule 56's
+#'  `siblings` and rule 58's `gest_age`, see `patient_columns` on
+#'  [dhis2_dataset_options()]), and
 #'  `validationSummary` counts them: one row per rule that flagged or
 #'  exempted a record, with the rule's record kind — `patients`,
 #'  `enrollments` or `events`, the level it is recorded on; see the table on
@@ -492,20 +494,14 @@ import_dhis2 <- function(
     # rule that could not run means the dataset is not what the pass needs;
     # the import refuses it rather than storing a pass that reads as
     # complete. The dataset then keeps the findings, not the run's
-    # bookkeeping.
+    # bookkeeping: the exempted findings are counted in the summary and not
+    # stored, since their contexts would keep the patient attributes the
+    # masking below removes from the findings.
     .assert_no_rule_skipped(v)
+    exempted <- attr(v, "findings_exempted")
+    attr(v, "rules_run") <- NULL
     attr(v, "rules_skipped") <- NULL
-    # The findings the list exempted are the ones the pass makes without it
-    # and not with it; only the rules the list names can have any, so only
-    # those run again.
-    named <- if (is.null(exceptions)) integer() else unique(exceptions$rule_id)
-    if (!is.null(rules))
-      named <- intersect(named, rules)
-    exempted <- if (length(named) == 0L) v[0L, ] else
-      dplyr::anti_join(
-        r |> validate(rules = named),
-        v,
-        dplyr::join_by("rule_id", "patient_key", "enrollment_key", "event_key"))
+    attr(v, "findings_exempted") <- NULL
     r$validationResults <- v
     r$validationSummary <- .validation_summary(v, exempted)
     r$patients <- r$patients |>

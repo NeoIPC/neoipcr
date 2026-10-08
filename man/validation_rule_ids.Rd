@@ -19,6 +19,8 @@ Other validation:
 \code{\link[=read_validation_exceptions]{read_validation_exceptions()}},
 \code{\link[=resolve_validation_exceptions]{resolve_validation_exceptions()}},
 \code{\link[=validate]{validate()}},
-\code{\link[=validation_rule_context_fields]{validation_rule_context_fields()}}
+\code{\link[=validation_exception_usage]{validation_exception_usage()}},
+\code{\link[=validation_rule_context_fields]{validation_rule_context_fields()}},
+\code{\link[=validation_summary]{validation_summary()}}
 }
 \concept{validation}

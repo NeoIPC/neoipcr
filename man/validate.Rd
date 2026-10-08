@@ -46,12 +46,18 @@ form names that form's event, so a consumer can show the finding under
 it; the level a rule is recorded and exempted on is the one the table
 below names); and \code{context}, a list column holding a one-row tibble of
 the values the finding refers to (\code{NULL} where the rule records none).
-Zero rows when nothing is flagged. The result's \code{rules_skipped}
-attribute names the selected rules that could not run because the
-dataset lacks a column they read (an integer vector, empty when every
-rule ran); such a rule logs a warning and flags nothing, so a caller
-stating which rules a result rests on reads that attribute rather than
-the selection.
+Zero rows when nothing is flagged. Three attributes describe the run:
+\code{rules_run} names the selected rules that ran, and \code{rules_skipped} those
+that could not because the dataset lacks a column they read (integer
+vectors, \code{rules_skipped} empty when every rule ran); a skipped rule logs
+a warning and flags nothing, so a caller stating which rules a result
+rests on reads \code{rules_run} rather than the selection.
+\code{findings_exempted} holds, in the same shape, the findings the rules
+that ran make without \code{exceptions} and not with them, zero rows when
+nothing was exempted; \code{\link[=validation_summary]{validation_summary()}} counts both in records. The
+attributes stay unchanged on a subset of the rows, and
+\code{dplyr::bind_rows()} keeps those of its first input, so they are read
+from the result as \code{validate()} returned it.
 }
 \description{
 Runs every registered validation rule, or the subset named in \code{rules}, over
@@ -164,7 +170,18 @@ not carry): 52 flags a slot
 holding a substance without its days (a count of zero counting as none)
 or days without a substance, 53 one whose days exceed the form's
 antibiotic days or patient days, 54 a substance recorded in two slots of
-one form, one finding per pair with the lower slot as \code{index}. Rule 55
+one form, one finding per pair with the lower slot as \code{index}. Two slots
+of one substance may hold one treatment course each, which the analyses
+add up correctly, or one course entered twice, which they count twice; to
+tell these apart, rule 54 records each slot's days as stored (\code{days},
+\code{days_other}; \code{NA} where the slot holds no value, while a zero, which
+rule 52 counts as none, is recorded as 0), their sum over all the
+substance's slots on the form (\code{substance_days}, \code{NA} when none of them
+holds a value), and the form's antibiotic days (\code{ab_days}): separate
+courses cannot add up to more than these. \code{ab_days} is \code{NA} where the
+form holds no value, where the surveillance-end event has no form data,
+and where the dataset lacks the column; unlike rules 21 and 53, rule 54
+is not skipped for want of it. Rule 55
 flags a necrotizing enterocolitis, pneumonia or surgical site infection
 form whose secondary-BSI item is Yes without a secondary-BSI organism,
 and a necrotizing enterocolitis or pneumonia form with secondary-BSI
@@ -267,7 +284,7 @@ being a compulsory value of the form, which no rule checks.\tabular{lll}{
    51 \tab \code{enrollment_key} \tab \code{count}, \code{days}, \code{patient_days} — one finding per count that exceeds the patient days \cr
    52 \tab \code{enrollment_key} \tab \code{index}, \code{substance_code}, \code{substance}, \code{days} — one finding per slot \cr
    53 \tab \code{enrollment_key} \tab \code{index}, \code{substance_code}, \code{substance}, \code{days}, \code{ab_days}, \code{patient_days} — one finding per slot \cr
-   54 \tab \code{enrollment_key} \tab \code{substance_code}, \code{substance}, \code{index}, \code{index_other} — one finding per pair of slots \cr
+   54 \tab \code{enrollment_key} \tab \code{substance_code}, \code{substance}, \code{index}, \code{index_other}, \code{days}, \code{days_other}, \code{ab_days}, \code{substance_days} — one finding per pair of slots \cr
    55 \tab \code{event_key} \tab \code{sec_bsi}, \code{organisms} \cr
    56 \tab \code{patient_key} \tab \code{siblings} \cr
    57 \tab \code{patient_key} \tab none \cr
@@ -282,7 +299,9 @@ being a compulsory value of the form, which no rule checks.\tabular{lll}{
 Other validation:
 \code{\link[=read_validation_exceptions]{read_validation_exceptions()}},
 \code{\link[=resolve_validation_exceptions]{resolve_validation_exceptions()}},
+\code{\link[=validation_exception_usage]{validation_exception_usage()}},
 \code{\link[=validation_rule_context_fields]{validation_rule_context_fields()}},
-\code{\link[=validation_rule_ids]{validation_rule_ids()}}
+\code{\link[=validation_rule_ids]{validation_rule_ids()}},
+\code{\link[=validation_summary]{validation_summary()}}
 }
 \concept{validation}

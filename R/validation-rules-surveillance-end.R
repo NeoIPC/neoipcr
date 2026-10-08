@@ -235,8 +235,15 @@ validation_rule_53 <- function(x, exceptions)
 
 # Find substances recorded in two slots of one surveillance-end form, one
 # finding per pair, naming the lower slot first. The form means one slot
-# per substance: a substance in two has its days either split or entered
-# twice, and the record cannot say which.
+# per substance: a substance in two has its days either split into one slot
+# per treatment course or entered twice, and the record cannot say which.
+# A finding carries what tells the cases apart: the two slots' days as
+# stored, and their sum over all the substance's slots on the form beside the
+# form's antibiotic days, which separate courses cannot exceed. The sum is
+# `NA` when no slot of the substance holds a value. The antibiotic days are
+# `NA` where the form holds no value, where the end event has no form data,
+# or where the dataset lacks the column, so a pair is reported whatever the
+# form holds.
 validation_rule_54 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
@@ -244,20 +251,32 @@ validation_rule_54 <- function(x, exceptions)
     return(.rule_skipped(54L, "the substance slots' substance and days and the substance option set"))
 
   slots <- .substance_slots(x) |>
-    dplyr::filter(!is.na(.data$substance_code)) |>
-    dplyr::select(!"days")
+    dplyr::filter(!is.na(.data$substance_code))
+  substance_days <- slots |>
+    dplyr::group_by(.data$event_key, .data$substance_code) |>
+    dplyr::summarise(
+      substance_days = if (all(is.na(.data$days))) NA_integer_ else sum(.data$days, na.rm = TRUE),
+      .groups = "drop")
+  ab_days <- if ("ab_days" %in% names(x$surveillanceEndData))
+    x$surveillanceEndData |>
+      dplyr::select("event_key", "ab_days")
+  else
+    tibble::tibble(event_key = integer(), ab_days = integer())
 
   slots |>
     dplyr::inner_join(
       slots |>
-        dplyr::select("event_key", "substance_code", "index_other" = "index"),
+        dplyr::select("event_key", "substance_code", "index_other" = "index", "days_other" = "days"),
       dplyr::join_by("event_key", "substance_code", "index" < "index_other")) |>
+    dplyr::left_join(substance_days, dplyr::join_by("event_key", "substance_code")) |>
+    dplyr::left_join(ab_days, dplyr::join_by("event_key")) |>
     dplyr::anti_join(
       .rule_exceptions(exceptions, 54L),
       dplyr::join_by("enrollment_key")) |>
     # One finding per pair, as in rule 52.
     dplyr::mutate(finding = dplyr::row_number()) |>
-    tidyr::nest(context = c("substance_code", "substance", "index", "index_other")) |>
+    tidyr::nest(context = c("substance_code", "substance", "index", "index_other",
+                            "days", "days_other", "ab_days", "substance_days")) |>
     dplyr::mutate(
       rule_id        = 54L,
       patient_key    = .data$patient_key,

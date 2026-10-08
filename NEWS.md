@@ -14,6 +14,22 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+* Rule 54's findings carry what tells a substance recorded once per treatment course from a course
+  entered twice: each slot's days as stored (`days`, `days_other`), their sum over all the substance's
+  slots on the form (`substance_days`), and the form's antibiotic days (`ab_days`). Separate courses
+  cannot add up to more than the antibiotic days. A value the form does not hold is recorded as `NA`,
+  and the pair is reported all the same, also where the surveillance-end event has no form data or the
+  dataset lacks the antibiotic days.
+* `validate()` returns, beside `rules_skipped`, the rules it ran as the attribute `rules_run` and the
+  findings its exceptions exempted as `findings_exempted`. The new `validation_summary()` counts a
+  result's flagged and exempted records per rule and record kind, as `import_dhis2()` stores them in
+  `validationSummary`, which it now derives from `findings_exempted` rather than from a second pass of
+  its own.
+* The new `validation_exception_usage()` says, for each record of an exception list that concerns the
+  dataset's departments, whether it matches a record of the dataset and how many records it exempted,
+  so that a list's records that match nothing or exempt nothing can be found. A list with department
+  codes needs a dataset that carries them (`include_department = "full"`).
+
 # neoipcr 0.0.0.9007
 
 * `import_dhis2()` reconciles, before its filters and its validation pass, the stored values the NeoIPC

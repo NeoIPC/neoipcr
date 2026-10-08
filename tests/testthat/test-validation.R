@@ -337,6 +337,77 @@ test_that("validate resolves an exception list written in the user's form", {
     class = "neoipcr_invalid_exception_list")
 })
 
+test_that("validate returns the findings its exceptions exempted", {
+  ds <- rule_3_flagged_ds()
+  # Without a list, or with one that exempts nothing, the attribute holds no
+  # finding, in the finding shape.
+  none <- attr(neoipcr::validate(ds, rules = 3L), "findings_exempted")
+  expect_named(none, c("rule_id", "patient_key", "enrollment_key", "event_key", "context"))
+  expect_equal(nrow(none), 0L)
+  kept <- neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = 3L, event_key = 1L))
+  expect_equal(nrow(kept), 1L)
+  expect_equal(nrow(attr(kept, "findings_exempted")), 0L)
+  # Nor does a record for a rule the selection leaves out, though that rule
+  # would flag the enrolment it names.
+  unselected <- neoipcr::validate(
+    ds, rules = 3L, exceptions = tibble::tibble(rule_id = 25L, enrollment_key = 1L))
+  expect_equal(nrow(attr(unselected, "findings_exempted")), 0L)
+  # An exempted finding moves from the result to the attribute, its context
+  # with it, while another rule's finding on the same enrolment stays.
+  result <- neoipcr::validate(
+    ds, exceptions = tibble::tibble(rule_id = 3L, enrollment_key = 1L))
+  expect_false(3L %in% result$rule_id)
+  expect_true(25L %in% result$rule_id)
+  exempted <- attr(result, "findings_exempted")
+  expect_equal(exempted$rule_id, 3L)
+  expect_equal(exempted$enrollment_key, 1L)
+  expect_named(exempted$context[[1]], c("enrolledAt", "occurredAt"))
+})
+
+test_that("validate names the rules it ran and runs a skipped rule once", {
+  ds <- make_populated_test_ds()
+  expect_identical(attr(neoipcr::validate(ds, rules = c(18L, 3L)), "rules_run"), c(3L, 18L))
+  # Rule 18 skips for want of the patient days. A list naming it does not run
+  # it again for the findings the list exempted, so its warning appears once.
+  ds$surveillanceEndData$patient_days <- NULL
+  threshold <- logger::log_threshold(namespace = "neoipcr")
+  withr::defer(logger::log_threshold(threshold, namespace = "neoipcr"))
+  logger::log_threshold(logger::WARN, namespace = "neoipcr")
+  lines <- utils::capture.output(
+    result <- neoipcr::validate(
+      ds, rules = c(3L, 18L), exceptions = tibble::tibble(rule_id = 18L, enrollment_key = 1L)),
+    type = "message")
+  expect_identical(attr(result, "rules_run"), 3L)
+  expect_identical(attr(result, "rules_skipped"), 18L)
+  expect_equal(sum(grepl("Validation rule 18 skipped", lines, fixed = TRUE)), 1L)
+})
+
+test_that("validation_summary counts flagged and exempted records", {
+  namespace <- readLines(system.file("NAMESPACE", package = "neoipcr"))
+  expect_true("export(validation_summary)" %in% namespace)
+  result <- neoipcr::validate(
+    rule_3_flagged_ds(), exceptions = tibble::tibble(rule_id = 3L, enrollment_key = 1L))
+  summary <- neoipcr::validation_summary(result)
+  expect_named(summary, c("rule_id", "record_kind", "n_flagged", "n_exempted"))
+  rule_3 <- summary[summary$rule_id %in% 3L, ]
+  expect_equal(as.character(rule_3$record_kind), "enrollments")
+  expect_equal(rule_3$n_flagged, 0L)
+  expect_equal(rule_3$n_exempted, 1L)
+  rule_25 <- summary[summary$rule_id %in% 25L, ]
+  expect_equal(rule_25$n_flagged, 1L)
+  expect_equal(rule_25$n_exempted, 0L)
+  # A result that lost an attribute is not one `validate()` returned.
+  without_run <- result
+  attr(without_run, "rules_run") <- NULL
+  expect_error(neoipcr::validation_summary(without_run), "rules_run",
+               class = "neoipcr_invalid_validation_result")
+  attr(result, "findings_exempted") <- NULL
+  cnd <- expect_error(neoipcr::validation_summary(result),
+                      class = "neoipcr_invalid_validation_result")
+  expect_identical(rlang::call_name(cnd$call), "validation_summary")
+})
+
 test_that("validate refuses exceptions that are neither form", {
   ds <- rule_3_flagged_ds()
   expect_error(

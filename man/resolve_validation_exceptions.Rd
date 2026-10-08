@@ -44,7 +44,9 @@ see which records a list actually reaches.
 Other validation:
 \code{\link[=read_validation_exceptions]{read_validation_exceptions()}},
 \code{\link[=validate]{validate()}},
+\code{\link[=validation_exception_usage]{validation_exception_usage()}},
 \code{\link[=validation_rule_context_fields]{validation_rule_context_fields()}},
-\code{\link[=validation_rule_ids]{validation_rule_ids()}}
+\code{\link[=validation_rule_ids]{validation_rule_ids()}},
+\code{\link[=validation_summary]{validation_summary()}}
 }
 \concept{validation}

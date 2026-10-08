@@ -951,6 +951,11 @@ test_that("import_dhis2 keeps the records an exception list names", {
     include_invalid_patients = flagged))
   expect_setequal(as.character(kept$patients$patient_id), c("PAT_1", "PAT_2"))
   expect_equal(nrow(kept$validationResults), 0L)
+  # The pass's bookkeeping stays out of the dataset: the exempted findings
+  # are counted below, not stored.
+  expect_null(attr(kept$validationResults, "findings_exempted"))
+  expect_null(attr(kept$validationResults, "rules_run"))
+  expect_null(attr(kept$validationResults, "rules_skipped"))
   per_rule <- kept$validationSummary[!is.na(kept$validationSummary$rule_id), ]
   expect_equal(per_rule$rule_id, c(3L, 25L))
   expect_equal(per_rule$n_removed, c(0L, 0L))
@@ -1151,6 +1156,19 @@ test_that("import_dhis2 leaves the eligibility rule out of its pass when ineligi
     include_ineligible_patients = TRUE,
     include_invalid_patients    = FALSE))
   expect_false(45L %in% ds$validationResults$rule_id)
+  # A list naming the rule does not bring it back as exempted: the pass
+  # counts what the rules it ran exempted.
+  m <- new_dhis2_mock(with_late_admission(import_test_fixtures()))
+  httr2::local_mocked_responses(m$mock)
+  ds <- import_dhis2(test_conn(), import_test_opts(
+    include_ineligible_patients = TRUE,
+    include_invalid_patients    = tibble::tibble(
+      RULE_ID           = 45L,
+      NEOIPC_PATIENT_ID = "PAT_1",
+      ENROLMENT_DATE    = as.Date("2024-01-01"),
+      EVENT_TYPE        = NA_character_,
+      EVENT_DATE        = as.Date(NA))))
+  expect_false(45L %in% ds$validationSummary$rule_id)
   m <- new_dhis2_mock(with_late_admission(import_test_fixtures()))
   httr2::local_mocked_responses(m$mock)
   kept <- import_dhis2(test_conn(), import_test_opts(

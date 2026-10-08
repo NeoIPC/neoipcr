@@ -402,6 +402,19 @@ test_that("rule 43 honours exceptions", {
   expect_equal(nrow(result), 0L)
 })
 
+test_that("validate returns rule 43's exempted finding, measured against the reference date", {
+  # The findings an exception exempted are the rule's run without the list,
+  # which reads the reference date as the run with it does.
+  result <- neoipcr::validate(
+    open_enrolment_ds(400), rules = 43L,
+    exceptions = make_test_exceptions(43L, enrollment_key = 1L),
+    as_of = open_enrolment_as_of)
+  expect_equal(nrow(result), 0L)
+  exempted <- attr(result, "findings_exempted")
+  expect_equal(exempted$rule_id, 43L)
+  expect_equal(exempted$context[[1]]$days_open, 400L)
+})
+
 test_that("rule 44 detects an active enrolment with an open end event long after its enrolment date", {
   ds <- open_enrolment_ds(200, end = "ACTIVE")
   result <- neoipcr:::validation_rule_44(ds, NULL, open_enrolment_as_of)
