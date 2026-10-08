@@ -19,8 +19,9 @@ section above it for the next changes.
   mistake the record cannot prove. The validation pass of `import_dhis2()` runs both. It removes the
   patients an error flags and keeps those only a warning flags. It reports a warning's findings in
   `validationResults` and counts the records a warning flags in the new `validationSummary` column
-  `n_warned`, whether or not an error removed their patient. Rules 43 and 44 (an enrolment open for more than 120 days) and rule 54 (a substance recorded in two
-  slots of a surveillance-end form) are warnings, so the pass no longer removes a patient they flag.
+  `n_warned`, whether or not an error removed their patient. Rules 43 and 44 (an enrolment open for
+  more than 120 days) and rule 54 (a substance recorded in two slots of a surveillance-end form) are
+  warnings, so the pass no longer removes a patient they flag.
 * The new rule 62, an error, flags a substance whose slots on a surveillance-end form add up to more
   days than the form's antibiotic days, one finding per substance and form. It records the substance
   (`substance_code`, `substance`), the sum (`substance_days`), and the antibiotic days (`ab_days`).

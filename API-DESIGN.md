@@ -528,7 +528,7 @@ explicit function argument → dhis2_dataset_options()$locale → Sys.getlocale(
 
 ### §6.8. Message Catalogue
 
-The catalogue is `po/R-neoipcr.pot`, merged into `po/R-de.po` and `po/R-en.po` and compiled into `inst/po/<lang>/LC_MESSAGES/R-neoipcr.mo` for each of the two languages. It holds 185 msgids, 7 of them plural entries: 17 are the F- and C-class strings of §6.1.1, whose fate §6.6 decides, 2 are the credential prompts, and 166 are condition messages and the print method's text. `msgfmt --statistics -o /dev/null po/R-neoipcr.pot` counts them, as untranslated messages.
+The catalogue is `po/R-neoipcr.pot`, merged into `po/R-de.po` and `po/R-en.po` and compiled into `inst/po/<lang>/LC_MESSAGES/R-neoipcr.mo` for each of the two languages. It holds 187 msgids, 7 of them plural entries: 17 are the F- and C-class strings of §6.1.1, whose fate §6.6 decides, 2 are the credential prompts, and 168 are condition messages and the print method's text. `msgfmt --statistics -o /dev/null po/R-neoipcr.pot` counts them, as untranslated messages.
 
 #### §6.8.1. What Is Translated, and What Stays English
 
