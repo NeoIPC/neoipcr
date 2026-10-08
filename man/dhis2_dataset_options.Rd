@@ -209,7 +209,9 @@ every patient with no enrollment, the validation pass having flagged it
 first where it runs.}
 
 \item{include_invalid_patients}{Include data from patient records that
-could have validation errors: \code{FALSE} (the default) removes them, \code{TRUE}
+could have validation errors: \code{FALSE} (the default) removes the ones an
+error flags and keeps those only a warning flags (see
+\code{\link[=validation_rule_severities]{validation_rule_severities()}}), \code{TRUE}
 skips the validation pass altogether, though not the reconciliation
 \code{reconcile} asks for, and a data frame of exception
 records — as \code{\link[=read_validation_exceptions]{read_validation_exceptions()}} returns it — keeps the named
@@ -217,12 +219,11 @@ records despite the rule that flags them. \code{TRUE} also keeps the
 enrolments without an admission form, which the removal of orphan
 records after the import otherwise drops, so a \code{\link[=validate]{validate()}} on the
 returned dataset can report them under rule 26. With active enrolments
-requested (\code{include_incomplete}), the pass also removes a patient whose
+requested (\code{include_incomplete}), the pass also reports a patient whose
 enrolment rules 43 and 44 question for having stayed open more than 120
-days, a genuine long stay included, unless an exception record names
-it; and it refuses such an import that leaves out the events that are
-not completed, since on that dataset rule 43 cannot tell a missing end
-form from one that is open. An
+days, and keeps it, both rules being warnings; and it refuses such an
+import that leaves out the events that are not completed, since on that
+dataset rule 43 cannot tell a missing end form from one that is open. An
 exception record carries \code{RULE_ID} (numeric), \code{NEOIPC_PATIENT_ID}
 (character), \code{ENROLMENT_DATE} and \code{EVENT_DATE} (\code{Date}), \code{EVENT_TYPE}
 (one of \code{adm}, \code{pro}, \code{bsi}, \code{nec}, \code{ssi}, \code{hap}, \code{end}, in any case),

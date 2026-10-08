@@ -236,14 +236,16 @@ validation_rule_53 <- function(x, exceptions)
 # Find substances recorded in two slots of one surveillance-end form, one
 # finding per pair, naming the lower slot first. The form means one slot
 # per substance: a substance in two has its days either split into one slot
-# per treatment course or entered twice, and the record cannot say which.
-# A finding carries what tells the cases apart: the two slots' days as
-# stored, and their sum over all the substance's slots on the form beside the
-# form's antibiotic days, which separate courses cannot exceed. The sum is
-# `NA` when no slot of the substance holds a value. The antibiotic days are
-# `NA` where the form holds no value, where the end event has no form data,
-# or where the dataset lacks the column, so a pair is reported whatever the
-# form holds.
+# per treatment course or entered twice, and the record cannot say which,
+# so the rule is a warning. A finding carries what tells the cases apart:
+# the two slots' days as stored, and their sum over all the substance's
+# slots on the form beside the form's antibiotic days, which separate
+# courses cannot exceed. The sum is `NA` when no slot of the substance holds
+# a value. The antibiotic days are `NA` where the form holds no value, where
+# the end event has no form data, or where the dataset lacks the column, so
+# a pair is reported whatever the form holds. A pair whose two slots hold
+# days while the substance's sum exceeds the antibiotic days proves a
+# mistake: it is rule 62's, not this rule's.
 validation_rule_54 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)
@@ -270,6 +272,9 @@ validation_rule_54 <- function(x, exceptions)
       dplyr::join_by("event_key", "substance_code", "index" < "index_other")) |>
     dplyr::left_join(substance_days, dplyr::join_by("event_key", "substance_code")) |>
     dplyr::left_join(ab_days, dplyr::join_by("event_key")) |>
+    dplyr::filter(!dplyr::coalesce(
+      .data$days >= 1L & .data$days_other >= 1L & .data$substance_days > .data$ab_days,
+      FALSE)) |>
     dplyr::anti_join(
       .rule_exceptions(exceptions, 54L),
       dplyr::join_by("enrollment_key")) |>
@@ -279,6 +284,55 @@ validation_rule_54 <- function(x, exceptions)
                             "days", "days_other", "ab_days", "substance_days")) |>
     dplyr::mutate(
       rule_id        = 54L,
+      patient_key    = .data$patient_key,
+      enrollment_key = .data$enrollment_key,
+      event_key      = .data$event_key,
+      context        = .data$context,
+      .keep = "none")
+}
+
+# Find substances whose slots on one surveillance-end form add up to more
+# days than the form's antibiotic days, one finding per substance and form.
+# A substance day is an antibiotic day, and the form asks for a substance's
+# days over all its treatment courses, so separate courses cannot add up to
+# more than the antibiotic days: at least one slot counts days twice or
+# wrongly, and the analyses would count the substance's days as recorded.
+# Only a substance in two or more slots that hold days is judged: a slot
+# alone above the antibiotic days is rule 53's, and a slot without days adds
+# nothing to the sum. The rule reads the form's antibiotic days and is
+# skipped without them; a form without a value, or an end event without form
+# data, is not judged.
+validation_rule_62 <- function(x, exceptions)
+{
+  check_neoipcr_ds(x)
+  if (!.has_substance_slots(x) || !"ab_days" %in% names(x$surveillanceEndData))
+    return(.rule_skipped(
+      62L, "the substance slots' substance and days, the substance option set, and the surveillance-end form's antibiotic days"))
+
+  .substance_slots(x) |>
+    dplyr::filter(!is.na(.data$substance_code),
+                  dplyr::coalesce(.data$days >= 1L, FALSE)) |>
+    dplyr::group_by(.data$patient_key, .data$enrollment_key, .data$event_key,
+                    .data$substance_code, .data$substance) |>
+    dplyr::summarise(
+      slots          = dplyr::n(),
+      substance_days = sum(.data$days),
+      .groups = "drop") |>
+    dplyr::filter(.data$slots >= 2L) |>
+    dplyr::inner_join(
+      x$surveillanceEndData |>
+        dplyr::select("event_key", "ab_days"),
+      dplyr::join_by("event_key")) |>
+    dplyr::filter(dplyr::coalesce(.data$substance_days > .data$ab_days, FALSE)) |>
+    dplyr::anti_join(
+      .rule_exceptions(exceptions, 62L),
+      dplyr::join_by("enrollment_key")) |>
+    # One finding per substance: on the keys alone, a form's substances would
+    # nest into one finding with a context row per substance.
+    dplyr::mutate(finding = dplyr::row_number()) |>
+    tidyr::nest(context = c("substance_code", "substance", "substance_days", "ab_days")) |>
+    dplyr::mutate(
+      rule_id        = 62L,
       patient_key    = .data$patient_key,
       enrollment_key = .data$enrollment_key,
       event_key      = .data$event_key,

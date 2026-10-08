@@ -29,8 +29,12 @@ counting the distinct records of that kind the flagged findings concern
 record kind is the level the "Context fields" section of \code{\link[=validate]{validate()}}
 names for it, so a rule that records several findings on one record, as
 rules 51 to 54 do, counts that record once. These are the counts
-\code{\link[=import_dhis2]{import_dhis2()}} stores as \code{validationSummary}, where the flagged records
-are the ones it removed (\code{n_removed}).
+\code{\link[=import_dhis2]{import_dhis2()}} stores as \code{validationSummary}, which splits the flagged
+records by severity (\code{\link[=validation_rule_severities]{validation_rule_severities()}}): those an error
+flagged, which it removed with their patients (\code{n_removed}), and those a
+warning flagged (\code{n_warned}), which it kept unless an error flagged a
+record of the same patient. Here a rule's flagged records are counted
+whatever its severity.
 }
 \seealso{
 Other validation:
@@ -39,6 +43,7 @@ Other validation:
 \code{\link[=validate]{validate()}},
 \code{\link[=validation_exception_usage]{validation_exception_usage()}},
 \code{\link[=validation_rule_context_fields]{validation_rule_context_fields()}},
-\code{\link[=validation_rule_ids]{validation_rule_ids()}}
+\code{\link[=validation_rule_ids]{validation_rule_ids()}},
+\code{\link[=validation_rule_severities]{validation_rule_severities()}}
 }
 \concept{validation}

@@ -88,6 +88,33 @@ test_that("read_validation_exceptions refuses a path that is not a file", {
     "neoipcr_invalid_exception_list")
 })
 
+test_that("read_validation_exceptions refuses a file that is not UTF-8 text", {
+  path <- write_exception_csv(exception_rows())
+  text <- readBin(path, "raw", n = file.size(path))
+  # UTF-16 as a spreadsheet's Unicode text export writes it: a byte order
+  # mark, and a NUL byte beside every ASCII character.
+  utf16 <- withr::local_tempfile(fileext = ".csv")
+  writeBin(c(as.raw(c(0xFF, 0xFE)), as.vector(rbind(text, as.raw(0L)))), utf16)
+  cnd <- rlang::catch_cnd(neoipcr::read_validation_exceptions(utf16))
+  expect_true(inherits(cnd, "neoipcr_invalid_exception_list"))
+  expect_match(conditionMessage(cnd), "The file is not UTF-8 text.", fixed = TRUE)
+  # A patient id holding the byte Windows-1252 writes for an accented e.
+  ansi <- withr::local_tempfile(fileext = ".csv")
+  writeBin(c(
+    charToRaw(paste0(
+      "RULE_ID,DEPARTMENT_CODE,NEOIPC_PATIENT_ID,ENROLMENT_DATE,EVENT_TYPE,EVENT_DATE\n",
+      "3,DEPT_1,PAT_")),
+    as.raw(0xE9),
+    charToRaw(",2024-01-01,,\n")), ansi)
+  expect_error_of_class(
+    neoipcr::read_validation_exceptions(ansi), "neoipcr_invalid_exception_list")
+  # A byte order mark and CRLF line ends are UTF-8 text all the same.
+  bom <- withr::local_tempfile(fileext = ".csv")
+  writeBin(c(as.raw(c(0xEF, 0xBB, 0xBF)),
+             charToRaw(gsub("\n", "\r\n", rawToChar(text), fixed = TRUE))), bom)
+  expect_equal(neoipcr::read_validation_exceptions(bom)$RULE_ID, c(3L, 12L))
+})
+
 test_that("read_validation_exceptions refuses a file without the record columns", {
   path <- write_exception_csv(exception_rows() |> dplyr::select(!"ENROLMENT_DATE"))
   expect_error(

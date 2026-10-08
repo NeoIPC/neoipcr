@@ -5,7 +5,8 @@
 #' @param dataset_options The options to use for the dataset configuration
 #'
 #' @returns A NeoIPC dataset. Its `validationResults` slot holds the findings
-#'  of the import's validation pass in the shape [validate()] returns, without
+#'  of the import's validation pass in the shape [validate()] returns, the
+#'  warnings' among them (see [validation_rule_severities()]), without
 #'  the attributes that describe its run (`rules_run`, `rules_skipped` and
 #'  `findings_exempted`) and with `NA` for a context value the pass read
 #'  from a patient attribute the returned `patients` does not carry (rule 56's
@@ -14,17 +15,21 @@
 #'  `validationSummary` counts them: one row per rule that flagged or
 #'  exempted a record, with the rule's record kind — `patients`,
 #'  `enrollments` or `events`, the level it is recorded on; see the table on
-#'  [validate()] — `n_removed`, the distinct records the rule flagged and the
-#'  import removed, and `n_exempted`, the distinct records the exception
-#'  list exempted from the rule; and one row per record kind, with `rule_id`
+#'  [validate()] — `n_removed`, the distinct records an error rule flagged
+#'  and the import removed, `n_exempted`, the distinct records the exception
+#'  list exempted from the rule, and `n_warned`, the distinct records a
+#'  warning flagged, which the import kept unless an error flagged a record
+#'  of the same patient, whom it removed with them;
+#'  and one row per record kind, with `rule_id`
 #'  `NA`, counting the distinct records of that kind the findings concern:
 #'  every finding concerns its patient, a finding of an enrolment- or
 #'  event-level rule also concerns its enrolment, and a finding of an
-#'  event-level rule also concerns its event, so the `patients` row is the
-#'  number of patients the pass removed. An exception
+#'  event-level rule also concerns its event, so the `patients` row's
+#'  `n_removed` is the number of patients the pass removed. An exception
 #'  keeps a record from the rule it names, not from the others: a record
-#'  exempted from one rule and flagged under another is removed all the
-#'  same and counts in both columns. Nor does it keep a record from the
+#'  exempted from one rule and flagged under another counts in `n_exempted`
+#'  for the one and in `n_removed` or `n_warned` for the other, and an error
+#'  removes it all the same. Nor does it keep a record from the
 #'  dataset's shape, which the summary does not describe: a patient without
 #'  an enrolment exempted under rule 1 is exempted in the summary and stays
 #'  only with `include_unenrolled_patients` (see [dhis2_dataset_options()]),
@@ -502,10 +507,13 @@ import_dhis2 <- function(
     attr(v, "rules_run") <- NULL
     attr(v, "rules_skipped") <- NULL
     attr(v, "findings_exempted") <- NULL
+    # A warning reports its record and keeps it: only an error's finding
+    # removes the patient.
+    warned <- v$rule_id %in% .warning_rule_ids()
     r$validationResults <- v
-    r$validationSummary <- .validation_summary(v, exempted)
+    r$validationSummary <- .validation_summary(v[!warned, ], exempted, v[warned, ])
     r$patients <- r$patients |>
-      dplyr::anti_join(v, dplyr::join_by("patient_key"))
+      dplyr::anti_join(v[!warned, ], dplyr::join_by("patient_key"))
   }
 
   # The patients read wider for the pass narrow to the requested shape (see

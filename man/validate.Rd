@@ -15,7 +15,11 @@ the form a user writes needs the patient id and a department tier on
 top, as \code{\link[=resolve_validation_exceptions]{resolve_validation_exceptions()}} describes.}
 
 \item{rules}{Integer vector of rule ids to run; \code{NULL} (the default) runs all
-of them. An id outside \code{\link[=validation_rule_ids]{validation_rule_ids()}} is an error.}
+of them. An id outside \code{\link[=validation_rule_ids]{validation_rule_ids()}} is an error. A rule's
+findings are the same whatever else is selected, so rule 54, which
+leaves to rule 62 a pair of slots whose days prove a mistake (see the
+section on context fields), reports no such pair in a selection without
+rule 62.}
 
 \item{exceptions}{The records to exempt from the rule that flags them:
 either the list a user writes, as \code{\link[=read_validation_exceptions]{read_validation_exceptions()}} returns
@@ -37,8 +41,8 @@ rules are selected.}
 \value{
 A tibble with one row per finding — a flagged record, or one of
 the several findings a rule records on one record: for rule 17 one of
-the two enrolments of an overlapping pair, for rules 51 to 54 one per
-count, slot or pair of slots: \code{rule_id};
+the two enrolments of an overlapping pair, for rules 51 to 54 and 62 one
+per count, slot, pair of slots, or substance: \code{rule_id};
 \code{patient_key}, \code{enrollment_key} and
 \code{event_key}, each naming the record the finding refers to at that level
 and \code{NA} where there is none (an enrolment-level rule that compared a
@@ -62,9 +66,9 @@ from the result as \code{validate()} returned it.
 \description{
 Runs every registered validation rule, or the subset named in \code{rules}, over
 the dataset and returns the records each rule flags. \code{\link[=import_dhis2]{import_dhis2()}} runs
-it by default and removes the flagged patients from the dataset; call it
-directly on a dataset imported with \code{include_invalid_patients = TRUE} to see
-which records would be removed and why.
+it by default and removes the patients an error flags from the dataset,
+keeping those only a warning flags (see the section on severities below);
+call it directly on a dataset imported with \code{include_invalid_patients = TRUE} to see which records would be flagged and why.
 }
 \details{
 A finding is data, never prose: the rule id, the keys that identify the
@@ -72,6 +76,18 @@ record, and the values the rule compared. The sentence a reader sees is
 the consumer's, composed from the context fields listed below, so that it
 is written and translated where the document is rendered.
 }
+\section{Severities}{
+
+An error flags a record the analyses cannot use as recorded. A warning
+flags one they can, although it may hide a mistake the record cannot
+prove: rules 43, 44, and 54 are warnings, every other rule an error, as
+\code{\link[=validation_rule_severities]{validation_rule_severities()}} lists them. \code{validate()} reports both
+alike; the import's validation pass removes the patient records an error
+flags and keeps those only a warning flags, counting both in its
+\code{validationSummary} (see \code{\link[=import_dhis2]{import_dhis2()}}). An exception exempts a
+record from a warning as from an error.
+}
+
 \section{Context fields}{
 
 Each rule records the fields below in \code{context}, identifies its finding
@@ -87,9 +103,9 @@ necrotizing enterocolitis, pneumonia or a surgical site infection). An
 enrolment-level rule that compares a form carries that form's event on
 its finding, so a document shows the finding on the form; a record for
 such a rule may name that form's type and date as well, or leave them
-empty, and is refused naming any other type (rules 3, 5 and 45–47 the
-admission form, 2, 4, 6, 18, 21, 44 and 51–54 the surveillance-end form;
-17, 25, 26, 43 and 48 carry no event).
+empty, and is refused naming any other type (rules 3, 5, and 45–47 the
+admission form, 2, 4, 6, 18, 21, 44, 51–54, and 62 the surveillance-end
+form; 17, 25, 26, 43, and 48 carry no event).
 Dates are \code{Date}, statuses factors, counts integers. A dataset imported
 without incomplete enrolments or events (\code{include_incomplete}) carries no
 \code{status} column for them; the rules then treat every such record as
@@ -100,9 +116,10 @@ after its enrolment date, measured against \code{as_of}: 43 one without a
 surveillance-end form, 44 one whose surveillance-end form is not
 completed. A neonatal stay that long is exceptional, so such a record is
 most often one nobody closed once the infant left; but the infant may
-still be admitted, in which case the finding is to be ignored, and an
-exception record keeps the enrolment out of the findings while the stay
-lasts. \code{days_open} is the whole days from the enrolment date to \code{as_of}.
+still be admitted, in which case the finding is to be ignored, so both
+rules are warnings, and an exception record keeps the enrolment out of the
+findings while the stay lasts. \code{days_open} is the whole days from the
+enrolment date to \code{as_of}.
 A dataset imported with the enrolments that are not completed but only
 the completed events holds no end form that is not completed, so on it a
 missing form and an open one look alike; rule 43 is skipped on that shape
@@ -162,26 +179,35 @@ of the surveillance-end form that exceeds the patient days, one finding
 per count, \code{count} being the count's column name (\code{cvc_days}, \code{pvc_days},
 \code{inv_days}, \code{niv_days}, \code{vs_days} for the invasive and non-invasive
 ventilation days together, \code{ab_days}, \code{human_milk_days},
-\code{kangaroo_care_days} or \code{probiotic_days}). Rules 52 to 54 read the
-antibiotic substance slots, one finding per slot or pair, naming the
-substance by the option code the form stores (\code{substance_code}) and by
-the name the form shows (\code{substance}, \code{NA} for a code the option set does
-not carry): 52 flags a slot
+\code{kangaroo_care_days} or \code{probiotic_days}). Rules 52 to 54 and 62 read
+the antibiotic substance slots, one finding per slot, pair, or substance,
+naming the substance by the option code the form stores
+(\code{substance_code}) and by the name the form shows (\code{substance}, \code{NA} for
+a code the option set does not carry): 52 flags a slot
 holding a substance without its days (a count of zero counting as none)
 or days without a substance, 53 one whose days exceed the form's
 antibiotic days or patient days, 54 a substance recorded in two slots of
 one form, one finding per pair with the lower slot as \code{index}. Two slots
 of one substance may hold one treatment course each, which the analyses
-add up correctly, or one course entered twice, which they count twice; to
-tell these apart, rule 54 records each slot's days as stored (\code{days},
+add up correctly, or one course entered twice, which they count twice,
+and the record cannot tell which, so rule 54 is a warning; to help tell
+these apart, it records each slot's days as stored (\code{days},
 \code{days_other}; \code{NA} where the slot holds no value, while a zero, which
 rule 52 counts as none, is recorded as 0), their sum over all the
 substance's slots on the form (\code{substance_days}, \code{NA} when none of them
-holds a value), and the form's antibiotic days (\code{ab_days}): separate
-courses cannot add up to more than these. \code{ab_days} is \code{NA} where the
-form holds no value, where the surveillance-end event has no form data,
-and where the dataset lacks the column; unlike rules 21 and 53, rule 54
-is not skipped for want of it. Rule 55
+holds a value), and the form's antibiotic days (\code{ab_days}). \code{ab_days} is
+\code{NA} where the form holds no value, where the surveillance-end event has
+no form data, and where the dataset lacks the column; unlike rules 21 and
+53, rule 54 is not skipped for want of it. Separate courses cannot add up
+to more than the antibiotic days, so rule 62, an error, flags a substance
+whose slots that hold days add up to more (\code{substance_days}, beside
+\code{ab_days}), one finding per substance and form, and rule 54 leaves to it,
+whether rule 62 runs or not, a pair whose two slots hold days while the
+substance's slots add up to more. Rule
+62 judges only a substance in two or more slots that hold days, a slot
+alone above the antibiotic days being rule 53's; it is skipped without
+the antibiotic days, and a form without a value or without form data is
+not judged. Rule 55
 flags a necrotizing enterocolitis, pneumonia or surgical site infection
 form whose secondary-BSI item is Yes without a secondary-BSI organism,
 and a necrotizing enterocolitis or pneumonia form with secondary-BSI
@@ -292,6 +318,7 @@ being a compulsory value of the form, which no rule checks.\tabular{lll}{
    59 \tab \code{event_key} \tab \code{findings} \cr
    60 \tab \code{event_key} \tab \code{imaging_count}, \code{clinical_count}, \code{surgical_count} \cr
    61 \tab \code{event_key} \tab \code{infection_type} \cr
+   62 \tab \code{enrollment_key} \tab \code{substance_code}, \code{substance}, \code{substance_days}, \code{ab_days} — one finding per substance and form \cr
 }
 }
 
@@ -302,6 +329,7 @@ Other validation:
 \code{\link[=validation_exception_usage]{validation_exception_usage()}},
 \code{\link[=validation_rule_context_fields]{validation_rule_context_fields()}},
 \code{\link[=validation_rule_ids]{validation_rule_ids()}},
+\code{\link[=validation_rule_severities]{validation_rule_severities()}},
 \code{\link[=validation_summary]{validation_summary()}}
 }
 \concept{validation}

@@ -17,7 +17,8 @@ server.}
 }
 \value{
 A NeoIPC dataset. Its \code{validationResults} slot holds the findings
-of the import's validation pass in the shape \code{\link[=validate]{validate()}} returns, without
+of the import's validation pass in the shape \code{\link[=validate]{validate()}} returns, the
+warnings' among them (see \code{\link[=validation_rule_severities]{validation_rule_severities()}}), without
 the attributes that describe its run (\code{rules_run}, \code{rules_skipped} and
 \code{findings_exempted}) and with \code{NA} for a context value the pass read
 from a patient attribute the returned \code{patients} does not carry (rule 56's
@@ -26,17 +27,21 @@ from a patient attribute the returned \code{patients} does not carry (rule 56's
 \code{validationSummary} counts them: one row per rule that flagged or
 exempted a record, with the rule's record kind — \code{patients},
 \code{enrollments} or \code{events}, the level it is recorded on; see the table on
-\code{\link[=validate]{validate()}} — \code{n_removed}, the distinct records the rule flagged and the
-import removed, and \code{n_exempted}, the distinct records the exception
-list exempted from the rule; and one row per record kind, with \code{rule_id}
+\code{\link[=validate]{validate()}} — \code{n_removed}, the distinct records an error rule flagged
+and the import removed, \code{n_exempted}, the distinct records the exception
+list exempted from the rule, and \code{n_warned}, the distinct records a
+warning flagged, which the import kept unless an error flagged a record
+of the same patient, whom it removed with them;
+and one row per record kind, with \code{rule_id}
 \code{NA}, counting the distinct records of that kind the findings concern:
 every finding concerns its patient, a finding of an enrolment- or
 event-level rule also concerns its enrolment, and a finding of an
-event-level rule also concerns its event, so the \code{patients} row is the
-number of patients the pass removed. An exception
+event-level rule also concerns its event, so the \code{patients} row's
+\code{n_removed} is the number of patients the pass removed. An exception
 keeps a record from the rule it names, not from the others: a record
-exempted from one rule and flagged under another is removed all the
-same and counts in both columns. Nor does it keep a record from the
+exempted from one rule and flagged under another counts in \code{n_exempted}
+for the one and in \code{n_removed} or \code{n_warned} for the other, and an error
+removes it all the same. Nor does it keep a record from the
 dataset's shape, which the summary does not describe: a patient without
 an enrolment exempted under rule 1 is exempted in the summary and stays
 only with \code{include_unenrolled_patients} (see \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}),

@@ -15,8 +15,9 @@ A tibble with one row per exception record: \code{RULE_ID} (integer),
 \code{EVENT_DATE} (\code{Date}), and \code{DEPARTMENT_CODE} (character) when the file
 carries it with a value — the shape \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}} accepts as
 \code{include_invalid_patients} and \code{\link[=validate]{validate()}} as \code{exceptions}. A path that
-is not a file, a file that lacks a record column, holds a row with the
-wrong number of fields or a value that does not parse, names a rule
+is not a file, a file that is not UTF-8 text (UTF-16, or a byte another
+encoding wrote), lacks a record column, holds a row with the wrong number
+of fields or a value that does not parse, names a rule
 outside \code{\link[=validation_rule_ids]{validation_rule_ids()}}, or holds a record written at another
 level than its rule's, is an error of class
 \code{neoipcr_invalid_exception_list}.
@@ -43,6 +44,7 @@ Other validation:
 \code{\link[=validation_exception_usage]{validation_exception_usage()}},
 \code{\link[=validation_rule_context_fields]{validation_rule_context_fields()}},
 \code{\link[=validation_rule_ids]{validation_rule_ids()}},
+\code{\link[=validation_rule_severities]{validation_rule_severities()}},
 \code{\link[=validation_summary]{validation_summary()}}
 }
 \concept{validation}

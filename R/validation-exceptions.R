@@ -21,8 +21,9 @@
 #'  `EVENT_DATE` (`Date`), and `DEPARTMENT_CODE` (character) when the file
 #'  carries it with a value — the shape [dhis2_dataset_options()] accepts as
 #'  `include_invalid_patients` and [validate()] as `exceptions`. A path that
-#'  is not a file, a file that lacks a record column, holds a row with the
-#'  wrong number of fields or a value that does not parse, names a rule
+#'  is not a file, a file that is not UTF-8 text (UTF-16, or a byte another
+#'  encoding wrote), lacks a record column, holds a row with the wrong number
+#'  of fields or a value that does not parse, names a rule
 #'  outside [validation_rule_ids()], or holds a record written at another
 #'  level than its rule's, is an error of class
 #'  `neoipcr_invalid_exception_list`.
@@ -38,6 +39,17 @@ read_validation_exceptions <- function(path)
       class = "neoipcr_invalid_exception_list")
   header <- gettextf(
     "The validation exception file \"%s\" does not hold exception records.", path)
+
+  # readr reads the file as UTF-8 without checking it: a UTF-16 file fails
+  # inside it on the NUL bytes, and a byte that is not UTF-8 fails a string
+  # function further on, both outside this function's class.
+  bytes <- readBin(path, "raw", n = file.size(path))
+  if (any(bytes == as.raw(0L)) || !validUTF8(rawToChar(bytes)))
+    rlang::abort(c(
+      header,
+      x = gettext("The file is not UTF-8 text."),
+      i = gettext("Save it as CSV in the UTF-8 encoding.")),
+      class = "neoipcr_invalid_exception_list")
 
   # Every column arrives as text and is parsed below, where a value that
   # does not parse can be named; readr's own guessing would coerce a whole

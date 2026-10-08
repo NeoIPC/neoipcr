@@ -21,6 +21,7 @@ Other validation:
 \code{\link[=validate]{validate()}},
 \code{\link[=validation_exception_usage]{validation_exception_usage()}},
 \code{\link[=validation_rule_context_fields]{validation_rule_context_fields()}},
+\code{\link[=validation_rule_severities]{validation_rule_severities()}},
 \code{\link[=validation_summary]{validation_summary()}}
 }
 \concept{validation}

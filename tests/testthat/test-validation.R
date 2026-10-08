@@ -1,11 +1,13 @@
 # Tests for R/validation.R — validate() orchestrator and validation_rules registry.
 
-test_that("validation_rules registry has 60 entries with an id, a level and a function each", {
-  expect_equal(length(neoipcr:::validation_rules), 60L)
+test_that("validation_rules registry has 61 entries with an id, a level and a function each", {
+  expect_equal(length(neoipcr:::validation_rules), 61L)
   for (entry in neoipcr:::validation_rules) {
     expect_true(all(c("id", "level", "fun") %in% names(entry)))
     expect_true(is.integer(entry$id))
     expect_true(entry$level %in% c("patient", "enrollment", "event"))
+    # A rule is an error unless the registry marks it as a warning.
+    expect_true(is.null(entry$severity) || identical(entry$severity, "warning"))
     # An event-level rule names the event types it concerns; an
     # enrolment-level rule names the form its finding is shown on, or none;
     # the patient-level rule names none.
@@ -48,6 +50,8 @@ test_that("validation_rules registry has 60 entries with an id, a level and a fu
   expect_equal(neoipcr:::.rule_event_types(59L), "bsi")
   expect_equal(neoipcr:::.rule_event_types(60L), "nec")
   expect_equal(neoipcr:::.rule_event_types(61L), "ssi")
+  expect_equal(unname(levels["62"]), "enrollment")
+  expect_equal(neoipcr:::.rule_event_types(62L), "end")
   # Only the rules that measure an enrolment's age take the reference date.
   dated <- vapply(neoipcr:::validation_rules, \(r) isTRUE(r$dated), logical(1))
   expect_equal(neoipcr::validation_rule_ids()[dated], c(43L, 44L))
@@ -97,7 +101,7 @@ test_that("validation_rule_ids is exported and lists the registry in order", {
   namespace <- readLines(system.file("NAMESPACE", package = "neoipcr"))
   expect_true("export(validation_rule_ids)" %in% namespace)
   # Rule 16 is gone, so the ids keep their numbering with a gap at 16.
-  expect_identical(neoipcr::validation_rule_ids(), c(1:15, 17:61))
+  expect_identical(neoipcr::validation_rule_ids(), c(1:15, 17:62))
   expect_true("export(validation_rule_context_fields)" %in% namespace)
   fields <- neoipcr::validation_rule_context_fields()
   expect_identical(names(fields), as.character(neoipcr::validation_rule_ids()))
@@ -108,8 +112,21 @@ test_that("validation_rule_ids is exported and lists the registry in order", {
   expect_setequal(fields[["60"]],
                   c("imaging_count", "clinical_count", "surgical_count"))
   expect_identical(fields[["61"]], "infection_type")
+  expect_setequal(fields[["62"]], c("substance_code", "substance", "substance_days", "ab_days"))
   expect_setequal(fields[["3"]], c("enrolledAt", "occurredAt"))
   expect_setequal(fields[["20"]], c("index", "secondary_bsi", "name"))
+})
+
+test_that("validation_rule_severities is exported and marks rules 43, 44, and 54 as warnings", {
+  namespace <- readLines(system.file("NAMESPACE", package = "neoipcr"))
+  expect_true("export(validation_rule_severities)" %in% namespace)
+  severities <- neoipcr::validation_rule_severities()
+  expect_type(severities, "character")
+  expect_identical(names(severities), as.character(neoipcr::validation_rule_ids()))
+  expect_identical(names(severities)[severities == "warning"], c("43", "44", "54"))
+  expect_true(all(severities[severities != "warning"] == "error"))
+  # Rule 54's pairs that prove a mistake are rule 62's, an error.
+  expect_identical(severities[["62"]], "error")
 })
 
 # The populated fixture with its surveillance-end forms made consistent: the
@@ -397,6 +414,22 @@ test_that("validation_summary counts flagged and exempted records", {
   rule_25 <- summary[summary$rule_id %in% 25L, ]
   expect_equal(rule_25$n_flagged, 1L)
   expect_equal(rule_25$n_exempted, 0L)
+  # A warning's records count among the flagged ones as an error's do: an
+  # enrolment still active 312 days after its enrolment date on the fixture's
+  # server date is rule 43's.
+  open_ds <- make_test_ds(
+    patients    = make_test_patients(1),
+    enrollments = make_test_enrollments(1,
+      patient_keys = 1L,
+      enrolledAt = as.Date("2024-01-01"),
+      status = factor("ACTIVE", levels = c("ACTIVE", "COMPLETED", "CANCELLED"))),
+    events = make_test_events(1,
+      enrollment_keys = 1L,
+      patient_keys    = 1L,
+      event_type_keys = "adm"))
+  warned <- neoipcr::validation_summary(neoipcr::validate(open_ds, rules = 43L))
+  expect_named(warned, c("rule_id", "record_kind", "n_flagged", "n_exempted"))
+  expect_equal(warned$n_flagged[warned$rule_id %in% 43L], 1L)
   # A result that lost an attribute is not one `validate()` returned.
   without_run <- result
   attr(without_run, "rules_run") <- NULL

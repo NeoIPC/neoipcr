@@ -1053,13 +1053,41 @@ test_that("import_dhis2 runs the open-enrolment rules on the active enrolments i
     include_incomplete       = c("enrollments", "events"),
     include_invalid_patients = FALSE))
   expect_equal(nrow(removed$patients), 0L)
+  # Rule 43 is a warning: it removes nothing, and its record counts apart.
   per_rule <- removed$validationSummary[!is.na(removed$validationSummary$rule_id), ]
   expect_equal(per_rule$rule_id, c(3L, 25L, 43L))
-  expect_equal(per_rule$n_removed, c(2L, 1L, 1L))
+  expect_equal(per_rule$n_removed, c(2L, 1L, 0L))
+  expect_equal(per_rule$n_warned, c(0L, 0L, 1L))
+  totals <- removed$validationSummary[is.na(removed$validationSummary$rule_id), ]
+  expect_equal(totals$n_removed, c(2L, 2L, 0L))
+  expect_equal(totals$n_warned, c(1L, 1L, 0L))
   finding <- removed$validationResults[removed$validationResults$rule_id == 43L, ]
   expect_equal(nrow(finding), 1L)
   expect_equal(finding$context[[1L]]$days_open,
                as.integer(as.Date("2024-11-08") - as.Date("2024-01-01")))
+
+  # With the first patient's rule 3 finding exempted, only the warning flags
+  # it, and the pass keeps it with the finding reported; the second patient's
+  # errors still remove it.
+  kept <- import_dhis2(test_conn(), import_test_opts(
+    include_incomplete       = c("enrollments", "events"),
+    include_invalid_patients = tibble::tibble(
+      RULE_ID           = 3L,
+      NEOIPC_PATIENT_ID = "PAT_1",
+      ENROLMENT_DATE    = as.Date("2024-01-01"),
+      EVENT_TYPE        = NA_character_,
+      EVENT_DATE        = as.Date(NA))))
+  expect_equal(as.character(kept$patients$patient_id), "PAT_1")
+  expect_equal(kept$validationResults$rule_id[
+    kept$validationResults$patient_key == kept$patients$patient_key], 43L)
+  per_rule <- kept$validationSummary[!is.na(kept$validationSummary$rule_id), ]
+  expect_equal(per_rule$rule_id, c(3L, 25L, 43L))
+  expect_equal(per_rule$n_removed, c(1L, 1L, 0L))
+  expect_equal(per_rule$n_exempted, c(1L, 0L, 0L))
+  expect_equal(per_rule$n_warned, c(0L, 0L, 1L))
+  totals <- kept$validationSummary[is.na(kept$validationSummary$rule_id), ]
+  expect_equal(totals$n_removed, c(1L, 1L, 0L))
+  expect_equal(totals$n_warned, c(1L, 1L, 0L))
 
   # Requested with the active enrolments but only the completed events, the
   # dataset holds no open end form, so a missing one and an open one look
