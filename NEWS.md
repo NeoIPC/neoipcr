@@ -14,6 +14,8 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+# neoipcr 0.0.0.9008
+
 * Validation rules have a severity, which the new `validation_rule_severities()` lists. An error flags
   a record the analyses cannot use as recorded; a warning flags one they can, although it may hide a
   mistake the record cannot prove. The validation pass of `import_dhis2()` runs both. It removes the
