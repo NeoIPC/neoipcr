@@ -179,6 +179,61 @@ jobs:
           fi
           echo "po/R-neoipcr.pot holds the msgids R/ yields."
 
+  sysdata:
+    # R/sysdata.rda must be what data-raw/sysdata.R builds from the pinned release of the NeoIPC
+    # infectious-agent list and its reporting classification: in its --check mode the script fetches
+    # both from the Surveillance-Toolkit, checks them against the pin, derives the tables, and fails
+    # where they differ from the bundled ones, writing nothing. Its own job, outside the matrix below,
+    # for the same reason text-hygiene is: the bundle is a property of the tree. While the pin names no
+    # release tag, the script runs only with --untagged, which this job never passes, so the job fails
+    # until the pin names the tag.
+    name: Bundled infectious-agent tables
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      # What the script and the derivation it sources call beyond base R, without the package's other
+      # dependencies; yaml12 follows in a step of its own.
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::httr2, any::rlang, any::tibble
+          dependencies: '"hard"'
+
+      - name: Install yaml12
+        shell: bash
+        # yaml12, which DESCRIPTION's Config/Needs/data-raw names, is pinned, so that the check reads the
+        # files as the build of the bundle read them. It comes from the package manager where that serves
+        # the pinned version as a binary, and is otherwise built from CRAN's source package, as the runner
+        # user, with the Rust toolchain the runner image keeps in that user's home: under sudo, HOME and
+        # PATH would lead the build to no toolchain. CRAN serves the current release at one address and
+        # an earlier one in its archive, so both are tried, and warn = 2 fails a failed build, which
+        # install.packages() reports only as a warning.
+        run: |
+          Rscript - <<'EOF'
+          options(warn = 2)
+          pinned <- "0.2.0"
+          installed <- function()
+            identical(tryCatch(format(packageVersion("yaml12")), error = function(e) ""), pinned)
+          try(install.packages("yaml12"))
+          sources <- sprintf(c("https://cloud.r-project.org/src/contrib/yaml12_%s.tar.gz",
+                               "https://cloud.r-project.org/src/contrib/Archive/yaml12/yaml12_%s.tar.gz"), pinned)
+          for (source in sources) {
+            if (installed()) break
+            try(install.packages(source, repos = NULL, type = "source"))
+          }
+          if (!installed())
+            rlang::abort(sprintf("yaml12 %s could not be installed.", pinned))
+          EOF
+          Rscript -e 'cat("yaml12", format(packageVersion("yaml12")), "\n")'
+
+      - name: Compare R/sysdata.rda with the tables the pinned files give
+        run: Rscript data-raw/sysdata.R --check
+
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
 

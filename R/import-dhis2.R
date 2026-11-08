@@ -559,7 +559,7 @@ import_dhis2 <- function(
     assert_data_protection(dataset_options)
 }
 
-#' Supported DHIS2 and metadata-package versions
+#' Supported DHIS2, metadata-package, and infectious-agent list versions
 #'
 #' The version combinations `neoipcr` declares support for: the DHIS2 releases
 #' that are **both** verified against a live server — not on fixtures alone —
@@ -591,14 +591,23 @@ import_dhis2 <- function(
 #' metadata-package axis currently has a single released line, so its supported
 #' range is expressed as a lower bound.
 #'
-#' @returns A list with two elements: `dhis2`, a character vector of supported
-#'   DHIS2 versions (each parseable by [base::numeric_version()]), and
-#'   `metadata_package`, the supported NeoIPC metadata-package version range.
+#' The infectious-agent axis is the one release of the NeoIPC infectious-agent
+#' list whose codes the bundled classification covers: [get_infectious_agents()]
+#' returns them, and a finding recorded with a code the release lacks has no
+#' classification.
+#'
+#' @returns A list with three elements: `dhis2`, a character vector of
+#'   supported DHIS2 versions (each parseable by [base::numeric_version()]);
+#'   `metadata_package`, the supported NeoIPC metadata-package version range;
+#'   and `infectious_agents`, the version of that release of the
+#'   infectious-agent list, `NA` where the bundled classification was built
+#'   from a commit of the list without its release tag.
 #' @export
 neoipcr_supported_versions <- function()
   list(
     dhis2 = c("2.40.12.0", "2.41.9.0"),
-    metadata_package = ">= 0.0.1-alpha")
+    metadata_package = ">= 0.0.1-alpha",
+    infectious_agents = internal_infectious_agent_ontology$version)
 
 # The major.minor line of a version, e.g. "2.40" for 2.40.3.2.
 version_line <- function(version)

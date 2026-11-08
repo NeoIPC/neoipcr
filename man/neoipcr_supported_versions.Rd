@@ -2,14 +2,17 @@
 % Please edit documentation in R/import-dhis2.R
 \name{neoipcr_supported_versions}
 \alias{neoipcr_supported_versions}
-\title{Supported DHIS2 and metadata-package versions}
+\title{Supported DHIS2, metadata-package, and infectious-agent list versions}
 \usage{
 neoipcr_supported_versions()
 }
 \value{
-A list with two elements: \code{dhis2}, a character vector of supported
-DHIS2 versions (each parseable by \code{\link[base:numeric_version]{base::numeric_version()}}), and
-\code{metadata_package}, the supported NeoIPC metadata-package version range.
+A list with three elements: \code{dhis2}, a character vector of
+supported DHIS2 versions (each parseable by \code{\link[base:numeric_version]{base::numeric_version()}});
+\code{metadata_package}, the supported NeoIPC metadata-package version range;
+and \code{infectious_agents}, the version of that release of the
+infectious-agent list, \code{NA} where the bundled classification was built
+from a commit of the list without its release tag.
 }
 \description{
 The version combinations \code{neoipcr} declares support for: the DHIS2 releases
@@ -42,4 +45,9 @@ warning.
 Widening the range means verifying a live server of that line first. The
 metadata-package axis currently has a single released line, so its supported
 range is expressed as a lower bound.
+
+The infectious-agent axis is the one release of the NeoIPC infectious-agent
+list whose codes the bundled classification covers: \code{\link[=get_infectious_agents]{get_infectious_agents()}}
+returns them, and a finding recorded with a code the release lacks has no
+classification.
 }

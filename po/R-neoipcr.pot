@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.0.0.9008\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-11-10 10:36+0100\n"
+"POT-Creation-Date: 2026-11-10 00:51+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -424,16 +424,33 @@ msgstr ""
 msgid "DHIS2 %s returned HTTP %s.\nResponse body:\n%s"
 msgstr ""
 
-#: R/import-dhis2.R:622
+#: R/import-dhis2.R:631
 msgid "DHIS2 version %s is outside neoipcr's supported range."
 msgstr ""
 
-#: R/import-dhis2.R:624
+#: R/import-dhis2.R:633
 msgid "Supported DHIS2 lines: %s."
 msgstr ""
 
-#: R/import-dhis2.R:627
+#: R/import-dhis2.R:636
 msgid "Reading an unsupported server is unverified: it may fail outright, or return incomplete data without reporting an error."
+msgstr ""
+
+#: R/infectious-agents.R:43
+msgid "Not in the list: %s."
+msgstr ""
+
+#: R/infectious-agents.R:64
+#: R/infectious-agents.R:73
+msgid "%s must hold infectious-agent codes, whole numbers from 0."
+msgstr ""
+
+#: R/infectious-agents.R:66
+msgid "It is %s."
+msgstr ""
+
+#: R/infectious-agents.R:75
+msgid "Not a code: %s."
 msgstr ""
 
 #: R/reconciliation.R:520
@@ -781,6 +798,11 @@ msgstr[1]    ""
 
 msgid        "%d department was imported."
 msgid_plural "%d departments were imported."
+msgstr[0]    ""
+msgstr[1]    ""
+
+msgid        "%d code is not in the NeoIPC infectious-agent list, so no row is returned for it."
+msgid_plural "%d codes are not in the NeoIPC infectious-agent list, so no row is returned for them."
 msgstr[0]    ""
 msgstr[1]    ""
 

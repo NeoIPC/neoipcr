@@ -36,8 +36,9 @@ Suggests:
     covr (>= 3.6.0),
     roxygen2 (>= 8.0.0),
     testthat (>= 3.0.0),
-    withr (>= 2.5.0),
-    yaml (>= 2.3.10)
+    withr (>= 2.5.0)
+Config/Needs/data-raw:
+    yaml12 (>= 0.2.0)
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0
 Collate:
@@ -67,10 +68,11 @@ Collate:
     'import-dhis2.R'
     'import-standalone-obj-type.R'
     'import-standalone-types-check.R'
+    'infectious-agent-ontology.R'
+    'infectious-agents.R'
     'json.R'
     'log.R'
     'neoipcr-package.R'
-    'pathogens.R'
     'reconciliation.R'
     'scales.R'
     'validation-exceptions.R'
