@@ -41,8 +41,8 @@ if (!file.exists("DESCRIPTION") ||
 # The pin: the release of the list and its classification the tables come
 # from, and the SHA-256 of each file there.
 repository <- "NeoIPC/Surveillance-Toolkit"
-tag <- NA_character_
-commit <- "8c69747efeb86d5057ec3ed68b70a853da46bcbd"
+tag <- "infectious-agents-v0.2.0-alpha"
+commit <- "0e8833ff707c6b3fbbb02d6cd3773bdc94567d1d"
 directory <- "metadata/common/infectious-agents"
 files <- c(
   list = "NeoIPC-Infectious-Agents.yaml",
