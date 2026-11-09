@@ -22,8 +22,28 @@ Set to FALSE for department-level reports to simplify output.}
 }
 \value{
 A table containing infectious agent detection rates per type of
-infection
+infection: \code{inf}, the infection type or \code{"all"}; \code{n}, the infections with
+an infectious agent; \code{pooled}, their share; \code{ci_lower} and \code{ci_upper}, its
+Wilson interval; and with \code{include_quartiles} the departments' quartiles.
 }
 \description{
-Get the table with infectious agent detection rates per type of infection
+The row of an infection type is the share of the infections of its type
+that could have an infectious agent recorded in which at least one was, in
+percent. Its denominator leaves out the infections that cannot have one
+recorded: a pneumonia neither tested (its microbiological test recorded as
+"Not tested" or left blank) nor followed up for a secondary BSI, an SSI
+neither tested at the depth its infection type records nor followed up,
+and a NEC not followed up, whose infectious agents are recorded only for a
+secondary BSI. Every primary sepsis/BSI stays, culture-negative or not
+sampled, since the form cannot tell a blood culture never taken from a
+negative one. An infection counts in its numerator where a slot names an
+infectious agent ("Not listed", "Unidentifiable", and a code the
+infectious-agent list lacks included; a slot holding only a source, a
+resistance category, or a name does not) and only where the form asks for
+the slot: a sepsis form's slots unless it is recorded culture-negative, a
+pneumonia's own slots where its test is positive, an SSI's own slots where
+a depth is tested positive, and the secondary-BSI slots where the follow-up
+is answered Yes, the answer that records a secondary BSI. The row \code{"all"}
+is the share of every infection in which a slot names an infectious agent,
+whatever the form asks for.
 }

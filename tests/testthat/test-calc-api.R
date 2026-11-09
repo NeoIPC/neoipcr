@@ -100,6 +100,24 @@ test_that("calculate_department_data aborts when include_department = 'no'", {
     "include_department")
 })
 
+test_that("the calculation functions refuse pseudonymized events, naming the option and the reason", {
+  # The findings carry `pathogen_key` and `secondary_bsi` only under the full
+  # event tier; the fixture's tibbles are full, so only the precondition can
+  # refuse the dataset.
+  ds <- make_calc_test_ds()
+  ds$metadata$dataset_options$include_event <- "pseudo"
+  for (calculate in list(calculate_department_data, calculate_reference_data)) {
+    cnd <- expect_error(calculate(ds), class = "neoipcr_unmet_import_options")
+    expect_match(conditionMessage(cnd),
+                 "`include_event` is \"pseudo\"; need one of \"full\".",
+                 fixed = TRUE)
+    expect_match(conditionMessage(cnd), "`pathogen_key`", fixed = TRUE)
+    expect_match(conditionMessage(cnd),
+                 "a rare infectious agent can single out a patient",
+                 fixed = TRUE)
+  }
+})
+
 test_that("calculate_department_data aborts when dataset_options is NULL", {
   ds <- make_calc_test_ds()
   ds$metadata$dataset_options <- NULL

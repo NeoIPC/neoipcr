@@ -102,6 +102,9 @@ check_neoipcr_bnch_ds <- function(x, require_scalar = TRUE, allow_null = FALSE) 
 # (the check is `actual %in% value`). Use `c("pseudo", "full")` for a
 # non-`"no"` requirement on a three-valued gate, `TRUE` for a boolean
 # opt-in flag, character vectors for `include_dhis2_ids` memberships.
+# `reasons` names, for an option of `required`, why the function needs it:
+# the refusal shows it beneath that option when the option is unmet. The
+# refusal has the class `neoipcr_unmet_import_options`.
 #
 # Example usage in an exported function:
 #
@@ -111,11 +114,12 @@ check_neoipcr_bnch_ds <- function(x, require_scalar = TRUE, allow_null = FALSE) 
 #       include_department = c("pseudo", "full"),
 #       include_patient    = c("pseudo", "full"),
 #       include_enrollment = c("pseudo", "full"),
-#       include_event      = c("pseudo", "full")
-#     ), fn_name = "calculate_department_data")
+#       include_event      = "full"
+#     ), reasons = calculation_option_reasons(),
+#     fn_name = "calculate_department_data")
 #     ...
 #   }
-assert_options_for <- function(x, required, fn_name) {
+assert_options_for <- function(x, required, fn_name, reasons = list()) {
   opts <- x$metadata$dataset_options
   if (is.null(opts))
     rlang::abort(c(
@@ -136,19 +140,30 @@ assert_options_for <- function(x, required, fn_name) {
       shown_accepted <- paste(.shown_option_values(accepted), collapse = " / ")
       violations <- c(
         violations,
-        gettextf("`%s` is %s; need one of %s.",
-                 opt_name, shown_actual, shown_accepted))
+        "x" = gettextf("`%s` is %s; need one of %s.",
+                       opt_name, shown_actual, shown_accepted))
+      if (!is.null(reasons[[opt_name]]))
+        violations <- c(violations, "i" = reasons[[opt_name]])
     }
   }
 
   if (length(violations) == 0L) return(invisible(NULL))
 
-  rlang::abort(c(
-    gettextf("%s() requires specific import options.", fn_name),
-    rlang::set_names(violations, rep("x", length(violations))),
-    "i" = gettextf("Re-import via %s with the required options set.",
-                   "`import_dhis2(dhis2_dataset_options(...))`")))
+  rlang::abort(
+    c(
+      gettextf("%s() requires specific import options.", fn_name),
+      violations,
+      "i" = gettextf("Re-import via %s with the required options set.",
+                     "`import_dhis2(dhis2_dataset_options(...))`")),
+    class = "neoipcr_unmet_import_options")
 }
+
+# Why the calculation functions need the import options they need, for the
+# `reasons` of `assert_options_for()`.
+calculation_option_reasons <- function()
+  list(include_event = gettextf(
+    "The infectious-agent figures read each finding's %s, which the findings carry under %s only: a rare infectious agent can single out a patient in a pseudonymized dataset, so the %s tier leaves it out.",
+    "`pathogen_key`", "`include_event = \"full\"`", "\"pseudo\""))
 
 # Option values as `assert_options_for()` shows them: a string in double
 # quotes, any other value as code, so that the flag `TRUE` does not read as

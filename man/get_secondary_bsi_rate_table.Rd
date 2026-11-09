@@ -17,8 +17,26 @@ include_quartiles is TRUE.}
 Set to FALSE for department-level reports to simplify output.}
 }
 \value{
-A table containing secondary BSI rates
+A table containing secondary BSI rates, a row per infection type
+(\code{event_type_key}): \code{n}, the infections with a secondary BSI; \code{pooled},
+their share of the infections followed up, in percent; \code{ci_lower} and
+\code{ci_upper}, its Wilson interval; with \code{include_quartiles} the
+departments' quartiles of the rate (\code{q1}, \code{q2}, \code{q3}) and their bootstrap
+intervals; \code{followup_n}, the infections followed up; \code{total_n}, all
+infections of the type; \code{followup_pooled}, the share followed up, in
+percent; and with \code{include_quartiles} the quartiles of the departments'
+follow-up shares (\code{followup_q1}, \code{followup_q2}, \code{followup_q3}) over the
+departments with at least 5 infections of the type, \code{NA} with fewer than
+5 such departments.
 }
 \description{
-Get the table secondary BSI rates of the recorded infections
+Each row is the share of the NECs, pneumonias, or SSIs followed up for a
+secondary BSI (their secondary-BSI item answered Yes or No) in which one
+was found: a follow-up answered Yes with a secondary-BSI slot naming an
+infectious agent. A slot holding only a source, a resistance category, or a
+name names none, and an infectious agent left in the slots under another
+answer, which only a validation exception or an import without the
+validation pass lets through, does not count, so the rate is a share of its
+denominator. Beside the rate, each row shows the share of the type's
+infections that were followed up.
 }

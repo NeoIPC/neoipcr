@@ -104,8 +104,20 @@ get_gestational_age_figure_data <- function(x) {
   )
 }
 
+# The columns a table without quartiles leaves out: the quartiles with their
+# intervals, and the secondary-BSI table's quartiles of the departments'
+# follow-up shares.
+quartile_cols <- c(
+  "q1", "q2", "q3",
+  "q1_ci_lower", "q1_ci_upper", "q2_ci_lower", "q2_ci_upper",
+  "q3_ci_lower", "q3_ci_upper",
+  "followup_q1", "followup_q2", "followup_q3")
+
+# `include_event` is the event tiers the table accepts: the infectious-agent
+# tables read the findings' `pathogen_key`, which only the full tier carries.
 check_ds_and_try_get_table <- function(
-    x, table_name, use_cache, include_quartiles) {
+    x, table_name, use_cache, include_quartiles,
+    include_event = c("pseudo", "full")) {
   # Only the reference dataset contains quartiles, so we have to be strict here
   if (include_quartiles) {
     check_neoipcr_ds_or_ref_ds(x)
@@ -123,8 +135,10 @@ check_ds_and_try_get_table <- function(
       include_department = c("pseudo", "full"),
       include_patient    = c("pseudo", "full"),
       include_enrollment = c("pseudo", "full"),
-      include_event      = c("pseudo", "full")
-    ), fn_name = table_name)
+      include_event      = include_event
+    ), reasons = if (identical(include_event, "full"))
+      calculation_option_reasons() else list(),
+    fn_name = table_name)
 
   # First try, if it's a report dataset because in that case it already contains
   # the table and we can just return it (potentially after removing the quartile
@@ -134,9 +148,7 @@ check_ds_and_try_get_table <- function(
     if(!include_quartiles && is_neoipcr_ref_ds(x))
       return(
         x[[table_name]] |>
-          dplyr::select(!tidyselect::any_of(c("q1", "q2", "q3",
-            "q1_ci_lower", "q1_ci_upper", "q2_ci_lower", "q2_ci_upper",
-            "q3_ci_lower", "q3_ci_upper"))))
+          dplyr::select(!tidyselect::any_of(quartile_cols)))
 
     return(x[[table_name]])
   }
@@ -153,9 +165,7 @@ check_ds_and_try_get_table <- function(
       if(any(c("q1", "q2", "q3") %in% rlang::names2(r))) {
         return(
           r |>
-            dplyr::select(!tidyselect::any_of(c("q1", "q2", "q3",
-            "q1_ci_lower", "q1_ci_upper", "q2_ci_lower", "q2_ci_upper",
-            "q3_ci_lower", "q3_ci_upper"))))
+            dplyr::select(!tidyselect::any_of(quartile_cols)))
       }
 
       return(r)
@@ -978,6 +988,26 @@ get_cumulative_incidence_table <- function(
 
 #' Get the table with infectious agent detection rates per type of infection
 #'
+#' The row of an infection type is the share of the infections of its type
+#' that could have an infectious agent recorded in which at least one was, in
+#' percent. Its denominator leaves out the infections that cannot have one
+#' recorded: a pneumonia neither tested (its microbiological test recorded as
+#' "Not tested" or left blank) nor followed up for a secondary BSI, an SSI
+#' neither tested at the depth its infection type records nor followed up,
+#' and a NEC not followed up, whose infectious agents are recorded only for a
+#' secondary BSI. Every primary sepsis/BSI stays, culture-negative or not
+#' sampled, since the form cannot tell a blood culture never taken from a
+#' negative one. An infection counts in its numerator where a slot names an
+#' infectious agent ("Not listed", "Unidentifiable", and a code the
+#' infectious-agent list lacks included; a slot holding only a source, a
+#' resistance category, or a name does not) and only where the form asks for
+#' the slot: a sepsis form's slots unless it is recorded culture-negative, a
+#' pneumonia's own slots where its test is positive, an SSI's own slots where
+#' a depth is tested positive, and the secondary-BSI slots where the follow-up
+#' is answered Yes, the answer that records a secondary BSI. The row `"all"`
+#' is the share of every infection in which a slot names an infectious agent,
+#' whatever the form asks for.
+#'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
 #'  object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
 #'  include_quartiles is TRUE.
@@ -986,28 +1016,28 @@ get_cumulative_incidence_table <- function(
 #'  Set to FALSE for department-level reports to simplify output.
 #'
 #' @returns A table containing infectious agent detection rates per type of
-#'  infection
+#'  infection: `inf`, the infection type or `"all"`; `n`, the infections with
+#'  an infectious agent; `pooled`, their share; `ci_lower` and `ci_upper`, its
+#'  Wilson interval; and with `include_quartiles` the departments' quartiles.
 #' @export
 get_infectious_agent_detection_rate_per_inf_type_table <- function(
     x, use_cache = TRUE, include_quartiles = TRUE) {
   cache_key <- "infectious_agent_detection_rate_per_inf_type_table"
   if(!is.null(r <- x |> check_ds_and_try_get_table(
-    cache_key, use_cache, include_quartiles)))
+    cache_key, use_cache, include_quartiles, include_event = "full")))
     return(r)
 
+  # The row of all types keeps every infection and every slot: it is the share
+  # that the reports' text gives over every infection, while the type rows
+  # take only what each type can record.
   r <- dplyr::bind_rows(
-    dplyr::bind_cols(
-      event_type_key = "all",
-      x |>
-        get_infectious_agent_detection_rates(
-          use_cache = use_cache) |>
-        dplyr::select("inf_with_pathogen","total_inf","pooled"="iwp_per_t")),
     x |>
-      get_infectious_agent_detection_rates(
-        group_cols = "event_type_key",
-        use_cache = use_cache) |>
-      dplyr::select("event_type_key","inf_with_pathogen","total_inf","pooled"="iwp_per_t")
-    )
+      get_infectious_agent_detection_rates(use_cache = use_cache) |>
+      dplyr::mutate(event_type_key = "all"),
+    x |>
+      get_infectious_agent_detection_rates_per_inf_type(use_cache = use_cache) |>
+      dplyr::mutate(event_type_key = as.character(.data$event_type_key))) |>
+    dplyr::select("event_type_key","inf_with_pathogen","total_inf","pooled"="iwp_per_t")
   r <- r |>
     dplyr::bind_cols(wilson_ci_cols(r$inf_with_pathogen, r$total_inf, scale = 100)) |>
     dplyr::select(!"total_inf") |>
@@ -1015,32 +1045,26 @@ get_infectious_agent_detection_rate_per_inf_type_table <- function(
 
   if(include_quartiles) {
 
-    dep_stats <- dplyr::bind_rows(
-      dplyr::bind_cols(
-        event_type_key = "all",
-        x |>
-          get_infection_counts(group_cols = "department_key") |>
-          dplyr::filter(.data$n > 0)
-        ),
+    dept_rates <- dplyr::bind_rows(
       x |>
-        get_infection_counts(group_cols = c("event_type_key","department_key")) |>
-        dplyr::filter(.data$n > 0)
-      ) |>
+        get_infectious_agent_detection_rates(
+          group_cols = "department_key",
+          use_cache = use_cache) |>
+        dplyr::mutate(event_type_key = "all"),
+      x |>
+        get_infectious_agent_detection_rates_per_inf_type(
+          group_cols = "department_key",
+          use_cache = use_cache) |>
+        dplyr::mutate(event_type_key = as.character(.data$event_type_key)))
+
+    # The departments with infections in a row's denominator, and their median
+    # number of them, for the test whether the row shows its quartiles.
+    dep_stats <- dept_rates |>
+      dplyr::filter(.data$total_inf > 0) |>
       dplyr::group_by(.data$event_type_key) |>
       dplyr::summarise(
-        median = stats::median(.data$n),
+        median = stats::median(.data$total_inf),
         n = dplyr::n())
-
-    dept_rates <- x |>
-      get_infectious_agent_detection_rates(
-        group_cols = "department_key",
-        use_cache = use_cache) |>
-      dplyr::bind_cols(event_type_key = "all") |>
-      dplyr::bind_rows(
-        x |>
-          get_infectious_agent_detection_rates(
-            group_cols = c("department_key","event_type_key"),
-            use_cache = use_cache))
 
     r <- r |>
       dplyr::inner_join(
@@ -1133,6 +1157,11 @@ get_infectious_agent_detection_rate_per_inf_type_table <- function(
 #' Get the table with infectious agent detection rates of the pathogens in a
 #'  somewhat meaningful taxonomic structure
 #'
+#' The rates are per 100 infections with an infectious agent: infections one
+#' of whose slots names one, "Not listed", "Unidentifiable", and a code the
+#' infectious-agent list lacks included. A slot holding only a source, a
+#' resistance category, or a name names none.
+#'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
 #'  object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
 #'  include_quartiles is TRUE.
@@ -1146,7 +1175,7 @@ get_infectious_agent_detection_rate_per_agent_table <- function(
     x, use_cache = TRUE, include_quartiles = TRUE) {
   cache_key <- "infectious_agent_detection_rate_per_agent_table"
   if(!is.null(r <- x |> check_ds_and_try_get_table(
-    cache_key, use_cache, include_quartiles)))
+    cache_key, use_cache, include_quartiles, include_event = "full")))
     return(r)
 
   # Choose the appropriate helper function, the columns to include and the class
@@ -1355,6 +1384,11 @@ get_infectious_agent_detection_rate_per_agent_table <- function(
 #' Get the table of infection rates with antibiotic resistant bacteria in a
 #'  somewhat meaningful taxonomic structure
 #'
+#' The rates are shares of the infections with an infectious agent:
+#' infections one of whose slots names one, "Not listed", "Unidentifiable",
+#' and a code the infectious-agent list lacks included. A slot holding only a
+#' source, a resistance category, or a name names none.
+#'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
 #'  object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
 #'  include_quartiles is TRUE.
@@ -1369,7 +1403,7 @@ get_abr_infection_rate_table <- function(
     x, use_cache = TRUE, include_quartiles = TRUE) {
   cache_key <- "abr_infection_rate_table"
   if(!is.null(r <- x |> check_ds_and_try_get_table(
-    cache_key, use_cache, include_quartiles)))
+    cache_key, use_cache, include_quartiles, include_event = "full")))
     return(r)
 
   # Choose the appropriate helper function, the columns to include and the class
@@ -1582,7 +1616,7 @@ get_organism_resistance_rate_table <- function(
     x, use_cache = TRUE, include_quartiles = TRUE) {
   cache_key <- "organism_resistance_rate_table"
   if(!is.null(r <- x |> check_ds_and_try_get_table(
-    cache_key, use_cache, include_quartiles)))
+    cache_key, use_cache, include_quartiles, include_event = "full")))
     return(r)
 
   if(include_quartiles) {
@@ -1707,6 +1741,10 @@ get_organism_resistance_rate_table <- function(
 #' Get the table with resistance test rates of the recorded resistance
 #'  mechanisms
 #'
+#' The rates count the slots that name an infectious agent; a slot holding a
+#' resistance category without one is no detection and counts in neither the
+#' numerator nor the denominator.
+#'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
 #'  object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
 #'  include_quartiles is TRUE.
@@ -1720,7 +1758,7 @@ get_resistance_test_rate_table <- function(
     x, use_cache = TRUE, include_quartiles = TRUE) {
   cache_key <- "resistance_test_rate_table"
   if(!is.null(r <- x |> check_ds_and_try_get_table(
-    cache_key, use_cache, include_quartiles)))
+    cache_key, use_cache, include_quartiles, include_event = "full")))
     return(r)
 
   if(include_quartiles) {
@@ -1787,6 +1825,16 @@ get_resistance_test_rate_table <- function(
 
 #' Get the table secondary BSI rates of the recorded infections
 #'
+#' Each row is the share of the NECs, pneumonias, or SSIs followed up for a
+#' secondary BSI (their secondary-BSI item answered Yes or No) in which one
+#' was found: a follow-up answered Yes with a secondary-BSI slot naming an
+#' infectious agent. A slot holding only a source, a resistance category, or a
+#' name names none, and an infectious agent left in the slots under another
+#' answer, which only a validation exception or an import without the
+#' validation pass lets through, does not count, so the rate is a share of its
+#' denominator. Beside the rate, each row shows the share of the type's
+#' infections that were followed up.
+#'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
 #'  object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
 #'  include_quartiles is TRUE.
@@ -1794,31 +1842,46 @@ get_resistance_test_rate_table <- function(
 #' @param include_quartiles Include quartile columns (q1, q2, q3) in the output.
 #'  Set to FALSE for department-level reports to simplify output.
 #'
-#' @returns A table containing secondary BSI rates
+#' @returns A table containing secondary BSI rates, a row per infection type
+#'  (`event_type_key`): `n`, the infections with a secondary BSI; `pooled`,
+#'  their share of the infections followed up, in percent; `ci_lower` and
+#'  `ci_upper`, its Wilson interval; with `include_quartiles` the
+#'  departments' quartiles of the rate (`q1`, `q2`, `q3`) and their bootstrap
+#'  intervals; `followup_n`, the infections followed up; `total_n`, all
+#'  infections of the type; `followup_pooled`, the share followed up, in
+#'  percent; and with `include_quartiles` the quartiles of the departments'
+#'  follow-up shares (`followup_q1`, `followup_q2`, `followup_q3`) over the
+#'  departments with at least 5 infections of the type, `NA` with fewer than
+#'  5 such departments.
 #' @export
 get_secondary_bsi_rate_table <- function(
     x, use_cache = TRUE, include_quartiles = TRUE) {
   cache_key <- "secondary_bsi_rate_table"
   if(!is.null(r <- x |> check_ds_and_try_get_table(
-    cache_key, use_cache, include_quartiles)))
+    cache_key, use_cache, include_quartiles, include_event = "full")))
     return(r)
 
   # Calculate pooled rates
-  r <- x |>
-    get_secondary_bsi_rates(use_cache = use_cache) |>
+  rates <- x |>
+    get_secondary_bsi_rates(use_cache = use_cache)
+  r <- rates |>
     dplyr::rename("pooled" = "rate")
   r <- r |>
     dplyr::bind_cols(wilson_ci_cols(r$n, r$followup_n, scale = 100)) |>
-    dplyr::select(!"followup_n") |>
+    dplyr::select("event_type_key", "n", "pooled", "ci_lower", "ci_upper") |>
     add_class("neoipcr_tbl_sec_bsi")
 
   # Calculate quartiles if needed
   if(include_quartiles) {
-    # Get department-level data for quartile calculation
-    dept_rates <- x |>
+    dept_all <- x |>
       get_secondary_bsi_rates(
         group_cols = "department_key",
         use_cache = use_cache)
+    # The rate's quartiles take the departments that followed up infections
+    # of the type; the follow-up shares' take those with at least 5
+    # infections of the type, below.
+    dept_rates <- dept_all |>
+      dplyr::filter(.data$followup_n > 0L)
 
     # Check if we have enough departments
     n_deps <- dept_rates |>
@@ -1892,6 +1955,22 @@ get_secondary_bsi_rate_table <- function(
     }
   }
 
+  # The share of each type's infections followed up for a secondary BSI,
+  # with its counts, and in the reference table the quartiles of the
+  # departments' shares.
+  r <- r |>
+    dplyr::left_join(
+      rates |>
+        dplyr::select(
+          "event_type_key", "followup_n", "total_n",
+          "followup_pooled" = "followup_rate"),
+      dplyr::join_by("event_type_key"))
+  if(include_quartiles)
+    r <- r |>
+    dplyr::left_join(
+      followup_share_quartiles(dept_all, r$event_type_key),
+      dplyr::join_by("event_type_key"))
+
   # Ensure all expected infection types are present
   expected_types <- c("nec", "hap", "ssi")
   missing <- setdiff(expected_types, r$event_type_key)
@@ -1916,3 +1995,28 @@ get_secondary_bsi_rate_table <- function(
     dplyr::arrange(.data$event_type_key) |>
     cache(x, cache_key)
 }
+
+# The quartiles of the departments' shares of infections followed up for a
+# secondary BSI (`followup_q1`, `followup_q2`, `followup_q3`) for each of
+# `event_type_keys`, from `dept_rates`, the secondary-BSI rates by
+# `department_key`. A department enters a type's quartiles with at least 5
+# infections of the type, and the quartiles need at least 5 such departments;
+# otherwise they are `NA`.
+followup_share_quartiles <- function(dept_rates, event_type_keys)
+  purrr::map(as.character(event_type_keys), \(type) {
+    shares <- dept_rates$followup_rate[
+      dept_rates$event_type_key == type & dept_rates$total_n >= 5L]
+    q <- if (length(shares) < 5L) rep(NA_real_, 3L) else
+      stats::quantile(shares, probs = quartile_probs, names = FALSE)
+    tibble::tibble(
+      event_type_key = type,
+      followup_q1 = q[1],
+      followup_q2 = q[2],
+      followup_q3 = q[3])
+  }) |>
+  purrr::list_rbind(
+    ptype = tibble::tibble(
+      event_type_key = character(),
+      followup_q1 = numeric(),
+      followup_q2 = numeric(),
+      followup_q3 = numeric()))

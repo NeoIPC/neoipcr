@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-10-09 01:13+0200\n"
+"POT-Creation-Date: 2026-11-10 00:25+0100\n"
 "PO-Revision-Date: 2025-05-27 16:54+0200\n"
 "Last-Translator: Brar Piening <brar.piening@charite.de>\n"
 "Language-Team: NeoIPC-Support <NeoIPC-Support@charite.de>\n"
@@ -16,32 +16,32 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: R/calc-api.R:372
+#: R/calc-api.R:390
 msgid "No dataset to benchmark: pass at least one calculated dataset."
 msgstr ""
 
-#: R/calc-api.R:893 R/calc-procedure-categories.R:45
+#: R/calc-api.R:911 R/calc-procedure-categories.R:45
 msgid "Procedure category"
 msgstr "Prozedur-Kategorie"
 
-#: R/calc-api.R:893
+#: R/calc-api.R:911
 msgid "N"
 msgstr "N"
 
-#: R/calc-api.R:893
+#: R/calc-api.R:911
 #, fuzzy
 msgid "Pooled"
 msgstr "Gepoolt"
 
-#: R/calc-api.R:893
+#: R/calc-api.R:911
 msgid "Q1"
 msgstr "Q₁"
 
-#: R/calc-api.R:893
+#: R/calc-api.R:911
 msgid "Q2"
 msgstr "Q₂"
 
-#: R/calc-api.R:893
+#: R/calc-api.R:911
 msgid "Q3"
 msgstr "Q₃"
 
@@ -90,27 +90,27 @@ msgstr "Kein chirurgischer Eingriff"
 msgid "Not yet categorized"
 msgstr "Noch nicht kategorisiert"
 
-#: R/calc-tables.R:926
+#: R/calc-tables.R:936
 msgid "%s must be a data frame."
 msgstr ""
 
-#: R/calc-tables.R:931
+#: R/calc-tables.R:941
 msgid "%s lacks a required column:"
 msgstr ""
 
-#: R/calc-tables.R:933
+#: R/calc-tables.R:943
 msgid "%s lacks required columns:"
 msgstr ""
 
-#: R/calc-tables.R:937
+#: R/calc-tables.R:947
 msgid "%s and %s must be %s columns."
 msgstr ""
 
-#: R/calc-tables.R:940
+#: R/calc-tables.R:950
 msgid "Every window needs %s, with neither date missing."
 msgstr ""
 
-#: R/calc-tables.R:943
+#: R/calc-tables.R:953
 msgid "Every window must have a non-missing %s."
 msgstr ""
 
@@ -502,57 +502,64 @@ msgid ""
 "patient, enrolment, and event tiers, and %s among %s."
 msgstr ""
 
-#: R/types-check.R:122
+#: R/types-check.R:126
 msgid "%s() requires a %s with import options attached."
 msgstr ""
 
-#: R/types-check.R:124
+#: R/types-check.R:128
 msgid "The dataset must have been imported via %s."
 msgstr ""
 
-#: R/types-check.R:126 R/types-check.R:168
+#: R/types-check.R:130 R/types-check.R:183
 msgid "%s is %s."
 msgstr ""
 
-#: R/types-check.R:139
+#: R/types-check.R:143
 msgid "`%s` is %s; need one of %s."
 msgstr ""
 
-#: R/types-check.R:147
+#: R/types-check.R:154
 msgid "%s() requires specific import options."
 msgstr ""
 
-#: R/types-check.R:149
+#: R/types-check.R:156
 msgid "Re-import via %s with the required options set."
 msgstr ""
 
-#: R/types-check.R:167
+#: R/types-check.R:165
+msgid ""
+"The infectious-agent figures read each finding's %s, which the findings "
+"carry under %s only: a rare infectious agent can single out a patient in a "
+"pseudonymized dataset, so the %s tier leaves it out."
+msgstr ""
+
+#: R/types-check.R:182
 msgid "%s() needs a dataset that carries its validation summary."
 msgstr ""
 
-#: R/types-check.R:169
+#: R/types-check.R:184
 msgid "Import the dataset again with this version of neoipcr; see %s."
 msgstr ""
 
-#: R/types-check.R:190
+#: R/types-check.R:205
 msgid ""
 "%s() needs a dataset whose reconciliation summary is the one an import "
 "writes."
 msgstr ""
 
-#: R/types-check.R:192
+#: R/types-check.R:207
 msgid "%s is not a data frame."
 msgstr ""
 
-#: R/types-check.R:194
+#: R/types-check.R:209
 msgid "%s has the column %s."
 msgstr ""
 
-#: R/types-check.R:196
+#: R/types-check.R:211
 msgid "%s has the columns %s."
 msgstr ""
 
-#: R/types-check.R:199
+#: R/types-check.R:214
 msgid "An import writes %s, or no column where it reconciled nothing; see %s."
 msgstr ""
 

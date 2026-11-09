@@ -151,7 +151,12 @@ three-mode semantics as \code{include_patient}.}
 the \code{event_key} link column on every downstream per-event table
 (event details, per-event-type data, findings, substance days, event
 notes, unknown pathogen names). Same three-mode semantics as
-\code{include_patient}.}
+\code{include_patient}. Under "pseudo" the infectious-agent findings carry
+neither the infectious agent (\code{pathogen_key}) nor whether a finding is a
+secondary BSI's, since a rare infectious agent can single out a patient in
+a pseudonymized dataset; \code{\link[=calculate_department_data]{calculate_department_data()}} and
+\code{\link[=calculate_reference_data]{calculate_reference_data()}}, whose infectious-agent figures read them,
+therefore need "full".}
 
 \item{include_dhis2_ids}{Include the DHIS2 ids into the dataset.}
 

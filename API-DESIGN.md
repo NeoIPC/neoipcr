@@ -199,7 +199,8 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 
 **Invariants**:
 
-- Computed via `calculate_department_data()`. Requires `include_patient`, `include_enrollment`, `include_event`, `include_department` each at `"pseudo"` or `"full"`.
+- Computed via `calculate_department_data()`. Requires `include_patient`, `include_enrollment`, and `include_department` each at `"pseudo"` or `"full"`, and `include_event` at `"full"`: the infectious-agent figures read the findings' `pathogen_key` and `secondary_bsi`, which the `"pseudo"` tier leaves out because a rare infectious agent can single out a patient. Another dataset is refused with an error of class `neoipcr_unmet_import_options`.
+- `secondary_bsi_rate_table` also carries, beside each rate, the infections followed up for a secondary BSI (`followup_n`), all infections of the type (`total_n`), and the share followed up (`followup_pooled`).
 - Summary counts inherit the user's `dataset_options` (display-purpose metadata).
 - Result tables carry pooled-rate + CI only — no department-level distribution statistics.
 
@@ -217,6 +218,7 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 
 - Every result table gains `q1`, `q2`, `q3` (25th / 50th / 75th percentiles of department-level rates).
 - Tables for which bootstrap CIs are computed gain `q1_ci_lower` / `q1_ci_upper` / `q2_ci_lower` / `q2_ci_upper` / `q3_ci_lower` / `q3_ci_upper`.
+- `secondary_bsi_rate_table` gains `followup_q1` / `followup_q2` / `followup_q3`, the quartiles of the departments' shares of infections followed up, over the departments with at least 5 infections of the type, `NA` with fewer than 5 such departments.
 - `metadata$dataset_options$department_filter` is the marker `"applied"` (or `NULL` for an empty filter), never the department codes; the emitted copy is asserted to name no department. `validationSummary` and `reconciliationSummary` are carried as in §4.2.
 
 **Invariants** (in addition to §4.2):

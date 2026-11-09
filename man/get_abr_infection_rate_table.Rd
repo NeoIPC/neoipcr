@@ -22,6 +22,8 @@ A table containing infection rates with antibiotic resistant
 bacteria
 }
 \description{
-Get the table of infection rates with antibiotic resistant bacteria in a
-somewhat meaningful taxonomic structure
+The rates are shares of the infections with an infectious agent:
+infections one of whose slots names one, "Not listed", "Unidentifiable",
+and a code the infectious-agent list lacks included. A slot holding only a
+source, a resistance category, or a name names none.
 }

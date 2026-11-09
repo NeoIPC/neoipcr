@@ -25,6 +25,8 @@ Set to FALSE for department-level reports to simplify output.}
 A table containing infectious agent detection rates
 }
 \description{
-Get the table with infectious agent detection rates of the pathogens in a
-somewhat meaningful taxonomic structure
+The rates are per 100 infections with an infectious agent: infections one
+of whose slots names one, "Not listed", "Unidentifiable", and a code the
+infectious-agent list lacks included. A slot holding only a source, a
+resistance category, or a name names none.
 }

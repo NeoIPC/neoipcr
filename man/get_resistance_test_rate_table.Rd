@@ -21,6 +21,7 @@ Set to FALSE for department-level reports to simplify output.}
 A table containing resistance test rates
 }
 \description{
-Get the table with resistance test rates of the recorded resistance
-mechanisms
+The rates count the slots that name an infectious agent; a slot holding a
+resistance category without one is no detection and counts in neither the
+numerator nor the denominator.
 }

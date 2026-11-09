@@ -112,7 +112,12 @@
 #'  the `event_key` link column on every downstream per-event table
 #'  (event details, per-event-type data, findings, substance days, event
 #'  notes, unknown pathogen names). Same three-mode semantics as
-#'  `include_patient`.
+#'  `include_patient`. Under "pseudo" the infectious-agent findings carry
+#'  neither the infectious agent (`pathogen_key`) nor whether a finding is a
+#'  secondary BSI's, since a rare infectious agent can single out a patient in
+#'  a pseudonymized dataset; [calculate_department_data()] and
+#'  [calculate_reference_data()], whose infectious-agent figures read them,
+#'  therefore need "full".
 #' @param include_dhis2_ids Include the DHIS2 ids into the dataset.
 #' @param include_custom_attributes Include the values of the DHIS2 custom
 #'  attributes set on organisation units into the dataset, as

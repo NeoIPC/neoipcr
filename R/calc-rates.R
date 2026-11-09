@@ -449,7 +449,8 @@ get_infection_counts <- function(x, group_cols = NULL, use_cache = TRUE) {
         as.character(.data$event_type_key),
         levels = inf_events
       ),
-      with_pathogen = .data$event_key %in% x$infectiousAgentFindings$event_key)
+      with_pathogen = .data$event_key %in%
+        .findings_naming_infectious_agent(x$infectiousAgentFindings)$event_key)
 
   counts <- event_base |>
     dplyr::group_by(dplyr::across(tidyselect::all_of(group_cols))) |>
@@ -479,6 +480,55 @@ get_infection_counts <- function(x, group_cols = NULL, use_cache = TRUE) {
     dplyr::left_join(counts, by = group_cols) |>
     dplyr::mutate(
       n = tidyr::replace_na(.data$n, 0)) |>
+    cache(x, cache_key)
+}
+
+# The share of microbiologically confirmed infections per infection type:
+# for each `event_type_key`, by `group_cols` (columns of `x$events`), the
+# infections that could have an infectious agent recorded (`total_inf`), those
+# among them with one recorded in a slot the form asks for (`inf_with_pathogen`),
+# and their share (`iwp_per_t`, in percent); see
+# `.infectious_agent_recording()` for which infections and slots count.
+# Without `group_cols` every infection type has a row, with none of its
+# infections at 0; with them, a group has a row for each type it has
+# infections of.
+get_infectious_agent_detection_rates_per_inf_type <- function(
+    x, group_cols = NULL, use_cache = TRUE) {
+  if(is.null(group_cols))
+    cache_key <- "infectious_agent_detection_rates_per_inf_type"
+  else
+    cache_key <- paste0("infectious_agent_detection_rates_per_inf_type_by.", paste0(group_cols, collapse = "."))
+
+  if(use_cache && !is.null(r <- get_cached(x, cache_key)))
+    return(r)
+
+  inf_events <- c("bsi","nec","hap","ssi")
+
+  r <- x$events |>
+    dplyr::filter(.data$event_type_key %in% inf_events) |>
+    dplyr::select(
+      "event_key", "event_type_key", tidyselect::all_of(group_cols)) |>
+    dplyr::inner_join(.infectious_agent_recording(x), dplyr::join_by("event_key")) |>
+    dplyr::mutate(
+      event_type_key = factor(
+        as.character(.data$event_type_key),
+        levels = inf_events)) |>
+    dplyr::summarise(
+      total_inf = sum(.data$recordable),
+      inf_with_pathogen = sum(.data$recordable & .data$confirmed),
+      .by = tidyselect::all_of(c(group_cols, "event_type_key")))
+
+  if(is.null(group_cols))
+    r <- tibble::tibble(event_type_key = factor(inf_events, levels = inf_events)) |>
+    dplyr::left_join(r, dplyr::join_by("event_type_key")) |>
+    dplyr::mutate(
+      dplyr::across(
+        c("total_inf", "inf_with_pathogen"),
+        \(v) dplyr::coalesce(v, 0L)))
+
+  r |>
+    dplyr::mutate(
+      iwp_per_t = .data$inf_with_pathogen / .data$total_inf * 100) |>
     cache(x, cache_key)
 }
 
@@ -597,7 +647,8 @@ get_resistance_test_rate <- function(
   if(use_cache && !is.null(r <- get_cached(x, cache_key)))
     return(r)
 
-  infectiousAgentFindings <- x$infectiousAgentFindings
+  infectiousAgentFindings <- .findings_naming_infectious_agent(
+    x$infectiousAgentFindings)
   for(col in union(resistance, intersect(group_cols, res_names))) {
     if(!(col %in% names(infectiousAgentFindings)))
       infectiousAgentFindings <- infectiousAgentFindings |>
@@ -1008,62 +1059,168 @@ get_secondary_bsi_rates <- function(x, group_cols = NULL, use_cache = TRUE) {
   if(use_cache && !is.null(r <- get_cached(x, cache_key)))
     return(r)
 
-  # Count infections with secondary BSI for each type
-  infections_with_sec_bsi <- x$events |>
-    dplyr::filter(.data$event_type_key %in% c("nec","ssi","hap")) |>
-    dplyr::semi_join(
-      x$infectiousAgentFindings |>
-        dplyr::filter(.data$secondary_bsi),
-      dplyr::join_by("event_key")) |>
-    dplyr::group_by(dplyr::across(tidyselect::all_of(
-      c("event_type_key", group_cols)))) |>
-    dplyr::summarise(n = dplyr::n(), .groups = "drop")
+  sec_bsi_events <- c("nec","hap","ssi")
 
-  # Count infections with follow-up for each type
-  filter_sec_bsi <- function(d) {
-    if(!("sec_bsi" %in% names(d))) return(d[0,])
-    d |> dplyr::filter(.data$sec_bsi != -1)
-  }
-  infections_with_followup <- dplyr::bind_rows(
-    x$events |>
-      dplyr::semi_join(
-        filter_sec_bsi(x$necData),
-        dplyr::join_by("event_key")) |>
-      dplyr::group_by(dplyr::across(tidyselect::all_of(group_cols))) |>
-      dplyr::summarise(
-        followup_n = dplyr::n(),
-        event_type_key = "nec",
-        .groups = "drop"),
-    x$events |>
-      dplyr::semi_join(
-        filter_sec_bsi(x$pneumoniaData),
-        dplyr::join_by("event_key")) |>
-      dplyr::group_by(dplyr::across(tidyselect::all_of(group_cols))) |>
-      dplyr::summarise(
-        followup_n = dplyr::n(),
-        event_type_key = "hap",
-        .groups = "drop"),
-    x$events |>
-      dplyr::semi_join(
-        filter_sec_bsi(x$ssiData),
-        dplyr::join_by("event_key")) |>
-      dplyr::group_by(dplyr::across(tidyselect::all_of(group_cols))) |>
-      dplyr::summarise(
-        followup_n = dplyr::n(),
-        event_type_key = "ssi",
-        .groups = "drop")
-  )
+  # A secondary BSI counts where the follow-up is answered Yes and a
+  # secondary-BSI slot names an infectious agent, so that every infection
+  # the numerator counts is in the denominator, whatever a validation
+  # exception keeps in the slots under another answer.
+  named <- .findings_naming_infectious_agent(x$infectiousAgentFindings)
+  named <- named$event_key[named$secondary_bsi %in% TRUE]
 
-  # Join and calculate rates
-  join_cols <- c("event_type_key", group_cols)
-  r <- infections_with_followup |>
-    dplyr::left_join(
-      infections_with_sec_bsi,
-      by = join_cols) |>
+  r <- x$events |>
+    dplyr::filter(.data$event_type_key %in% sec_bsi_events) |>
+    dplyr::select(
+      "event_key", "event_type_key", tidyselect::all_of(group_cols)) |>
+    dplyr::left_join(.secondary_bsi_answers(x), dplyr::join_by("event_key")) |>
     dplyr::mutate(
-      n = tidyr::replace_na(.data$n, 0),
-      rate = .data$n / .data$followup_n * 100) |>
-    cache(x, cache_key)
+      event_type_key = factor(
+        as.character(.data$event_type_key),
+        levels = sec_bsi_events),
+      followed_up = .data$sec_bsi %in% c("1", "0"),
+      with_sec_bsi = .data$sec_bsi %in% "1" & .data$event_key %in% named) |>
+    dplyr::summarise(
+      total_n = dplyr::n(),
+      followup_n = sum(.data$followed_up),
+      n = sum(.data$with_sec_bsi),
+      .by = tidyselect::all_of(c(group_cols, "event_type_key")))
 
-  r
+  if(is.null(group_cols))
+    r <- tibble::tibble(
+      event_type_key = factor(sec_bsi_events, levels = sec_bsi_events)) |>
+    dplyr::left_join(r, dplyr::join_by("event_type_key")) |>
+    dplyr::mutate(
+      dplyr::across(
+        c("total_n", "followup_n", "n"),
+        \(v) dplyr::coalesce(v, 0L)))
+
+  r |>
+    dplyr::mutate(
+      event_type_key = as.character(.data$event_type_key),
+      rate = .data$n / .data$followup_n * 100,
+      followup_rate = .data$followup_n / .data$total_n * 100) |>
+    cache(x, cache_key)
+}
+
+# ---- Internal helpers -----------------------------------------------------
+
+# The findings that name an infectious agent. "Not listed" (`Id` 0),
+# "Unidentifiable" (`Id` 3561), and a code the infectious-agent list lacks
+# name one; a slot that holds only a companion value (the source, the
+# "recovered multiple times" item, a resistance category, or a free-text name,
+# which the import moves to `unknownPathogenNames`) yields a finding without a
+# `pathogen_key`, which names none and enters no figure.
+.findings_naming_infectious_agent <- function(findings)
+  dplyr::filter(findings, !is.na(.data$pathogen_key))
+
+# The secondary-BSI item of the NEC, pneumonia, and SSI forms by event
+# (`event_key`, `sec_bsi`), as the stored option code: "1" Yes, "0" No, "-1"
+# No follow-up.
+.secondary_bsi_answers <- function(x)
+  dplyr::bind_rows(
+    tibble::tibble(event_key = integer(), sec_bsi = character()),
+    purrr::map(
+      list(x$necData, x$pneumoniaData, x$ssiData),
+      \(d) if ("sec_bsi" %in% names(d))
+        tibble::tibble(
+          event_key = d$event_key,
+          sec_bsi = as.character(d$sec_bsi))))
+
+# Whether each infection of `x` could have an infectious agent recorded
+# (`recordable`), and whether one of its counted slots names one
+# (`confirmed`, only where recordable), by `event_key`, for the share of
+# microbiologically confirmed infections per infection type. Each form item is
+# read as its stored option code ("1" Yes, "0" No, "-1" Not tested or No
+# follow-up); a follow-up answered Yes or No counts as followed up, and an
+# event without a form row has every item unanswered.
+#
+# Recordable infections:
+#   1. a primary sepsis/BSI always, culture-negative or not sampled, since
+#      `no_pos_culture` cannot tell a culture never taken from a negative one;
+#   2. a pneumonia tested (`microbiological_test_result` Yes or No) or
+#      followed up for a secondary BSI;
+#   3. a NEC followed up for a secondary BSI, its only infectious-agent slots;
+#   4. an SSI tested at the depth its `infection_type` records (the culture
+#      item of that depth Yes or No) or followed up.
+# Counted slots, those the program rules of the NEOIPC_CORE program ask for:
+#   1. a sepsis form's slots unless it is recorded culture-negative
+#      (NEOIPC_BSI_IF_NO_POS_CULTURE);
+#   2. a pneumonia's own slots only where its test is Yes
+#      (NEOIPC_HAP_MIBI_TEST_RESULT_VAL_NO_VAL_OR_0);
+#   3. an SSI's own slots only where the culture of any depth is Yes
+#      (NEOIPC_SSI_NO_MIBI_RESULT_AVAILABLE, on the value
+#      NEOIPC_SSI_SET_AGENTS_IDENTIFIED_FROM_ANY_SITE assigns), whichever
+#      depth the infection type records;
+#   4. the secondary-BSI slots only where the follow-up is answered Yes, the
+#      answer that records a secondary BSI (NEOIPC_NEC_SEC_BSI_VAL_NO_VAL_OR_0,
+#      NEOIPC_HAP_SEC_BSI_VAL_NO_VAL_OR_0, NEOIPC_SSI_NO_SEC_BSI).
+# The rules hide the slots of counted slots 1 to 3 and an SSI's secondary-BSI
+# slots as sections, which Tracker Capture hides whatever they hold. They hide
+# a pneumonia's or NEC's secondary-BSI slots field by field, and Tracker
+# Capture shows such a field while it holds a value, while the Capture app
+# hides it and assigns it no value. An infectious agent kept there under an
+# answer other than Yes contradicts the answer, and validation rule 55 reports
+# it as an error, so only an exception or `include_invalid_patients = TRUE`
+# brings it here. An infectious agent in a slot that does not count, which
+# reconciliations 5 and 6 and validation rule 55 remove only in part, counts
+# for nothing, and neither does an infection that is not recordable, whose own
+# slots counted slot 3 can show although it was not tested at its own depth,
+# so that no share passes 100%.
+.infectious_agent_recording <- function(x) {
+  named <- .findings_naming_infectious_agent(x$infectiousAgentFindings)
+  primary   <- named$event_key[named$secondary_bsi %in% FALSE]
+  secondary <- named$event_key[named$secondary_bsi %in% TRUE]
+
+  form_items <- function(d, items)
+    tibble::as_tibble(d)[c("event_key", intersect(items, names(d)))] |>
+    dplyr::mutate(dplyr::across(tidyselect::where(is.factor), as.character))
+
+  forms <- dplyr::bind_rows(
+    tibble::tibble(
+      event_key = integer(),
+      no_pos_culture = logical(),
+      sec_bsi = character(),
+      microbiological_test_result = character(),
+      infection_type = character(),
+      organisms_superf = character(),
+      organisms_deep = character(),
+      organisms_organ = character()),
+    form_items(x$sepsisData, "no_pos_culture"),
+    form_items(x$necData, "sec_bsi"),
+    form_items(x$pneumoniaData, c("sec_bsi", "microbiological_test_result")),
+    form_items(
+      x$ssiData,
+      c("sec_bsi", "infection_type", "organisms_superf", "organisms_deep",
+        "organisms_organ")))
+
+  x$events |>
+    dplyr::filter(.data$event_type_key %in% c("bsi","nec","hap","ssi")) |>
+    dplyr::select("event_key", "event_type_key") |>
+    dplyr::left_join(forms, dplyr::join_by("event_key")) |>
+    dplyr::mutate(
+      type = as.character(.data$event_type_key),
+      followed_up = .data$sec_bsi %in% c("1", "0"),
+      depth_culture = dplyr::case_when(
+        .data$infection_type %in% "1" ~ .data$organisms_superf,
+        .data$infection_type %in% "2" ~ .data$organisms_deep,
+        .data$infection_type %in% "3" ~ .data$organisms_organ),
+      tested = dplyr::case_when(
+        .data$type == "hap" ~
+          .data$microbiological_test_result %in% c("1", "0"),
+        .data$type == "ssi" ~ .data$depth_culture %in% c("1", "0"),
+        .default = FALSE),
+      recordable = .data$type == "bsi" | .data$tested | .data$followed_up,
+      primary_shown = dplyr::case_when(
+        .data$type == "bsi" ~ !dplyr::coalesce(.data$no_pos_culture, FALSE),
+        .data$type == "hap" ~ .data$microbiological_test_result %in% "1",
+        .data$type == "ssi" ~
+          .data$organisms_superf %in% "1" |
+          .data$organisms_deep %in% "1" |
+          .data$organisms_organ %in% "1",
+        .default = FALSE),
+      secondary_shown = .data$type != "bsi" & .data$sec_bsi %in% "1",
+      confirmed = .data$recordable & (
+        (.data$primary_shown & .data$event_key %in% primary) |
+          (.data$secondary_shown & .data$event_key %in% secondary))) |>
+    dplyr::select("event_key", "recordable", "confirmed")
 }

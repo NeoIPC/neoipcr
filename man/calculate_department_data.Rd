@@ -24,3 +24,11 @@ refused. \code{reconciliationSummary} is the dataset's reconciliation summary
 (see \code{\link[=import_dhis2]{import_dhis2()}}), \code{NULL} for a dataset written before the summary
 existed; a summary of another shape is refused.
 }
+\details{
+The dataset must have been imported with \code{include_department},
+\code{include_patient}, and \code{include_enrollment} not \code{"no"} and with
+\code{include_event = "full"} (see \code{\link[=dhis2_dataset_options]{dhis2_dataset_options()}}): the
+infectious-agent figures read the findings' \code{pathogen_key}, which the
+\code{"pseudo"} tier leaves out. Another dataset is refused with an error of
+class \code{neoipcr_unmet_import_options}.
+}

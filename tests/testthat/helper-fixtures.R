@@ -1167,6 +1167,90 @@ make_calc_test_ds <- function() {
     substanceDays       = make_test_substance_days(c(2L, 5L, 8L)))
 }
 
+# Calc pipeline fixture of infection forms. `forms` holds one row per
+# infection form: its `event_type_key` ("bsi", "nec", "hap", "ssi"), its
+# `department_key` (1 where the column is left out), and any form item to set
+# (`sec_bsi`, `microbiological_test_result`, `infection_type`,
+# `organisms_superf`, `organisms_deep`, `organisms_organ`, `no_pos_culture`),
+# as the stored option code or flag; an item left out keeps the form
+# builder's default, and `NA` leaves it unanswered. `findings` holds one row
+# per infectious-agent slot: `form`, the row of `forms` whose form holds it,
+# and any findings column to set (`pathogen_key`, `secondary_bsi`, `source`,
+# `multiple`, a resistance category); a column left out keeps
+# `make_test_iaf()`'s default. Departments 1 to the highest key exist, each
+# with one patient and one enrolment, its admission and surveillance-end
+# forms, and the department's infections.
+make_infection_calc_test_ds <- function(forms, findings = NULL) {
+  if (!"department_key" %in% names(forms))
+    forms$department_key <- 1L
+  forms$department_key <- as.integer(forms$department_key)
+  n_dep    <- max(forms$department_key)
+  dep_keys <- seq_len(n_dep)
+  n_inf    <- nrow(forms)
+  inf_keys <- 2L * n_dep + seq_len(n_inf)
+
+  md <- read_test_metadata(
+    dataset_options = dhis2_dataset_options(
+      include_department = "full",
+      include_country    = "full"))
+  md$departments      <- make_test_metadata_departments(n_dep)
+  md$hospitals        <- make_test_metadata_hospitals(n_dep)
+  md$countries        <- make_test_metadata_countries(n_dep)
+  md$worldBankClasses <- make_test_metadata_wb_classes(n_dep)
+  md$eventTypes       <- make_test_metadata_event_types()
+  md$dataset_options  <- dhis2_dataset_options(
+    include_department = "full",
+    include_country    = "full",
+    include_patient    = "full",
+    include_enrollment = "full",
+    include_event      = "full")
+
+  events <- make_test_events(
+    n               = 2L * n_dep + n_inf,
+    enrollment_keys = c(dep_keys, dep_keys, forms$department_key),
+    patient_keys    = c(dep_keys, dep_keys, forms$department_key),
+    event_type_keys = c(rep("adm", n_dep), rep("end", n_dep),
+                        forms$event_type_key),
+    department_key  = c(dep_keys, dep_keys, forms$department_key))
+
+  # A stored value replaces the builder's default in the builder's type, so
+  # that a code stays a factor level as the reader leaves it.
+  set_columns <- function(d, values) {
+    for (col in names(values))
+      d[[col]] <- if (is.factor(d[[col]]))
+        factor(values[[col]], levels = levels(d[[col]]))
+      else values[[col]]
+    d
+  }
+  form_data <- function(type, builder) {
+    rows <- forms$event_type_key == type
+    items <- setdiff(names(forms), c("event_type_key", "department_key"))
+    d <- builder(inf_keys[rows])
+    set_columns(d, as.list(forms[rows, intersect(items, names(d))]))
+  }
+
+  iaf <- if (is.null(findings) || nrow(findings) == 0L)
+    make_test_iaf(integer(0))
+  else
+    set_columns(
+      make_test_iaf(inf_keys[findings$form]),
+      as.list(findings[setdiff(names(findings), "form")]))
+
+  make_test_ds(
+    metadata                = md,
+    patients                = make_test_patients(n_dep, department_key = dep_keys),
+    enrollments             = make_test_enrollments(
+      n_dep, patient_keys = dep_keys, department_key = dep_keys),
+    events                  = events,
+    admissionData           = make_test_admission_data(dep_keys),
+    surveillanceEndData     = make_test_surveillance_end_data(n_dep + dep_keys),
+    sepsisData              = form_data("bsi", make_test_sepsis_data),
+    necData                 = form_data("nec", make_test_nec_data),
+    pneumoniaData           = form_data("hap", make_test_pneumonia_data),
+    ssiData                 = form_data("ssi", make_test_ssi_data),
+    infectiousAgentFindings = iaf)
+}
+
 
 #' Construct a minimal structurally valid neoipcr_ds object.
 #'

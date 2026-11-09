@@ -65,6 +65,33 @@ for (entry in table_fns) {
   })
 }
 
+test_that("the infectious-agent table builders refuse pseudonymized events, and the others take them", {
+  # The findings carry `pathogen_key` and `secondary_bsi` only under the full
+  # event tier; the fixture's tibbles are full, so only the precondition can
+  # refuse the dataset.
+  ds <- calc_ds
+  ds$metadata$dataset_options$include_event <- "pseudo"
+  needs_full_events <- c(
+    "get_infectious_agent_detection_rate_per_inf_type_table",
+    "get_infectious_agent_detection_rate_per_agent_table",
+    "get_abr_infection_rate_table",
+    "get_organism_resistance_rate_table",
+    "get_resistance_test_rate_table",
+    "get_secondary_bsi_rate_table")
+  for (entry in table_fns) {
+    build <- if (entry$has_q)
+      \() entry$fn(ds, use_cache = FALSE, include_quartiles = FALSE)
+    else
+      \() entry$fn(ds, use_cache = FALSE)
+    if (entry$name %in% needs_full_events) {
+      cnd <- expect_error(build(), class = "neoipcr_unmet_import_options")
+      expect_match(conditionMessage(cnd), "`pathogen_key`", fixed = TRUE)
+    } else {
+      expect_no_error(build(), class = "neoipcr_unmet_import_options")
+    }
+  }
+})
+
 # --- Numerical spot-check: usage density CVC ---
 
 test_that("usage_density_rate_table CVC days match fixture", {
@@ -588,4 +615,359 @@ test_that("get_cumulative_incidence_table rejects malformed windows, unknown eve
     include_event      = "full")
   expect_error(
     get_cumulative_incidence_table(narrowed, windows), "include_enrollment")
+})
+
+# --- Infectious-agent tables on infection forms -----------------------------
+#
+# make_infection_calc_test_ds() builds the infection forms; the form items
+# are the stored option codes: 1 Yes, 0 No, -1 Not tested or No follow-up.
+
+infectious_agent_tables <- function(ds) list(
+  per_agent = get_infectious_agent_detection_rate_per_agent_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE),
+  per_inf_type = get_infectious_agent_detection_rate_per_inf_type_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE),
+  abr_infection = get_abr_infection_rate_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE),
+  organism_resistance = get_organism_resistance_rate_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE),
+  resistance_test = get_resistance_test_rate_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE),
+  secondary_bsi = get_secondary_bsi_rate_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE))
+
+resistance_levels <- c("no", "yes", "not_tested")
+
+test_that("a slot without an infectious agent leaves every infectious-agent figure unchanged", {
+  # The sepsis of form 1 names Staphylococcus aureus (934) as methicillin
+  # resistant; form 7 is a NEC answered Yes whose secondary-BSI slots name no
+  # infectious agent.
+  forms <- tibble::tibble(
+    event_type_key              = c("bsi", "bsi", "hap", "hap", "nec", "ssi",
+                                    "nec"),
+    sec_bsi                     = c(NA, NA, "1", "0", "1", "0", "1"),
+    microbiological_test_result = c(NA, NA, "1", "1", NA, NA, NA))
+  agents <- tibble::tibble(
+    form          = c(1L, 3L, 3L, 5L, 6L),
+    secondary_bsi = c(FALSE, FALSE, TRUE, TRUE, FALSE),
+    pathogen_key  = c(934L, 503L, 503L, 1L, 1L),
+    source        = c("B", "L", NA, NA, NA),
+    multiple      = FALSE,
+    mrsa          = factor(c("yes", "no", "no", "no", "no"),
+                           levels = resistance_levels))
+  # The slots of a second sepsis, a pneumonia answered No, the SSI, and the
+  # NEC of form 7, each holding a source, the "recovered multiple times" item,
+  # or a resistance category, and no infectious agent.
+  companions <- tibble::tibble(
+    form          = c(2L, 4L, 4L, 6L, 7L),
+    secondary_bsi = c(FALSE, FALSE, TRUE, TRUE, TRUE),
+    pathogen_key  = NA_integer_,
+    source        = c("B", "U", NA, NA, NA),
+    multiple      = c(TRUE, NA, NA, NA, NA),
+    mrsa          = factor(c("yes", "yes", "not_tested", "yes", "yes"),
+                           levels = resistance_levels))
+
+  base    <- make_infection_calc_test_ds(forms, agents)
+  variant <- make_infection_calc_test_ds(forms, dplyr::bind_rows(agents, companions))
+
+  # The organism-resistance table joins the classification on `pathogen_key`,
+  # which drops a finding without one by itself, so its comparison guards a
+  # change of that join rather than this rule.
+  expect_equal(infectious_agent_tables(variant), infectious_agent_tables(base))
+})
+
+test_that("pneumonias neither tested nor followed up for a secondary BSI leave the per-type denominator", {
+  # Forms 1-3 can have no infectious agent recorded: not tested, or with the
+  # required test left blank, and not followed up; form 1 holds one in the
+  # slots the form does not ask for. Forms 4 and 5 are followed up or tested
+  # negative, form 6 tested positive with an infectious agent.
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key              = "hap",
+      microbiological_test_result = c("-1", "-1", NA, "-1", "0", "1"),
+      sec_bsi                     = c("-1", NA, "-1", "0", "-1", "-1")),
+    findings = tibble::tibble(
+      form = c(1L, 6L), secondary_bsi = FALSE, pathogen_key = 1L))
+
+  r <- get_infectious_agent_detection_rate_per_inf_type_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE)
+  hap <- r[r$inf == "hap", ]
+
+  expect_equal(hap$n, 1L)
+  expect_equal(hap$pooled, 100 / 3)
+  # The row of all types keeps every infection and every slot.
+  expect_equal(r$n[r$inf == "all"], 2L)
+  expect_equal(r$pooled[r$inf == "all"], 100 / 3)
+})
+
+test_that("SSIs neither tested at their depth nor followed up for a secondary BSI leave the per-type denominator", {
+  # Forms 1-4 can have no infectious agent recorded: their culture at the
+  # depth the infection type records is not tested (form 1), left blank
+  # (form 2), tested only at another depth (form 3), or no depth is recorded
+  # (form 4), and none is followed up. Form 5 is followed up, form 6 tested
+  # negative at its depth, form 7 positive with an infectious agent.
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key   = "ssi",
+      infection_type   = c("1", "2", "3", NA, "1", "2", "3"),
+      organisms_superf = c("-1", NA, NA, "1", "-1", NA, NA),
+      organisms_deep   = c(NA, NA, "1", "1", NA, "0", NA),
+      organisms_organ  = c(NA, NA, "-1", "1", NA, NA, "1"),
+      sec_bsi          = c("-1", "-1", "-1", "-1", "0", "-1", "-1")),
+    findings = tibble::tibble(
+      form = 7L, secondary_bsi = FALSE, pathogen_key = 1L))
+
+  r <- get_infectious_agent_detection_rate_per_inf_type_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE)
+  ssi <- r[r$inf == "ssi", ]
+
+  expect_equal(ssi$n, 1L)
+  expect_equal(ssi$pooled, 100 / 3)
+})
+
+test_that("NECs not followed up for a secondary BSI leave the per-type denominator", {
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key = "nec",
+      sec_bsi        = c("-1", NA, "0", "1")),
+    findings = tibble::tibble(
+      form = 4L, secondary_bsi = TRUE, pathogen_key = 1L))
+
+  r <- get_infectious_agent_detection_rate_per_inf_type_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE)
+  nec <- r[r$inf == "nec", ]
+
+  expect_equal(nec$n, 1L)
+  expect_equal(nec$pooled, 50)
+})
+
+test_that("every primary sepsis/BSI stays in the per-type denominator, culture-negative or not", {
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key = "bsi",
+      no_pos_culture = c(TRUE, NA, NA)),
+    findings = tibble::tibble(
+      form = 3L, secondary_bsi = FALSE, pathogen_key = 1L))
+
+  r <- get_infectious_agent_detection_rate_per_inf_type_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE)
+  bsi <- r[r$inf == "bsi", ]
+
+  expect_equal(bsi$n, 1L)
+  expect_equal(bsi$pooled, 100 / 3)
+})
+
+test_that("the per-type numerator counts a slot only where the form asks for it", {
+  # Every form is in its type's denominator. An infectious agent counts in
+  # pneumonia 4's secondary-BSI slot (answered Yes), in SSI 2's slots (a depth
+  # tested positive, if not its own), and in sepsis 2's; it stays in a slot
+  # the form does not ask for on the others: a pneumonia's own slots unless
+  # its test is positive, its secondary-BSI slots unless the follow-up is
+  # answered Yes, an SSI's own slots unless a depth is positive, a NEC's
+  # secondary-BSI slots answered No, and the slots of a sepsis recorded
+  # culture-negative.
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key              = c("hap", "hap", "hap", "hap",
+                                      "ssi", "ssi", "nec", "bsi", "bsi"),
+      microbiological_test_result = c("-1", "0", "1", "-1",
+                                      NA, NA, NA, NA, NA),
+      sec_bsi                     = c("0", "0", "0", "1",
+                                      "0", "-1", "0", NA, NA),
+      infection_type              = c(NA, NA, NA, NA, "1", "1", NA, NA, NA),
+      organisms_superf            = c(NA, NA, NA, NA, "0", "0", NA, NA, NA),
+      organisms_deep              = c(NA, NA, NA, NA, "0", "1", NA, NA, NA),
+      organisms_organ             = c(NA, NA, NA, NA, "0", NA, NA, NA, NA),
+      no_pos_culture              = c(NA, NA, NA, NA, NA, NA, NA, TRUE, NA)),
+    findings = tibble::tibble(
+      form          = 1:9,
+      secondary_bsi = c(FALSE, FALSE, TRUE, TRUE, FALSE, FALSE, TRUE,
+                        FALSE, FALSE),
+      pathogen_key  = 1L))
+
+  r <- get_infectious_agent_detection_rate_per_inf_type_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE)
+
+  expect_equal(r$n[r$inf == "hap"], 1L)
+  expect_equal(r$pooled[r$inf == "hap"], 25)
+  expect_equal(r$n[r$inf == "ssi"], 1L)
+  expect_equal(r$pooled[r$inf == "ssi"], 50)
+  expect_equal(r$n[r$inf == "nec"], 0L)
+  expect_equal(r$pooled[r$inf == "nec"], 0)
+  expect_equal(r$n[r$inf == "bsi"], 1L)
+  expect_equal(r$pooled[r$inf == "bsi"], 50)
+  # The row of all types counts every infection whose slots name an
+  # infectious agent, whatever the form asks for.
+  expect_equal(r$n[r$inf == "all"], 9L)
+  expect_equal(r$pooled[r$inf == "all"], 100)
+  expect_true(all(r$pooled <= 100, na.rm = TRUE))
+})
+
+test_that("an SSI not tested at its own depth counts in no numerator, whatever its slots hold", {
+  # SSI 1 is superficial, not tested there, and not followed up, so it cannot
+  # have an infectious agent recorded; a positive deep culture still lets the
+  # form show its slots, which name one. SSI 2 is tested negative at its
+  # depth.
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key   = "ssi",
+      infection_type   = c("1", "1"),
+      organisms_superf = c("-1", "0"),
+      organisms_deep   = c("1", NA),
+      organisms_organ  = c(NA, NA),
+      sec_bsi          = c("-1", "-1")),
+    findings = tibble::tibble(
+      form = 1L, secondary_bsi = FALSE, pathogen_key = 1L))
+
+  r <- get_infectious_agent_detection_rate_per_inf_type_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE)
+  ssi <- r[r$inf == "ssi", ]
+
+  expect_equal(ssi$n, 0L)
+  expect_equal(ssi$pooled, 0)
+})
+
+test_that("the per-type numerator counts \"Not listed\", \"Unidentifiable\", and a code the list lacks", {
+  # Sepsis 1-3 and NECs 4-6 answered Yes name "Not listed" (0),
+  # "Unidentifiable" (3561), and a code the list lacks, in their own and their
+  # secondary-BSI slots.
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key = rep(c("bsi", "nec"), each = 3),
+      sec_bsi        = rep(c(NA, "1"), each = 3)),
+    findings = tibble::tibble(
+      form          = 1:6,
+      secondary_bsi = rep(c(FALSE, TRUE), each = 3),
+      pathogen_key  = rep(c(0L, 3561L, 99999999L), 2)))
+
+  r <- get_infectious_agent_detection_rate_per_inf_type_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE)
+
+  expect_equal(r$n[r$inf == "bsi"], 3L)
+  expect_equal(r$pooled[r$inf == "bsi"], 100)
+  expect_equal(r$n[r$inf == "nec"], 3L)
+  expect_equal(r$pooled[r$inf == "nec"], 100)
+})
+
+test_that("the reference per-type table takes the departments' quartiles and its gate over the same denominators", {
+  # Each of departments 1-5 has 4 pneumonias tested, 1 to 4 of them naming
+  # an infectious agent (department 5 like department 4), and 4 neither
+  # tested nor followed up, which cannot have one recorded.
+  tested <- tibble::tibble(
+    department_key              = rep(1:5, each = 4),
+    microbiological_test_result = "1",
+    sec_bsi                     = "-1")
+  untested <- tibble::tibble(
+    department_key              = rep(1:5, each = 4),
+    microbiological_test_result = "-1",
+    sec_bsi                     = "-1")
+  named <- c(1L, 2L, 3L, 4L, 4L)
+  agents <- function(departments)
+    tibble::tibble(
+      form = unlist(lapply(seq_along(departments), \(i)
+        (i - 1L) * 4L + seq_len(named[departments[i]]))),
+      secondary_bsi = FALSE,
+      pathogen_key  = 1L)
+
+  ds <- make_infection_calc_test_ds(
+    forms    = dplyr::mutate(dplyr::bind_rows(tested, untested),
+                             event_type_key = "hap"),
+    findings = agents(1:5))
+  r <- get_infectious_agent_detection_rate_per_inf_type_table(
+    ds, use_cache = FALSE)
+  hap <- r[r$inf == "hap", ]
+  # The departments' shares are 25, 50, 75, 100, and 100%; the pooled share
+  # of 70% passes the gate against a median of 4 pneumonias per department.
+  expect_equal(c(hap$q1, hap$q2, hap$q3), c(50, 75, 100))
+
+  # Department 5 with only the pneumonias it cannot have an infectious agent
+  # recorded for leaves 4 departments, too few for quartiles.
+  ds <- make_infection_calc_test_ds(
+    forms    = dplyr::mutate(
+      dplyr::bind_rows(dplyr::filter(tested, .data$department_key != 5L),
+                       untested),
+      event_type_key = "hap"),
+    findings = agents(1:4))
+  r <- get_infectious_agent_detection_rate_per_inf_type_table(
+    ds, use_cache = FALSE)
+  hap <- r[r$inf == "hap", ]
+  expect_true(all(is.na(c(hap$q1, hap$q2, hap$q3))))
+})
+
+test_that("the secondary-BSI table shows each type's share of infections followed up, with its counts", {
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key = c("hap", "hap", "hap", "nec"),
+      sec_bsi        = c("1", "0", "-1", "-1")),
+    findings = tibble::tibble(
+      form = 1L, secondary_bsi = TRUE, pathogen_key = 1L))
+
+  r <- get_secondary_bsi_rate_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE)
+
+  hap <- r[r$event_type_key == "hap", ]
+  expect_equal(hap$n, 1L)
+  expect_equal(hap$pooled, 50)
+  expect_equal(hap$followup_n, 2L)
+  expect_equal(hap$total_n, 3L)
+  expect_equal(hap$followup_pooled, 200 / 3)
+  nec <- r[r$event_type_key == "nec", ]
+  expect_equal(nec$followup_n, 0L)
+  expect_equal(nec$total_n, 1L)
+  expect_equal(nec$followup_pooled, 0)
+  ssi <- r[r$event_type_key == "ssi", ]
+  expect_equal(ssi$total_n, 0L)
+})
+
+test_that("the reference secondary-BSI table gives the quartiles of the departments' follow-up shares", {
+  # Departments 1-5 each have 5 pneumonias, 5 to 1 of them followed up;
+  # department 6 has 4, none followed up, too few to enter the quartiles.
+  shares <- tibble::tibble(
+    department_key = c(rep(1:5, each = 5), rep(6L, 4)),
+    sec_bsi        = c(
+      unlist(lapply(5:1, \(k) c(rep("0", k), rep("-1", 5 - k)))),
+      rep("-1", 4)))
+  ds <- make_infection_calc_test_ds(
+    forms = dplyr::mutate(shares, event_type_key = "hap"))
+
+  r <- get_secondary_bsi_rate_table(ds, use_cache = TRUE)
+  hap <- r[r$event_type_key == "hap", ]
+  expect_equal(hap$followup_pooled, 15 / 29 * 100)
+  expect_equal(hap$followup_q1, 40)
+  expect_equal(hap$followup_q2, 60)
+  expect_equal(hap$followup_q3, 80)
+  # A table without quartiles leaves those of the follow-up shares out too.
+  expect_false(any(c("followup_q1", "followup_q2", "followup_q3") %in% names(
+    get_secondary_bsi_rate_table(ds, use_cache = TRUE, include_quartiles = FALSE))))
+
+  # With 4 departments of at least 5 pneumonias there are no quartiles.
+  ds <- make_infection_calc_test_ds(
+    forms = dplyr::mutate(
+      dplyr::filter(shares, .data$department_key != 5L),
+      event_type_key = "hap",
+      department_key = dplyr::if_else(.data$department_key == 6L, 5L,
+                                      .data$department_key)))
+  r <- get_secondary_bsi_rate_table(ds, use_cache = FALSE)
+  hap <- r[r$event_type_key == "hap", ]
+  expect_true(all(is.na(c(hap$followup_q1, hap$followup_q2, hap$followup_q3))))
+})
+
+test_that("the secondary-BSI rate's quartiles take only the departments that followed up", {
+  # Departments 1-4 each followed up 2 NECs, both with a secondary BSI;
+  # department 5 followed up none of its 2, so 4 departments remain, too few
+  # for quartiles, although the gate would pass for 5.
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key = "nec",
+      department_key = rep(1:5, each = 2),
+      sec_bsi        = c(rep("1", 8), "-1", "-1")),
+    findings = tibble::tibble(
+      form = 1:8, secondary_bsi = TRUE, pathogen_key = 1L))
+
+  r <- get_secondary_bsi_rate_table(ds, use_cache = FALSE)
+  nec <- r[r$event_type_key == "nec", ]
+
+  expect_equal(nec$n, 8L)
+  expect_equal(nec$pooled, 100)
+  expect_true(all(is.na(c(nec$q1, nec$q2, nec$q3))))
 })

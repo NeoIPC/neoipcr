@@ -11,6 +11,13 @@
 #' (see [import_dhis2()]), `NULL` for a dataset written before the summary
 #' existed; a summary of another shape is refused.
 #'
+#' The dataset must have been imported with `include_department`,
+#' `include_patient`, and `include_enrollment` not `"no"` and with
+#' `include_event = "full"` (see [dhis2_dataset_options()]): the
+#' infectious-agent figures read the findings' `pathogen_key`, which the
+#' `"pseudo"` tier leaves out. Another dataset is refused with an error of
+#' class `neoipcr_unmet_import_options`.
+#'
 #' @param x The neoipcr_ds object containing the data
 #' @param use_cache Use the cache
 #'
@@ -21,13 +28,15 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
   # Three-valued gates all need to be non-"no" for the reference
   # pipeline: department grouping, per-patient / per-enrollment / per-
   # event denominators, and hierarchy metadata for the country-level
-  # joins all feed into the computed reference data.
+  # joins all feed into the computed reference data. The events need the
+  # full tier, whose findings carry the infectious agents.
   assert_options_for(x, required = list(
     include_department = c("pseudo", "full"),
     include_patient    = c("pseudo", "full"),
     include_enrollment = c("pseudo", "full"),
-    include_event      = c("pseudo", "full")
-  ), fn_name = "calculate_reference_data")
+    include_event      = "full"
+  ), reasons = calculation_option_reasons(),
+  fn_name = "calculate_reference_data")
   assert_validation_summary(x, fn_name = "calculate_reference_data")
   assert_reconciliation_summary(x, fn_name = "calculate_reference_data")
 
@@ -215,6 +224,13 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
 #' (see [import_dhis2()]), `NULL` for a dataset written before the summary
 #' existed; a summary of another shape is refused.
 #'
+#' The dataset must have been imported with `include_department`,
+#' `include_patient`, and `include_enrollment` not `"no"` and with
+#' `include_event = "full"` (see [dhis2_dataset_options()]): the
+#' infectious-agent figures read the findings' `pathogen_key`, which the
+#' `"pseudo"` tier leaves out. Another dataset is refused with an error of
+#' class `neoipcr_unmet_import_options`.
+#'
 #' @param x The neoipcr_ds object containing the data
 #' @param use_cache Use the cache
 #'
@@ -224,13 +240,15 @@ calculate_department_data <- function(x, use_cache = TRUE) {
   check_neoipcr_ds(x)
   # Three-valued gates all need to be non-"no" for the department
   # pipeline: department grouping, per-patient / per-enrollment / per-
-  # event denominators.
+  # event denominators. The events need the full tier, whose findings carry
+  # the infectious agents.
   assert_options_for(x, required = list(
     include_department = c("pseudo", "full"),
     include_patient    = c("pseudo", "full"),
     include_enrollment = c("pseudo", "full"),
-    include_event      = c("pseudo", "full")
-  ), fn_name = "calculate_department_data")
+    include_event      = "full"
+  ), reasons = calculation_option_reasons(),
+  fn_name = "calculate_department_data")
   assert_validation_summary(x, fn_name = "calculate_department_data")
   assert_reconciliation_summary(x, fn_name = "calculate_department_data")
 
