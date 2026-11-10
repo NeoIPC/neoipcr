@@ -33,4 +33,34 @@ The dataset must have been imported with \code{include_department},
 infectious-agent figures read the findings' \code{pathogen_key}, which the
 \code{"pseudo"} tier leaves out. Another dataset is refused with an error of
 class \code{neoipcr_unmet_import_options}.
+
+Where the findings hold codes the NeoIPC infectious-agent list lacks, a
+warning of class \code{neoipcr_unknown_infectious_agent_code} is raised once,
+with the codes in its field \code{codes}: the infectious-agent tables count such
+a code in their Totals only, and no resistance category applies to it.
 }
+\section{Versions of the rate definitions}{
+
+\code{metadata$rate_definitions} stamps each table the result carries, one row
+per slot (\code{table}), with \code{version}, the version of the definitions of the
+table's rates, which a change to that table's definitions raises and no
+other; and the digests of what the table reads from the bundled
+infectious-agent list, each \code{NA} where it does not read it:
+\code{common_commensal_digest}, the common commensals, on which the incidence
+densities' rate definitions split the kinds of sepsis;
+\code{concept_mapping_digest}, the concept each code names, by which the tables
+whose rows are infectious agents and the completeness of antimicrobial
+susceptibility testing count an infectious agent once per infection;
+\code{groups_tree_digest} or \code{ontology_tree_digest}, the tree of the rows over
+the reporting groups or over the full ontology, which a table whose rows
+are infectious agents reads in its version, with the \code{layout} of its rows;
+and \code{applicability_digest}, to which infectious agents each resistance
+category applies, which the tables of the resistance categories read.
+\code{\link[=get_benchmark_data]{get_benchmark_data()}} joins a table of two datasets only where its stamps
+match, so that a release of the list that changes only what a table does
+not read leaves it comparable. \code{metadata$infectious_agent_tables} names
+the release of the list (\code{version}, \code{commit}) and the \code{layout} of the
+tables whose rows are infectious agents, and \code{metadata$neoipcr_version}
+the version of neoipcr that calculated the result.
+}
+

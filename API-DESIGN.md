@@ -26,13 +26,13 @@
 - [x] §6 cites 5 established R-ecosystem precedents — §6.4 (countrycode, Writing R Extensions, scales, rlang/cli, potools).
 - [x] The unified locale-resolution chain is stated in §6.7 and referenced from relevant decisions in §10.
 - [x] §6 carries a per-call-site migration plan for Phase 2 — §6.6.
-- [x] Every package-data candidate has a §7 row (7 rows); infectious-agent files are explicitly held for the CSV-to-YAML migration in §7.4.
+- [x] Every package-data candidate has a §7 row (7 rows); the infectious-agent tables, which the package builds from a release of the NeoIPC infectious-agent list, have their design record in §7.5.
 - [x] §8 states the GT-styling boundary decision (S3 `as_gt.*` methods); describes the DESCRIPTION delta (add `gt` to `Suggests`).
 - [x] §9 covers every rename required by Phase 3 of the task file — two function renames (D-C, D-D) plus coordination with task 1.2 for class renames.
 - [x] §10 lists D-A through D-I, each with a recommendation and "PI resolution: _pending_" line.
 - [x] §9.5 catalogues the cross-surface naming divergence for all 11 result tables + 2 figures across **nine surfaces** (function / class / slot / rate-name / Quarto param / PS switch / `.qmd` filename / heading key / display string); proposes a master-name + derivation-rules scheme; addresses the section-vs-table heading question per row; aligns code identifiers with PDF display strings via the po4a translation cycle; coordinates with task 1.2.
 - [x] §11 points at three in-tree roxygen exemplars and the test-fixture helpers.
-- [x] §12 cross-refs five sibling tasks.
+- [x] §12 cross-refs four sibling tasks.
 
 **Decisions pending PI sign-off.** See §10 for full context on each.
 
@@ -43,7 +43,7 @@
 | D-C | `get_benchmark_data()` rename | **Withdraw** — function combines, doesn't compute (see §10.3) | pending |
 | D-D | CI-function prefix unification | Rename all three to `neoipcr_*_ci()` (matches package name) | pending |
 | D-E | Long table-function-name shortening | Keep as-is; rely on `@family` grouping | pending |
-| D-F | Accessor-vs-raw-data per package-data candidate | Accessor per taxonomy (follows `get_pathogen_taxonomy()`) | pending |
+| D-F | Accessor-vs-raw-data per package-data candidate | Accessor per taxonomy (follows `get_infectious_agents()`) | pending |
 | D-G | Message-catalogue scope | Single `R-neoipcr.pot` | pending |
 | D-H | Localization architecture split | See §10 / §6 for the full proposal | pending |
 | D-I | Cross-surface naming alignment (9 surfaces, code + report display) | Master-name + heading-treatment table in §9.5.4 / §10.9; supersedes parts of task 1.2; alignment extends to PDF display strings via po4a cycle | pending |
@@ -71,9 +71,9 @@ Where a row's return-class slug is scheduled for rename by task 1.2 (the class-s
 | 1 | `import_dhis2` | [R/import-dhis2.R](R/import-dhis2.R) | `(connection_options, dataset_options)` | `neoipcr_ds` | external-stable | stable | — | Core entry point; invokes the 5-step auth chain. The dataset carries the validation pass's findings (`validationResults`, the five columns `validate()` returns, without its `rules_run`, `rules_skipped` and `findings_exempted` attributes) and their counts (`validationSummary`: per rule the distinct records removed, exempted, and warned of, at the rule's record kind, and a totals row per record kind; the pass removes the patients an error flags and keeps those only a warning flags); both are 0×0 when the pass does not run, under `include_invalid_patients = TRUE` or without patients. It also carries the counts of the NeoIPC coordinating centre's reconciliation, which repairs before the filters and the pass the stored values Tracker Capture derives or hides and the partner never chooses (`reconciliationSummary`: per reconciliation the distinct records of the returned dataset repaired and reported, at the reconciliation's record kind, zero rows included, `NA` where the import could not read the records a reconciliation acts on, and no totals rows); it is 0×0 under `reconcile = FALSE` or without patients. |
 | 2 | `dhis2_connection_options` | [R/dhis2-connect.R](R/dhis2-connect.R) | `(token, username, session_id, scheme, hostname, port, path)` | `neoipcr_dhis2_conopt` (→ `neoipcr_dhis2_connection_options`) | external-stable | stable | — | Auth entry; documents auth fallback chain. |
 | 3 | `dhis2_dataset_options` | [R/dhis2-options.R](R/dhis2-options.R) | `(..., reconcile = TRUE, translate = TRUE, locale = NULL)` | `neoipcr_dhis2_dsopt` (→ `neoipcr_dhis2_dataset_options`) | external-stable | stable | — | Data-protection gates + locale entry point. `reconcile` switches the coordinating centre's reconciliation, on by default; `FALSE` keeps every value as stored, which a copy of the stored record under Article 15 of the GDPR and `reconciliation_details()` need. |
-| 4 | `calculate_reference_data` | [R/calc-api.R](R/calc-api.R) | `(x, use_cache = TRUE)` | `neoipcr_ref_ds` (→ `neoipcr_reference_ds`) | internal-stable | stable | — | Reference-Report entry. Carries `validationSummary` and a serializable copy of the options: an exception list replaced by `"exception_list_applied"`, a department filter by `"applied"` (an empty one leaves as `NULL`), and the emitted copy asserted to hold no data frame and to name no department. Refuses a dataset without the summary. Carries `reconciliationSummary` as well, `NULL` for a raw dataset written before that slot existed; a slot of another shape is refused (`neoipcr_malformed_reconciliation_summary`). |
-| 5 | `calculate_department_data` | [R/calc-api.R](R/calc-api.R) | `(x, use_cache = TRUE)` | `neoipcr_rep_ds` (→ `neoipcr_report_ds`) | internal-stable | stable | — | Partner-Report entry. Carries `validationSummary`; an exception list is replaced by `"exception_list_applied"`, the department's own filter kept, and the emitted copy asserted to hold no data frame. Refuses a dataset without the summary. Carries `reconciliationSummary` as row 4 does. |
-| 6 | `get_benchmark_data` | [R/calc-api.R](R/calc-api.R) | `(...)` | `neoipcr_bnch_ds` *(not in task 1.2 rename scope — see §3.2)* | internal-stable | stable | — (D-C: rename withdrawn — function combines pre-computed datasets, doesn't calculate) | Side-by-side stitcher with one CI fix-up; not a calculator. Roxygen at [calc-api.R:313](R/calc-api.R#L313) says "Creates ... from ...". Each dataset's `metadata`, `validationSummary` and `reconciliationSummary` ride under the dataset's name; a dataset serialized before a summary existed, or calculated from a raw dataset written before it existed, contributes no entry to it. |
+| 4 | `calculate_reference_data` | [R/calc-api.R](R/calc-api.R) | `(x, use_cache = TRUE)` | `neoipcr_ref_ds` (→ `neoipcr_reference_ds`) | internal-stable | stable | — | Reference-Report entry. Carries `validationSummary` and a serializable copy of the options: an exception list replaced by `"exception_list_applied"`, a department filter by `"applied"` (an empty one leaves as `NULL`), and the emitted copy asserted to hold no data frame and to name no department. Refuses a dataset without the summary. Carries `reconciliationSummary` as well, `NULL` for a raw dataset written before that slot existed; a slot of another shape is refused (`neoipcr_malformed_reconciliation_summary`). Stamps every table with the version of its rate definitions and the digests of what it reads from the bundled infectious-agent list (`metadata$rate_definitions`), and names the list's release (`metadata$infectious_agent_tables`) and the package version (`metadata$neoipcr_version`), as §13.1.7 defines them; warns once (`neoipcr_unknown_infectious_agent_code`) where the findings hold codes the list lacks. |
+| 5 | `calculate_department_data` | [R/calc-api.R](R/calc-api.R) | `(x, use_cache = TRUE)` | `neoipcr_rep_ds` (→ `neoipcr_report_ds`) | internal-stable | stable | — | Partner-Report entry. Carries `validationSummary`; an exception list is replaced by `"exception_list_applied"`, the department's own filter kept, and the emitted copy asserted to hold no data frame. Refuses a dataset without the summary. Carries `reconciliationSummary`, stamps its tables, and warns of codes the list lacks as row 4 does. |
+| 6 | `get_benchmark_data` | [R/calc-api.R](R/calc-api.R) | `(...)` | `neoipcr_bnch_ds` *(not in task 1.2 rename scope — see §3.2)* | internal-stable | stable | — (D-C: rename withdrawn — function combines pre-computed datasets, doesn't calculate) | Side-by-side stitcher with fix-ups for zero events; not a calculator (§10.3). Its roxygen says "Creates ... from ...". Each dataset's `metadata`, `validationSummary`, and `reconciliationSummary` ride under the dataset's name; a dataset serialized before a summary existed, or calculated from a raw dataset written before it existed, contributes no entry to it. Joins a table only across datasets whose stamps of it match (§13.1.7): a dataset whose stamps of a table differ from those of the first dataset that holds it is not joined into it; the table keeps the rows of the datasets joined; the table and dataset are listed in `not_comparable`, and one warning of class `neoipcr_tables_not_comparable` is raised; a figure takes none of that dataset's rows, and any other table leaves that dataset's columns empty; a dataset without stamps is joined with no other dataset, and a stamp column a dataset lacks reads as missing (`NEOIPC-PERMANENT(dataset-format)`). The tables whose rows are infectious agents join on `node_id`, in the order of the reference (the first reference dataset joined into the table, else the first dataset that holds it) with the summary block above the tree, laid out attribute by attribute (a summary row is recognized by the attribute its `node_id` names, whatever its value, and a summary row of an attribute the bundle lacks is placed as a top-level row of the tree, ordered in each block as the tree's rows are; the reference's order of the attributes and their values is taken from its summary rows of every block of the table, the bundled order deciding place by place what its blocks leave open, a value the bundle lacks after those it holds and several in the order in which the reference's table first shows them; an attribute or a value it holds in no block is placed within that order by the bundled order of the attribute values, a value the bundle lacks last in its attribute's run; so the attributes, and the values that the reference or the bundle holds, follow one order in every block, and the values that neither holds, in each block, their order in the joined table), and a residual row last among its node's children, every dataset joined into the table, the reference included, given each row it lacks at 0 over its own denominator of the row (§13.8.2); such a table of a dataset without stamps, which predates `node_id`, keeps its rows as they are where that dataset holds it first or alone, its resistance rates per infectious agent read from `organism_resistance_rate_table`. |
 | 7 | `pretty_names` | [R/calc-api.R](R/calc-api.R) | `(x, ...)` (S3 generic) | varies | internal-stable | experimental | — | S3 generic. |
 | 8 | `pretty_names.default` | [R/calc-api.R](R/calc-api.R) | `(x, ...)` | identity on `x` | internal-stable | experimental | — | Default method. |
 | 9 | `pretty_names.neoipcr_tbl_sr_ref` | [R/calc-api.R](R/calc-api.R) | `(x, ...)` | `neoipcr_tbl_sr_ref` (→ `neoipcr_surgery_rate_table_ref` — candidate) | internal-stable | experimental | — | Translates column/row names; its six column headers go through one multi-argument `gettext` (§6.1.1). |
@@ -84,19 +84,19 @@ Where a row's return-class slug is scheduled for rename by task 1.2 (the class-s
 | 14 | `get_incidence_density_rate_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, use_cache, include_quartiles)` | `neoipcr_tbl_idr` (→ `neoipcr_incidence_density_rate_table`) | internal-stable | stable | — | — |
 | 15 | `get_dev_ass_incidence_density_rate_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, use_cache, include_quartiles)` | `neoipcr_tbl_daidr` (→ `neoipcr_device_associated_incidence_density_rate_table`) | internal-stable | stable | — | Long name — D-E recommends keeping. |
 | 16 | `get_infectious_agent_detection_rate_per_inf_type_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, use_cache, include_quartiles)` | `neoipcr_tbl_iadrpit` (→ `neoipcr_infectious_agent_detection_rate_per_infection_type_table`) | internal-stable | stable | — | — |
-| 17 | `get_infectious_agent_detection_rate_per_agent_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, use_cache, include_quartiles)` | `neoipcr_tbl_iadrpa` / `_ref` (→ `neoipcr_infectious_agent_detection_rate_per_agent_table`) | internal-stable | stable | — | — |
-| 18 | `get_abr_infection_rate_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, use_cache, include_quartiles)` | `neoipcr_tbl_abr_ir` / `_ref` (→ `neoipcr_abr_infection_rate_table` — keeps `abr`) | internal-stable | stable | — | — |
-| 19 | `get_organism_resistance_rate_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, use_cache, include_quartiles)` | `neoipcr_tbl_org_rr` / `_ref` (→ `neoipcr_infectious_agent_resistance_rate_table`) | internal-stable | stable | `get_organism_resistance_rate_table` → `get_infectious_agent_resistance_rate_table` (§13.8) | — |
+| 17 | `get_infectious_agent_detection_rate_per_agent_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, use_cache, include_quartiles, rows = c("groups", "ontology"))` | `neoipcr_tbl_iadrpa` / `_ref` (→ `neoipcr_infectious_agent_detection_rate_per_agent_table`) | internal-stable | stable | — | Rows over the reporting groups (the default) or over the full ontology, from the engine of §7.5; a calculated dataset carries both, the second as `infectious_agent_detection_rate_per_agent_ontology_table`. What it counts: §13.8.3. |
+| 18 | `get_abr_infection_rate_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, use_cache, include_quartiles, rows = c("groups", "ontology"))` | `neoipcr_tbl_abr_ir` / `_ref` (→ `neoipcr_abr_infection_rate_table` — keeps `abr`) | internal-stable | stable | — | A block per resistance category (`abr`), each a Total and the rows of either version, as row 17; the second version as `abr_infection_rate_ontology_table`. What it counts: §13.8.5. |
+| 19 | `get_infectious_agent_resistance_rate_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, use_cache, include_quartiles, rows = c("groups", "ontology"))` | `neoipcr_tbl_iarr` / `_ref` (→ `neoipcr_infectious_agent_resistance_rate_table`) | internal-stable | stable | — | A block per resistance category (`abr`), the rows of either version, as row 17; the slot is `infectious_agent_resistance_rate_table`, the second version `infectious_agent_resistance_rate_ontology_table`. What it counts: §13.8.6. |
 | 20 | `get_resistance_test_rate_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, use_cache, include_quartiles)` | `neoipcr_tbl_rtr` / `_ref` *(not in task 1.2 rename scope — see §12)* | internal-stable | stable | — | Slug `_rtr` not listed in task 1.2 rename table. |
 | 21 | `get_secondary_bsi_rate_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, use_cache, include_quartiles)` | `neoipcr_tbl_sec_bsi` / `_ref` *(not in task 1.2 rename scope — see §12)* | internal-stable | stable | — | Slug `_sec_bsi` not listed in task 1.2 rename table. |
 | 22 | `neoipc_poisson_ci` | [R/ci.R](R/ci.R) | `(events, exposure, multiplier = 1000, conf.level = 0.95)` | `list(rate, lower, upper)` | external-stable | stable | `neoipc_poisson_ci` → `neoipcr_poisson_ci` (D-D) | Existing prefix `neoipc_` doesn't match package name `neoipcr`. Well-documented; has `@examples`. |
 | 23 | `neoipc_wilson_ci` | [R/ci.R](R/ci.R) | `(x, n, conf.level = 0.95)` | `list(proportion, lower, upper)` | external-stable | stable | `neoipc_wilson_ci` → `neoipcr_wilson_ci` (D-D) | Existing prefix `neoipc_` doesn't match package name `neoipcr`. Well-documented; has `@examples`. |
-| 24 | `bootstrap_quantile_ci` | [R/ci.R](R/ci.R) | `(events, exposure, type, multiplier, B, conf.level, seed)` | `tibble` (6 cols) | external-stable | experimental | `bootstrap_quantile_ci` → `neoipcr_bootstrap_quantile_ci` (D-D) | Not integrated into rate-table pipeline. |
-| 25 | `get_pathogen_taxonomy` | [R/pathogens.R](R/pathogens.R) | `(ids = NULL)` | `tibble` (taxonomic hierarchy) | external-stable | stable | — | Roxygen model for accessors over package data (§11). |
+| 24 | `bootstrap_quantile_ci` | [R/ci.R](R/ci.R) | `(events, exposure, type, multiplier, B, conf.level, seed)` | `tibble` (6 cols) | external-stable | experimental | `bootstrap_quantile_ci` → `neoipcr_bootstrap_quantile_ci` (D-D) | The bootstrap intervals of the departments' quartiles in the reference tables: `.department_quartiles()`, which gives the five infectious-agent tables their quartiles, and six table builders call it (the usage densities, the antibiotic utilization, the reference surgery rates, both incidence-density tables, and the secondary-BSI rates). Experimental: the quartiles' interval that §13.1.4 defines is an order-statistic interval, not this bootstrap, which keeps the departments fixed rather than resampling them. |
+| 25 | `get_infectious_agents` | [R/infectious-agents.R](R/infectious-agents.R) | `(ids = NULL)` | `tibble` (`id`, `name`, `concept_id`, `concept_name`) | external-stable | stable | — | Each code of the NeoIPC infectious-agent list with its English name and the concept it names; the lineage and the flags stay internal (§7.5). No `locale` argument while D-F and D-H are pending. A code the list lacks returns no row, under a warning of class `neoipcr_unknown_infectious_agent_code`; `ids` that are no codes are refused (`neoipcr_invalid_infectious_agent_ids`). Roxygen model for accessors over package data (§11). |
 | 26 | `is_valid_ichi_code` | [R/ichi.R](R/ichi.R) | `(code)` | `logical` | external-stable | experimental | — | Syntax validator only. Bundling ICHI code list blocked by WHO licensing (see §7). |
 | 27 | `print.neoipcr_dhis2_conopt` | [R/dhis2-connect.R](R/dhis2-connect.R) | `(x, ...)` S3 method | `invisible(x)` | external-stable | stable | — | Dispatch class: `neoipcr_dhis2_conopt` → `neoipcr_dhis2_connection_options`. |
 | 28 | `neoipcr_log_config` | [R/log.R](R/log.R) | `(verbosity = NULL)` | the applied `logger` threshold, invisibly | external-stable | stable | — | Sets this package's `"neoipcr"` logger-namespace threshold from `quiet` / `normal` / `verbose` / `debug`; with no argument it re-reads `NEOIPC_LOG_LEVEL`. Carries the `neoipcr_` prefix under the §9.3 rule-5 exception. |
-| 29 | `neoipcr_supported_versions` | [R/import-dhis2.R](R/import-dhis2.R) | `()` | `list(dhis2, metadata_package)` | external-stable | stable | — | Introspection: the DHIS2 releases verified against a live server and the supported metadata-package range; `import_dhis2()` warns on a server outside them. Carries the `neoipcr_` prefix under the §9.3 rule-5 exception. |
+| 29 | `neoipcr_supported_versions` | [R/import-dhis2.R](R/import-dhis2.R) | `()` | `list(dhis2, metadata_package, infectious_agents)` | external-stable | stable | — | Introspection: the DHIS2 releases verified against a live server, the supported metadata-package range, and the release of the infectious-agent list the bundled tables come from (§7.5), `NA` for tables built from a commit without its release tag; `import_dhis2()` warns on a server outside the first two. Carries the `neoipcr_` prefix under the §9.3 rule-5 exception. |
 | 30 | `write_json` | [R/json.R](R/json.R) | `(x, file = NULL, pretty = FALSE)` | JSON string (invisible when `file` is given) | internal-stable | experimental | — | Plain-JSON serializer for consumers in other languages (the .NET reporting service); a deliberately narrow first cut with no redaction of its own. |
 | 31 | `get_cumulative_incidence_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, ...)` | tibble | external-stable | experimental | — | The share of patients (or admissions) admitted to a department within a calendar window who acquired an infection within that window, with a Wilson interval. |
 | 32 | `validate` | [R/validation.R](R/validation.R) | `(x, rules = NULL, exceptions = NULL, as_of = NULL)` | tibble (`rule_id`, `patient_key`, `enrollment_key`, `event_key`, `context`) | external-stable | experimental | — | The validation rules over a dataset; a finding is data (keys and a one-row `context` tibble), never prose. Aborts on a rule id it does not know. `as_of` is the date the two open-enrolment rules measure against, defaulting to the import's server date. Its attributes name the rules that ran (`rules_run`) and those that could not (`rules_skipped`), and hold the findings the exceptions exempted (`findings_exempted`); they describe the whole run, also on a subset of the rows. |
@@ -137,7 +137,7 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 
 ### §4.1. `neoipcr_ds`
 
-**Constructor site**: [R/import-dhis2.R:254](R/import-dhis2.R#L254) — `structure(..., class = c("neoipcr_ds", "list"))`.
+**Constructor site**: [R/import-dhis2.R:481](R/import-dhis2.R#L481) — `structure(..., class = c("neoipcr_ds", "list"))`.
 
 **Shape**: list of tibbles (member slots) + `metadata` + `.cache`.
 
@@ -182,26 +182,26 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 
 ### §4.2. `neoipcr_rep_ds` → post-1.2 `neoipcr_report_ds`
 
-**Constructor site**: [R/calc-api.R:310](R/calc-api.R#L310) — `structure(..., class = c("neoipcr_rep_ds", "list"))`.
+**Constructor site**: [R/calc-api.R:423](R/calc-api.R#L423) — `structure(..., class = c("neoipcr_rep_ds", "list"))`.
 
 **Shape**: list of tibbles — computed view of an imported `neoipcr_ds`, aggregated at department level.
 
 **Member tibbles**:
 
-- `metadata` — list: `calculated` (timestamp), `dataset_options` (the serializable copy: an exception list replaced by `"exception_list_applied"`, the department's own filter kept), `data_up_to`, `effective_analysis_period`, `hospitals`, `departments`, `countries`.
+- `metadata` — list: `calculated` (timestamp), `dataset_options` (the serializable copy: an exception list replaced by `"exception_list_applied"`, the department's own filter kept), `data_up_to`, `effective_analysis_period`, `hospitals`, `departments`, `countries`; `rate_definitions`, one row per table with the version of its rate definitions and the digests of what it reads from the bundled infectious-agent list, `NA` where it does not read it (`table`, `version`, `common_commensal_digest`, `concept_mapping_digest`, `groups_tree_digest`, `ontology_tree_digest`, `layout`, `applicability_digest`, §13.1.7 and §7.5); `infectious_agent_tables`, the list's `version` and `commit` and the `layout` (§7.5); and `neoipcr_version`.
 - `validationSummary` — the imported dataset's summary (§4.1), carried verbatim; the calculation refuses a dataset without it.
 - `reconciliationSummary` — the imported dataset's reconciliation summary (§4.1), carried verbatim; `NULL` for a raw dataset written before the slot existed, which the calculation accepts because a raw dataset kept as a backup outlives the code that wrote it (`NEOIPC-PERMANENT(dataset-format)` in `assert_reconciliation_summary()`). A slot that is neither the schema's columns nor 0×0 is refused with class `neoipcr_malformed_reconciliation_summary`.
 - `birth_weight_figure`, `gestational_age_figure` — histogram tibbles for figures.
 - `n_departments`, `n_patients`, `n_enrollments`, `n_patient_days` — summary counts.
 - `n_surgical_departments`, `n_surgical_patients`, `n_surgical_procedures` — surgery-specific counts.
 - `n_infections` — tibble (`inf_type`, `total`).
-- Eleven result tables: `usage_density_rate_table`, `antibiotic_utilization_table`, `surgery_rate_table`, `incidence_density_rate_table`, `dev_ass_incidence_density_rate_table`, `infectious_agent_detection_rate_per_agent_table`, `infectious_agent_detection_rate_per_inf_type_table`, `abr_infection_rate_table`, `organism_resistance_rate_table`, `secondary_bsi_rate_table`, `resistance_test_rate_table` — each a tibble with factors, counts, pooled rate, and its 95 % interval: Wilson for the shares (`infectious_agent_detection_rate_per_inf_type_table`, `abr_infection_rate_table`, `organism_resistance_rate_table`, `resistance_test_rate_table`, `secondary_bsi_rate_table`), Poisson for the others. **No quartile columns** — that's what distinguishes `neoipcr_rep_ds` from `neoipcr_ref_ds`.
+- Fourteen result tables: `usage_density_rate_table`, `antibiotic_utilization_table`, `surgery_rate_table`, `incidence_density_rate_table`, `dev_ass_incidence_density_rate_table`, `infectious_agent_detection_rate_per_agent_table`, `infectious_agent_detection_rate_per_inf_type_table`, `abr_infection_rate_table`, `infectious_agent_resistance_rate_table`, `secondary_bsi_rate_table`, `resistance_test_rate_table`, and the full-ontology versions of the three tables whose rows are infectious agents, `infectious_agent_detection_rate_per_agent_ontology_table`, `abr_infection_rate_ontology_table`, and `infectious_agent_resistance_rate_ontology_table` — each a tibble with factors, counts, pooled rate, and its 95 % interval, whose rates §13 defines. **No quartile columns** — that's what distinguishes `neoipcr_rep_ds` from `neoipcr_ref_ds`.
 
 **Invariants**:
 
 - Computed via `calculate_department_data()`. Requires `include_patient`, `include_enrollment`, and `include_department` each at `"pseudo"` or `"full"`, and `include_event` at `"full"`: the infectious-agent figures read the findings' `pathogen_key` and `secondary_bsi`, which the `"pseudo"` tier leaves out because a rare infectious agent can single out a patient. Another dataset is refused with an error of class `neoipcr_unmet_import_options`.
 - `secondary_bsi_rate_table` also carries, beside each rate, the infections followed up for a secondary BSI (`followup_n`), all infections of the type (`total_n`), and the share followed up (`followup_pooled`).
-- `infectious_agent_detection_rate_per_inf_type_table` has the rows `all`, `bsi`, `hap`, and `ssi` (`inf`), NEC having none. Each gives two shares: the share positive among the tested (`n` over `tested`, `pooled`, `ci_lower`, `ci_upper`) and the share tested (`tested` over `total`, every infection of the type; `tested_pooled`, `tested_ci_lower`, `tested_ci_upper`), the latter `NA` for `bsi`, whose form does not record whether a blood culture was taken, and for `all`, the share of every infection in which a slot names an infectious agent.
+- `infectious_agent_detection_rate_per_inf_type_table` has the rows `bsi`, `hap`, and `ssi` (`inf`), none for NEC and none for all types together (§13.8.4). Each gives two shares: the share positive among the tested (`n` over `tested`, `pooled`, `ci_lower`, `ci_upper`) and the share tested (the tested over `total`, every infection of the type; `tested_pooled`, `tested_ci_lower`, `tested_ci_upper`). The share tested is `NA` for `bsi`, whose form does not record whether a blood culture was taken and whose `tested` and `total` both count every episode.
 - Summary counts inherit the user's `dataset_options` (display-purpose metadata).
 - Result tables carry pooled-rate + CI only — no department-level distribution statistics.
 
@@ -211,7 +211,7 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 
 ### §4.3. `neoipcr_ref_ds` → post-1.2 `neoipcr_reference_ds`
 
-**Constructor site**: [R/calc-api.R:188](R/calc-api.R#L188) — `structure(..., class = c("neoipcr_ref_ds", "neoipcr_rep_ds", "list"))`. **Inherits from `neoipcr_rep_ds`.**
+**Constructor site**: [R/calc-api.R:253](R/calc-api.R#L253) — `structure(..., class = c("neoipcr_ref_ds", "neoipcr_rep_ds", "list"))`. **Inherits from `neoipcr_rep_ds`.**
 
 **Shape**: same member structure as `neoipcr_rep_ds` with additional quartile statistics.
 
@@ -220,13 +220,13 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 - Every result table gains `q1`, `q2`, `q3` (25th / 50th / 75th percentiles of department-level rates).
 - Tables for which bootstrap CIs are computed gain `q1_ci_lower` / `q1_ci_upper` / `q2_ci_lower` / `q2_ci_upper` / `q3_ci_lower` / `q3_ci_upper`.
 - `secondary_bsi_rate_table` gains `followup_q1` / `followup_q2` / `followup_q3`, the quartiles of the departments' shares of infections followed up, over the departments with at least 5 infections of the type, `NA` with fewer than 5 such departments.
-- `infectious_agent_detection_rate_per_inf_type_table` also gains the quartiles of the departments' shares tested, `tested_q1` / `tested_q2` / `tested_q3`, with their bootstrap intervals (`tested_q1_ci_lower` and so on). Each share's quartiles take the departments whose denominator of the share is above 0, and are `NA` with fewer than 5 such departments or where their median denominator does not exceed `round(100 / pooled)`.
+- `infectious_agent_detection_rate_per_inf_type_table` also gains the departments' quartiles of the share tested, `tested_q1` / `tested_q2` / `tested_q3`, with their bootstrap intervals (`tested_q1_ci_lower` and so on) and `tested_quartile_departments`, all `NA` for `bsi`. Each share's quartiles follow the rule of §13.1.1 over the share's own denominator, a department entering with at least 5 infections in it, at 0 without the share's events.
 - `metadata$dataset_options$department_filter` is the marker `"applied"` (or `NULL` for an empty filter), never the department codes; the emitted copy is asserted to name no department. `validationSummary` and `reconciliationSummary` are carried as in §4.2.
 
 **Invariants** (in addition to §4.2):
 
 - Computed via `calculate_reference_data()`. Requires `country_key` to be present in metadata (warns otherwise).
-- Quartiles are set to `NA` when `n_departments < 5`, or when `round(100 / pooled) >= median_patient_days` (small-cell-exposure protection).
+- Quartiles are set to `NA` when `n_departments < 5`, or when `round(100 / pooled) >= median_patient_days` (small-cell-exposure protection). The five infectious-agent tables take instead, row by row, the departments and the display test of §13.1.1, and give the number of departments that enter a row's quartiles as `quartile_departments`.
 - Inheritance contract: any generic that dispatches on `neoipcr_rep_ds` also applies to `neoipcr_ref_ds`. Only quartile-specific code paths need `inherits(x, "neoipcr_ref_ds")` checks.
 
 **Predicates**: `is_neoipcr_ref_ds()`, `check_neoipcr_ref_ds()`, `check_neoipcr_ds_or_ref_ds()` — in [R/types-check.R](R/types-check.R).
@@ -235,7 +235,7 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 
 ### §4.4. `neoipcr_tbl_sr_ref` → post-1.2 `neoipcr_surgery_rate_table_ref` (candidate — see §3.1)
 
-**Constructor sites**: [R/calc-tables.R:521](R/calc-tables.R#L521) and [R/calc-tables.R:604](R/calc-tables.R#L604) — two `add_class()` calls in `get_ref_surgery_rate_table()`.
+**Constructor sites**: [R/calc-tables.R:551](R/calc-tables.R#L551) and [R/calc-tables.R:634](R/calc-tables.R#L634) — two `add_class()` calls in `get_ref_surgery_rate_table()`.
 
 **Shape**: tibble (a single result table, not a dataset list).
 
@@ -268,10 +268,10 @@ The four cryptic-slug sub-classes below are all pending rename under task 1.2. E
 
 | Current slug | Post-1.2 candidate | Parent shape | Construction site | Represents |
 |---|---|---|---|---|
-| `neoipcr_iaf` | `neoipcr_agent_finding` | tibble slot on `neoipcr_ds` | [R/import-dhis2.R:231](R/import-dhis2.R#L231) | Per-event pathogen identifications + resistance markers. |
-| `neoipcr_sbd` | `neoipcr_substance_day` | tibble slot on `neoipcr_ds` | [R/import-dhis2.R:230](R/import-dhis2.R#L230) | Antibiotic-substance-day exposures per event/enrollment. |
-| `neoipcr_tbl_udr` | `neoipcr_usage_density_rate_table` | result tibble | [R/calc-tables.R:211](R/calc-tables.R#L211) | Usage-density rate table (pooled rates per therapeutic category). |
-| `neoipcr_tbl_udr_ref` | `neoipcr_usage_density_rate_table_ref` | result tibble | [R/calc-tables.R:287](R/calc-tables.R#L287) | Reference variant with quartile statistics. |
+| `neoipcr_iaf` | `neoipcr_agent_finding` | tibble slot on `neoipcr_ds` | [R/import-dhis2.R:449](R/import-dhis2.R#L449) | Per-event infectious-agent findings + resistance categories. |
+| `neoipcr_sbd` | `neoipcr_substance_day` | tibble slot on `neoipcr_ds` | [R/import-dhis2.R:448](R/import-dhis2.R#L448) | Antibiotic-substance-day exposures per event/enrollment. |
+| `neoipcr_tbl_udr` | `neoipcr_usage_density_rate_table` | result tibble | [R/calc-tables.R:241](R/calc-tables.R#L241) | Usage-density rate table (pooled rates per therapeutic category). |
+| `neoipcr_tbl_udr_ref` | `neoipcr_usage_density_rate_table_ref` | result tibble | [R/calc-tables.R:317](R/calc-tables.R#L317) | Reference variant with quartile statistics. |
 
 All four **depend on task 1.2**. See §3.2 for additional classes (`neoipcr_bnch_ds`, `neoipcr_tbl_rtr(_ref)`, `neoipcr_tbl_sec_bsi(_ref)`) that surfaced during this audit and should be added to task 1.2's rename table.
 
@@ -387,7 +387,7 @@ Already present: `dplyr`, `lubridate`, `rlang`, `readr`, `stringr`, `tidyr`, `ti
 | Classification | Count | Locations |
 |---|---|---|
 | M — Message (a condition, a prompt, or console text a person reads) | every condition message and both prompts | §6.1.2, §6.8 |
-| C — Column header | 2 | [R/calc-api.R:893](R/calc-api.R#L893) and [R/calc-procedure-categories.R:45](R/calc-procedure-categories.R#L45) |
+| C — Column header | 2 | [R/calc-api.R:951](R/calc-api.R#L951) and [R/calc-procedure-categories.R:45](R/calc-procedure-categories.R#L45) |
 | F — Factor-level label | 11 | All in [R/calc-procedure-categories.R:215–231](R/calc-procedure-categories.R#L215-L231) (`get_procedure_category_pretty()`; the eleventh, at :231, is the `NEOIPC-PERMANENT(dataset-format)` recode of the pre-`-ize` category spelling) |
 | D — DHIS2-display passthrough (redundant wrap) | 0 | — |
 | B — Bug (multi-arg `gettext` with silently dropped args) | 0 | — |
@@ -405,7 +405,7 @@ The 13 non-M sites each need distinct treatment in Phase 2, so they're individua
 
 | File:line | Call shape | Surrounding function | Class | Migration target |
 |-----------|------------|----------------------|-------|------------------|
-| [R/calc-api.R:893](R/calc-api.R#L893) | `gettext("Procedure category","N","Pooled","Q1","Q2","Q3")` | `pretty_names.neoipcr_tbl_sr_ref` | C | Rewrite as explicit per-column lookup against `procedure_category_labels` tibble (§7.1 row 2). The other headers — `"N"`, `"Pooled"`, `"Q1"`…`"Q3"` — either stay English or move to YAML cascade. |
+| [R/calc-api.R:951](R/calc-api.R#L951) | `gettext("Procedure category","N","Pooled","Q1","Q2","Q3")` | `pretty_names.neoipcr_tbl_sr_ref` | C | Rewrite as explicit per-column lookup against `procedure_category_labels` tibble (§7.1 row 2). The other headers — `"N"`, `"Pooled"`, `"Q1"`…`"Q3"` — either stay English or move to YAML cascade. |
 | [R/calc-procedure-categories.R:45](R/calc-procedure-categories.R#L45) | `gettext("Procedure code","Procedure category")` | `get_procedure_categories` | C | Keep on `gettext` OR move to YAML cascade (decide alongside §5 row 7 promotion). |
 | [R/calc-procedure-categories.R:215](R/calc-procedure-categories.R#L215) | `gettext("Overall")` | `get_procedure_category_pretty` | F | Replace with read from `procedure_category_labels$label_<locale>` (§7.1 row 2, code `"overall"`). |
 | [R/calc-procedure-categories.R:216](R/calc-procedure-categories.R#L216) | `gettext("Abdominal surgery")` | `get_procedure_category_pretty` | F | Replace with read from `procedure_category_labels$label_<locale>` (code `"abdominal_surgery"`). |
@@ -451,7 +451,7 @@ All of these `display*` values are **preserved only when the relevant `include_*
 
 | # | Package / source | Mechanism demonstrated | Concrete example | Applicability to neoipcr |
 |---|------------------|------------------------|------------------|--------------------------|
-| 1 | **[`countrycode`](https://github.com/vincentarelbundock/countrycode)** | Locale-as-column-selector on taxonomy tibbles. Data is English-canonical; labels live in separate `country.name.en`, `country.name.de`, `country.name.fr` columns of the `codelist` tibble. Accessor takes a `destination` parameter and reads the appropriate column. | `codelist` (~600 rows) with ~30 locale-keyed columns, e.g. `country.name.en` / `country.name.de` / `country.name.fr`. No gettext wraps around row values. | Directly applicable to the 11 F-class calls. `get_procedure_category_pretty()` migrates to a `procedure_category_labels` tibble in `sysdata.Rda` with `label_en` / `label_de` columns, served by `get_procedure_category_labels(locale = NULL)`. neoipcr's own `get_pathogen_taxonomy()` already uses this idiom — we extend it. |
+| 1 | **[`countrycode`](https://github.com/vincentarelbundock/countrycode)** | Locale-as-column-selector on taxonomy tibbles. Data is English-canonical; labels live in separate `country.name.en`, `country.name.de`, `country.name.fr` columns of the `codelist` tibble. Accessor takes a `destination` parameter and reads the appropriate column. | `codelist` (~600 rows) with ~30 locale-keyed columns, e.g. `country.name.en` / `country.name.de` / `country.name.fr`. No gettext wraps around row values. | Directly applicable to the 11 F-class calls. `get_procedure_category_pretty()` migrates to a `procedure_category_labels` tibble in `sysdata.Rda` with `label_en` / `label_de` columns, served by `get_procedure_category_labels(locale = NULL)`. neoipcr's accessor over its bundled tables, `get_infectious_agents()`, gives the infectious-agent list's English names alone (§7.5), so the idiom is new to the package. |
 | 2 | **"Writing R Extensions", § Translations** (R-core / CRAN manual) | Establishes that `gettext` / `gettextf` are for messages shown to users (errors, warnings, diagnostics). Data-layer labels (column names, factor levels, taxonomy terms) are not in scope for PO catalogues — they're part of the package's data contract. | The manual enumerates the set of `gettext`-wrapped user-facing messages and explicitly does not place factor labels, taxonomy tables, or column headers in that set. | Validates the split. The condition messages stay on `gettext()` / `gettextf()` / `ngettext()` (§6.8); the 11 F-class calls migrate to locale-keyed columns per #1 above. |
 | 3 | **[`scales`](https://scales.r-lib.org)** (tidyverse) | Separates formatter construction from locale consumption. `scales::label_date()`, `scales::label_number()`, `scales::label_currency()` take format strings and locale hints as **explicit parameters**; they do not consult `Sys.getlocale()` silently at definition time. | `scales::label_date(format = "%b %d", locale = "de")` — caller is responsible for passing the locale. | Informs the unified resolution chain (§6.7). Every neoipcr entry point that produces localized output accepts an explicit `locale` argument that wins over `opts$locale`, which wins over `Sys.getlocale("LC_MESSAGES")`, which wins over `"en"`. |
 | 4 | **[`rlang`](https://rlang.r-lib.org)** + **[`cli`](https://cli.r-lib.org)** (tidyverse) | Class-tagged condition system: `rlang::abort()` / `cli::cli_abort()` / `cli::cli_warn()` attach a class to the condition; error handlers and tests dispatch on the class, not on the human-readable message. Translation of the message is **orthogonal** — it happens via gettext if you want it, but the class is what programs check. | `rlang::abort(class = "neoipcr_missing_token", message = gettext("…"))`. Tests assert on `class`, not on the translated string. | **Adopted.** neoipcr raises every condition with `rlang::abort()` or `rlang::warn()` and wraps each user-facing string in `gettext()`, `gettextf()`, or `ngettext()` (§6.8.2). Tests run in the `C` language, so a test that matches a class is unaffected by translation, and one that matches English text still passes (§6.8.4). |
@@ -475,7 +475,7 @@ Nothing is in both tracks.
 | Class | Count | Mechanism under new architecture |
 |---|---|---|
 | **M** — Message | every condition message | Stay on `gettext()` / `gettextf()` / `ngettext()`. No call-site change in Phase 2 (other than the `Sys.getlocale` cleanup in §6.7's locale chain). The catalogue is regenerated with `tools/update_po.R` (§6.8.3) after the F-class calls exit. |
-| **C** — Column header | 2 | [R/calc-api.R:893](R/calc-api.R#L893) — the `pretty_names.neoipcr_tbl_sr_ref` six-argument `gettext` — rewritten as an explicit locale-aware mapping against the `procedure_category_labels` tibble. [R/calc-procedure-categories.R:45](R/calc-procedure-categories.R#L45) — the two-argument `gettext("Procedure code", "Procedure category")` — kept on `gettext`, *or* moved to YAML cascade if those headers are report-visible (decide in Phase 2 when the string-resources promotion lands). New column headers use the YAML resource cascade (via `get_string_resources()` promoted in §5 row 7), not `gettext`. |
+| **C** — Column header | 2 | [R/calc-api.R:951](R/calc-api.R#L951) — the `pretty_names.neoipcr_tbl_sr_ref` six-argument `gettext` — rewritten as an explicit locale-aware mapping against the `procedure_category_labels` tibble. [R/calc-procedure-categories.R:45](R/calc-procedure-categories.R#L45) — the two-argument `gettext("Procedure code", "Procedure category")` — kept on `gettext`, *or* moved to YAML cascade if those headers are report-visible (decide in Phase 2 when the string-resources promotion lands). New column headers use the YAML resource cascade (via `get_string_resources()` promoted in §5 row 7), not `gettext`. |
 | **F** — Factor-level label | 11 | Migrate to package data. All 11 are procedure-category labels in [R/calc-procedure-categories.R:215–231](R/calc-procedure-categories.R#L215-L231). Target: the `procedure_category_labels` tibble proposed in §7 row 2, served by a new `get_procedure_category_labels(locale = NULL)`. Migration is the only non-trivial code change in Phase 2. |
 | **D** — DHIS2-display passthrough | 0 | None exist today. Entry points already consume DHIS2's `display*` fields directly (see §6.3). Document this pattern in every public entry point's roxygen. |
 
@@ -492,13 +492,13 @@ labels <- get_procedure_category_labels(locale = opts$locale)  # explicit arg wi
 # or: labels <- get_procedure_category_labels()  # resolution chain kicks in
 ```
 
-**What this looks like to a translator.** After the migration, `R-neoipcr.pot` holds the condition messages, the credential prompts, and the print method's text (§6.8), all of them messages a person reads, plus the two column headers of `calc-procedure-categories.R:45` if that call stays on `gettext` rather than moving to the YAML cascade. The F- and C-class calls account for 17 of today's msgids, fewer than their 19 strings, because duplicates collapse to one entry: the recode at `calc-procedure-categories.R:231` repeats the label at `:224`, and `"Procedure category"` heads both `calc-api.R:893` and `calc-procedure-categories.R:45`. Procedure-category labels are translated in the YAML / CSV under Surveillance-Toolkit's metadata/ (out of scope for this note; §7 row 2 coordinates with A5b).
+**What this looks like to a translator.** After the migration, `R-neoipcr.pot` holds the condition messages, the credential prompts, and the print method's text (§6.8), all of them messages a person reads, plus the two column headers of `calc-procedure-categories.R:45` if that call stays on `gettext` rather than moving to the YAML cascade. The F- and C-class calls account for 17 of today's msgids, fewer than their 19 strings, because duplicates collapse to one entry: the recode at `calc-procedure-categories.R:231` repeats the label at `:224`, and `"Procedure category"` heads both `calc-api.R:951` and `calc-procedure-categories.R:45`. Procedure-category labels are translated in the YAML / CSV under Surveillance-Toolkit's metadata/ (out of scope for this note; §7 row 2 coordinates with A5b).
 
 ### §6.6. Migration Plan for Phase 2
 
 | Call site | Classification | Action in Phase 2 |
 |---|---|---|
-| [R/calc-api.R:893](R/calc-api.R#L893) | C | Rewrite as an explicit tibble lookup against the new `procedure_category_labels`; remove the six-argument `gettext`. |
+| [R/calc-api.R:951](R/calc-api.R#L951) | C | Rewrite as an explicit tibble lookup against the new `procedure_category_labels`; remove the six-argument `gettext`. |
 | `R/calc-procedure-categories.R:45` | C | Keep on `gettext` *or* move to YAML cascade (decide alongside string-resources promotion, §5 row 7). |
 | [R/calc-procedure-categories.R:215–231](R/calc-procedure-categories.R#L215-L231) (11 calls) | F → data-layer | Replace with reads from `procedure_category_labels` tibble. `get_procedure_category_pretty()` becomes `get_procedure_category_labels(locale = NULL)`; locale-resolution chain applied; the `"to_be_categorised"` recode at :231 stays as a code the lookup accepts. Remove the `Sys.getlocale("LC_MESSAGES")` fallback at line 14 of `get_procedure_categories()`. |
 | Condition messages and the print method (§6.1.2) | M | No action required. Stay as-is. Optionally document that `gettext` returns the English source string where the catalogue has no translation (`?gettext`) — useful for vignette writers. |
@@ -589,7 +589,7 @@ rlang::abort(c(
 
 ## §7. Package-data promotion list
 
-**Anchor pattern** (do not redesign). [data-raw/sysdata.R](data-raw/sysdata.R) already ingests three pathogen files from Surveillance-Toolkit via `raw.githubusercontent.com/.../refs/heads/main/metadata/common/infectious-agents/` and packs them via `usethis::use_data(..., internal = TRUE, compress = "xz")`. Every new sysdata candidate below follows the same URL shape, the same `internal = TRUE` default, and the `get_pathogen_taxonomy()` roxygen model for its accessor function.
+**Anchor pattern** (do not redesign). [data-raw/sysdata.R](data-raw/sysdata.R) builds the package's internal tables from a pinned release of the Surveillance-Toolkit's infectious-agent list (§7.5): it fetches each file from `raw.githubusercontent.com` at a pinned commit, refuses a file without its pinned SHA-256, derives and checks the tables, and writes them to `R/sysdata.rda` with `save(..., compress = "xz", version = 3)`, while its `--check` mode, which CI runs, fails where `R/sysdata.rda` differs from what the pinned files give. Every new sysdata candidate below follows the same pinned fetch, the same internal bundling, and the `get_infectious_agents()` roxygen model for its accessor function.
 
 ### §7.1. Candidate table
 
@@ -600,7 +600,7 @@ rlang::abort(c(
 | 3 | AWaRe categories (code → label) | [R/calc-denominators.R:218–224, 294–300](R/calc-denominators.R#L218-L224) — inline factor construction over `{"a", "w", "r"}` | Factor with levels `c("a", "w", "r")`; labels hardcoded English (Access / Watch / Reserve) | Tibble `aware_categories` in `sysdata.Rda`: `code`, `label_en`, `label_de` | internal | new: `get_aware_categories(locale = NULL)` | **Depends on D-H.** Codes come from DHIS2 option groups (read at import time); labels need the locale-column pattern. |
 | 4 | BW/GA breakpoints | [R/scales.R:1–75](R/scales.R) — hardcoded arithmetic in `ga7`, `bw50`, `bw125`, `bw250`, `bw500` | Hardcoded `floor(...)`-arithmetic in five functions | Named-list `scales_parameters` in `sysdata.Rda` (one sublist per binning) | internal | new: `get_scales_parameters()` returning the list; five binning fns consume it | **None.** Pure numeric constants. Promotable immediately (Phase 2 or earlier). |
 | 5 | Event-type vocabulary | [R/dhis2-metadata-reference.R:115–140](R/dhis2-metadata-reference.R#L115-L140) — two named lookup vectors resolved by `event_type_key_of()` into the event-type key (`adm`, `end`, `bsi`, `nec`, `hap`, `pro`, `ssi`) | 7-entry vector keyed by program-stage **code** (`NEOIPC_STG_*`), with a name-keyed vector behind it as a marked compatibility path for instances whose stages carry no code, plus inline factor levels | Tibble `event_type_map` in `sysdata.Rda`: `programStage`, `name`, `event_type_key`, `label_en`, `label_de` | internal | new: `get_event_type_map(locale = NULL)` | **Depends on D-H** *and* on a Surveillance-Toolkit source file (A5b). Also blocks (and is blocked by) the event-type promotion in A3 from [Validation-Report/_setup.qmd:135–137](https://github.com/NeoIPC/Surveillance-Toolkit/blob/5e74901ae1919816f349608f38bb904db84c347b/reports/Validation-Report/_setup.qmd#L135-L137). |
-| 6 | Resistance markers | [R/pathogens.R](R/pathogens.R) + columns on `internal_pathogen_concepts` | Already package-data | *(no change)* — already ingested via `data-raw/sysdata.R` | internal | `get_pathogen_taxonomy()` (existing) | **Complete.** |
+| 6 | Resistance categories | The `applies_3gcr`, `applies_car`, `applies_cor`, `applies_mrsa`, and `applies_vre` columns of `internal_infectious_agent_classification` (§7.5) | Already package data | *(no change)* — derived from the list by [R/infectious-agent-ontology.R](R/infectious-agent-ontology.R) | internal | none: the infectious-agent tables read them, and `get_infectious_agents()` keeps them internal | **Complete.** |
 | 7 | ICHI code list / validity check | [R/ichi.R:1–69](R/ichi.R) — regex grammar assembled at package load | Compiled regex pattern | **Reject for promotion** — keep as procedural validator. | — | `is_valid_ichi_code()` (existing) | Full ICHI ontology bundling blocked by WHO licensing (see the ICHI classification-bundling task). Current syntax-only check is intentional. |
 
 ### §7.2. Rejected from package-data promotion
@@ -620,9 +620,11 @@ metadata/common/
 │   ├── NeoIPC-Antibiotics.csv / .de.csv / .es.csv
 │   └── WHO-AWaRe-Classification-2021.csv
 ├── infectious-agents/
-│   ├── NeoIPC-Infectious-Agents.yaml                 # currently ingested
-│   ├── NeoIPC-Pathogen-Concepts.csv (+ locale variants)
-│   ├── NeoIPC-Pathogen-Synonyms.csv (+ locale variants)
+│   ├── NeoIPC-Infectious-Agents.yaml                 # ingested at a pinned release (§7.5)
+│   ├── NeoIPC-Infectious-Agent-Reporting-Groups.yaml # ingested at the same release
+│   ├── VERSION                                       # read to check the release
+│   ├── NeoIPC-Pathogen-Concepts.csv (+ locale variants)  # frozen, not read
+│   ├── NeoIPC-Pathogen-Synonyms.csv (+ locale variants)  # frozen, not read
 │   └── ListElements.csv (+ locale variants)
 ├── organisation_units/
 │   └── organisationUnits.csv / .de.csv / .en.csv / .es.csv
@@ -642,36 +644,38 @@ metadata/common/
 | 3 | AWaRe categories (code → label) | Taxonomy: `antibiotics/WHO-AWaRe-Classification-2021.csv` (exists). Labels: `antibiotics/ListElements.csv` (+ `.de.csv`, `.es.csv`) — verify the `a` / `w` / `r` codes have label entries there | **Verify first.** If labels exist, ingest; if not, extend `ListElements.csv` with three rows. Depends on D-H. |
 | 4 | BW/GA breakpoints | *(no source file needed)* — these are numeric constants, not metadata | **None.** Numbers ship inline in `sysdata.Rda` per row 4 of §7.1. Optionally document them in the Surveillance-Toolkit protocol text, but no machine-readable file is warranted. |
 | 5 | Event-type vocabulary | *(file does not yet exist)* — needs new `metadata/common/event-types/NeoIPC-Event-Types.csv` + `ListElements.csv` (+ `.de.csv`, `.es.csv`) with rows for `adm` / `end` / `bsi` / `nec` / `hap` / `pro` / `ssi` | **New files required** + depends on D-H. Also feeds §5.4 (event-type extraction from Validation-Report). |
-| 6 | Resistance markers | `infectious-agents/NeoIPC-Pathogen-Concepts.csv` (existing — resistance-marker columns already present). No change. | **Complete.** |
+| 6 | Resistance categories | `infectious-agents/NeoIPC-Infectious-Agents.yaml`, whose flags `3GCR`, `Carbapenems`, `Colistin`, `MRSA`, and `VRE` flow down the tree, at the release §7.5 pins. No change. | **Complete.** |
 | 7 | ICHI code list | Not promoted — WHO licensing. | — |
 
 **Ingestion recipe per new file** (Phase 2 will execute):
 
 ```r
-# In data-raw/sysdata.R, following the existing pathogen pattern:
+# In data-raw/sysdata.R, following the infectious-agent pattern (§7.5): each
+# file fetched at the pinned commit (fetch() taking the directory under
+# metadata/common/) and refused without its pinned SHA-256, and each table
+# added to the bundle that save() writes to R/sysdata.rda.
 procedure_category_map <- readr::read_csv(
-  "https://raw.githubusercontent.com/NeoIPC/Surveillance-Toolkit/refs/heads/main/metadata/common/procedure-categories/NeoIPC-Procedure-Categories.csv",
+  fetch(commit, "procedure-categories/NeoIPC-Procedure-Categories.csv"),
   col_types = "cc")
 
-procedure_category_labels_en <- readr::read_csv(".../procedure-categories/ListElements.csv", col_types = "cc")
-procedure_category_labels_de <- readr::read_csv(".../procedure-categories/ListElements.de.csv", col_types = "cc")
-procedure_category_labels_es <- readr::read_csv(".../procedure-categories/ListElements.es.csv", col_types = "cc")
+procedure_category_labels_en <- readr::read_csv(fetch(commit, "procedure-categories/ListElements.csv"), col_types = "cc")
+procedure_category_labels_de <- readr::read_csv(fetch(commit, "procedure-categories/ListElements.de.csv"), col_types = "cc")
+procedure_category_labels_es <- readr::read_csv(fetch(commit, "procedure-categories/ListElements.es.csv"), col_types = "cc")
 
 procedure_category_labels <- procedure_category_labels_en |>
   dplyr::rename(label_en = label) |>
   dplyr::left_join(dplyr::rename(procedure_category_labels_de, label_de = label), by = "category_code") |>
   dplyr::left_join(dplyr::rename(procedure_category_labels_es, label_es = label), by = "category_code")
 
-usethis::use_data(
-  # existing:
-  internal_pathogen_concepts, internal_pathogen_synonyms, internal_pathogen_list,
-  # new:
-  procedure_category_map, procedure_category_labels,
-  scales_parameters, aware_categories, event_type_map,
-  internal = TRUE, overwrite = TRUE, compress = "xz")
+bundle <- c(bundle, list(
+  procedure_category_map = procedure_category_map,
+  procedure_category_labels = procedure_category_labels,
+  scales_parameters = scales_parameters,
+  aware_categories = aware_categories,
+  event_type_map = event_type_map))
 ```
 
-(Phase 2 fills in the URLs and the column specs once the Surveillance-Toolkit files exist.)
+(Phase 2 fills in the paths, their SHA-256s, and the column specs once the Surveillance-Toolkit files exist.)
 
 ### §7.4. Coordination
 
@@ -679,7 +683,75 @@ usethis::use_data(
 - Rows 1, 2, 5 require **new files** under `Surveillance-Toolkit/metadata/common/` — Phase 2 of task 1.1 must file a companion task (or extend Surveillance-Toolkit directly) to create them.
 - Row 3 requires a **one-file verification** under `antibiotics/ListElements.csv`.
 - Row 4 has **no blockers** — promotable first as the ingestion-pattern pilot.
-- **Infectious-agent files stay held for the CSV-to-YAML migration** — no rows above touch them. `internal_pathogen_concepts` / `internal_pathogen_synonyms` / `internal_pathogen_list` in [data-raw/sysdata.R](data-raw/sysdata.R) stay exactly as they are until that task reshapes the upstream YAML.
+- **The infectious-agent tables** come from the released infectious-agent list and its reporting classification (§7.5); no row above touches them.
+
+### §7.5. The Bundled Infectious-Agent Classification
+
+neoipcr classifies every infectious-agent finding by tables it bundles in `R/sysdata.rda`, built from one release of the NeoIPC infectious-agent list, `NeoIPC-Infectious-Agents.yaml`, and its reporting classification, `NeoIPC-Infectious-Agent-Reporting-Groups.yaml`, both in the Surveillance-Toolkit's [`metadata/common/infectious-agents/`](https://github.com/NeoIPC/Surveillance-Toolkit/tree/main/metadata/common/infectious-agents). §13 defines what the tables built from them count (§13.8) and how a calculated dataset records what it was computed under (§13.1.7); this section records the bundle and the engine that reads it. The bundle is a factual extract of the list, which the list's licence leaves outside its terms, and the [README](README.md) attributes its sources.
+
+**Pin and build.** [data-raw/sysdata.R](data-raw/sysdata.R) names the release by its `infectious-agents-v*` tag, the commit the tag names, and each file's SHA-256, and `neoipcr_supported_versions()` reports the release as `infectious_agents`. The script:
+
+1. fetches both files and the list's `VERSION` at the commit, and both files at the tag, and stops unless each file has its pinned SHA-256, the tag's bytes are the commit's, and `VERSION` names the tag's version; a pin without a tag builds only with `--untagged`, which skips the two checks against the tag and records no version;
+2. parses both with yaml12, which `DESCRIPTION`'s `Config/Needs/data-raw` names, so that the package itself depends on no YAML parser;
+3. loads the derivation, [R/infectious-agent-ontology.R](R/infectious-agent-ontology.R), alone, through `sys.source()`, never through `pkgload::load_all()`, which would also load an untracked local `data/` directory;
+4. derives the tables, refuses tables that break the contract (`assert_infectious_agent_contract()`), prints how they differ from the bundled ones, and stops on an `Id` the list removed that the script does not acknowledge (`compare_infectious_agent_classifications()`);
+5. writes `R/sysdata.rda` with `save(..., compress = "xz", version = 3)`.
+
+Its `--check` mode writes nothing and fails where `R/sysdata.rda` differs from what the pinned files give; the CI job `sysdata` runs it. The script needs R 4.5 or later, for `tools::sha256sum()`, while the package's floor stays R 4.4: the package computes no SHA-256 and reads the digests the build recorded.
+
+**Tables.** Six internal objects, none exported; every column is integer, character, or logical, never a factor.
+
+| Object | Rows | Columns |
+| --- | --- | --- |
+| `internal_infectious_agent_classification` | one per `Id`-bearing node of the list, ascending by `Id` | `input_id` and `input_name`, the code and its name; `output_id` and `output_name`, the concept the code names, its own for a concept; `hierarchy`, its top-level node; `kingdom`, `order`, `family`, `genus`, and `species`, the nearest node of each rank at or above its concept; `coagulase` (`n`, `p`, or `v`, from the group of *Staphylococcus* that holds it); the flags `common_commensal`, `applies_3gcr`, `applies_car`, `applies_cor`, `applies_mrsa`, and `applies_vre`; `reporting_group`; and `gram_reaction` and `oxygen_requirement`, `NA` outside the bacteria |
+| `internal_infectious_agent_reporting_groups` | one per reporting group, in pre-order | `key`, `name`, `parent_key`, and `ecdc_category`, the category of the European Centre for Disease Prevention and Control (ECDC), `NA` for a group without one |
+| `internal_infectious_agent_attribute_values` | one per value of the Gram reaction and of the oxygen requirement, in the classification's order | `attribute`, the classification's column; `attribute_name`; `key`, the value the column holds; and `name` |
+| `internal_infectious_agent_nodes` | one per node on an `Id`'s path, per version | `version` (`"groups"` or `"ontology"`), `node_id`, `parent_id`, `name`, `rank` (the `ConceptType`, `NA` for a reporting group and a node without one), and `depth`, 0 at a top-level node |
+| `internal_infectious_agent_closure` | one per `Id` and node on its path, per version | `version`, `input_id`, `node_id`, and `depth` |
+| `internal_infectious_agent_ontology` | a list, the provenance | `repository`, `tag`, `version`, `commit`, `list_sha256`, `reporting_classification_sha256`, and the six digests below |
+
+**Derivation.** It mirrors the toolkit's walkers and its resolution of the classification, and `tests/testthat/test-infectious-agents.R` holds the bundle to the toolkit's export of the same release's code sets (`tests/testthat/fixtures/infectious-agent-code-sets.json`):
+
+1. The walk visits a node, then its `Hierarchies`, `Synonyms`, and `Children`. A synonym names the concept whose `Synonyms` hold it, and a synonym's children are concepts beneath that concept.
+2. A flag takes the nearest explicit value on the walk's path, an explicit `false` overriding an inherited `true`, and is false where none is set.
+3. Groups are transparent to the rank columns; a synonym takes its concept's lineage, and a subspecies its species'.
+4. The reporting group and the two attributes resolve as the classification's checks resolve them: a member or an assignment names a concept by its `ConceptSource` and `ConceptId`, and a node takes the nearest one on its path to its top-level node, itself included, through concepts of every rank, those without an `Id` and groups among them; a synonym takes its concept's.
+5. Malformed input aborts for developers only (`.internal = TRUE`), each defect under a class of its own beneath `neoipcr_infectious_agent_ontology_error`, and each element of the contract the tables break under a class of its own beneath `neoipcr_infectious_agent_contract_violation`.
+
+The contract also holds the two options that say nothing of what the infectious agent was: every resistance category applies to `Id` 0, "Not listed", and no flag to `Id` 3561, "Unidentifiable", and neither is in a reporting group.
+
+**Rows of the infectious-agent tables.** Each version is a node table with a closure, so that the engine finds the rows of a finding with one join of its concept to the closure (§13.8.2):
+
+1. **Over the reporting groups (`"groups"`):** an `Id` is recorded at its reporting group, and its path holds that group and each group above it. The summary block of the Gram reaction and the oxygen requirement holds no node: the engine keys its rows `<attribute>|<key>`.
+2. **Over the full ontology (`"ontology"`):** an `Id` is recorded at its concept or, where the concept lies beneath a species, as a subspecies, a serotype, or a group of a species does, at that species; its path holds every concept from the list's top-level node down to that node, those without an `Id` and the groups among them, so that no node is collapsed into its only child. A node without a species above it, such as a genus, is recorded at itself. The paths start beneath the list's Eukaryota, which has no node (`infectious_agent_skipped_hierarchies`), so that the top-level nodes are Bacteria, Fungi, Protozoa, and Viruses, each at depth 0, and the contract refuses an `Id` at Eukaryota; the classification's `hierarchy` stays the list's top-level node. The engine adds a residual row, keyed `<node_id>~n.o.s.`, beneath a node at which infectious agents are recorded and which has a node beneath it in this table (in a resistance category's block, a node beneath it that the block can have), whatever other infectious agents the dataset holds.
+
+An `Id`'s deepest closure row is the node it is recorded at. `Id`s 0 and 3561, and a code the list lacks, are on no path and count in a table's Total only. `node_id` is the concept's `ConceptSource` and `ConceptId`, joined by `|`, over the full ontology, the `IctvId` of a concept whose source is the International Committee on Taxonomy of Viruses (ICTV) standing in for its `ConceptId`, and the group's key over the reporting groups, each of which stays what it is for a node a release leaves unchanged, whereas an `Id` may name another concept in another release. An ICTV concept's `ConceptId` is its node in the newest Master Species List the list follows, which changes with each release the list adopts, unchanged taxa included, while its `IctvId` links a taxon's nodes across releases and repeats only among a concept and the synonyms that are its former names; the contract requires an `IctvId` on every ICTV concept on a path and a `node_id` no other node of its version has. The node table holds only nodes on some `Id`'s path. No digest covers the bundle's row order, so the engine orders siblings by their rate, then by label and `node_id`, never by the bundle. The summary block is the one order the engine takes from the bundle: each dataset lays out its summary rows in its own bundle's order of the attributes and their values, which no digest covers either, so that a release of the list that changes only that order gives the same stamps, and `get_benchmark_data()` lays out every block's summary rows attribute by attribute in the reference's order, which it takes from the reference's summary rows of every block of the table, each block keeping its order; the running package's bundle places only an attribute or a value the reference holds in no block, and decides place by place what the reference's blocks leave open, so that the attributes, and the values that the reference or the bundle holds, follow one order in every block, while the values that neither holds follow, in each block, their order in the joined table. A summary row of an attribute the running package's bundle lacks, which only a dataset calculated by another version of neoipcr can hold, is placed as a top-level row of the tree, ordered in each block as the tree's rows are.
+
+**Digests.** The provenance carries six SHA-256 digests, each over a text that `infectious_agent_digest_texts()` writes from the tables, each table's rows sorted by its columns in the C locale, so that a digest changes with what it covers and only then:
+
+1. `classification_digest`: every bundled table, whole;
+2. `groups_tree_digest`: what places an `Id` among the rows over the reporting groups and their summary block and labels them: the classification's `input_id`, `reporting_group`, and two attributes, with the `attribute`, `key`, and `name` of each attribute value some `Id` takes, and the nodes and closure of the groups version, whose nodes carry the key, name, parent, and depth of every group a row can be, which the contract holds to the group tree;
+3. `ontology_tree_digest`: what places an `Id` among the rows over the full ontology and labels them: the nodes and closure of the ontology version;
+4. `concept_mapping_digest`: the concept each `Id` names (`input_id`, `output_id`), by which the tables count an infectious agent once per infection, so that a release that turns an `Id`-bearing subspecies into a synonym of its species, leaving its path as it is, changes it;
+5. `common_commensal_digest`: the `Id`s flagged as common commensals;
+6. `applicability_digest`: the `Id`s to which each resistance category applies.
+
+Digests 5 and 6 cover the flagged `Id`s rather than every `Id`'s flag, since a code the list lacks counts as neither a common commensal nor an infectious agent to which a category applies: an `Id` added or removed without the flag leaves them unchanged. No digest but digest 1, the classification digest, covers the classification's rank columns, `hierarchy`, `coagulase`, `input_name`, or `output_name`, the group tree, with its `ecdc_category` and its groups on no `Id`'s path, an attribute's `attribute_name`, or an attribute value no `Id` takes, which no table reads (such a value is the summary row of no table, and a table labels its rows with the names of the nodes and of the attribute values its `Id`s take), so that a release that only corrects an ECDC category, renames an attribute, or adds or renames a value no `Id` takes leaves every table comparable. `calculate_reference_data()` and `calculate_department_data()` stamp each table with the digests of what it reads and no other (`.infectious_agent_list_reads()` in [R/calc-api.R](R/calc-api.R)), beside the version of its rate definitions (`rate_definition_versions`) and, for the tables whose rows are infectious agents, the layout of those rows (`infectious_agent_table_layout` in [R/calc-rates.R](R/calc-rates.R)), whose version changes with their order, levels, residual and summary rows, keys, or labels:
+
+| Table | Digests it carries |
+| --- | --- |
+| `incidence_density_rate_table` | `common_commensal_digest` |
+| the 3 tables whose rows are infectious agents, over the reporting groups | `concept_mapping_digest`, `groups_tree_digest`, and `layout`; the 2 resistance tables also `applicability_digest` |
+| the same 3 tables over the full ontology | `concept_mapping_digest`, `ontology_tree_digest`, and `layout`; the 2 resistance tables also `applicability_digest` |
+| `resistance_test_rate_table` | `concept_mapping_digest` and `applicability_digest` |
+
+A release of the list that changes only the full ontology, such as a corrected record number, thus leaves the tables over the reporting groups comparable, and one that changes only the reporting groups those over the full ontology; §13.1.7 and §13.8.2 state what `get_benchmark_data()` compares.
+
+**The engine.** [R/calc-rates.R](R/calc-rates.R) counts the three tables whose rows are infectious agents, each in both versions, and the completeness of antimicrobial susceptibility testing, by the rules of §13.8, and the builders in [R/calc-tables.R](R/calc-tables.R) take the version as `rows`:
+
+1. `classify_infectious_agent_findings()` keeps every finding with a `pathogen_key` and left-joins the classification, so that a code the list lacks keeps its row, counted as itself and as a recognized pathogen to which no resistance category applies; `.counted_infectious_agent_findings()` keeps the slots the form asks for (`.infectious_agent_recording()`).
+2. `get_infectious_agent_detection_rates()` and `get_infectious_agent_resistance_rates()` join the counted findings, each infectious agent once per infection, to the closure of one version (`.infectious_agent_memberships()`) and count each row per department; `get_infectious_agent_detections()` and `get_resistance_test_counts()` count the detections that the resistance tables and the testing's completeness read. A resistance category's block can have the nodes on the paths of the `Id`s to which the list applies the category and, over the reporting groups, the summary rows of their attribute values (`.infectious_agent_block_nodes()`), taken from the bundle; a dataset's block has those that lie at or above a detection to which the list applies the category or that has a result for it, so that whether a dataset has a row depends only on its detections at or beneath the row, and a dataset without a reference's row has none of its events, while the counts take every detection with a result, a value recorded for a category that cannot apply included (§13.8.7).
+3. `.infectious_agent_layout()` lays the rows out, and `.infectious_agent_rate_columns()` with `.department_quartiles()` gives each row its pooled rate, interval, and quartiles under §13.1.1.
 
 ---
 
@@ -773,9 +845,9 @@ Flat rename table. Renames are applied in Phase 3 of task 1.1 (not in this sessi
 | `neoipc_wilson_ci()` | `neoipcr_wilson_ci()` | Same — existing prefix doesn't match the package name. (D-D) |
 | `bootstrap_quantile_ci()` | `neoipcr_bootstrap_quantile_ci()` | Unifies with the other two CI functions under the package-matching `neoipcr_` prefix. (D-D) |
 
-**One rename proposal withdrawn.** D-C originally proposed `get_benchmark_data()` → `calculate_benchmark_data()` based on the task file's claim that the function "actually computes." Reading the source ([R/calc-api.R:326–823](R/calc-api.R#L326-L823)) shows it combines pre-computed datasets with one small CI fix-up — not a calculation primitive. See §10.3. The task file claim is corrected in the same commit as this note.
+**One rename proposal withdrawn.** D-C originally proposed `get_benchmark_data()` → `calculate_benchmark_data()` based on the task file's claim that the function "actually computes." Reading the source ([R/calc-api.R:530–931](R/calc-api.R#L530-L931)) shows it combines pre-computed datasets with fix-ups for zero events — not a calculation primitive. See §10.3. The task file claim is corrected in the same commit as this note.
 
-§13.8 adds one: `get_organism_resistance_rate_table()` becomes `get_infectious_agent_resistance_rate_table()`, and its slot `organism_resistance_rate_table` becomes `infectious_agent_resistance_rate_table`. No other renames proposed for the current exports (§3). Long table-function names stay (D-E — use `@family` grouping instead of shortening).
+No other renames proposed for the current exports (§3). Long table-function names stay (D-E — use `@family` grouping instead of shortening).
 
 ### §9.2. Class renames
 
@@ -844,7 +916,7 @@ Confirmed end-to-end via grep across this package's `R/*.R` and, in the Surveill
 | 6 | `get_infectious_agent_detection_rate_per_inf_type_table` | `infectious_agent_detection_rate_per_inf_type_table` | `includeAgentPerInfectionRateTable` | `AgentPerInfectionRates` | `_tbl-agent-per-infection-rate.qmd` | `infectious_agents_in_nosocomial_infections` |
 | 7 | `get_infectious_agent_detection_rate_per_agent_table` | `infectious_agent_detection_rate_per_agent_table` | `includeInfectiousAgentDetectionRateTable` | `InfectiousAgentDetectionRates` | `_tbl-infectious-agent-detection-rate.qmd` | `detection_of_infectious_agents` |
 | 8 | `get_abr_infection_rate_table` | `abr_infection_rate_table` | `includeResistantPathogenInfectionRateTable` | `AntibioticResistanceRates` | `_tbl-abr-infection-rate.qmd` | `resistant_pathogens` |
-| 9 | `get_organism_resistance_rate_table` | `organism_resistance_rate_table` | `includeOrganismResistanceRateTable` | `OrganismResistanceRates` | `_tbl-organism-resistance-rate.qmd` | `organism_resistance` |
+| 9 | `get_infectious_agent_resistance_rate_table` | `infectious_agent_resistance_rate_table` | `includeOrganismResistanceRateTable` | `OrganismResistanceRates` | `_tbl-organism-resistance-rate.qmd` | `organism_resistance` |
 | 10 | `get_resistance_test_rate_table` | `resistance_test_rate_table` | `includeAntibioticResistanceTestRateTable` | `ResistanceTestRates` | `_tbl-resistance-test-rate.qmd` | `antimicrobial_susceptibility_testing` |
 | 11 | `get_secondary_bsi_rate_table` | `secondary_bsi_rate_table` | `includeSecondaryBsiRateTable` | `SecondaryBloodstreamInfectionRates` | `_tbl-secondary-bsi-rates.qmd` | `secondary_bsi` |
 | F1 | (figure slot) | `birth_weight_figure` | `includeBirthWeightFigure` | `BirthWeightDistribution` | `_fig-bw.qmd` | `birth_weight_distribution` |
@@ -879,13 +951,14 @@ Phase 1 has not exhaustively confirmed every D-row — this is a representative 
 - **Row 4**: H uses `severe_infections_and_nec` — semantically a *parent grouping*, not specifically "incidence density rate." Indicates a section that *contains* the table rather than being named after it.
 - **Row 6**: Z says `agent-per-infection-rate`, H says `infectious_agents_in_nosocomial_infections` — H is a higher-level section.
 - **Row 8**: All five vocabulary tracks diverge: `abr` (F/S/C), `Resistant Pathogen` (Q), `Antibiotic Resistance` (P), `abr` (Z), `resistant_pathogens` (H/D).
+- **Row 9**: F/S/C say `infectious_agent_resistance_rate`, the package's term for what causes an infection, while Q/P/Z/H/D keep `organism`.
 - **Row 10**: H uses `antimicrobial_susceptibility_testing` — different concept entirely from F/S/C/P/Q/Z which all say `resistance_test`. "Antimicrobial susceptibility testing" (AST) is the AMA-canonical term; "resistance test" is internal jargon. **Strong indicator that the AMA term should be the master name** (i.e., `antimicrobial_susceptibility_test_rate`).
 - **Rows F1/F2**: `_fig-bw.qmd` and `_fig-ga.qmd` use the **most cryptic abbreviations of any surface** (two letters only). Inconsistent even with the report's own naming elsewhere.
 - **Row 3b** (`get_ref_surgery_rate_table`): Asymmetric — it's the only table with two distinct functions for own-vs-ref. Phase 2 design fix (out of §9.5 scope).
 
 #### §9.5.2.2. Section-vs-table relationship
 
-Some H entries are 1:1 with their table (rows 2, 9, 11, F1, F2 — heading key matches the noun). Others are *parent sections* that contain the table (rows 1, 4, 5, 6, 7, 8, 10). For the second case, two subsequent decisions:
+Some H entries are 1:1 with their table (rows 2, 9, 11, F1, F2 — heading key matches the noun; row 9's in the reports' `organism` wording, see §9.5.2.1). Others are *parent sections* that contain the table (rows 1, 4, 5, 6, 7, 8, 10). For the second case, two subsequent decisions:
 
 - **(a) Align the section heading to the table** (rename H + D to match the master). Strongest alignment; may require multiple tables that share a section to migrate together.
 - **(b) Keep the section name; rename only the table-internal identifiers** (Z stays kebab of master; H stays as section concept). Preserves editorial structure; accepts that H is a section concept, not a table concept.
@@ -915,7 +988,7 @@ For nested snippet filenames under `content/` (e.g. `_tbl-intro-<...>.Rmd`, `_me
 
 **Universally-medical abbreviations stay** (BSI, NEC, SSI, CVC, PVC, ICU, AST etc.) — these are clinician vocabulary, not package-internal slugs. The boundary case is "AbR" (rows 8 / earlier draft): not a clinician-standard abbreviation in widespread use; the AMA-canonical term is "antibiotic resistance" or "antimicrobial resistance" (AMR). Treat `AbR` as package-internal; spell it out in the master.
 
-Package-internal abbreviations to eliminate: `udr`, `idr`, `daidr`, `iadrpit`, `iadrpa`, `org_rr`, `rtr`, `sec`, `tbl`, `bw` (figure file), `ga` (figure file), `dev_ass` (slot prefix).
+Package-internal abbreviations to eliminate: `udr`, `idr`, `daidr`, `iadrpit`, `iadrpa`, `iarr`, `rtr`, `sec`, `tbl`, `bw` (figure file), `ga` (figure file), `dev_ass` (slot prefix).
 
 **Section-vs-table headings (H + D special case).** When a heading is a *section* that contains multiple tables (per §9.5.2.2): the H and D values are the section's name, not the table's. The mechanical derivation above gives the *table*'s identifiers; the *section*'s heading + display can stay as a separate identifier. Per row, §9.5.4 picks (a) align section to table, (b) keep section, or (c) add a per-table sub-heading.
 
@@ -934,7 +1007,7 @@ Master-name choice is a *domain* call grounded in the AMA-canonical term for eac
 | 6 | infectious-agent detection rate per infection type | `infectious_agent_detection_rate_per_infection_type` | (b) keep section `infectious_agents_in_nosocomial_infections`; sub-H = `infectious_agent_detection_per_infection_type` | Identifiers keep "infectious agent" in full, as the current functions do and row 9 does, long names staying (D-E); the H/D side keeps "Infectious Agents" as section copy because it reads more naturally to clinicians. |
 | 7 | infectious-agent detection rate per agent | `infectious_agent_detection_rate_per_agent` | (a) align — sub-H = `infectious_agent_detection_per_agent` under same parent as row 6 | Distinguishes from row 6 by `_per_agent`. |
 | 8 | antibiotic-resistance infection rate | `antibiotic_resistance_infection_rate` (alt: `amr_infection_rate` if AMR is the preferred professional term) | (a) align — H/D = "Antibiotic Resistance Infection Rates" | Spell out `abr` — package-internal abbreviation. **PI: AbR vs AMR vs `antibiotic_resistance` vs `antimicrobial_resistance` — which term does the surveillance literature use?** |
-| 9 | organism resistance rate | `infectious_agent_resistance_rate` | (a) align — H/D = "Infectious-Agent Resistance Rates" | §9.1 renames F and S to it (§13.8); C, Q, P, Z, and H follow, since what causes an infection may be no organism. |
+| 9 | infectious-agent resistance rate | `infectious_agent_resistance_rate` | (a) align — H/D = "Resistance Rates per Infectious Agent" | F/S/C already carry the master, since what causes an infection may be no organism; Q/P/Z/H/D follow. |
 | 10 | antimicrobial susceptibility test rate | `antimicrobial_susceptibility_test_rate` (per H surface — the AMA-canonical term) | (a) align — H/D = "Antimicrobial Susceptibility Testing" | **The H surface is more correct than F/S/C/P**: "antimicrobial susceptibility testing" (AST) is the AMA term; "resistance test" is internal jargon. Recommend adopting the H wording as the master and renaming F/S/C/P to match. **Big Phase 3 change but it aligns with the literature**. |
 | 11 | secondary BSI rate | `secondary_bsi_rate` | (a) align — H/D = "Secondary BSI Rates" (or "Secondary Bloodstream Infection Rates" if AMA prefers full form in headings) | Keep `bsi` (clinician-standard). PI may prefer the full form in the display heading per AMA — that's a D-only choice; identifiers stay `bsi`. |
 | F1 | birth weight figure | `birth_weight_figure` | (a) align — H/D = "Birth Weight Distribution" (already correct) | Z renames `_fig-bw.qmd` → `_fig-birth-weight.qmd`. P migrates `BirthWeightDistribution` → `BirthWeightFigure` (or keep "Distribution" if PI prefers — but then F1's "figure" suffix in F/S becomes the outlier and we should pick one). |
@@ -995,11 +1068,11 @@ Each subsection states the question, the recommendation with rationale, and a "P
 
 **Recommendation.** Accept the tier column proposed in §3 as the default assignment. Key assignments, counted over that column:
 
-- **external-stable (22):** `import_dhis2`, `dhis2_connection_options`, `dhis2_dataset_options`, `neoipc_poisson_ci`, `neoipc_wilson_ci`, `bootstrap_quantile_ci`, `get_pathogen_taxonomy`, `is_valid_ichi_code`, `print.neoipcr_dhis2_conopt`, `neoipcr_log_config`, `neoipcr_supported_versions`, `get_cumulative_incidence_table`, the validation surface — `validate`, `validation_rule_ids`, `validation_rule_context_fields`, `validation_rule_severities`, `validation_summary`, `read_validation_exceptions`, `resolve_validation_exceptions`, `validation_exception_usage` — and the reconciliation surface, `reconciliation_ids` and `reconciliation_details`.
+- **external-stable (22):** `import_dhis2`, `dhis2_connection_options`, `dhis2_dataset_options`, `neoipc_poisson_ci`, `neoipc_wilson_ci`, `bootstrap_quantile_ci`, `get_infectious_agents`, `is_valid_ichi_code`, `print.neoipcr_dhis2_conopt`, `neoipcr_log_config`, `neoipcr_supported_versions`, `get_cumulative_incidence_table`, the validation surface — `validate`, `validation_rule_ids`, `validation_rule_context_fields`, `validation_rule_severities`, `validation_summary`, `read_validation_exceptions`, `resolve_validation_exceptions`, `validation_exception_usage` — and the reconciliation surface, `reconciliation_ids` and `reconciliation_details`.
 - **internal-stable (19):** the 12 `get_*_table` builders, both `calculate_*_data` pipeline entries, `get_benchmark_data` (pre-rename), `pretty_names` with its two methods, `write_json`.
-- **Lifecycle `experimental` (17), across both tiers:** `bootstrap_quantile_ci` (not yet integrated into the rate-table pipeline), `is_valid_ichi_code` (syntax-only validator; the full-code bundling task is in flight), `get_cumulative_incidence_table`, the eight validation-surface symbols and the two reconciliation-surface symbols (their shapes settle with the reports that consume them), all external-stable; `pretty_names` + its two methods (the S3 generic is unstable, and §6.6 rewrites its class-specific method at [calc-api.R:893](R/calc-api.R#L893)) and `write_json` (a deliberately narrow first cut — plain lists, scalars, character vectors and dates — without a reading companion), all internal-stable.
+- **Lifecycle `experimental` (17), across both tiers:** `bootstrap_quantile_ci` (the reference tables' quartiles call it, but §13.1.4 gives them an order-statistic interval instead), `is_valid_ichi_code` (syntax-only validator; the full-code bundling task is in flight), `get_cumulative_incidence_table`, the eight validation-surface symbols and the two reconciliation-surface symbols (their shapes settle with the reports that consume them), all external-stable; `pretty_names` + its two methods (the S3 generic is unstable, and §6.6 rewrites its class-specific method at [calc-api.R:949](R/calc-api.R#L949)) and `write_json` (a deliberately narrow first cut — plain lists, scalars, character vectors and dates — without a reading companion), all internal-stable.
 
-**Rationale.** External-stable tier covers functions that appear in all five reports AND are documented in the auth chain / data-protection section of `.claude/rules/package-internals.md` (the auth and dataset-options trio), plus standalone statistical utilities (`neoipc_*_ci`, `bootstrap_quantile_ci`), plus the widely-used taxonomy accessor and the ICHI validator, plus the two package-configuration and introspection entry points any caller may need before importing. Everything internal-stable is load-bearing for the NeoIPC pipeline but not primarily targeted at external users — Phase 5 vignettes can expose them progressively. Everything experimental has a specific reason flagged in §3.
+**Rationale.** External-stable tier covers functions that appear in all five reports AND are documented in the auth chain / data-protection section of `.claude/rules/package-internals.md` (the auth and dataset-options trio), plus standalone statistical utilities (`neoipc_*_ci`, `bootstrap_quantile_ci`), plus the accessor over the infectious-agent list and the ICHI validator, plus the two package-configuration and introspection entry points any caller may need before importing. Everything internal-stable is load-bearing for the NeoIPC pipeline but not primarily targeted at external users — Phase 5 vignettes can expose them progressively. Everything experimental has a specific reason flagged in §3.
 
 Task 1.4 (lifecycle badges) consumes §3's Lifecycle column verbatim — `lifecycle::badge()` accepts only lifecycle stages, not a tier; the tier column decides which symbols the Phase 5 vignettes present to external users first.
 
@@ -1021,7 +1094,7 @@ Task 1.4 (lifecycle badges) consumes §3's Lifecycle column verbatim — `lifecy
 
 **Recommendation.** **Reject the proposed rename. Keep `get_benchmark_data()` as-is.**
 
-**Rationale (corrected after reading the source).** The task file claims `get_benchmark_data()` "actually *computes*" — that claim is wrong. The function body in [R/calc-api.R:326–823](R/calc-api.R#L326-L823) takes pre-computed `neoipcr_rep_ds` / `neoipcr_ref_ds` inputs, prefixes their column names with the dataset name, and stitches them side-by-side via `bind_cols` / `full_join`. The roxygen at [calc-api.R:313](R/calc-api.R#L313) literally describes it as "*Creates* a NeoIPC benchmark data set *from* department report datasets and a reference data set." The only computation in the body is `fix_zero_event_ci()` (a small CI patch where merged-in zero-event departments produced garbage CIs); that's a fix-up, not a calculation primitive.
+**Rationale (corrected after reading the source).** The task file claims `get_benchmark_data()` "actually *computes*" — that claim is wrong. The function body in [R/calc-api.R:530–931](R/calc-api.R#L530-L931) takes pre-computed `neoipcr_rep_ds` / `neoipcr_ref_ds` inputs, prefixes their column names with the dataset name, and stitches them side-by-side via `bind_cols` / `full_join`, a table only across datasets whose stamps of it match. The roxygen at [calc-api.R:426](R/calc-api.R#L426) literally describes it as "*Creates* a NeoIPC benchmark data set *from* department report datasets and a reference data set." The only computations in the body are fix-ups for zero events: `fix_zero_event_ci()` (a small CI patch where merged-in zero-event departments produced garbage CIs) and, for the tables whose rows are infectious agents, `.complete_infectious_agent_table()`, which gives a dataset a row it lacks at 0 events, with their interval, over its own denominator of the row, and puts the rows in the reference's order; those are fix-ups, not calculation primitives.
 
 So the symmetry argument with `calculate_department_data()` / `calculate_reference_data()` doesn't hold — those two compute rates and CIs from raw `neoipcr_ds`; this one combines already-computed datasets for side-by-side display.
 
@@ -1061,11 +1134,11 @@ We're already touching one of the three for the prefix-unification rename, and p
 
 ### §10.6. D-F. Accessor-vs-raw-data for each package-data candidate
 
-**Question.** Per package-data candidate (§7), do we ship an accessor function (the `get_pathogen_taxonomy()` model) or expose the data frame directly via `data()`?
+**Question.** Per package-data candidate (§7), do we ship an accessor function (the `get_infectious_agents()` model) or expose the data frame directly?
 
-**Recommendation.** Accessor per taxonomy, `internal = TRUE` on every `usethis::use_data()` call. The accessor owns the locale-resolution chain (so callers can pass `locale = NULL` and have the right column selected automatically); direct `data()` exposure makes callers reimplement that logic every time.
+**Recommendation.** Accessor per taxonomy, every table bundled internally in `R/sysdata.rda` (§7). The accessor owns the locale-resolution chain (so callers can pass `locale = NULL` and have the right column selected automatically); direct exposure makes callers reimplement that logic every time.
 
-**Rationale.** `get_pathogen_taxonomy()` already demonstrates the pattern; extending it is uniform. The one exception is the pathogen taxonomy itself, where `get_pathogen_taxonomy()` is already exported — keep it exported (D-A has it as external-stable).
+**Rationale.** `get_infectious_agents()` already demonstrates the pattern, without a `locale` argument while this decision and D-H are pending, its names being the list's English ones; extending it is uniform. It is already exported — keep it exported (D-A has it as external-stable) — while the lineage and the flags of the infectious-agent tables stay internal (§7.5).
 
 **PI resolution:** _pending_
 
@@ -1091,7 +1164,7 @@ We're already touching one of the three for the prefix-unification rename, and p
 - Factor labels (the 11 procedure-category label calls, one of them the compatibility recode) migrate to `procedure_category_labels` tibble in `sysdata.Rda` (§7 row 2).
 - DHIS2 `display*` fields flow through unchanged; no `gettext` wraps added on top (§6.3 confirms none exist today).
 - Every neoipcr entry point that produces localized output accepts an explicit `locale` parameter; the resolution chain is `explicit_arg → opts$locale → Sys.getlocale("LC_MESSAGES") → "en"`.
-- The two column-header `gettext` calls ([calc-api.R:893](R/calc-api.R#L893), [calc-procedure-categories.R:45](R/calc-procedure-categories.R#L45)) rewritten in Phase 2 (§6.6).
+- The two column-header `gettext` calls ([calc-api.R:951](R/calc-api.R#L951), [calc-procedure-categories.R:45](R/calc-procedure-categories.R#L45)) rewritten in Phase 2 (§6.6).
 
 **Rationale.** See §6.4 precedents + §6.5 proposal + §6.6 migration plan. This is the most architecturally consequential decision in this note because §5, §7, §9, and Phase 2/4 all key off it.
 
@@ -1114,7 +1187,7 @@ We're already touching one of the three for the prefix-unification rename, and p
 | 6 | iadrpit | `infectious_agent_detection_rate_per_infection_type` | (b) keep section "Infectious Agents in Nosocomial Infections"; sub-heading per table |
 | 7 | iadrpa | `infectious_agent_detection_rate_per_agent` | (a) align under same parent as #6 |
 | 8 | abr / resistant pathogen / antibiotic resistance | `antibiotic_resistance_infection_rate` (alt: `amr_infection_rate`) | (a) align |
-| 9 | organism resistance rate | `infectious_agent_resistance_rate` | (a) align |
+| 9 | infectious-agent resistance rate | `infectious_agent_resistance_rate` (F/S/C carry it already) | (a) align |
 | 10 | resistance test rate | **`antimicrobial_susceptibility_test_rate`** (adopt the H-surface AMA term, rename F/S/C/P/Q/Z to match) | (a) align |
 | 11 | secondary BSI rate | `secondary_bsi_rate` | (a) align — D string can spell out "Bloodstream Infection" if AMA prefers |
 | F1 | birth weight figure | `birth_weight_figure` | (a) align — Z renames `_fig-bw.qmd` → `_fig-birth-weight.qmd` |
@@ -1139,7 +1212,7 @@ We're already touching one of the three for the prefix-unification rename, and p
 
 In-tree exemplars — do not invent new conventions:
 
-- [get_pathogen_taxonomy()](R/pathogens.R) — model for exported accessors over package data.
+- [get_infectious_agents()](R/infectious-agents.R) — model for exported accessors over package data.
 - [calculate_department_data()](R/calc-api.R) — model for pipeline entry points with full roxygen.
 - [dhis2_connection_options()](R/dhis2-connect.R) — model for option-constructor functions with parameter semantics documented in detail.
 
@@ -1150,7 +1223,6 @@ In-tree exemplars — do not invent new conventions:
 ## §12. Cross-refs to sibling tasks
 
 - Task 1.2, the class-slug rename — owns the `_iaf` / `_sbd` / `_udr` rename. §3/§4/§9 assume post-rename names.
-- The CSV-to-YAML migration — owns the infectious-agent metadata reshape. §7 rows touching infectious agents wait on it.
 - The lifecycle-badges task — consumes the Lifecycle column of §3 and applies `lifecycle::badge()` markup. Cannot start until this note lands.
 - The empty-data-resilience work — already completed; remaining crash paths are scoped out.
 - The test-coverage work — already completed; the fixture helpers §11 points at are its output.
@@ -1737,7 +1809,7 @@ classification. All 5 count findings by the same rules.
 | Completeness of antimicrobial susceptibility testing | `get_resistance_test_rate_table()` | off by default; on in the "full" preset |
 
 `get_infectious_agent_resistance_rate_table()` replaces `get_organism_resistance_rate_table()`, and the slot
-`infectious_agent_resistance_rate_table` replaces `organism_resistance_rate_table` (§9.1).
+`infectious_agent_resistance_rate_table` replaces `organism_resistance_rate_table` (§3, row 19).
 
 #### §13.8.1. Findings
 

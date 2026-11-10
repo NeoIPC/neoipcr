@@ -20,13 +20,99 @@ least one dataset is required; a call without any aborts with class
 }
 \value{
 A neoipcr_bnch_ds. Each dataset's \code{metadata},
-\code{validationSummary} and \code{reconciliationSummary} are carried under the
+\code{validationSummary}, and \code{reconciliationSummary} are carried under the
 dataset's name — a dataset serialized before a summary existed, or
 calculated from a raw dataset written before it existed, contributes no
 entry to it — and the counts and tables are merged with the names as
-column suffixes.
+column suffixes. \code{not_comparable} holds one row per table and dataset not
+joined: \code{table}, the table's slot, and \code{dataset}, the dataset's name.
 }
 \description{
 Creates a NeoIPC benchmark data set from department report datasets and a
 reference data set
+}
+\details{
+A table is joined only across datasets whose stamps of it match: the
+version of its rate definitions and the digests of what it reads from the
+infectious-agent list (see \code{\link[=calculate_reference_data]{calculate_reference_data()}}). A later dataset
+whose stamps of a table differ from those of the first dataset that holds
+the table is not joined into it: the table keeps the rows of the datasets
+joined, the table and the dataset are recorded in \code{not_comparable}, and
+one warning of class \code{neoipcr_tables_not_comparable} is raised, whose
+field \code{not_comparable} holds the same record; a figure takes none of that
+dataset's rows, and any other table leaves that dataset's columns empty. A
+stamp that a dataset lacks, such as one a later version of neoipcr adds,
+counts as missing there, so that only the tables whose stamp in the other
+dataset has a value in it are not joined. A dataset calculated before the
+datasets carried these stamps counts, for every table, as calculated under
+other definitions.
+
+The tables whose rows are infectious agents are joined on \code{node_id}, within
+the resistance category \code{abr} where they have one, and take the order of
+the reference: the first reference dataset (a \code{neoipcr_ref_ds}) joined
+into the table, or else the first dataset that holds the table. So
+departments benchmarked against each other take the order of the first
+one that holds the table, and a department passed before a reference
+whose table is not joined keeps its own. Their rows are those of every
+dataset joined, in the reference's order: in each block, its Total, then
+the summary rows of the reporting groups, then the tree, each row after
+its parent. A summary row is one whose \code{node_id}, \verb{<attribute>|<value>},
+names an attribute of the bundled classification, such as
+\code{gram_reaction}, whatever its value. The summary rows are laid out
+attribute by attribute in the reference's order of the attributes and of
+their values, which the benchmark takes from the reference's summary rows
+of every block of the table, whether or not the bundled classification
+holds their values:
+\enumerate{
+\item The attributes are in the reference's order; an attribute of which the
+reference holds no row in the table comes directly after the last of
+the reference's attributes that the bundled classification orders
+before it, or first, several such attributes in the bundled
+classification's order.
+\item Within an attribute, the values the reference holds in the table are
+in its order, also in a block where it lacks some of their rows.
+\item A value the reference holds nowhere in the table comes directly after
+the reference's value of its attribute that the reference places last
+among those the bundled classification orders before its own, or,
+where there is none, directly before the reference's first value of
+its attribute; a value the bundled classification lacks comes last in
+its attribute's run.
+\item Rows that share a place are in the bundled classification's order,
+those whose value it lacks in their order in the joined table, so that
+each attribute's run stays contiguous.
+}
+
+So the attributes, and the values that the reference holds in the table or
+the bundled classification holds, follow one order in every block, while
+the values that neither holds follow, in each block, their order in the
+joined table, which can differ between blocks. Each block of the reference
+holds its summary rows in the order of the release of the
+infectious-agent list it was calculated from, and the reference's order
+keeps the order of every block. Where the blocks leave it open, as for two
+attributes, or two values, that the blocks order neither directly nor through
+others, the bundled classification decides it as far as the blocks allow:
+place by place, of the attributes or values the blocks let come next, the
+first in its order, a value it lacks after those it holds, and two values it
+lacks in the order in which the reference's table first shows them. The
+joined table holds the rows of the datasets in the order in which they are
+passed, the first dataset's first, each later one adding the rows the
+earlier ones lack. A summary row of an attribute the bundled
+classification lacks, which only a dataset calculated by another version
+of neoipcr can hold, is placed as a top-level row of the tree. Siblings
+keep the order the reference gives them, and a row the reference lacks
+follows its siblings, in its order in the joined table, but precedes a
+residual "n.o.s." (not otherwise specified) row, which stays last among
+its node's children. A dataset has a row wherever it records an
+infectious agent at or beneath the row's node, and in a resistance
+category's block one to which the list applies the category or with a
+result for it, so a dataset without a row has none of its events, and the
+row gives it 0 events, with their interval, over its own denominator of
+the row: its infections with an infectious agent in the tree (in total and
+of each type) for the infectious agents detected; its patient-days for the
+infections with resistant infectious agents; and none for the resistance
+rates, which have no rate there. A table calculated before its rows had
+\code{node_id}, whose dataset is joined with no other, keeps its rows as they
+are; such a dataset holds its resistance rates per infectious agent as
+\code{organism_resistance_rate_table}, which counts as its
+\code{infectious_agent_resistance_rate_table}.
 }

@@ -136,3 +136,200 @@ test_that("each secondary-BSI rate carries the share of the type's infections fo
   expect_equal(by_dept$n, c(1L, 0L, 0L))
   expect_equal(by_dept$rate, c(100, 0, NaN))
 })
+
+# --- Classified findings ----------------------------------------------------
+
+test_that("the classified findings keep every finding that names an infectious agent, an unknown code included", {
+  # Slots 1-6 name Staphylococcus aureus (934), a synonym of the herpes simplex
+  # virus 1 (2617, whose concept is 3505), "Not listed" (0), "Unidentifiable"
+  # (3561), and a code the list lacks; slot 6 holds a resistance category
+  # alone.
+  findings <- make_test_iaf(
+    c(1L, 1L, 2L, 3L, 4L, 5L),
+    pathogen_key = c(934L, 2617L, 0L, 3561L, 99999999L, NA))
+
+  r <- neoipcr:::classify_infectious_agent_findings(findings)
+
+  expect_equal(r$pathogen_key, c(934L, 2617L, 0L, 3561L, 99999999L))
+  expect_equal(r$concept_key, c(934L, 3505L, 0L, 3561L, 99999999L))
+  expect_equal(r$in_tree, c(TRUE, TRUE, FALSE, FALSE, FALSE))
+  # The list applies every resistance category to "Not listed" and none to
+  # "Unidentifiable"; a code it lacks is an infectious agent to which no
+  # category applies and no common commensal.
+  expect_equal(r$applies_mrsa, c(TRUE, FALSE, TRUE, FALSE, FALSE))
+  expect_equal(r$applies_3gcr, c(FALSE, FALSE, TRUE, FALSE, FALSE))
+  expect_equal(r$common_commensal, c(FALSE, FALSE, FALSE, FALSE, FALSE))
+  expect_equal(r$gram_reaction, c("positive", NA, NA, NA, NA))
+  # The findings' own columns stay.
+  expect_equal(r$agent_finding_key, 1:5)
+  expect_true(all(c("secondary_bsi", "3gcr", "mrsa") %in% names(r)))
+})
+
+# --- The rows of an infectious agent ----------------------------------------
+
+test_that("the node an infectious agent is recorded at has its residual row only where a node beneath it is among the rows given", {
+  # The genus Enterococcus (503) is recorded at its own node, beneath which
+  # the bundled full ontology holds its species.
+  agents <- neoipcr:::classify_infectious_agent_findings(
+    make_test_iaf(1L, pathogen_key = 503L))
+  closure <- neoipcr:::internal_infectious_agent_closure
+  path <- closure$node_id[closure$version == "ontology" &
+                            closure$input_id == 503L]
+  residual <- "LPSN|genus/enterococcus~n.o.s."
+
+  every_row <- neoipcr:::.infectious_agent_memberships(agents, "ontology")
+  expect_setequal(every_row$node_id, c(path, residual))
+
+  # Among the nodes of the genus's own path, none lies beneath it.
+  own_path <- neoipcr:::.infectious_agent_memberships(agents, "ontology",
+                                                      nodes = path)
+  expect_setequal(own_path$node_id, path)
+  expect_false(any(endsWith(own_path$node_id, "~n.o.s.")))
+})
+
+# --- Detections -------------------------------------------------------------
+
+test_that("a detection is an infectious agent once per infection, tested where a slot of it has a result and resistant where one records resistance", {
+  # Form 1, a pneumonia tested positive and answered Yes, names Klebsiella
+  # pneumoniae (390) in its own slot, third-generation cephalosporin resistance
+  # (3GCR) "Not tested" and carbapenem resistance not resistant, and in a
+  # secondary-BSI slot, 3GCR resistant and carbapenem resistance blank. Form 2,
+  # a sepsis, names two synonyms of the herpes simplex virus 1 (2617 and 2616,
+  # whose concept is 3505); form 3, recorded culture-negative, Escherichia coli
+  # (1807) where the form does not ask for it; form 4 a code the list lacks,
+  # 3GCR resistant.
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key              = c("hap", "bsi", "bsi", "bsi"),
+      department_key              = c(1L, 2L, 2L, 2L),
+      sec_bsi                     = c("1", NA, NA, NA),
+      microbiological_test_result = c("1", NA, NA, NA),
+      no_pos_culture              = c(NA, FALSE, TRUE, FALSE)),
+    findings = tibble::tibble(
+      form          = c(1L, 1L, 2L, 2L, 3L, 4L),
+      secondary_bsi = c(FALSE, TRUE, FALSE, FALSE, FALSE, FALSE),
+      pathogen_key  = c(390L, 390L, 2617L, 2616L, 1807L, 99999999L),
+      `3gcr`        = c("not_tested", "yes", NA, NA, "yes", "yes"),
+      car           = c("no", NA, NA, NA, "yes", NA),
+      cor           = NA_character_,
+      mrsa          = NA_character_,
+      vre           = NA_character_))
+
+  r <- neoipcr:::get_infectious_agent_detections(ds, use_cache = FALSE) |>
+    dplyr::arrange(.data$event_key)
+
+  infections <- ds$events$event_key[ds$events$event_type_key != "adm" &
+                                      ds$events$event_type_key != "end"]
+  expect_equal(r$event_key, infections[c(1L, 2L, 4L)])
+  expect_equal(r$department_key, c(1L, 2L, 2L))
+  expect_equal(r$concept_key, c(390L, 3505L, 99999999L))
+  expect_equal(r$in_tree, c(TRUE, TRUE, FALSE))
+  expect_equal(r$applies_3gcr, c(TRUE, FALSE, FALSE))
+  expect_equal(r$tested_3gcr, c(TRUE, FALSE, TRUE))
+  expect_equal(r$resistant_3gcr, c(TRUE, FALSE, TRUE))
+  expect_equal(r$tested_car, c(TRUE, FALSE, FALSE))
+  expect_equal(r$resistant_car, c(FALSE, FALSE, FALSE))
+  expect_equal(r$tested_cor, c(FALSE, FALSE, FALSE))
+  expect_equal(r$gram_reaction, c("negative", NA, NA))
+})
+
+# --- Departments' quartiles -------------------------------------------------
+
+test_that("a department enters a row's quartiles with a positive denominator at the minimum, at 0 without the row's events", {
+  # Departments 1-5 have 5 infections each, with 0 to 4 of the row's; 6 has 4,
+  # below the minimum of a count denominator; 7 has none.
+  departments <- tibble::tibble(
+    row = "a",
+    events = c(0L, 1L, 2L, 3L, 4L, 4L, 0L),
+    denominator = c(5L, 5L, 5L, 5L, 5L, 4L, 0L))
+  pooled <- tibble::tibble(row = "a", pooled = 14 / 29 * 100)
+
+  r <- neoipcr:::.department_quartiles(
+    departments, pooled, by = "row", scale = 100, type = "binomial",
+    denominator = "count")
+
+  expect_equal(r$quartile_departments, 5L)
+  expect_equal(c(r$q1, r$q2, r$q3), c(20, 40, 60))
+  expect_equal(
+    r[c("q1_ci_lower", "q1_ci_upper", "q2_ci_lower", "q2_ci_upper",
+        "q3_ci_lower", "q3_ci_upper")],
+    bootstrap_quantile_ci(c(0L, 1L, 2L, 3L, 4L), rep(5L, 5L),
+                          type = "binomial", multiplier = 100))
+})
+
+test_that("a day denominator enters the quartiles from 50 days", {
+  departments <- tibble::tibble(
+    row = "a",
+    events = c(1L, 2L, 3L, 4L, 5L, 9L),
+    denominator = c(50L, 60L, 70L, 80L, 100L, 49L))
+  pooled <- tibble::tibble(row = "a", pooled = 24 / 409 * 1000)
+
+  r <- neoipcr:::.department_quartiles(
+    departments, pooled, by = "row", scale = 1000, type = "poisson",
+    denominator = "days")
+
+  expect_equal(r$quartile_departments, 5L)
+  rates <- c(1 / 50, 2 / 60, 3 / 70, 4 / 80, 5 / 100) * 1000
+  expect_equal(c(r$q1, r$q2, r$q3),
+               stats::quantile(rates, c(0.25, 0.5, 0.75), names = FALSE))
+  expect_equal(
+    r$q2_ci_lower,
+    bootstrap_quantile_ci(1:5, c(50L, 60L, 70L, 80L, 100L), type = "poisson",
+                          multiplier = 1000)$q2_ci_lower)
+})
+
+test_that("a row shows its quartiles only where 5 departments enter and their median denominator exceeds the one in which the pooled rate gives 1 event", {
+  # Rows a-c have 5 entering departments with a median of 5 infections; row d
+  # has 4. Row a's pooled rate gives 1 event in 2.5 infections, row b's in
+  # exactly 5, and row c's in none.
+  departments <- dplyr::bind_rows(
+    tibble::tibble(row = "a", events = c(1L, 2L, 3L, 2L, 2L),
+                   denominator = 5L),
+    tibble::tibble(row = "b", events = c(1L, 1L, 1L, 1L, 1L),
+                   denominator = 5L),
+    tibble::tibble(row = "c", events = 0L, denominator = rep(5L, 5L)),
+    tibble::tibble(row = "d", events = c(1L, 2L, 3L, 4L),
+                   denominator = 5L))
+  pooled <- tibble::tibble(row = c("a", "b", "c", "d"),
+                           pooled = c(40, 20, 0, 50))
+
+  r <- neoipcr:::.department_quartiles(
+    departments, pooled, by = "row", scale = 100, type = "binomial",
+    denominator = "count")
+
+  expect_equal(r$row, c("a", "b", "c", "d"))
+  expect_equal(r$quartile_departments, c(5L, 5L, 5L, 4L))
+  expect_equal(r$q2, c(40, NA, NA, NA))
+  expect_equal(is.na(r$q2_ci_lower), c(FALSE, TRUE, TRUE, TRUE))
+  # A row no department enters has none.
+  r <- neoipcr:::.department_quartiles(
+    departments[0, ], pooled[1, ], by = "row", scale = 100,
+    type = "binomial", denominator = "count")
+  expect_equal(r$quartile_departments, 0L)
+  expect_true(is.na(r$q1))
+})
+
+test_that("the display test takes the median of the entering departments' denominators, not their smallest or their mean", {
+  # Row a's pooled rate of 10% gives 1 event in 10 infections: the median of
+  # 12 exceeds it, the smallest denominator, 5, does not. Row b's of 12.5%
+  # gives 1 in 8: the median of 6 does not exceed it, the mean, 15.2, does.
+  departments <- dplyr::bind_rows(
+    tibble::tibble(row = "a", events = c(0L, 1L, 1L, 4L, 4L),
+                   denominator = c(5L, 5L, 12L, 40L, 40L)),
+    tibble::tibble(row = "b", events = c(1L, 1L, 1L, 4L, 3L),
+                   denominator = c(5L, 5L, 6L, 30L, 30L)))
+  pooled <- tibble::tibble(row = c("a", "b"), pooled = c(10, 12.5))
+
+  r <- neoipcr:::.department_quartiles(
+    departments, pooled, by = "row", scale = 100, type = "binomial",
+    denominator = "count")
+
+  expect_equal(r$quartile_departments, c(5L, 5L))
+  expect_equal(
+    c(r$q1[1], r$q2[1], r$q3[1]),
+    stats::quantile(c(0, 20, 1 / 12 * 100, 10, 10), c(0.25, 0.5, 0.75),
+                    names = FALSE))
+  expect_false(is.na(r$q2_ci_lower[1]))
+  expect_true(all(is.na(c(r$q1[2], r$q2[2], r$q3[2], r$q1_ci_lower[2],
+                          r$q3_ci_upper[2]))))
+})

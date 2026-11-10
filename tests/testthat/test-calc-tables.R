@@ -38,10 +38,21 @@ table_fns <- list(
        fn = get_infectious_agent_detection_rate_per_inf_type_table, has_q = TRUE),
   list(name = "get_infectious_agent_detection_rate_per_agent_table",
        fn = get_infectious_agent_detection_rate_per_agent_table, has_q = TRUE),
+  list(name = "get_infectious_agent_detection_rate_per_agent_table over the full ontology",
+       fn = \(x, ...) get_infectious_agent_detection_rate_per_agent_table(
+         x, ..., rows = "ontology"),
+       has_q = TRUE),
   list(name = "get_abr_infection_rate_table",
        fn = get_abr_infection_rate_table, has_q = TRUE),
-  list(name = "get_organism_resistance_rate_table",
-       fn = get_organism_resistance_rate_table, has_q = TRUE),
+  list(name = "get_abr_infection_rate_table over the full ontology",
+       fn = \(x, ...) get_abr_infection_rate_table(x, ..., rows = "ontology"),
+       has_q = TRUE),
+  list(name = "get_infectious_agent_resistance_rate_table",
+       fn = get_infectious_agent_resistance_rate_table, has_q = TRUE),
+  list(name = "get_infectious_agent_resistance_rate_table over the full ontology",
+       fn = \(x, ...) get_infectious_agent_resistance_rate_table(
+         x, ..., rows = "ontology"),
+       has_q = TRUE),
   list(name = "get_resistance_test_rate_table",
        fn = get_resistance_test_rate_table, has_q = TRUE),
   list(name = "get_secondary_bsi_rate_table",
@@ -74,8 +85,11 @@ test_that("the infectious-agent table builders refuse pseudonymized events, and 
   needs_full_events <- c(
     "get_infectious_agent_detection_rate_per_inf_type_table",
     "get_infectious_agent_detection_rate_per_agent_table",
+    "get_infectious_agent_detection_rate_per_agent_table over the full ontology",
     "get_abr_infection_rate_table",
-    "get_organism_resistance_rate_table",
+    "get_abr_infection_rate_table over the full ontology",
+    "get_infectious_agent_resistance_rate_table",
+    "get_infectious_agent_resistance_rate_table over the full ontology",
     "get_resistance_test_rate_table",
     "get_secondary_bsi_rate_table")
   for (entry in table_fns) {
@@ -180,12 +194,8 @@ test_that("dev_ass_incidence_density_rate_table CVC event matches fixture", {
 test_that("infectious_agent_detection_per_inf_type all BSI have pathogens", {
   result <- get_infectious_agent_detection_rate_per_inf_type_table(
     calc_ds, use_cache = FALSE, include_quartiles = FALSE)
-  # 4 rows: all, bsi, hap, ssi
-  expect_equal(as.character(result$inf), c("all", "bsi", "hap", "ssi"))
-  all_row <- result[result$inf == "all", ]
-  # 2 infections, both with pathogens = 100%
-  expect_equal(all_row$n, 2L)
-  expect_equal(all_row$pooled, 100)
+  # 3 rows: bsi, hap, ssi; none for all types together.
+  expect_equal(as.character(result$inf), c("bsi", "hap", "ssi"))
   # Both episodes name an infectious agent, over every episode.
   bsi_row <- result[result$inf == "bsi", ]
   expect_equal(bsi_row$n, 2L)
@@ -198,37 +208,123 @@ test_that("infectious_agent_detection_per_agent has Total row", {
     calc_ds, use_cache = FALSE, include_quartiles = FALSE)
   expect_equal(result$group[1], "Total")
   expect_equal(result$n[1], 2L)
+  expect_equal(result$total[1], 2L)
   expect_equal(result$pooled[1], 100)
 })
 
-test_that("abr_infection_rate_table has 5 ABR types, all zero", {
+# calc_ds's two sepsis name Azorhizobium caulinodans (1), a Gram-negative
+# aerobic non-fermenting bacillus to which the list applies no resistance
+# category, and the genus Enterococcus (503), Gram-positive and
+# facultatively anaerobic, to which it applies vancomycin resistance alone;
+# each slot records every category as not resistant. A value recorded for a
+# category that cannot apply still opens the rows above its infectious agent
+# that lie on the paths of those the list applies the category to.
+
+# The rows of each category's block over the reporting groups, by its Total.
+calc_ds_block_rows <- tibble::tribble(
+  ~abr,   ~group,                                         ~level,
+  "3gcr", "Total",                                            0L,
+  "3gcr", "Gram-negative",                                    1L,
+  "3gcr", "Aerobic",                                          1L,
+  "3gcr", "Facultatively anaerobic",                          1L,
+  "3gcr", "Bacteria",                                         1L,
+  "3gcr", "Gram-negative bacilli, not Enterobacterales",      2L,
+  "3gcr", "Non-fermenting Gram-negative bacilli",             3L,
+  "car",  "Total",                                            0L,
+  "car",  "Gram-positive",                                    1L,
+  "car",  "Gram-negative",                                    1L,
+  "car",  "Aerobic",                                          1L,
+  "car",  "Facultatively anaerobic",                          1L,
+  "car",  "Bacteria",                                         1L,
+  "car",  "Gram-negative bacilli, not Enterobacterales",      2L,
+  "car",  "Non-fermenting Gram-negative bacilli",             3L,
+  "cor",  "Total",                                            0L,
+  "cor",  "Gram-negative",                                    1L,
+  "cor",  "Aerobic",                                          1L,
+  "cor",  "Facultatively anaerobic",                          1L,
+  "cor",  "Bacteria",                                         1L,
+  "cor",  "Gram-negative bacilli, not Enterobacterales",      2L,
+  "cor",  "Non-fermenting Gram-negative bacilli",             3L,
+  "mrsa", "Total",                                            0L,
+  "mrsa", "Gram-positive",                                    1L,
+  "mrsa", "Facultatively anaerobic",                          1L,
+  "mrsa", "Bacteria",                                         1L,
+  "mrsa", "Gram-positive cocci",                              2L,
+  "vre",  "Total",                                            0L,
+  "vre",  "Gram-positive",                                    1L,
+  "vre",  "Facultatively anaerobic",                          1L,
+  "vre",  "Bacteria",                                         1L,
+  "vre",  "Gram-positive cocci",                              2L)
+
+test_that("abr_infection_rate_table has a Total per category, and rows only on the paths of the infectious agents it applies to, all zero", {
   result <- get_abr_infection_rate_table(calc_ds, use_cache = FALSE,
     include_quartiles = FALSE)
-  # 5 rows: 3gcr, car, cor, mrsa, vre (all resistance = "no")
-  expect_equal(nrow(result), 5L)
+  # The genus Enterococcus gives the carbapenem block its Gram-positive row,
+  # since the list applies carbapenem resistance to some Gram-positive
+  # bacteria, but no row of the Gram-positive cocci, to none of which it
+  # applies it.
+  expect_equal(paste(result$abr, result$group),
+               paste(calc_ds_block_rows$abr, calc_ds_block_rows$group))
+  expect_equal(result$level, calc_ds_block_rows$level)
   expect_true(all(result$n == 0L))
+  # Over all 47 patient-days.
+  expect_true(all(result$total == 47L))
   expect_true(all(result$pooled == 0))
-})
 
-test_that("organism_resistance_rate_table rows are all zero", {
-  result <- get_organism_resistance_rate_table(calc_ds, use_cache = FALSE,
-    include_quartiles = FALSE)
-  expect_true(nrow(result) > 0L)
+  result <- get_abr_infection_rate_table(calc_ds, use_cache = FALSE,
+    include_quartiles = FALSE, rows = "ontology")
+  # The genus Enterococcus, which no other infectious agent of the dataset
+  # lies beneath, has a residual row in the block of vancomycin-resistant
+  # Enterococcus (VRE).
+  expect_equal(
+    paste(result$abr, result$group),
+    c("3gcr Total", "3gcr Bacteria", "3gcr Pseudomonadati",
+      "3gcr Pseudomonadota",
+      "car Total", "car Bacteria", "car Bacillati", "car Bacillota",
+      "car Pseudomonadati", "car Pseudomonadota",
+      "cor Total", "cor Bacteria", "cor Pseudomonadati", "cor Pseudomonadota",
+      "mrsa Total", "mrsa Bacteria", "mrsa Bacillati", "mrsa Bacillota",
+      "mrsa Bacilli",
+      "vre Total", "vre Bacteria", "vre Bacillati", "vre Bacillota",
+      "vre Bacilli", "vre Lactobacillales", "vre Enterococcaceae",
+      "vre Enterococcus", "vre Enterococcus n.o.s."))
   expect_true(all(result$n == 0L))
 })
 
-test_that("resistance_test_rate_table has 7 rows with expected rates", {
+test_that("the resistance rates per infectious agent have rows only on the paths of the infectious agents a category applies to, all zero", {
+  result <- get_infectious_agent_resistance_rate_table(calc_ds,
+    use_cache = FALSE, include_quartiles = FALSE)
+  expect_s3_class(result, "neoipcr_tbl_iarr")
+  rows <- calc_ds_block_rows[calc_ds_block_rows$group != "Total", ]
+  expect_equal(paste(result$abr, result$group), paste(rows$abr, rows$group))
+  expect_true(all(result$n == 0L))
+  # The Bacteria rows count both infections' results, recorded for a
+  # category the list does not apply to their infectious agent but for
+  # vancomycin resistance and the genus Enterococcus, while the Tested share
+  # takes the infectious agents the category applies to alone.
+  expect_equal(result$total, ifelse(rows$group == "Bacteria", 2L, 1L))
+  expect_true(all(result$pooled == 0))
+  vre <- rows$abr == "vre"
+  expect_equal(result$tested_n, ifelse(vre, 1L, 0L))
+  expect_equal(result$tested_total, ifelse(vre, 1L, 0L))
+  expect_equal(result$tested_pooled, ifelse(vre, 100, NA_real_))
+})
+
+test_that("resistance_test_rate_table has 7 rows, each over the detections the list applies its category to", {
   result <- get_resistance_test_rate_table(calc_ds, use_cache = FALSE,
     include_quartiles = FALSE)
-  # 5 routine + 2 conditional = 7
-  expect_equal(nrow(result), 7L)
-  routine <- result[result$cond == "routine", ]
-  # All 2 IAF entries have resistance != "not_tested" → tested = 2, rate = 100
-  expect_true(all(routine$n == 2L))
-  expect_true(all(routine$pooled == 100))
-  # Conditional rows: n = 0 (no 3gcr = "yes" findings)
-  conditional <- result[result$cond != "routine", ]
-  expect_true(all(conditional$n == 0L))
+  expect_equal(
+    names(result),
+    c("abr", "cond", "n", "total", "pooled", "ci_lower", "ci_upper"))
+  expect_equal(
+    paste(result$abr, result$cond),
+    c("3gcr routine", "car routine", "car if_3gcr", "cor routine",
+      "cor if_3gcr&car", "mrsa routine", "vre routine"))
+  # Only vancomycin resistance applies, to the genus Enterococcus, whose
+  # result is recorded; the values recorded for Azorhizobium count nowhere.
+  expect_equal(result$n, c(0L, 0L, 0L, 0L, 0L, 0L, 1L))
+  expect_equal(result$total, c(0L, 0L, 0L, 0L, 0L, 0L, 1L))
+  expect_equal(result$pooled, c(NA, NA, NA, NA, NA, NA, 100))
 })
 
 test_that("secondary_bsi_rate_table has 3 types, all zero", {
@@ -375,6 +471,30 @@ test_that("calculate_department_data survives empty data", {
 test_that("calculate_reference_data survives empty data", {
   result <- calculate_reference_data(empty_ds, use_cache = FALSE)
   expect_s3_class(result, "neoipcr_ref_ds")
+})
+
+test_that("a table builder refuses a calculated dataset that lacks its table", {
+  # NEOIPC-PERMANENT(dataset-format): see check_ds_and_try_get_table(). A
+  # calculated dataset written before a table existed has no slot for it, and
+  # a calculated dataset holds nothing the table could be computed from.
+  ds <- make_calc_test_ds()
+  calculated <- calculate_department_data(ds, use_cache = FALSE)
+  calculated$infectious_agent_detection_rate_per_agent_ontology_table <- NULL
+  cnd <- expect_error(
+    get_infectious_agent_detection_rate_per_agent_table(
+      calculated, include_quartiles = FALSE, rows = "ontology"),
+    class = "neoipcr_table_not_in_dataset")
+  expect_match(conditionMessage(cnd),
+               "infectious_agent_detection_rate_per_agent_ontology_table",
+               fixed = TRUE)
+
+  reference <- calculate_reference_data(ds, use_cache = FALSE)
+  reference$abr_infection_rate_ontology_table <- NULL
+  for (include_quartiles in c(TRUE, FALSE))
+    expect_error(
+      get_abr_infection_rate_table(
+        reference, include_quartiles = include_quartiles, rows = "ontology"),
+      class = "neoipcr_table_not_in_dataset")
 })
 
 # --- get_cumulative_incidence_table ---
@@ -634,8 +754,12 @@ infectious_agent_tables <- function(ds) list(
     ds, use_cache = FALSE, include_quartiles = FALSE),
   abr_infection = get_abr_infection_rate_table(
     ds, use_cache = FALSE, include_quartiles = FALSE),
-  organism_resistance = get_organism_resistance_rate_table(
+  abr_infection_ontology = get_abr_infection_rate_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE, rows = "ontology"),
+  resistance = get_infectious_agent_resistance_rate_table(
     ds, use_cache = FALSE, include_quartiles = FALSE),
+  resistance_ontology = get_infectious_agent_resistance_rate_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE, rows = "ontology"),
   resistance_test = get_resistance_test_rate_table(
     ds, use_cache = FALSE, include_quartiles = FALSE),
   secondary_bsi = get_secondary_bsi_rate_table(
@@ -675,9 +799,6 @@ test_that("a slot without an infectious agent leaves every infectious-agent figu
   base    <- make_infection_calc_test_ds(forms, agents)
   variant <- make_infection_calc_test_ds(forms, dplyr::bind_rows(agents, companions))
 
-  # The organism-resistance table joins the classification on `pathogen_key`,
-  # which drops a finding without one by itself, so its comparison guards a
-  # change of that join rather than this rule.
   expect_equal(infectious_agent_tables(variant), infectious_agent_tables(base))
 })
 
@@ -709,10 +830,8 @@ test_that("the share of pneumonias tested counts a test recorded positive or neg
   expect_equal(hap$pooled, 50)
   ci <- neoipc_wilson_ci(1L, 2L)
   expect_equal(c(hap$ci_lower, hap$ci_upper), c(ci$lower, ci$upper) * 100)
-  # The row of all types keeps every infection and every slot.
-  expect_equal(r$n[r$inf == "all"], 2L)
-  expect_equal(r$tested[r$inf == "all"], 5L)
-  expect_equal(r$pooled[r$inf == "all"], 40)
+  # No row gives all types together.
+  expect_false("all" %in% r$inf)
 })
 
 test_that("the share of SSIs tested counts the culture at the depth the infection type records", {
@@ -744,7 +863,7 @@ test_that("the share of SSIs tested counts the culture at the depth the infectio
   expect_equal(ssi$pooled, 50)
 })
 
-test_that("the table has no NEC row, and its row of all types counts every infection whatever the form asks for", {
+test_that("the table has a row each for sepsis/BSI, pneumonia, and SSI, none for NEC or all types, and counts no slot its form does not ask for", {
   # NEC 1 is followed up and answered Yes with an infectious agent in its
   # secondary-BSI slots, NEC 2 answered No with one left there, NEC 3 not
   # followed up. Pneumonia 4, not tested, and sepsis 5, recorded
@@ -763,17 +882,17 @@ test_that("the table has no NEC row, and its row of all types counts every infec
   r <- get_infectious_agent_detection_rate_per_inf_type_table(
     ds, use_cache = FALSE, include_quartiles = FALSE)
 
-  expect_equal(as.character(r$inf), c("all", "bsi", "hap", "ssi"))
-  all_types <- r[r$inf == "all", ]
-  expect_equal(all_types$n, 4L)
-  expect_equal(all_types$tested, 5L)
-  expect_equal(all_types$total, 5L)
-  expect_equal(all_types$pooled, 80)
-  ci <- neoipc_wilson_ci(4L, 5L)
-  expect_equal(c(all_types$ci_lower, all_types$ci_upper),
-               c(ci$lower, ci$upper) * 100)
-  expect_true(all(is.na(c(all_types$tested_pooled, all_types$tested_ci_lower,
-                          all_types$tested_ci_upper))))
+  expect_equal(as.character(r$inf), c("bsi", "hap", "ssi"))
+  expect_equal(levels(r$inf), c("bsi", "hap", "ssi"))
+  # Sepsis 5 is in its denominator, not positive; pneumonia 4 is in the
+  # tested share's denominator, not tested.
+  bsi <- r[r$inf == "bsi", ]
+  expect_equal(c(bsi$n, bsi$tested, bsi$total), c(0L, 1L, 1L))
+  expect_equal(bsi$pooled, 0)
+  hap <- r[r$inf == "hap", ]
+  expect_equal(c(hap$n, hap$tested, hap$total), c(0L, 0L, 1L))
+  expect_true(is.na(hap$pooled))
+  expect_equal(hap$tested_pooled, 0)
   # A type without infections has its counts at 0 and no share.
   ssi <- r[r$inf == "ssi", ]
   expect_equal(c(ssi$n, ssi$tested, ssi$total), c(0L, 0L, 0L))
@@ -872,10 +991,8 @@ test_that("the positive share counts a test recorded positive with an own slot n
   expect_equal(c(ssi$n, ssi$tested, ssi$total), c(1L, 4L, 4L))
   expect_equal(ssi$pooled, 25)
   expect_equal(ssi$tested_pooled, 100)
-  # The row of all types counts every infection whose slots name an
-  # infectious agent, whatever the form asks for.
-  expect_equal(r$n[r$inf == "all"], 6L)
-  expect_equal(r$pooled[r$inf == "all"], 600 / 9)
+  # No row gives all types together.
+  expect_false("all" %in% r$inf)
 })
 
 test_that("the follow-up for a secondary BSI moves neither share", {
@@ -936,28 +1053,31 @@ test_that("the positive share counts \"Not listed\", \"Unidentifiable\", and a c
     expect_equal(r$n[r$inf == type], 3L)
     expect_equal(r$pooled[r$inf == type], 100)
   }
-  expect_equal(r$n[r$inf == "all"], 12L)
-  expect_equal(r$pooled[r$inf == "all"], 100)
+  # The NECs' secondary-BSI slots count in no row, and no row gives all types
+  # together.
+  expect_equal(as.character(r$inf), c("bsi", "hap", "ssi"))
 })
 
 tested_quartile_cols <- c(
   "tested_q1", "tested_q2", "tested_q3",
   "tested_q1_ci_lower", "tested_q1_ci_upper",
   "tested_q2_ci_lower", "tested_q2_ci_upper",
-  "tested_q3_ci_lower", "tested_q3_ci_upper")
+  "tested_q3_ci_lower", "tested_q3_ci_upper",
+  "tested_quartile_departments")
 
 test_that("the reference per-type table gives each share the departments' quartiles over its own denominator", {
-  # Each department has 8 pneumonias: `tested[d]` of department d are tested,
-  # `positive[d]` of these positive with an infectious agent in an own slot,
-  # and every pneumonia is followed up for a secondary BSI and answered No.
-  # The departments take the keys 1, 2, 4, 5, and so on: department 3 has no
-  # infections and enters no quartiles.
-  departments <- function(tested, positive) {
+  # Each department has `size` pneumonias: `tested[d]` of department d are
+  # tested, `positive[d]` of these positive with an infectious agent in an own
+  # slot, and every pneumonia is followed up for a secondary BSI and answered
+  # No. The departments take the keys 1, 2, 4, 5, and so on: department 3 has
+  # no infections and enters no quartiles.
+  departments <- function(tested, positive, size = 20L) {
+    size <- rep_len(size, length(tested))
     forms <- dplyr::bind_rows(lapply(seq_along(tested), \(d) tibble::tibble(
       department_key              = d + (d >= 3L),
       microbiological_test_result = rep(
         c("1", "0", "-1"),
-        c(positive[d], tested[d] - positive[d], 8L - tested[d])),
+        c(positive[d], tested[d] - positive[d], size[d] - tested[d])),
       sec_bsi                     = "0")))
     make_infection_calc_test_ds(
       forms    = dplyr::mutate(forms, event_type_key = "hap"),
@@ -968,90 +1088,1103 @@ test_that("the reference per-type table gives each share the departments' quarti
   }
   quartiles <- function(row, prefix = "")
     unlist(row[paste0(prefix, c("q1", "q2", "q3"))], use.names = FALSE)
-  intervals <- function(row)
-    unlist(row[c("q1_ci_lower", "q1_ci_upper", "q2_ci_lower", "q2_ci_upper",
-                 "q3_ci_lower", "q3_ci_upper")], use.names = FALSE)
+  intervals <- function(row, prefix = "")
+    unlist(row[paste0(prefix, c("q1_ci_lower", "q1_ci_upper", "q2_ci_lower",
+                                "q2_ci_upper", "q3_ci_lower", "q3_ci_upper"))],
+           use.names = FALSE)
   binomial_intervals <- function(events, denominators)
     unlist(bootstrap_quantile_ci(events, denominators, type = "binomial",
                                  multiplier = 100), use.names = FALSE)
 
-  # Departments 1-5 test 25, 50, 75, 100, and 100% of their pneumonias, the
-  # pooled 70% passing the gate against a median of 8 pneumonias, and find
-  # an infectious agent in 50, 25, 50, 25, and 100% of the tested, the pooled
-  # 15 of 28 passing it against a median of 6 tested pneumonias.
-  tested   <- c(2L, 4L, 6L, 8L, 8L)
-  positive <- c(1L, 1L, 3L, 2L, 8L)
-  ds <- departments(tested, positive)
+  # Departments 1-5 have 20 pneumonias each and test 25, 50, 75, 100, and
+  # 100% of them, and find an infectious agent in 40, 0, 60, 25, and 100% of
+  # the tested, department 2 entering the positive share's quartiles at 0.
+  # Department 6 has 4 pneumonias, all tested positive, below the minimum of
+  # 5 of either share's denominator: it enters neither share's quartiles,
+  # while its pneumonias count in the pooled shares, 74 of 104 tested and 40
+  # of these positive. Each pooled share passes the display test, against a
+  # median of 20 pneumonias and of 15 tested ones.
+  tested   <- c(5L, 10L, 15L, 20L, 20L, 4L)
+  positive <- c(2L, 0L, 9L, 5L, 20L, 4L)
+  ds <- departments(tested, positive, size = c(rep(20L, 5), 4L))
   r <- get_infectious_agent_detection_rate_per_inf_type_table(
     ds, use_cache = TRUE)
+  expect_equal(
+    names(r),
+    c("inf", "n", "tested", "pooled", "ci_lower", "ci_upper",
+      "q1", "q2", "q3", "q1_ci_lower", "q1_ci_upper", "q2_ci_lower",
+      "q2_ci_upper", "q3_ci_lower", "q3_ci_upper", "quartile_departments",
+      "total", "tested_pooled", "tested_ci_lower", "tested_ci_upper",
+      tested_quartile_cols))
   hap <- r[r$inf == "hap", ]
+  expect_equal(c(hap$n, hap$tested, hap$total), c(40L, 74L, 104L))
+  expect_equal(hap$tested_pooled, 7400 / 104)
+  expect_equal(hap$pooled, 4000 / 74)
   expect_equal(quartiles(hap, "tested_"), c(50, 75, 100))
-  expect_equal(unlist(hap[tested_quartile_cols[4:9]], use.names = FALSE),
-               binomial_intervals(tested, rep(8L, 5)))
-  expect_equal(quartiles(hap), c(25, 50, 50))
-  expect_equal(intervals(hap), binomial_intervals(positive, tested))
-  # The row of all types takes each department's share of every infection in
-  # which a slot names an infectious agent: 1, 1, 3, 2, and 8 of 8, the
-  # pooled 15 of 40 passing the gate against a median of 8 infections.
-  all_types <- r[r$inf == "all", ]
-  expect_equal(quartiles(all_types), c(12.5, 25, 37.5))
-  expect_equal(intervals(all_types), binomial_intervals(positive, rep(8L, 5)))
-  # Sepsis/BSI and the row of all types have no tested share.
-  expect_true(all(is.na(unlist(
-    r[r$inf %in% c("all", "bsi"), tested_quartile_cols]))))
-  # A table without quartiles leaves those of the tested shares out too.
-  expect_false(any(tested_quartile_cols %in% names(
-    get_infectious_agent_detection_rate_per_inf_type_table(
-      ds, use_cache = TRUE, include_quartiles = FALSE))))
+  expect_equal(intervals(hap, "tested_"),
+               binomial_intervals(tested[1:5], rep(20L, 5)))
+  expect_equal(hap$tested_quartile_departments, 5L)
+  expect_equal(quartiles(hap), c(25, 40, 60))
+  expect_equal(intervals(hap), binomial_intervals(positive[1:5], tested[1:5]))
+  expect_equal(hap$quartile_departments, 5L)
+  # Sepsis/BSI has no tested share, and no row gives all types together.
+  expect_equal(as.character(r$inf), c("bsi", "hap", "ssi"))
+  expect_true(all(is.na(unlist(r[r$inf == "bsi", tested_quartile_cols]))))
+  # A table without quartiles leaves out both shares' quartiles and the
+  # departments that enter them.
+  without <- get_infectious_agent_detection_rate_per_inf_type_table(
+    ds, use_cache = TRUE, include_quartiles = FALSE)
+  expect_false(any(c("q1", "quartile_departments", tested_quartile_cols) %in%
+                     names(without)))
 
   # Department 5 tests none of its pneumonias: it enters the tested share's
-  # quartiles at 0, and the positive share's 4 departments are too few.
+  # quartiles at 0, and the positive share's 4 departments are too few,
+  # their number given all the same.
   hap <- (\(r) r[r$inf == "hap", ])(
     get_infectious_agent_detection_rate_per_inf_type_table(
-      departments(c(2L, 4L, 6L, 8L, 0L), c(1L, 1L, 3L, 2L, 0L)),
+      departments(c(5L, 10L, 15L, 20L, 0L), c(2L, 0L, 9L, 5L, 0L)),
       use_cache = FALSE))
   expect_equal(quartiles(hap, "tested_"), c(25, 50, 75))
-  expect_true(all(is.na(quartiles(hap))))
+  expect_equal(hap$tested_quartile_departments, 5L)
+  expect_true(all(is.na(c(quartiles(hap), intervals(hap)))))
+  expect_equal(hap$quartile_departments, 4L)
 
   # Every department tests all its 8 pneumonias and finds an infectious
   # agent in 1: at the pooled share of 12.5%, 8 tested pneumonias give 1
   # positive one, and the departments' median of 8 tested pneumonias does not
-  # exceed them.
+  # exceed them, though all 5 enter.
   hap <- (\(r) r[r$inf == "hap", ])(
     get_infectious_agent_detection_rate_per_inf_type_table(
-      departments(rep(8L, 5), rep(1L, 5)), use_cache = FALSE))
+      departments(rep(8L, 5), rep(1L, 5), size = 8L), use_cache = FALSE))
   expect_equal(quartiles(hap, "tested_"), c(100, 100, 100))
-  expect_true(all(is.na(quartiles(hap))))
+  expect_true(all(is.na(c(quartiles(hap), intervals(hap)))))
+  expect_equal(hap$quartile_departments, 5L)
 
   # 4 departments are too few for either share's quartiles.
   hap <- (\(r) r[r$inf == "hap", ])(
     get_infectious_agent_detection_rate_per_inf_type_table(
       departments(tested[1:4], positive[1:4]), use_cache = FALSE))
-  expect_true(all(is.na(c(quartiles(hap, "tested_"), quartiles(hap)))))
-  expect_true(all(is.na(unlist(hap[tested_quartile_cols]))))
+  expect_true(all(is.na(c(quartiles(hap), intervals(hap)))))
+  expect_true(all(is.na(unlist(hap[tested_quartile_cols[1:9]]))))
+  expect_equal(c(hap$quartile_departments, hap$tested_quartile_departments),
+               c(4L, 4L))
 
-  # Sepsis/BSI's positive share takes every episode. Each department has 4
-  # episodes, of which 1, 2, 2, 3, and 4 name an infectious agent, the pooled
-  # 60% passing the gate against a median of 4 episodes; with no other
-  # infection, the row of all types has the same quartiles.
-  episodes <- c(1L, 2L, 2L, 3L, 4L)
-  r <- get_infectious_agent_detection_rate_per_inf_type_table(
-    make_infection_calc_test_ds(
-      forms    = tibble::tibble(
-        event_type_key = "bsi",
-        department_key = rep(1:5, each = 4),
-        no_pos_culture = NA),
-      findings = tibble::tibble(
-        form          = which(sequence(rep(4L, 5)) <= rep(episodes, each = 4)),
-        secondary_bsi = FALSE,
-        pathogen_key  = 1L)),
-    use_cache = FALSE)
-  for (type in c("bsi", "all")) {
-    row <- r[r$inf == type, ]
-    expect_equal(quartiles(row), c(50, 50, 75), info = type)
-    expect_equal(intervals(row), binomial_intervals(episodes, rep(4L, 5)),
-                 info = type)
+  # Sepsis/BSI's positive share takes every episode. Each department has 5
+  # episodes, of which 1, 2, 2, 3, and 5 name an infectious agent, the pooled
+  # 52% passing the display test against a median of 5 episodes.
+  episodes <- c(1L, 2L, 2L, 3L, 5L)
+  bsi <- (\(r) r[r$inf == "bsi", ])(
+    get_infectious_agent_detection_rate_per_inf_type_table(
+      make_infection_calc_test_ds(
+        forms    = tibble::tibble(
+          event_type_key = "bsi",
+          department_key = rep(1:5, each = 5),
+          no_pos_culture = NA),
+        findings = tibble::tibble(
+          form          = which(sequence(rep(5L, 5)) <=
+                                  rep(episodes, each = 5)),
+          secondary_bsi = FALSE,
+          pathogen_key  = 1L)),
+      use_cache = FALSE))
+  expect_equal(quartiles(bsi), c(40, 40, 60))
+  expect_equal(intervals(bsi), binomial_intervals(episodes, rep(5L, 5)))
+  expect_equal(bsi$quartile_departments, 5L)
+  expect_equal(bsi$total, 25L)
+  expect_true(all(is.na(unlist(bsi[c("tested_pooled", "tested_ci_lower",
+                                     "tested_ci_upper",
+                                     tested_quartile_cols)]))))
+})
+
+# --- Infectious agents detected: golden tests --------------------------------
+#
+# make_infectious_agent_calc_test_ds() describes the 17 infections. Forms 8,
+# 16, and 17 name no infectious agent in a slot the form asks for, so 14 are
+# confirmed: sepsis 1-4, 10, 11, 13, and 14, pneumonias 5, 6, and 12, NEC 7,
+# and SSIs 9 and 15. Forms 13 and 15 are confirmed only by "Not listed" and a
+# code the list lacks, so 12 have an infectious agent in the tree: 7 sepsis,
+# 3 pneumonias, 1 NEC, and 1 SSI.
+
+golden_ds <- make_infectious_agent_calc_test_ds()
+
+# The ontology version's rows of the golden fixture: the infections with an
+# infectious agent at or beneath each node.
+golden_ontology_rows <- tibble::tribble(
+  ~group,                             ~level, ~n,
+  "Total",                                0L, 18L,
+  "Bacteria",                             1L,  7L,
+  "Bacillati",                            2L,  4L,
+  "Bacillota",                            3L,  4L,
+  "Bacilli",                              4L,  4L,
+  "Caryophanales",                        5L,  3L,
+  "Staphylococcaceae",                    6L,  3L,
+  "Staphylococcus",                       7L,  3L,
+  "Coagulase-positive staphylococci",     8L,  2L,
+  "Staphylococcus aureus complex",        9L,  2L,
+  "Staphylococcus aureus",               10L,  2L,
+  "Coagulase-negative staphylococci",     8L,  1L,
+  "Staphylococcus epidermidis",           9L,  1L,
+  "Staphylococcus n.o.s.",                8L,  1L,
+  "Lactobacillales",                      5L,  1L,
+  "Enterococcaceae",                      6L,  1L,
+  "Enterococcus",                         7L,  1L,
+  "Enterococcus faecalis",                8L,  1L,
+  "Pseudomonadati",                       2L,  3L,
+  "Pseudomonadota",                       3L,  3L,
+  "Gammaproteobacteria",                  4L,  3L,
+  "Enterobacterales",                     5L,  2L,
+  "Enterobacteriaceae",                   6L,  2L,
+  "Escherichia",                          7L,  1L,
+  "Escherichia coli",                     8L,  1L,
+  "Klebsiella",                           7L,  1L,
+  "Klebsiella pneumoniae",                8L,  1L,
+  "Pseudomonadales",                      5L,  1L,
+  "Pseudomonadaceae",                     6L,  1L,
+  "Pseudomonas",                          7L,  1L,
+  "Pseudomonas aeruginosa",               8L,  1L,
+  "Fungi",                                1L,  3L,
+  "Dikarya",                              2L,  3L,
+  "Ascomycota",                           3L,  3L,
+  "Saccharomycotina",                     4L,  2L,
+  "Pichiomycetes",                        5L,  2L,
+  "Serinales",                            6L,  2L,
+  "Debaryomycetaceae",                    7L,  2L,
+  "Candida",                              8L,  2L,
+  "Candida albicans",                     9L,  1L,
+  "Candida n.o.s.",                       9L,  1L,
+  "Pezizomycotina",                       4L,  1L,
+  "Eurotiomycetes",                       5L,  1L,
+  "Eurotiomycetidae",                     6L,  1L,
+  "Eurotiales",                           7L,  1L,
+  "Aspergillaceae",                       8L,  1L,
+  "Aspergillus",                          9L,  1L,
+  "Aspergillus fumigatus",               10L,  1L,
+  "Viruses",                              1L,  3L,
+  "Duplodnaviria",                        2L,  1L,
+  "Heunggongvirae",                       3L,  1L,
+  "Peploviricota",                        4L,  1L,
+  "Herviviricetes",                       5L,  1L,
+  "Herpesvirales",                        6L,  1L,
+  "Orthoherpesviridae",                   7L,  1L,
+  "Alphaherpesvirinae",                   8L,  1L,
+  "Simplexvirus",                         9L,  1L,
+  "Human herpes simplex virus",          10L,  1L,
+  "Simplexvirus humanalpha1",            11L,  1L,
+  "Riboviria",                            2L,  1L,
+  "Orthornavirae",                        3L,  1L,
+  "Pisuviricota",                         4L,  1L,
+  "Pisoniviricetes",                      5L,  1L,
+  "Picornavirales",                       6L,  1L,
+  "Picornaviridae",                       7L,  1L,
+  "Ensavirinae",                          8L,  1L,
+  "Enterovirus",                          9L,  1L,
+  "Enterovirus betacoxsackie",           10L,  1L,
+  "Varidnaviria",                         2L,  1L,
+  "Bamfordvirae",                         3L,  1L,
+  "Preplasmiviricota",                    4L,  1L,
+  "Polisuviricotina",                     5L,  1L,
+  "Pharingeaviricetes",                   6L,  1L,
+  "Rowavirales",                          7L,  1L,
+  "Adenoviridae",                         8L,  1L,
+  "Mastadenovirus",                       9L,  1L,
+  "Human adenovirus",                    10L,  1L,
+  "Mastadenovirus adami",                11L,  1L,
+  "Protozoa",                             1L,  1L,
+  "Myxomycota",                           2L,  1L,
+  "Prototheca",                           3L,  1L,
+  "Prototheca zopfii",                    4L,  1L)
+
+test_that("the Total counts every infectious agent once per infection, those outside the tree included", {
+  for (rows in c("groups", "ontology")) {
+    r <- get_infectious_agent_detection_rate_per_agent_table(
+      golden_ds, use_cache = FALSE, include_quartiles = FALSE, rows = rows)
+    total <- r[1, ]
+    expect_equal(total$level, 0L)
+    expect_equal(total$group, "Total")
+    expect_true(is.na(total$node_id))
+    # 18 infectious agents in 14 confirmed infections: forms 1, 6, 9, and 14
+    # hold 2 each, form 5 one in two slots, and form 10 two synonyms of one
+    # concept.
+    expect_equal(total$n, 18L)
+    expect_equal(total$total, 14L)
+    expect_equal(total$pooled, 18 / 14 * 100)
+    ci <- neoipc_poisson_ci(18, 14, multiplier = 100)
+    expect_equal(c(total$ci_lower, total$ci_upper), c(ci$lower, ci$upper))
+    # "Not listed", "Unidentifiable", and the code the list lacks.
+    expect_equal(total$n_outside_tree, 3L)
+    # Per type, infectious agents per 100 confirmed infections of the type.
+    expect_equal(
+      unlist(total[c("n_bsi", "n_hap", "n_nec", "n_ssi")], use.names = FALSE),
+      c(10L, 4L, 1L, 3L))
+    expect_equal(
+      unlist(total[c("total_bsi", "total_hap", "total_nec", "total_ssi")],
+             use.names = FALSE),
+      c(8L, 3L, 1L, 2L))
+    expect_equal(total$pooled_hap, 4 / 3 * 100)
+    ci <- neoipc_poisson_ci(4, 3, multiplier = 100)
+    expect_equal(c(total$ci_lower_hap, total$ci_upper_hap),
+                 c(ci$lower, ci$upper))
+    # Every other row's share is over the 12 infections with an infectious
+    # agent in the tree.
+    expect_true(all(r$total[-1] == 12L))
+    expect_true(all(r$total_bsi[-1] == 7L))
+    expect_true(all(is.na(r$n_outside_tree[-1])))
   }
+})
+
+test_that("over the reporting groups, the summary block and the group tree count infections, a parent's included", {
+  r <- get_infectious_agent_detection_rate_per_agent_table(
+    golden_ds, use_cache = FALSE, include_quartiles = FALSE)
+
+  expect_s3_class(r, "neoipcr_tbl_iadrpa")
+  expect_equal(
+    names(r)[1:10],
+    c("level", "rank", "node_id", "parent_id", "group", "n", "total",
+      "pooled", "ci_lower", "ci_upper"))
+  expect_equal(
+    r$node_id,
+    c(NA,
+      "gram_reaction|positive", "gram_reaction|negative",
+      "oxygen_requirement|aerobic",
+      "oxygen_requirement|facultative-anaerobic",
+      "bacteria", "gram-positive-cocci", "enterobacterales",
+      "gram-negative-bacilli", "non-fermenting-gram-negative-bacilli",
+      "fungi", "yeasts", "moulds",
+      "viruses", "parasites"))
+  expect_equal(
+    r$group,
+    c("Total", "Gram-positive", "Gram-negative", "Aerobic",
+      "Facultatively anaerobic", "Bacteria", "Gram-positive cocci",
+      "Enterobacterales", "Gram-negative bacilli, not Enterobacterales",
+      "Non-fermenting Gram-negative bacilli", "Fungi", "Yeasts", "Moulds",
+      "Viruses", "Parasites"))
+  expect_equal(r$level, c(0L, 1L, 1L, 1L, 1L, 1L, 2L, 2L, 2L, 3L, 1L, 2L, 2L,
+                          1L, 1L))
+  expect_equal(
+    r$parent_id,
+    c(NA, NA, NA, NA, NA, NA, "bacteria", "bacteria", "bacteria",
+      "gram-negative-bacilli", NA, "fungi", "fungi", NA, NA))
+  expect_true(all(is.na(r$rank)))
+  # Bacteria: forms 1, 2, 3, 5, 6, 7, and 14; form 1's two staphylococci
+  # count once in their group; form 9's mould and protozoon in two top-level
+  # groups. The summary block counts the bacteria by Gram reaction and oxygen
+  # requirement, in the classification's order of their values.
+  expect_equal(r$n, c(18L, 4L, 3L, 1L, 6L, 7L, 4L, 2L, 1L, 1L, 3L, 2L, 1L,
+                      3L, 1L))
+  expect_equal(r$pooled[-1], r$n[-1] / 12 * 100)
+  ci <- neoipc_wilson_ci(7, 12)
+  expect_equal(c(r$ci_lower[6], r$ci_upper[6]), c(ci$lower, ci$upper) * 100)
+  # The type columns of the bacteria: sepsis 1, 2, 3, and 14, pneumonias 5
+  # and 6, NEC 7, and no SSI.
+  bacteria <- r[r$node_id %in% "bacteria", ]
+  expect_equal(
+    unlist(bacteria[c("n_bsi", "n_hap", "n_nec", "n_ssi")], use.names = FALSE),
+    c(4L, 2L, 1L, 0L))
+  expect_equal(
+    unlist(bacteria[c("total_bsi", "total_hap", "total_nec", "total_ssi")],
+           use.names = FALSE),
+    c(7L, 3L, 1L, 1L))
+  expect_equal(bacteria$pooled_bsi, 4 / 7 * 100)
+  ci <- neoipc_wilson_ci(0, 1)
+  expect_equal(c(bacteria$pooled_ssi, bacteria$ci_lower_ssi,
+                 bacteria$ci_upper_ssi),
+               c(0, ci$lower * 100, ci$upper * 100))
+  # The pooled column alone has quartiles.
+  r <- get_infectious_agent_detection_rate_per_agent_table(
+    golden_ds, use_cache = FALSE)
+  expect_s3_class(r, "neoipcr_tbl_iadrpa_ref")
+  expect_true(all(c("q1", "q2", "q3", "q1_ci_lower", "q3_ci_upper",
+                    "quartile_departments") %in% names(r)))
+  expect_false(any(grepl("^q[123].*_(bsi|hap|nec|ssi)$", names(r))))
+})
+
+test_that("over the full ontology, every level of a path has a row, with a residual row for the findings recorded above their rows", {
+  r <- get_infectious_agent_detection_rate_per_agent_table(
+    golden_ds, use_cache = FALSE, include_quartiles = FALSE,
+    rows = "ontology")
+
+  expect_s3_class(r, "neoipcr_tbl_iadrpa")
+  # Pre-order, siblings by rate, descending, ties by name, and a residual row
+  # last among its siblings.
+  expect_equal(r$group, golden_ontology_rows$group)
+  expect_equal(r$level, golden_ontology_rows$level)
+  expect_equal(r$n, golden_ontology_rows$n)
+  expect_true(all(r$total[-1] == 12L))
+  # Each row's parent is the nearest row above it one level up.
+  for (i in seq_len(nrow(r))[-1]) {
+    above <- which(r$level[seq_len(i - 1L)] == r$level[i] - 1L)
+    expected_parent <- if (r$level[i] == 1L) NA_character_
+                       else r$node_id[max(above)]
+    expect_identical(r$parent_id[i], expected_parent)
+  }
+
+  staphylococcus <- which(r$node_id %in% "LPSN|genus/staphylococcus")
+  expect_equal(r$rank[staphylococcus], "Genus")
+  # Form 2's genus is recorded above the species rows beneath it.
+  residual <- r[r$parent_id %in% "LPSN|genus/staphylococcus", ]
+  expect_equal(residual$node_id[3], "LPSN|genus/staphylococcus~n.o.s.")
+  expect_equal(residual$group[3], "Staphylococcus n.o.s.")
+  expect_true(is.na(residual$rank[3]))
+  # A parent's share is not the sum of its children's: form 1 holds two
+  # staphylococci. Nor do the top-level rows add up to the 12 infections with
+  # an infectious agent in the tree: form 9 holds a fungus and a protozoon,
+  # each in a top-level row of its own, Eukaryota having none.
+  expect_equal(r$n[staphylococcus], 3L)
+  expect_equal(sum(residual$n), 4L)
+  top <- r[r$level == 1L, ]
+  expect_equal(top$group, c("Bacteria", "Fungi", "Viruses", "Protozoa"))
+  expect_true(all(is.na(top$parent_id)))
+  expect_equal(sum(top$n), 14L)
+  expect_false("NeoIPC|99" %in% c(r$node_id, r$parent_id))
+  # Synonyms count as their concept: form 10's two codes give one infection
+  # with one species, Simplexvirus humanalpha1, keyed by its IctvId.
+  expect_equal(r$n[r$node_id %in% "ICTV|19710176"], 1L)
+  # The type columns of the genus: sepsis 1, 2, and 14.
+  expect_equal(r$n_bsi[staphylococcus], 3L)
+  expect_equal(r$pooled_bsi[staphylococcus], 3 / 7 * 100)
+  expect_equal(r$n_hap[staphylococcus], 0L)
+  # No summary block over the full ontology.
+  expect_false(any(grepl("^(gram_reaction|oxygen_requirement)\\|",
+                         r$node_id)))
+})
+
+test_that("an infection whose slot the form does not ask for, or which holds a companion value alone, counts in no infectious-agent table", {
+  # Forms 8, 16, and 17 removed leave every figure as it is.
+  ds <- golden_ds
+  ds$infectiousAgentFindings <- dplyr::filter(
+    ds$infectiousAgentFindings,
+    !.data$event_key %in% ds$events$event_key[
+      ds$events$event_type_key %in% c("bsi", "nec", "hap", "ssi")][
+        c(8L, 16L, 17L)])
+  for (rows in c("groups", "ontology"))
+    expect_equal(
+      get_infectious_agent_detection_rate_per_agent_table(
+        ds, use_cache = FALSE, include_quartiles = FALSE, rows = rows),
+      get_infectious_agent_detection_rate_per_agent_table(
+        golden_ds, use_cache = FALSE, include_quartiles = FALSE,
+        rows = rows))
+})
+
+# The tables of `ds` that count its infectious agents, without quartiles: in
+# each version, the infectious agents detected, the density of infections
+# with resistant infectious agents, and the resistance rates per infectious
+# agent; and the completeness of antimicrobial susceptibility testing.
+counted_infectious_agent_tables <- function(ds) {
+  version <- function(rows)
+    list(
+      per_agent = get_infectious_agent_detection_rate_per_agent_table(
+        ds, use_cache = FALSE, include_quartiles = FALSE, rows = rows),
+      abr = get_abr_infection_rate_table(
+        ds, use_cache = FALSE, include_quartiles = FALSE, rows = rows),
+      resistance = get_infectious_agent_resistance_rate_table(
+        ds, use_cache = FALSE, include_quartiles = FALSE, rows = rows))
+  list(
+    groups = version("groups"),
+    ontology = version("ontology"),
+    resistance_test = get_resistance_test_rate_table(
+      ds, use_cache = FALSE, include_quartiles = FALSE))
+}
+
+# The nodes of the version `rows` on the path of the infectious agent `id`
+# that are on no path of the infectious agents `others`.
+nodes_of_only <- function(rows, id, others) {
+  closure <- neoipcr:::internal_infectious_agent_closure
+  closure <- closure[closure$version == rows, ]
+  setdiff(closure$node_id[closure$input_id == id],
+          closure$node_id[closure$input_id %in% others])
+}
+
+test_that("an SSI's own slots count where a culture at any depth is positive, whether or not it was followed up for a secondary BSI", {
+  # A superficial SSI not tested at its own depth, its deep culture positive,
+  # names Staphylococcus aureus (934), recorded as methicillin-resistant
+  # S. aureus (MRSA), in its own slot; its follow-up for a secondary BSI is
+  # answered No follow-up, No, or Yes.
+  tables <- function(sec_bsi)
+    counted_infectious_agent_tables(with_antibiotic_entries(
+      make_infection_calc_test_ds(
+        forms = tibble::tibble(
+          event_type_key   = "ssi",
+          infection_type   = "1",
+          organisms_superf = "-1",
+          organisms_deep   = "1",
+          sec_bsi          = sec_bsi),
+        findings = tibble::tibble(
+          form          = 1L,
+          secondary_bsi = FALSE,
+          pathogen_key  = 934L,
+          mrsa          = "yes"),
+        patient_days = 100L)))
+  not_followed_up <- tables("-1")
+
+  # The slot counts: S. aureus is the Total's infectious agent, and the
+  # infection one with MRSA, tested for it.
+  for (rows in c("groups", "ontology")) {
+    t <- not_followed_up[[rows]]
+    expect_equal(t$per_agent$n[t$per_agent$group == "Total"], 1L, info = rows)
+    expect_equal(t$abr$n[t$abr$abr == "mrsa" & t$abr$group == "Total"], 1L,
+                 info = rows)
+    mrsa <- t$resistance[t$resistance$abr == "mrsa", ]
+    expect_gt(nrow(mrsa), 0L)
+    expect_true(all(mrsa$n == 1L & mrsa$total == 1L), info = rows)
+  }
+  testing <- not_followed_up$resistance_test
+  expect_equal(unlist(testing[testing$abr == "mrsa", c("n", "total")],
+                      use.names = FALSE),
+               c(1L, 1L))
+
+  expect_equal(tables("0"), not_followed_up)
+  expect_equal(tables("1"), not_followed_up)
+})
+
+test_that("a secondary-BSI slot counts only where the follow-up is answered Yes, and an own slot only where the form records a positive culture or test", {
+  # A pneumonia tested positive and followed up for a secondary BSI, answered
+  # No, names Staphylococcus aureus (934) in its own slot and Escherichia coli
+  # (1807), recorded with third-generation cephalosporin resistance (3GCR), in
+  # a secondary-BSI slot.
+  pneumonia <- counted_infectious_agent_tables(with_antibiotic_entries(
+    make_infection_calc_test_ds(
+      forms = tibble::tibble(
+        event_type_key              = "hap",
+        microbiological_test_result = "1",
+        sec_bsi                     = "0"),
+      findings = tibble::tibble(
+        form          = 1L,
+        secondary_bsi = c(FALSE, TRUE),
+        pathogen_key  = c(934L, 1807L),
+        `3gcr`        = c(NA, "yes")),
+      patient_days = 100L)))
+  nodes <- neoipcr:::internal_infectious_agent_nodes
+  for (rows in c("groups", "ontology")) {
+    e_coli <- nodes_of_only(rows, 1807L, 934L)
+    # The nodes of E. coli alone hold Enterobacterales, and over the full
+    # ontology E. coli itself.
+    names_e_coli <- nodes$name[nodes$version == rows &
+                                 nodes$node_id %in% e_coli]
+    expect_true("Enterobacterales" %in% names_e_coli, info = rows)
+    if (rows == "ontology")
+      expect_true("Escherichia coli" %in% names_e_coli)
+    t <- pneumonia[[rows]]
+    expect_equal(t$per_agent$n[t$per_agent$group == "Total"], 1L, info = rows)
+    expect_false(any(t$per_agent$node_id %in% e_coli), info = rows)
+    gcr <- t$abr[t$abr$abr == "3gcr", ]
+    expect_equal(gcr$n[gcr$group == "Total"], 0L, info = rows)
+    expect_false(any(gcr$node_id %in% e_coli), info = rows)
+    expect_false(any(t$resistance$node_id[t$resistance$abr == "3gcr"] %in%
+                       e_coli),
+                 info = rows)
+  }
+  testing <- pneumonia$resistance_test
+  expect_equal(
+    unlist(testing[testing$abr == "3gcr" & testing$cond == "routine",
+                   c("n", "total")],
+           use.names = FALSE),
+    c(0L, 0L))
+
+  # The mirror case: an SSI followed up and answered Yes, with no positive
+  # culture at any depth, names S. aureus, recorded MRSA, in its own slot and
+  # E. coli, recorded 3GCR resistant, in a secondary-BSI slot. Only E. coli
+  # counts.
+  ssi <- counted_infectious_agent_tables(with_antibiotic_entries(
+    make_infection_calc_test_ds(
+      forms = tibble::tibble(
+        event_type_key   = "ssi",
+        infection_type   = "1",
+        organisms_superf = "0",
+        organisms_deep   = "-1",
+        organisms_organ  = "-1",
+        sec_bsi          = "1"),
+      findings = tibble::tibble(
+        form          = 1L,
+        secondary_bsi = c(FALSE, TRUE),
+        pathogen_key  = c(934L, 1807L),
+        `3gcr`        = c(NA, "yes"),
+        mrsa          = c("yes", NA)),
+      patient_days = 100L)))
+  for (rows in c("groups", "ontology")) {
+    s_aureus <- nodes_of_only(rows, 934L, 1807L)
+    e_coli <- nodes_of_only(rows, 1807L, 934L)
+    t <- ssi[[rows]]
+    expect_equal(t$per_agent$n[t$per_agent$group == "Total"], 1L, info = rows)
+    expect_false(any(t$per_agent$node_id %in% s_aureus), info = rows)
+    expect_true(all(e_coli %in% t$per_agent$node_id), info = rows)
+    expect_equal(t$abr$n[t$abr$abr == "3gcr" & t$abr$group == "Total"], 1L,
+                 info = rows)
+    expect_equal(t$abr$n[t$abr$abr == "mrsa" & t$abr$group == "Total"], 0L,
+                 info = rows)
+    expect_false(any(t$resistance$abr == "mrsa"), info = rows)
+  }
+  testing <- ssi$resistance_test
+  expect_equal(
+    unlist(testing[testing$cond == "routine" &
+                     testing$abr %in% c("3gcr", "mrsa"), c("n", "total")],
+           use.names = FALSE),
+    c(1L, 0L, 1L, 0L))
+})
+
+test_that("the per-type table counts the golden infections positive within each type's denominators", {
+  r <- get_infectious_agent_detection_rate_per_inf_type_table(
+    golden_ds, use_cache = FALSE, include_quartiles = FALSE)
+
+  expect_s3_class(r, "neoipcr_tbl_iadrpit")
+  expect_equal(names(r), c("inf", "n", "tested", "pooled", "ci_lower",
+                           "ci_upper", "total", "tested_pooled",
+                           "tested_ci_lower", "tested_ci_upper"))
+  expect_equal(as.character(r$inf), c("bsi", "hap", "ssi"))
+  # Sepsis 16 and 17 are in the sepsis denominators but not positive; NECs 7
+  # and 8 have no row.
+  expect_equal(r$n, c(8L, 3L, 2L))
+  expect_equal(r$tested, c(10L, 3L, 2L))
+  expect_equal(r$total, c(10L, 3L, 2L))
+  expect_equal(r$pooled, c(80, 100, 100))
+  expect_equal(r$tested_pooled, c(NA, 100, 100))
+  ci <- neoipc_wilson_ci(8, 10)
+  expect_equal(c(r$ci_lower[1], r$ci_upper[1]), c(ci$lower, ci$upper) * 100)
+})
+
+test_that("the per-agent quartiles take the departments with 5 infections in a row's denominator, at 0 without the row's", {
+  # Departments 1-5 have 5 confirmed sepsis each, k of department k's naming
+  # Staphylococcus aureus (934) and the others Escherichia coli (1807);
+  # department 1's first also names Candida albicans (2273). Department 6 has
+  # 4, all naming S. aureus, below the minimum; department 7 has 5 sepsis
+  # recorded culture-negative, whose slots name S. aureus where the form does
+  # not ask for them, so that none is confirmed.
+  departments <- c(rep(1:5, each = 5), rep(6L, 4), rep(7L, 5))
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key = "bsi",
+      department_key = departments,
+      no_pos_culture = departments == 7L),
+    findings = tibble::tibble(
+      form = c(seq_len(29), 1L, 30:34),
+      pathogen_key = c(
+        unlist(lapply(1:5, \(k) c(rep(934L, k), rep(1807L, 5L - k)))),
+        rep(934L, 4), 2273L, rep(934L, 5))))
+
+  r <- get_infectious_agent_detection_rate_per_agent_table(ds, use_cache = FALSE)
+  row <- function(id) r[r$node_id %in% id, ]
+
+  gpc <- row("gram-positive-cocci")
+  expect_equal(gpc$pooled, 19 / 29 * 100)
+  expect_equal(gpc$quartile_departments, 5L)
+  expect_equal(c(gpc$q1, gpc$q2, gpc$q3), c(40, 60, 80))
+  expect_equal(
+    gpc[c("q1_ci_lower", "q1_ci_upper", "q2_ci_lower", "q2_ci_upper",
+          "q3_ci_lower", "q3_ci_upper")],
+    bootstrap_quantile_ci(1:5, rep(5L, 5L), type = "binomial",
+                          multiplier = 100),
+    ignore_attr = TRUE)
+  # Department 5 enters the Enterobacterales at 0.
+  entero <- row("enterobacterales")
+  expect_equal(entero$quartile_departments, 5L)
+  expect_equal(c(entero$q1, entero$q2, entero$q3), c(20, 40, 60))
+  # The yeasts' pooled share gives 1 infection in 29, above the median of 5
+  # infections, so the row shows no quartiles.
+  yeasts <- row("yeasts")
+  expect_equal(yeasts$quartile_departments, 5L)
+  expect_true(all(is.na(c(yeasts$q1, yeasts$q2, yeasts$q3,
+                          yeasts$q1_ci_lower, yeasts$q3_ci_upper))))
+  # The Total's quartiles are of infectious agents per 100 confirmed
+  # infections, with a Poisson bootstrap.
+  total <- r[1, ]
+  expect_equal(total$quartile_departments, 5L)
+  expect_equal(c(total$q1, total$q2, total$q3), c(100, 100, 100))
+  expect_equal(
+    total$q3_ci_upper,
+    bootstrap_quantile_ci(c(6L, 5L, 5L, 5L, 5L), rep(5L, 5L),
+                          type = "poisson", multiplier = 100)$q3_ci_upper)
+  # Over the full ontology, the same rule.
+  r <- get_infectious_agent_detection_rate_per_agent_table(
+    ds, use_cache = FALSE, rows = "ontology")
+  aureus <- r[r$node_id %in% "LPSN|species/staphylococcus-aureus", ]
+  expect_equal(c(aureus$q1, aureus$q2, aureus$q3), c(40, 60, 80))
+  expect_equal(aureus$quartile_departments, 5L)
+})
+
+test_that("each version of the per-agent table is a table of its own, in the cache and in a calculated dataset", {
+  ds <- make_infectious_agent_calc_test_ds()
+  groups <- get_infectious_agent_detection_rate_per_agent_table(
+    ds, include_quartiles = FALSE)
+  ontology <- get_infectious_agent_detection_rate_per_agent_table(
+    ds, include_quartiles = FALSE, rows = "ontology")
+  expect_false(identical(groups$node_id, ontology$node_id))
+  expect_identical(
+    get_infectious_agent_detection_rate_per_agent_table(
+      ds, include_quartiles = FALSE),
+    groups)
+  expect_error(
+    get_infectious_agent_detection_rate_per_agent_table(ds, rows = "species"),
+    class = "rlang_error")
+
+  calculated <- structure(
+    list(infectious_agent_detection_rate_per_agent_table = groups,
+         infectious_agent_detection_rate_per_agent_ontology_table = ontology),
+    class = c("neoipcr_rep_ds", "list"))
+  expect_identical(
+    get_infectious_agent_detection_rate_per_agent_table(
+      calculated, include_quartiles = FALSE, rows = "ontology"),
+    ontology)
+  expect_identical(
+    get_infectious_agent_detection_rate_per_agent_table(
+      calculated, include_quartiles = FALSE),
+    groups)
+})
+
+# --- Resistance tables: golden tests -----------------------------------------
+#
+# make_resistance_calc_test_ds() describes the 18 infections. Forms 13, 14,
+# and 16 name no infectious agent in a slot the form asks for, so they count
+# nowhere. Of the others, the list applies 3GCR to Escherichia coli and
+# Klebsiella pneumoniae, carbapenem and colistin resistance also to
+# Acinetobacter baumannii, MRSA to Staphylococcus aureus and S. argenteus, VRE
+# to the enterococci, and every category to "Not listed".
+
+resistance_ds <- make_resistance_calc_test_ds()
+
+test_that("the density of infections with resistant infectious agents counts each infection once per row over all patient-days, its Total of any infectious agent", {
+  r <- get_abr_infection_rate_table(resistance_ds, use_cache = FALSE,
+                                    include_quartiles = FALSE)
+
+  expect_s3_class(r, "neoipcr_tbl_abr_ir")
+  expect_equal(
+    names(r),
+    c("abr", "level", "rank", "node_id", "parent_id", "group", "n", "total",
+      "pooled", "ci_lower", "ci_upper", "n_outside_tree"))
+  expected <- tibble::tribble(
+    ~abr,   ~group,                                         ~level, ~n,
+    "3gcr", "Total",                                            0L, 7L,
+    "3gcr", "Gram-negative",                                    1L, 4L,
+    "3gcr", "Aerobic",                                          1L, 1L,
+    "3gcr", "Facultatively anaerobic",                          1L, 4L,
+    "3gcr", "Bacteria",                                         1L, 5L,
+    "3gcr", "Enterobacterales",                                 2L, 3L,
+    "3gcr", "Gram-negative bacilli, not Enterobacterales",      2L, 1L,
+    "3gcr", "Non-fermenting Gram-negative bacilli",             3L, 1L,
+    "car",  "Total",                                            0L, 3L,
+    "car",  "Gram-negative",                                    1L, 2L,
+    "car",  "Aerobic",                                          1L, 1L,
+    "car",  "Facultatively anaerobic",                          1L, 1L,
+    "car",  "Bacteria",                                         1L, 2L,
+    "car",  "Enterobacterales",                                 2L, 1L,
+    "car",  "Gram-negative bacilli, not Enterobacterales",      2L, 1L,
+    "car",  "Non-fermenting Gram-negative bacilli",             3L, 1L,
+    "cor",  "Total",                                            0L, 2L,
+    "cor",  "Gram-negative",                                    1L, 1L,
+    "cor",  "Aerobic",                                          1L, 0L,
+    "cor",  "Facultatively anaerobic",                          1L, 1L,
+    "cor",  "Bacteria",                                         1L, 1L,
+    "cor",  "Enterobacterales",                                 2L, 1L,
+    "cor",  "Gram-negative bacilli, not Enterobacterales",      2L, 0L,
+    "cor",  "Non-fermenting Gram-negative bacilli",             3L, 0L,
+    "mrsa", "Total",                                            0L, 2L,
+    "mrsa", "Gram-positive",                                    1L, 1L,
+    "mrsa", "Facultatively anaerobic",                          1L, 1L,
+    "mrsa", "Bacteria",                                         1L, 1L,
+    "mrsa", "Gram-positive cocci",                              2L, 1L,
+    "vre",  "Total",                                            0L, 1L,
+    "vre",  "Gram-positive",                                    1L, 1L,
+    "vre",  "Facultatively anaerobic",                          1L, 1L,
+    "vre",  "Bacteria",                                         1L, 1L,
+    "vre",  "Gram-positive cocci",                              2L, 1L)
+  # Pairs of category and row: a category's rows lie on the paths of the
+  # infectious agents the list applies it to, so Staphylococcus aureus and
+  # Acinetobacter baumannii, recorded 3GCR resistant, a category it applies
+  # to neither, give the 3GCR block no row of their own but the rows above
+  # them on those paths, and count there, as in the 3GCR Total. A. baumannii
+  # alone gives the block the aerobic bacteria and the non-fermenting
+  # Gram-negative bacilli with their parent group, since no infectious agent
+  # of the dataset to which the list applies 3GCR lies beneath them. "Not
+  # listed", "Unidentifiable", and the code the list lacks count in the
+  # Totals alone.
+  expect_equal(as.character(r$abr), expected$abr)
+  expect_equal(r$group, expected$group)
+  expect_equal(r$level, expected$level)
+  expect_equal(r$n, expected$n)
+  expect_true(all(r$total == 200L))
+  expect_equal(r$pooled, r$n / 200 * 1000)
+  ci <- neoipc_poisson_ci(7, 200, multiplier = 1000)
+  expect_equal(c(r$ci_lower[1], r$ci_upper[1]), c(ci$lower, ci$upper))
+  ci <- neoipc_poisson_ci(0, 200, multiplier = 1000)
+  aerobic <- r[r$abr == "cor" & r$group == "Aerobic", ]
+  expect_equal(c(aerobic$ci_lower, aerobic$ci_upper), c(ci$lower, ci$upper))
+  totals <- r[r$group == "Total", ]
+  expect_true(all(is.na(c(totals$node_id, totals$parent_id, totals$rank))))
+  expect_equal(totals$n_outside_tree, c(2L, 1L, 1L, 1L, 0L))
+  expect_true(all(is.na(r$n_outside_tree[r$group != "Total"])))
+  expect_equal(
+    r$node_id[r$abr == "car"],
+    c(NA, "gram_reaction|negative", "oxygen_requirement|aerobic",
+      "oxygen_requirement|facultative-anaerobic", "bacteria",
+      "enterobacterales", "gram-negative-bacilli",
+      "non-fermenting-gram-negative-bacilli"))
+
+  r <- get_abr_infection_rate_table(resistance_ds, use_cache = FALSE,
+                                    include_quartiles = FALSE,
+                                    rows = "ontology")
+  gcr <- r[r$abr == "3gcr", ]
+  # A. baumannii's path leaves those of the infectious agents the list
+  # applies 3GCR to beneath the Pseudomonadales, its last row there.
+  expect_equal(
+    gcr$group,
+    c("Total", "Bacteria", "Pseudomonadati", "Pseudomonadota",
+      "Gammaproteobacteria", "Enterobacterales", "Enterobacteriaceae",
+      "Escherichia", "Escherichia coli", "Klebsiella",
+      "Klebsiella pneumoniae", "Pseudomonadales"))
+  expect_equal(gcr$level, c(0L, 1:8, 7L, 8L, 5L))
+  expect_equal(gcr$n, c(7L, 5L, 4L, 4L, 4L, 3L, 3L, 2L, 2L, 1L, 1L, 1L))
+  expect_equal(gcr$rank[9], "Species")
+  # The genus Enterococcus, recorded above its species, has a residual row in
+  # the VRE block, last among its siblings.
+  vre <- r[r$abr == "vre", ]
+  expect_equal(
+    vre$group,
+    c("Total", "Bacteria", "Bacillati", "Bacillota", "Bacilli",
+      "Lactobacillales", "Enterococcaceae", "Enterococcus",
+      "Enterococcus faecalis", "Enterococcus faecium", "Enterococcus n.o.s."))
+  expect_equal(vre$node_id[11], "LPSN|genus/enterococcus~n.o.s.")
+  expect_equal(vre$n, c(1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 0L, 0L))
+  expect_false(any(grepl("^(gram_reaction|oxygen_requirement)\\|",
+                         r$node_id)))
+})
+
+test_that("the resistance rates per infectious agent count each infection once per row, with the Tested share over the infectious agents a category applies to", {
+  r <- get_infectious_agent_resistance_rate_table(
+    resistance_ds, use_cache = FALSE, include_quartiles = FALSE)
+
+  expect_s3_class(r, "neoipcr_tbl_iarr")
+  expect_equal(
+    names(r),
+    c("abr", "level", "rank", "node_id", "parent_id", "group", "n", "total",
+      "pooled", "ci_lower", "ci_upper", "tested_n", "tested_total",
+      "tested_pooled", "tested_ci_lower", "tested_ci_upper"))
+  expected <- tibble::tribble(
+    ~abr,   ~group,                                    ~n, ~total, ~tested_n, ~tested_total,
+    "3gcr", "Gram-negative",                           4L, 4L,     3L,        4L,
+    "3gcr", "Aerobic",                                 1L, 1L,     0L,        0L,
+    "3gcr", "Facultatively anaerobic",                 4L, 4L,     3L,        4L,
+    "3gcr", "Bacteria",                                5L, 5L,     3L,        4L,
+    "3gcr", "Enterobacterales",                        3L, 3L,     3L,        4L,
+    "3gcr", "Gram-negative bacilli, not Enterobacterales", 1L, 1L, 0L,       0L,
+    "3gcr", "Non-fermenting Gram-negative bacilli",    1L, 1L,     0L,        0L,
+    "car",  "Gram-negative",                           2L, 3L,     3L,        5L,
+    "car",  "Aerobic",                                 1L, 1L,     1L,        1L,
+    "car",  "Facultatively anaerobic",                 1L, 2L,     2L,        4L,
+    "car",  "Bacteria",                                2L, 3L,     3L,        5L,
+    "car",  "Gram-negative bacilli, not Enterobacterales", 1L, 1L, 1L,       1L,
+    "car",  "Non-fermenting Gram-negative bacilli",    1L, 1L,     1L,        1L,
+    "car",  "Enterobacterales",                        1L, 2L,     2L,        4L,
+    "cor",  "Gram-negative",                           1L, 2L,     2L,        5L,
+    "cor",  "Aerobic",                                 0L, 1L,     1L,        1L,
+    "cor",  "Facultatively anaerobic",                 1L, 1L,     1L,        4L,
+    "cor",  "Bacteria",                                1L, 2L,     2L,        5L,
+    "cor",  "Enterobacterales",                        1L, 1L,     1L,        4L,
+    "cor",  "Gram-negative bacilli, not Enterobacterales", 0L, 1L, 1L,       1L,
+    "cor",  "Non-fermenting Gram-negative bacilli",    0L, 1L,     1L,        1L,
+    "mrsa", "Gram-positive",                           1L, 2L,     2L,        2L,
+    "mrsa", "Facultatively anaerobic",                 1L, 2L,     2L,        2L,
+    "mrsa", "Bacteria",                                1L, 2L,     2L,        2L,
+    "mrsa", "Gram-positive cocci",                     1L, 2L,     2L,        2L,
+    "vre",  "Gram-positive",                           1L, 2L,     2L,        4L,
+    "vre",  "Facultatively anaerobic",                 1L, 2L,     2L,        4L,
+    "vre",  "Bacteria",                                1L, 2L,     2L,        4L,
+    "vre",  "Gram-positive cocci",                     1L, 2L,     2L,        4L)
+  # The rate counts the 3GCR results of Staphylococcus aureus and
+  # Acinetobacter baumannii, a category the list does not apply to them, in
+  # the rows above them, while the Tested share leaves them out, so that the
+  # rows A. baumannii alone gives the 3GCR block have a rate and no Tested
+  # share, and Streptococcus agalactiae, to which the list does not apply
+  # VRE, out of the Gram-positive cocci's. A parent row counts an infection
+  # once however many of its infectious agents it holds (form 15).
+  # Carbapenem resistance orders the Bacteria's children by its own rate.
+  expect_equal(as.character(r$abr), expected$abr)
+  expect_equal(r$group, expected$group)
+  expect_equal(r$n, expected$n)
+  expect_equal(r$total, expected$total)
+  expect_equal(r$tested_n, expected$tested_n)
+  expect_equal(r$tested_total, expected$tested_total)
+  expect_equal(r$pooled, r$n / r$total * 100)
+  expect_equal(r$tested_pooled,
+               ifelse(r$tested_total > 0L, r$tested_n / r$tested_total * 100,
+                      NA_real_))
+  ci <- neoipc_wilson_ci(2, 3)
+  car <- r[r$abr == "car" & r$group == "Bacteria", ]
+  expect_equal(c(car$ci_lower, car$ci_upper), c(ci$lower, ci$upper) * 100)
+  ci <- neoipc_wilson_ci(3, 5)
+  expect_equal(c(car$tested_ci_lower, car$tested_ci_upper),
+               c(ci$lower, ci$upper) * 100)
+  expect_false(any(r$group == "Total"))
+
+  r <- get_infectious_agent_resistance_rate_table(
+    resistance_ds, use_cache = FALSE, include_quartiles = FALSE,
+    rows = "ontology")
+  gcr <- r[r$abr == "3gcr", ]
+  expect_equal(
+    gcr$group,
+    c("Bacteria", "Pseudomonadati", "Pseudomonadota", "Gammaproteobacteria",
+      "Enterobacterales", "Enterobacteriaceae", "Escherichia",
+      "Escherichia coli", "Klebsiella", "Klebsiella pneumoniae",
+      "Pseudomonadales"))
+  # A. baumannii's 3GCR result: a rate, and no Tested share.
+  pseudomonadales <- gcr[gcr$group == "Pseudomonadales", ]
+  expect_equal(
+    unlist(pseudomonadales[c("n", "total", "tested_n", "tested_total")],
+           use.names = FALSE),
+    c(1L, 1L, 0L, 0L))
+  expect_true(is.na(pseudomonadales$tested_pooled))
+  # Klebsiella pneumoniae, which both slots of form 2 name, counts once:
+  # resistant in form 2, not resistant in form 15, untested in form 17.
+  pneumoniae <- gcr[gcr$group == "Klebsiella pneumoniae", ]
+  expect_equal(
+    unlist(pneumoniae[c("n", "total", "tested_n", "tested_total")],
+           use.names = FALSE),
+    c(1L, 2L, 2L, 3L))
+  vre <- r[r$abr == "vre", ]
+  expect_equal(
+    vre$group[8:10],
+    c("Enterococcus faecalis", "Enterococcus faecium", "Enterococcus n.o.s."))
+  expect_equal(vre$n[8:10], c(1L, 0L, 0L))
+  expect_equal(vre$total[8:10], c(1L, 0L, 1L))
+  expect_equal(vre$pooled[8:10], c(100, NA, 0))
+  expect_equal(vre$tested_total[8:10], c(2L, 1L, 1L))
+})
+
+test_that("the completeness of antimicrobial susceptibility testing counts each detection once, a blank as undocumented, and the conditional rows over the detections recorded resistant", {
+  r <- get_resistance_test_rate_table(resistance_ds, use_cache = FALSE,
+                                      include_quartiles = FALSE)
+
+  expect_s3_class(r, "neoipcr_tbl_rtr")
+  expect_equal(
+    paste(r$abr, r$cond),
+    c("3gcr routine", "car routine", "car if_3gcr", "cor routine",
+      "cor if_3gcr&car", "mrsa routine", "vre routine"))
+  # 3GCR: forms 1, 2, and 10, and both of form 15, tested, and form 17 not;
+  # the 3GCR results of Staphylococcus aureus and Acinetobacter baumannii, a
+  # category the list does not apply to them, and the code the list lacks
+  # count on neither side. Carbapenem
+  # resistance: blank in forms 1, 15 (K. pneumoniae), and 17. Colistin:
+  # "Not tested" in form 1. MRSA: "Not listed" blank, and "Unidentifiable",
+  # to which the list applies no category, left out. VRE: "Not tested" in
+  # form 5, blank in forms 8 and 10.
+  expect_equal(r$n, c(5L, 4L, 3L, 3L, 2L, 2L, 2L))
+  expect_equal(r$total, c(6L, 7L, 4L, 7L, 2L, 3L, 5L))
+  expect_equal(r$pooled, r$n / r$total * 100)
+  ci <- neoipc_wilson_ci(4, 7)
+  expect_equal(c(r$ci_lower[2], r$ci_upper[2]), c(ci$lower, ci$upper) * 100)
+  # The conditional rows hold only the detections recorded resistant to 3GCR,
+  # and for colistin also to carbapenems: Acinetobacter baumannii, to which
+  # the list does not apply 3GCR, counts in the plain rows alone.
+  r <- get_resistance_test_rate_table(resistance_ds, use_cache = FALSE)
+  expect_equal(
+    names(r),
+    c("abr", "cond", "n", "total", "pooled", "ci_lower", "ci_upper", "q1",
+      "q2", "q3", "q1_ci_lower", "q1_ci_upper", "q2_ci_lower", "q2_ci_upper",
+      "q3_ci_lower", "q3_ci_upper", "quartile_departments"))
+  expect_s3_class(r, "neoipcr_tbl_rtr_ref")
+})
+
+test_that("a department leaves a category's density quartiles where none of its detections the category applies to has a result", {
+  ds <- make_resistance_quartile_test_ds()
+  r <- get_abr_infection_rate_table(ds, use_cache = FALSE)
+  row <- function(abr, group) r[r$abr == abr & r$group == group, ]
+
+  # 3GCR: departments 1-5 and 8 enter, 1 and 8 at 0; 6 has fewer than 50
+  # patient-days, and 7 recorded no 3GCR result for its Escherichia coli.
+  total <- row("3gcr", "Total")
+  expect_equal(total$n, 14L)
+  expect_equal(total$total, 740L)
+  expect_equal(total$quartile_departments, 6L)
+  expect_equal(c(total$q1, total$q2, total$q3), c(2.5, 15, 27.5))
+  expect_equal(
+    total[c("q1_ci_lower", "q1_ci_upper", "q2_ci_lower", "q2_ci_upper",
+            "q3_ci_lower", "q3_ci_upper")],
+    bootstrap_quantile_ci(c(0L, 1L, 2L, 3L, 4L, 0L), rep(100L, 6L),
+                          type = "poisson", multiplier = 1000),
+    ignore_attr = TRUE)
+  entero <- row("3gcr", "Enterobacterales")
+  expect_equal(entero$quartile_departments, 6L)
+  expect_equal(c(entero$q1, entero$q2, entero$q3), c(2.5, 15, 27.5))
+  # Carbapenem resistance applies to every department's E. coli, whose
+  # results are blank; department 8, without such detections, alone enters.
+  expect_equal(row("car", "Total")$quartile_departments, 1L)
+  # MRSA: department 8's S. aureus has no result, and the departments without
+  # such detections enter at 0, so that the pooled rate of 0 shows none.
+  mrsa <- row("mrsa", "Total")
+  expect_equal(mrsa$quartile_departments, 6L)
+  expect_true(all(is.na(c(mrsa$q1, mrsa$q2, mrsa$q3, mrsa$q1_ci_lower))))
+})
+
+test_that("the resistance rates per infectious agent and the testing's completeness take the departments with 5 infections or detections in a row's denominator", {
+  ds <- make_resistance_quartile_test_ds()
+
+  # Departments 1-5 have 5 tested infections each, 0 to 4 resistant; 6 has 4,
+  # and 7 none tested.
+  r <- get_infectious_agent_resistance_rate_table(ds, use_cache = FALSE)
+  entero <- r[r$abr == "3gcr" & r$group == "Enterobacterales", ]
+  expect_equal(entero$pooled, 14 / 29 * 100)
+  expect_equal(entero$quartile_departments, 5L)
+  expect_equal(c(entero$q1, entero$q2, entero$q3), c(20, 40, 60))
+  expect_equal(
+    entero[c("q1_ci_lower", "q1_ci_upper", "q2_ci_lower", "q2_ci_upper",
+             "q3_ci_lower", "q3_ci_upper")],
+    bootstrap_quantile_ci(0:4, rep(5L, 5L), type = "binomial",
+                          multiplier = 100),
+    ignore_attr = TRUE)
+  # The Tested share has no quartiles.
+  expect_equal(entero$tested_pooled, 29 / 34 * 100)
+  expect_false(any(grepl("^tested_q", names(r))))
+
+  # Department 7 enters the 3GCR testing at 0, with 5 detections and no
+  # result; department 6, with 4, does not.
+  r <- get_resistance_test_rate_table(ds, use_cache = FALSE)
+  gcr <- r[r$abr == "3gcr" & r$cond == "routine", ]
+  expect_equal(gcr$pooled, 29 / 34 * 100)
+  expect_equal(gcr$quartile_departments, 6L)
+  expect_equal(c(gcr$q1, gcr$q2, gcr$q3), c(100, 100, 100))
+  expect_equal(
+    gcr$q1_ci_lower,
+    bootstrap_quantile_ci(c(5L, 5L, 5L, 5L, 5L, 0L), rep(5L, 6L),
+                          type = "binomial", multiplier = 100)$q1_ci_lower)
+  # No department has 5 detections recorded 3GCR resistant.
+  conditional <- r[r$abr == "car" & r$cond == "if_3gcr", ]
+  expect_equal(conditional$total, 14L)
+  expect_equal(conditional$quartile_departments, 0L)
+})
+
+# --- The rows a dataset has ---------------------------------------------------
+
+test_that("a resistance block has the rows on the paths of the infectious agents the list applies its category to that lie at or above a detection it applies to or with a result in it", {
+  # The department's only 3GCR result: Staphylococcus aureus (934) recorded
+  # resistant, a category the list does not apply to it. Of its path, the
+  # 3GCR block has the rows that lie on the paths of the infectious agents
+  # the list applies 3GCR to: the Bacteria, and over the reporting groups the
+  # facultative anaerobes, but not the Gram-positive bacteria, to none of
+  # which the list applies it.
+  aureus <- tibble::tibble(form = 1L, pathogen_key = 934L, `3gcr` = "yes")
+  coli <- tibble::tibble(form = 2L, pathogen_key = 1807L, `3gcr` = "no")
+  alone <- make_sepsis_findings_test_ds(aureus)
+  beside <- make_sepsis_findings_test_ds(dplyr::bind_rows(aureus, coli))
+  expected <- list(
+    groups = c("oxygen_requirement|facultative-anaerobic", "bacteria"),
+    ontology = "LPSN|domain/bacteria")
+  block <- function(t) t[t$abr == "3gcr" & !is.na(t$node_id), ]
+
+  for (rows in names(expected)) {
+    tables <- function(ds) list(
+      density = block(get_abr_infection_rate_table(
+        ds, use_cache = FALSE, include_quartiles = FALSE, rows = rows)),
+      rates = block(get_infectious_agent_resistance_rate_table(
+        ds, use_cache = FALSE, include_quartiles = FALSE, rows = rows)))
+    ids <- expected[[rows]]
+    ones <- rep(1L, length(ids))
+
+    t <- tables(alone)
+    expect_identical(t$density$node_id, ids, label = rows)
+    expect_identical(t$density$n, ones, label = rows)
+    expect_true(all(t$density$total == 100L), label = rows)
+    expect_identical(t$rates$node_id, ids, label = rows)
+    expect_identical(t$rates$n, ones, label = rows)
+    expect_identical(t$rates$total, ones, label = rows)
+    expect_equal(t$rates$pooled, rep(100, length(ids)), label = rows)
+    # The Tested share takes the infectious agents the list applies 3GCR to
+    # alone, none here.
+    expect_identical(t$rates$tested_n, ones * 0L, label = rows)
+    expect_identical(t$rates$tested_total, ones * 0L, label = rows)
+    expect_true(all(is.na(t$rates$tested_pooled)), label = rows)
+
+    # A susceptible Escherichia coli (1807) beside it adds its own rows and
+    # leaves the infections recorded resistant on these as they are.
+    t <- tables(beside)
+    density <- t$density[match(ids, t$density$node_id), ]
+    expect_identical(density$n, ones, label = rows)
+    rates <- t$rates[match(ids, t$rates$node_id), ]
+    expect_identical(rates$n, ones, label = rows)
+    expect_identical(rates$total, ones * 2L, label = rows)
+    expect_identical(rates$tested_n, ones, label = rows)
+    expect_identical(rates$tested_total, ones, label = rows)
+    expect_true(all(nodes_of_only(rows, 1807L, 934L) %in% t$density$node_id),
+                label = rows)
+  }
+})
+
+test_that("a residual row counts the infectious agents recorded at a node with nodes beneath it in the full ontology, whatever else the dataset holds", {
+  # Sepsis with the genus Staphylococcus (481), recorded 3GCR resistant, a
+  # category the list applies to no staphylococcus; Escherichia coli (1807);
+  # and the genus Enterococcus (503), not VRE. No infectious agent of the
+  # dataset is recorded beneath either genus, and E. coli, a species, has no
+  # node beneath it.
+  ds <- make_sepsis_findings_test_ds(tibble::tibble(
+    form = 1:3,
+    pathogen_key = c(481L, 1807L, 503L),
+    `3gcr` = c("yes", NA, NA),
+    vre = c(NA, NA, "no")))
+  residual <- function(t) t[endsWith(dplyr::coalesce(t$node_id, ""), "~n.o.s."), ]
+
+  detected <- get_infectious_agent_detection_rate_per_agent_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE, rows = "ontology")
+  r <- residual(detected)
+  expect_setequal(r$node_id, c("LPSN|genus/staphylococcus~n.o.s.",
+                               "LPSN|genus/enterococcus~n.o.s."))
+  r <- r[order(r$node_id), ]
+  expect_identical(r$parent_id,
+                   c("LPSN|genus/enterococcus", "LPSN|genus/staphylococcus"))
+  expect_identical(r$group, c("Enterococcus n.o.s.", "Staphylococcus n.o.s."))
+  expect_identical(r$n, c(1L, 1L))
+  expect_identical(r$total, c(3L, 3L))
+  genus <- detected[detected$node_id %in% r$parent_id, ]
+  expect_identical(r$level, genus$level[match(r$parent_id, genus$node_id)] + 1L)
+  # The reporting groups have no residual rows.
+  expect_equal(nrow(residual(get_infectious_agent_detection_rate_per_agent_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE))), 0L)
+
+  # In a resistance block, the genus Enterococcus has a residual row, its
+  # species being on the paths of the infectious agents the list applies VRE
+  # to; the genus Staphylococcus, on none of the paths of those it applies
+  # 3GCR to, has neither a row nor a residual row in the 3GCR block, and its
+  # 3GCR result counts in the Bacteria row.
+  density <- get_abr_infection_rate_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE, rows = "ontology")
+  rates <- get_infectious_agent_resistance_rate_table(
+    ds, use_cache = FALSE, include_quartiles = FALSE, rows = "ontology")
+  vre <- residual(density[density$abr == "vre", ])
+  expect_identical(vre$node_id, "LPSN|genus/enterococcus~n.o.s.")
+  expect_identical(vre$n, 0L)
+  vre <- residual(rates[rates$abr == "vre", ])
+  expect_identical(vre$node_id, "LPSN|genus/enterococcus~n.o.s.")
+  expect_identical(c(vre$n, vre$total, vre$tested_n, vre$tested_total),
+                   c(0L, 1L, 1L, 1L))
+  for (t in list(density, rates)) {
+    gcr <- t[t$abr == "3gcr", ]
+    expect_false(any(grepl("staphylococc", gcr$node_id)))
+    expect_equal(nrow(residual(gcr)), 0L)
+    expect_identical(gcr$n[gcr$node_id %in% "LPSN|domain/bacteria"], 1L)
+  }
+})
+
+test_that("each version of the resistance tables is a table of its own, in the cache and in a calculated dataset", {
+  ds <- make_resistance_calc_test_ds()
+  for (build in list(get_abr_infection_rate_table,
+                     get_infectious_agent_resistance_rate_table)) {
+    groups <- build(ds, include_quartiles = FALSE)
+    ontology <- build(ds, include_quartiles = FALSE, rows = "ontology")
+    expect_false(identical(groups$node_id, ontology$node_id))
+    expect_identical(build(ds, include_quartiles = FALSE), groups)
+    expect_error(build(ds, rows = "species"), class = "rlang_error")
+  }
+
+  # The fixture's findings hold a code the list lacks.
+  expect_warning(
+    calculated <- calculate_department_data(ds, use_cache = FALSE),
+    class = "neoipcr_unknown_infectious_agent_code")
+  expect_identical(
+    get_abr_infection_rate_table(calculated, include_quartiles = FALSE,
+                                 rows = "ontology"),
+    calculated$abr_infection_rate_ontology_table)
+  expect_identical(
+    get_infectious_agent_resistance_rate_table(
+      calculated, include_quartiles = FALSE, rows = "ontology"),
+    calculated$infectious_agent_resistance_rate_ontology_table)
+  expect_identical(
+    get_infectious_agent_resistance_rate_table(
+      calculated, include_quartiles = FALSE),
+    calculated$infectious_agent_resistance_rate_table)
 })
 
 test_that("the secondary-BSI table shows each type's share of infections followed up, with its counts", {

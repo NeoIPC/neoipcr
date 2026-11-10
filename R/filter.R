@@ -166,9 +166,9 @@ filter_admissions <- function(
 
 # Whether `filter_patients()` reads a patient attribute under `opts`: the
 # eligibility filter and the range filters compare the birth weight and the
-# total gestation days, the latter computed from the gestational-age text
-# where it is missing, which the reader therefore fetches, all three,
-# whatever `patient_columns` selects.
+# total gestation days, a missing total computed from the gestational-age
+# text, so that the reader fetches all three, whatever `patient_columns`
+# selects.
 .patient_filters_run <- function(opts)
   !isTRUE(opts$include_ineligible_patients) ||
     !is.null(opts$birth_weight_from) || !is.null(opts$birth_weight_to) ||

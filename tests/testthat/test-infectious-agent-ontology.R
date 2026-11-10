@@ -12,6 +12,24 @@ derive <- function(tree, classification = list())
 # The rows of `x` with the given input_ids, in that order.
 rows_of <- function(x, ids) x[match(ids, x$input_id), ]
 
+# The closure's rows of an Id in a version of the tables' rows, its top-level
+# node first.
+path_rows <- function(tables, id, version = "ontology") {
+  x <- tables$closure[tables$closure$version == version &
+                        tables$closure$input_id == id, ]
+  x[order(x$depth), ]
+}
+
+# The node_ids on that path.
+path_of <- function(tables, id, version = "ontology")
+  path_rows(tables, id, version)$node_id
+
+# The names of the nodes on that path.
+path_names <- function(tables, id, version = "ontology") {
+  nodes <- tables$nodes[tables$nodes$version == version, ]
+  nodes$name[match(path_of(tables, id, version), nodes$node_id)]
+}
+
 # The node of `x` named `name`, at any depth, replaced by what `change` makes
 # of it; NULL removes it from its list.
 edit_node <- function(x, name, change) {
@@ -63,8 +81,9 @@ all_resistance <- list(MRSA = TRUE, VRE = TRUE, `3GCR` = TRUE,
 
 # A list in the released list's shape, which the derivation and the contract
 # check both pass: the two options that name no infectious agent, a virus
-# genus with a synonym, the staphylococci in their three coagulase groups, an
-# order of Gram-negative bacteria, and a fungal genus.
+# genus with a synonym, its former name, which shares its IctvId, the
+# staphylococci in their three coagulase groups, an order of Gram-negative
+# bacteria, and a fungal genus beneath Eukaryota.
 scaffold_tree <- function() {
   epidermidis <- list(
     Name = "Staphylococcus epidermidis", ConceptType = "Species",
@@ -134,10 +153,11 @@ scaffold_tree <- function() {
     list(Name = "Viruses", ConceptSource = "NeoIPC", ConceptId = 100L,
          Children = list(list(
            Name = "Orthoflavivirus", ConceptType = "Genus",
-           ConceptSource = "ICTV", ConceptId = 202401234L, Id = 20L,
+           ConceptSource = "ICTV", ConceptId = 202401234L, IctvId = 19900123L,
+           Id = 20L,
            Synonyms = list(list(
              Name = "Flavivirus", ConceptSource = "ICTV",
-             ConceptId = 201901234L, Id = 21L))))),
+             ConceptId = 201901234L, IctvId = 19900123L, Id = 21L))))),
     list(Name = "Bacteria", ConceptType = "Domain", ConceptSource = "LPSN",
          ConceptId = "domain/bacteria",
          Children = list(bacillati, pseudomonadati)),
@@ -188,24 +208,41 @@ derive_scaffold <- function(tree = scaffold_tree(),
   neoipcr:::derive_infectious_agent_tables(tree, classification)
 
 assert_contract <- function(tables)
-  neoipcr:::assert_infectious_agent_contract(
-    tables$classification, tables$reporting_groups)
+  neoipcr:::assert_infectious_agent_contract(tables)
+
+column_classes <- function(x)
+  vapply(x, function(column) class(column)[[1]], character(1))
 
 test_that("the scaffold derives one row per Id-bearing node, typed as the contract requires, which it passes", {
   tables <- derive_scaffold()
   x <- tables$classification
 
   expect_identical(
+    names(tables), c("classification", "reporting_groups", "attribute_values",
+                     "nodes", "closure"))
+  expect_identical(
     x$input_id, c(0L, 10L, 11L, 12L, 13L, 14L, 15L, 16L, 17L, 20L, 21L, 30L,
                   31L, 40L, 3561L))
   expect_identical(
     names(x), c("input_id", "input_name", "output_id", "output_name",
                 "hierarchy", "kingdom", "order", "family", "genus", "species",
-                "agent_group", "coagulase", "common_commensal",
-                "applies_3gcr", "applies_car", "applies_cor", "applies_mrsa",
-                "applies_vre", "reporting_group", "gram_reaction",
-                "oxygen_requirement"))
-  expect_false(any(vapply(x, is.factor, logical(1))))
+                "coagulase", "common_commensal", "applies_3gcr", "applies_car",
+                "applies_cor", "applies_mrsa", "applies_vre",
+                "reporting_group", "gram_reaction", "oxygen_requirement"))
+  expect_identical(
+    column_classes(tables$nodes),
+    c(version = "character", node_id = "character", parent_id = "character",
+      name = "character", rank = "character", depth = "integer"))
+  expect_identical(
+    column_classes(tables$closure),
+    c(version = "character", input_id = "integer", node_id = "character",
+      depth = "integer"))
+  expect_identical(
+    column_classes(tables$attribute_values),
+    c(attribute = "character", attribute_name = "character",
+      key = "character", name = "character"))
+  for (table in tables)
+    expect_false(any(vapply(table, is.factor, logical(1))))
   expect_no_error(assert_contract(tables))
 })
 
@@ -224,7 +261,8 @@ test_that("a synonym names its concept, and takes its concept's lineage", {
 })
 
 test_that("each rank column names the nearest node of its rank at or above the concept, through groups", {
-  x <- rows_of(derive_scaffold()$classification, c(16L, 13L, 31L, 40L, 0L))
+  tables <- derive_scaffold()
+  x <- rows_of(tables$classification, c(16L, 13L, 31L, 40L, 0L))
 
   # The subspecies reports its species, and the groups between the genus and
   # its species leave the lineage as it is.
@@ -238,11 +276,18 @@ test_that("each rank column names the nearest node of its rank at or above the c
                               "Klebsiella", "Candida", NA))
   expect_identical(x$species, c("Staphylococcus aureus", NA,
                                 "Klebsiella pneumoniae", NA, NA))
-  expect_identical(x$agent_group,
-                   c("Coagulase-positive staphylococci",
-                     "Coagulase-positive staphylococci", NA, NA, NA))
   expect_identical(x$hierarchy, c("Bacteria", "Bacteria", "Bacteria",
                                   "Eukaryota", "Not listed"))
+  # The group between the genus and its species is on the paths of the nodes
+  # it holds, and on no other.
+  expect_identical(utils::tail(path_names(tables, 16L), 2L),
+                   c("Coagulase-positive staphylococci",
+                     "Staphylococcus aureus"))
+  expect_identical(utils::tail(path_names(tables, 13L), 1L),
+                   "Coagulase-positive staphylococci")
+  expect_false("Coagulase-positive staphylococci" %in%
+                 c(path_names(tables, 31L), path_names(tables, 40L),
+                   path_names(tables, 0L)))
 })
 
 test_that("the coagulase comes from the group of the genus Staphylococcus that holds the node", {
@@ -828,6 +873,316 @@ test_that("the group tree holds every group in pre-order, with its parent and it
                      "Viruses"))
 })
 
+test_that("the attribute values carry each value's key and name, under their attribute's, in the classification's order", {
+  x <- derive_scaffold()$attribute_values
+
+  expect_identical(x$attribute, c("gram_reaction", "gram_reaction",
+                                  "oxygen_requirement"))
+  expect_identical(x$attribute_name, c("Gram reaction", "Gram reaction",
+                                       "Oxygen requirement"))
+  expect_identical(x$key, c("positive", "negative", "facultative-anaerobic"))
+  expect_identical(x$name, c("Gram-positive", "Gram-negative",
+                             "Facultatively anaerobic"))
+})
+
+# --- The nodes and the paths of the tables' rows ------------------------------
+
+staphylococcus_path <- c("Bacteria", "Bacillati", "Caryophanales",
+                         "Staphylococcaceae", "Staphylococcus")
+
+# The scaffold with the streptococci: a genus whose group of viridans
+# streptococci holds a group with an Id, which holds another, and a group
+# without one, which holds a species.
+streptococci_tree <- function() edit_node(scaffold_tree(), "Bacillati",
+                                          function(n) {
+  group <- function(name, concept_id, id = NULL, children = NULL) {
+    g <- list(Name = name, ConceptType = "Group", ConceptSource = "NeoIPC",
+              ConceptId = concept_id)
+    if (!is.null(id)) g$Id <- id
+    if (!is.null(children)) g$Children <- children
+    g
+  }
+  viridans <- group(
+    "Viridans streptococci", 70L, 51L, list(
+      group("Streptococcus anginosus group", 71L, 52L, list(
+        group("Group F streptococci", 72L, 53L))),
+      group("Streptococcus mitis group", 73L, children = list(list(
+        Name = "Streptococcus mitis", ConceptType = "Species",
+        ConceptSource = "LPSN", ConceptId = "species/streptococcus-mitis",
+        Id = 54L)))))
+  n$Children <- c(n$Children, list(list(
+    Name = "Lactobacillales", ConceptType = "Order", ConceptSource = "LPSN",
+    ConceptId = "order/lactobacillales",
+    Children = list(list(
+      Name = "Streptococcaceae", ConceptType = "Family",
+      ConceptSource = "LPSN", ConceptId = "family/streptococcaceae",
+      Children = list(list(
+        Name = "Streptococcus", ConceptType = "Genus", ConceptSource = "LPSN",
+        ConceptId = "genus/streptococcus", Id = 50L,
+        Children = list(viridans))))))))
+  n
+})
+
+# The scaffold's classification with the streptococci among the Gram-positive
+# cocci.
+streptococci_classification <- function()
+  add_member(scaffold_classification(), "gram-positive-cocci",
+             entry("Streptococcus", "LPSN", "genus/streptococcus"))
+
+# The scaffold's classification with the Enterobacterales nested in a group
+# of the Gram-negative bacilli beneath the bacteria.
+nested_classification <- function()
+  edit_group(scaffold_classification(), "bacteria", function(g) {
+    g$Children[[2]] <- list(
+      Key = "gram-negative-bacilli", Name = "Gram-negative bacilli",
+      EcdcCategory = "Gram-negative bacilli",
+      Children = list(g$Children[[2]]))
+    g
+  })
+
+test_that("an Id's path over the full ontology runs from its top-level node through every concept above it, those without an Id and the groups included", {
+  tables <- derive_scaffold()
+
+  expect_identical(path_names(tables, 17L),
+                   c(staphylococcus_path, "Coagulase-variable staphylococci",
+                     "Staphylococcus chromogenes"))
+  expect_identical(path_rows(tables, 17L)$depth, 0:6)
+  expect_identical(path_names(tables, 10L), staphylococcus_path)
+  expect_identical(path_names(tables, 11L),
+                   c(staphylococcus_path, "Coagulase-negative staphylococci"))
+  expect_identical(path_names(tables, 31L),
+                   c("Bacteria", "Pseudomonadati", "Enterobacterales",
+                     "Enterobacteriaceae", "Klebsiella",
+                     "Klebsiella pneumoniae"))
+  expect_identical(path_names(tables, 40L), c("Fungi", "Candida"))
+  expect_identical(path_rows(tables, 40L)$depth, 0:1)
+  expect_identical(path_names(tables, 20L), c("Viruses", "Orthoflavivirus"))
+})
+
+# The scaffold with a protozoon beside the fungi beneath Eukaryota, in a group
+# of its own.
+protozoa_tree <- function() edit_node(scaffold_tree(), "Eukaryota",
+                                      function(n) {
+  n$Children <- c(n$Children, list(list(
+    Name = "Protozoa", ConceptType = "Kingdom", ConceptSource = "MycoBank",
+    ConceptId = 92339L,
+    Children = list(list(
+      Name = "Toxoplasma", ConceptType = "Genus", ConceptSource = "MycoBank",
+      ConceptId = 300002L,
+      Children = list(list(
+        Name = "Toxoplasma gondii", ConceptType = "Species",
+        ConceptSource = "MycoBank", ConceptId = 300003L, Id = 45L)))))))
+  n
+})
+protozoa_classification <- function() {
+  classification <- scaffold_classification()
+  classification$Groups <- c(classification$Groups, list(list(
+    Key = "parasites", Name = "Parasites", EcdcCategory = "Fungi",
+    Members = list(entry("Protozoa", "MycoBank", 92339L)))))
+  classification
+}
+
+test_that("the full ontology's paths start beneath Eukaryota, which has no node, so that Fungi and Protozoa are top-level nodes", {
+  expect_identical(neoipcr:::infectious_agent_skipped_hierarchies, "Eukaryota")
+  expect_true(all(neoipcr:::infectious_agent_skipped_hierarchies %in%
+                    neoipcr:::infectious_agent_hierarchies))
+
+  tables <- derive_scaffold(protozoa_tree(), protozoa_classification())
+  nodes <- tables$nodes[tables$nodes$version == "ontology", ]
+  top <- nodes[nodes$depth == 0L, ]
+  expect_identical(top$name, c("Viruses", "Bacteria", "Fungi", "Protozoa"))
+  expect_true(all(is.na(top$parent_id)))
+  expect_false("Eukaryota" %in% nodes$name)
+  expect_false("NeoIPC|99" %in% c(nodes$node_id, nodes$parent_id,
+                                  tables$closure$node_id))
+  expect_identical(path_names(tables, 45L),
+                   c("Protozoa", "Toxoplasma", "Toxoplasma gondii"))
+  expect_identical(path_rows(tables, 45L)$depth, 0:2)
+  # The Ids beneath it keep the list's top-level node as their hierarchy.
+  expect_identical(rows_of(tables$classification, c(40L, 45L))$hierarchy,
+                   c("Eukaryota", "Eukaryota"))
+  expect_no_error(assert_contract(tables))
+})
+
+test_that("a subspecies counts in its species, and a synonym as its concept, neither a node of its own", {
+  tables <- derive_scaffold()
+  aureus <- c(staphylococcus_path, "Coagulase-positive staphylococci",
+              "Staphylococcus aureus")
+
+  expect_identical(path_names(tables, 14L), aureus)
+  expect_identical(path_names(tables, 15L), aureus)
+  expect_identical(path_names(tables, 16L), aureus)
+  expect_identical(path_names(tables, 21L), c("Viruses", "Orthoflavivirus"))
+  expect_false(any(c("Staphylococcus aureus subsp. aureus",
+                     "Micrococcus aureus", "Flavivirus") %in%
+                     tables$nodes$name))
+})
+
+test_that("a serotype, and a group beneath a species, count in the species, while a variety without a species is a node of its own", {
+  tree <- edit_node(scaffold_tree(), "Viruses", function(n) {
+    n$Children <- c(n$Children, list(list(
+      Name = "Enterovirus", ConceptType = "Genus", ConceptSource = "ICTV",
+      ConceptId = 202400001L, IctvId = 19710001L, Id = 60L,
+      Children = list(list(
+        Name = "Enterovirus coxsackiepol", ConceptType = "Species",
+        ConceptSource = "ICTV", ConceptId = 202400002L, IctvId = 19710002L,
+        Id = 61L,
+        Children = list(list(
+          Name = "Poliovirus", ConceptType = "Group", ConceptSource = "NeoIPC",
+          ConceptId = 80L, Id = 62L,
+          Children = list(list(
+            Name = "Poliovirus 1", ConceptType = "Serotype",
+            ConceptSource = "NeoIPC", ConceptId = 81L, Id = 63L)))))))))
+    n
+  })
+  tree <- edit_node(tree, "Candida", function(n) {
+    n$Children <- list(list(
+      Name = "Candida pintolopesii var. pintolopesii",
+      ConceptType = "Variety", ConceptSource = "MycoBank",
+      ConceptId = 300001L, Id = 41L))
+    n
+  })
+
+  tables <- derive_scaffold(tree)
+  polio <- c("Viruses", "Enterovirus", "Enterovirus coxsackiepol")
+  for (id in 61:63)
+    expect_identical(path_names(tables, id), polio)
+  expect_identical(path_names(tables, 41L),
+                   c("Fungi", "Candida",
+                     "Candida pintolopesii var. pintolopesii"))
+})
+
+test_that("groups within groups are each on the paths of the nodes they hold, a group without an Id included", {
+  tables <- derive_scaffold(streptococci_tree(), streptococci_classification())
+  streptococcus <- c("Bacteria", "Bacillati", "Lactobacillales",
+                     "Streptococcaceae", "Streptococcus",
+                     "Viridans streptococci")
+
+  expect_identical(path_names(tables, 53L),
+                   c(streptococcus, "Streptococcus anginosus group",
+                     "Group F streptococci"))
+  expect_identical(path_names(tables, 52L),
+                   c(streptococcus, "Streptococcus anginosus group"))
+  expect_identical(path_names(tables, 54L),
+                   c(streptococcus, "Streptococcus mitis group",
+                     "Streptococcus mitis"))
+  expect_identical(path_rows(tables, 54L)$depth, 0:7)
+  expect_no_error(assert_contract(tables))
+})
+
+test_that("each node of the full ontology on a path is a node of the table once, keyed by its ConceptSource and ConceptId, an ICTV node by its IctvId, in the order of the walk", {
+  nodes <- derive_scaffold()$nodes
+  nodes <- nodes[nodes$version == "ontology", ]
+
+  expect_identical(
+    nodes$name,
+    c("Viruses", "Orthoflavivirus", staphylococcus_path,
+      "Coagulase-negative staphylococci", "Staphylococcus epidermidis",
+      "Coagulase-positive staphylococci", "Staphylococcus aureus",
+      "Coagulase-variable staphylococci", "Staphylococcus chromogenes",
+      "Pseudomonadati", "Enterobacterales", "Enterobacteriaceae",
+      "Klebsiella", "Klebsiella pneumoniae", "Fungi", "Candida"))
+  cops <- nodes[nodes$name == "Coagulase-positive staphylococci", ]
+  expect_identical(
+    unlist(cops[c("node_id", "parent_id", "rank")], use.names = FALSE),
+    c("NeoIPC|64", "LPSN|genus/staphylococcus", "Group"))
+  expect_identical(cops$depth, 5L)
+  viruses <- nodes[nodes$name == "Viruses", ]
+  expect_identical(
+    unlist(viruses[c("node_id", "parent_id", "rank")], use.names = FALSE),
+    c("NeoIPC|100", NA, NA))
+  expect_identical(viruses$depth, 0L)
+  genus <- nodes[nodes$name == "Orthoflavivirus", ]
+  expect_identical(
+    unlist(genus[c("node_id", "parent_id", "rank")], use.names = FALSE),
+    c("ICTV|19900123", "NeoIPC|100", "Genus"))
+  fungi <- nodes[nodes$name == "Fungi", ]
+  expect_identical(
+    unlist(fungi[c("node_id", "parent_id", "rank")], use.names = FALSE),
+    c("MycoBank|455206", NA, "Kingdom"))
+  expect_identical(fungi$depth, 0L)
+})
+
+# The scaffold's virus genus, edited by `change`.
+with_virus_genus <- function(change, tree = scaffold_tree())
+  edit_node(tree, "Orthoflavivirus", change)
+
+test_that("an ICTV node keeps its node_id where a release gives it another ConceptId, a new name included", {
+  node_ids <- function(tree) {
+    nodes <- derive_scaffold(tree)$nodes
+    nodes$node_id[nodes$version == "ontology" & nodes$rank %in% "Genus" &
+                    startsWith(nodes$name, "Orthoflavivirus")]
+  }
+
+  expect_identical(node_ids(scaffold_tree()), "ICTV|19900123")
+  expect_identical(node_ids(with_virus_genus(function(n) {
+    n$ConceptId <- 202501234L
+    n
+  })), "ICTV|19900123")
+  expect_identical(node_ids(with_virus_genus(function(n) {
+    n$ConceptId <- 202501234L
+    n$Name <- "Orthoflavivirus novus"
+    n
+  })), "ICTV|19900123")
+})
+
+test_that("a node on no Id's path, beneath a species or with no Id beneath it, is no node of the table", {
+  tree <- edit_node(scaffold_tree(), "Coagulase-positive staphylococci",
+                    function(n) {
+                      n$Children <- c(n$Children, list(list(
+                        Name = "Staphylococcus schweitzeri",
+                        ConceptType = "Species", ConceptSource = "LPSN",
+                        ConceptId = "species/staphylococcus-schweitzeri")))
+                      n
+                    })
+
+  nodes <- derive_scaffold(tree)$nodes
+  expect_false(any(c("Staphylococcus schweitzeri",
+                     "Staphylococcus aureus subsp. aureus", "Not listed",
+                     "Unidentifiable") %in% nodes$name))
+})
+
+test_that("the Ids 0 and 3561 are outside the tree, on no path of either version, and every other Id is on one of each", {
+  tables <- derive_scaffold()
+  closure <- tables$closure
+  inside <- setdiff(tables$classification$input_id, c(0L, 3561L))
+
+  expect_false(any(c(0L, 3561L) %in% closure$input_id))
+  for (version in c("groups", "ontology"))
+    expect_identical(sort(unique(closure$input_id[closure$version == version])),
+                     inside)
+})
+
+test_that("an Id's path over the reporting groups runs from the top of the group tree to its reporting group", {
+  tables <- derive_scaffold(classification = nested_classification())
+
+  expect_identical(path_of(tables, 31L, "groups"),
+                   c("bacteria", "gram-negative-bacilli", "enterobacterales"))
+  expect_identical(path_rows(tables, 31L, "groups")$depth, 0:2)
+  expect_identical(path_of(tables, 15L, "groups"),
+                   c("bacteria", "gram-positive-cocci"))
+  expect_identical(path_of(tables, 40L, "groups"), "fungi")
+  expect_identical(path_of(tables, 21L, "groups"), "viruses")
+  expect_no_error(assert_contract(tables))
+})
+
+test_that("each reporting group on a path is a node of the groups version, keyed by its key, without a rank", {
+  nodes <- derive_scaffold(classification = nested_classification())$nodes
+  nodes <- nodes[nodes$version == "groups", ]
+
+  expect_identical(nodes$node_id,
+                   c("bacteria", "gram-positive-cocci", "gram-negative-bacilli",
+                     "enterobacterales", "fungi", "viruses"))
+  expect_identical(nodes$parent_id,
+                   c(NA, "bacteria", "bacteria", "gram-negative-bacilli", NA,
+                     NA))
+  expect_identical(nodes$name,
+                   c("Bacteria", "Gram-positive cocci", "Gram-negative bacilli",
+                     "Enterobacterales", "Fungi", "Viruses"))
+  expect_identical(nodes$rank, rep(NA_character_, 6L))
+  expect_identical(nodes$depth, c(0L, 1L, 1L, 2L, 0L, 0L))
+})
+
 # --- The derivation's refusals, each on the scaffold less one element ---------
 
 expect_ontology_error <- function(expr, class) {
@@ -952,7 +1307,7 @@ test_that("a name two concepts of different ranks share is no ambiguity", {
   expect_no_error(derive_scaffold(tree))
 })
 
-test_that("a name holding one of the reserved characters is refused, a group's included", {
+test_that("a name holding one of the reserved characters is refused, a group's and an attribute value's included", {
   for (character in c("|", "~", "_")) {
     tree <- edit_node(scaffold_tree(), "Klebsiella pneumoniae", function(n) {
       n$Name <- paste0("Klebsiella", character, "pneumoniae")
@@ -965,6 +1320,11 @@ test_that("a name holding one of the reserved characters is refused, a group's i
                                    g$Name <- paste0("Fungi", character)
                                    g
                                  })
+    expect_ontology_error(derive_scaffold(classification = classification),
+                          "neoipcr_infectious_agent_reserved_character")
+    classification <- scaffold_classification()
+    classification$Attributes[[2]]$Values[[1]]$Name <-
+      paste0("Facultatively", character, "anaerobic")
     expect_ontology_error(derive_scaffold(classification = classification),
                           "neoipcr_infectious_agent_reserved_character")
   }
@@ -990,7 +1350,7 @@ expect_contract_error <- function(tables, class) {
 
 test_that("a table without a documented column, or with one of another type, breaks the contract", {
   tables <- derive_scaffold()
-  tables$classification$agent_group <- NULL
+  tables$classification$species <- NULL
   expect_contract_error(tables, "neoipcr_infectious_agent_contract_column")
 
   tables <- derive_scaffold()
@@ -1000,6 +1360,22 @@ test_that("a table without a documented column, or with one of another type, bre
   tables <- derive_scaffold()
   tables$reporting_groups$parent_key <- NULL
   expect_contract_error(tables, "neoipcr_infectious_agent_contract_column")
+
+  tables <- derive_scaffold()
+  tables$attribute_values$name <- NULL
+  expect_contract_error(tables, "neoipcr_infectious_agent_contract_column")
+
+  tables <- derive_scaffold()
+  tables$nodes$depth <- as.double(tables$nodes$depth)
+  expect_contract_error(tables, "neoipcr_infectious_agent_contract_column")
+
+  tables <- derive_scaffold()
+  tables$closure$node_id <- NULL
+  expect_contract_error(tables, "neoipcr_infectious_agent_contract_column")
+
+  tables <- derive_scaffold()
+  tables$closure <- NULL
+  expect_contract_error(tables, "neoipcr_infectious_agent_contract_column")
 })
 
 test_that("a list without one of its five top-level nodes breaks the contract", {
@@ -1008,6 +1384,18 @@ test_that("a list without one of its five top-level nodes breaks the contract", 
     expect_contract_error(derive_scaffold(tree),
                           "neoipcr_infectious_agent_contract_hierarchy")
   }
+})
+
+test_that("an Id at a node the full ontology's paths start beneath breaks the contract", {
+  tree <- edit_node(scaffold_tree(), "Eukaryota", function(n) {
+    n$Id <- 90L
+    n
+  })
+  classification <- add_member(scaffold_classification(), "fungi",
+                               entry("Eukaryota", "NeoIPC", 99L))
+
+  expect_contract_error(derive_scaffold(tree, classification),
+                        "neoipcr_infectious_agent_contract_skipped_node")
 })
 
 test_that("a not-listed option missing, without a resistance category, or in a group breaks the contract", {
@@ -1111,6 +1499,191 @@ test_that("staphylococci without one of the three coagulases break the contract"
                         "neoipcr_infectious_agent_contract_coagulase")
 })
 
+test_that("an attribute value that is none of its attribute's values, or a value listed twice or without a name, breaks the contract", {
+  classification <- edit_assignments(
+    scaffold_classification(), "gram-reaction", function(a) {
+      a[[2]]$Value <- "negativ"
+      a
+    })
+  expect_contract_error(derive_scaffold(classification = classification),
+                        "neoipcr_infectious_agent_contract_attribute_value")
+
+  tables <- derive_scaffold()
+  tables$attribute_values <- rbind(tables$attribute_values,
+                                   tables$attribute_values[1, ])
+  expect_contract_error(tables,
+                        "neoipcr_infectious_agent_contract_attribute_value")
+
+  tables <- derive_scaffold()
+  tables$attribute_values$name[3] <- NA
+  expect_contract_error(tables,
+                        "neoipcr_infectious_agent_contract_attribute_value")
+})
+
+# The scaffold's tables with the nodes replaced by what `change` makes of them.
+with_nodes <- function(change) {
+  tables <- derive_scaffold()
+  tables$nodes <- change(tables$nodes)
+  tables
+}
+
+# The scaffold's tables with the closure replaced by what `change` makes of it.
+with_closure <- function(change) {
+  tables <- derive_scaffold()
+  tables$closure <- change(tables$closure)
+  tables
+}
+
+test_that("a node of the full ontology without a ConceptSource or a ConceptId, or a node_id two nodes of a version share, breaks the contract", {
+  for (field in c("ConceptSource", "ConceptId")) {
+    tree <- edit_node(scaffold_tree(), "Caryophanales", function(n) {
+      n[[field]] <- NULL
+      n
+    })
+    expect_contract_error(derive_scaffold(tree),
+                          "neoipcr_infectious_agent_contract_node_id")
+  }
+
+  expect_contract_error(
+    with_nodes(function(n) {
+      n$node_id[n$version == "ontology" & n$name == "Candida"] <-
+        "LPSN|genus/klebsiella"
+      n
+    }),
+    "neoipcr_infectious_agent_contract_node_id")
+})
+
+test_that("an ICTV concept without an IctvId, or two ICTV concepts with one IctvId, break the contract, while a synonym shares its concept's", {
+  for (id in list(NULL, " ")) {
+    tree <- with_virus_genus(function(n) {
+      n["IctvId"] <- list(id)
+      n
+    })
+    expect_contract_error(derive_scaffold(tree),
+                          "neoipcr_infectious_agent_contract_node_id")
+  }
+
+  twins <- edit_node(scaffold_tree(), "Viruses", function(n) {
+    n$Children <- c(n$Children, list(list(
+      Name = "Orthohepevirus", ConceptType = "Genus", ConceptSource = "ICTV",
+      ConceptId = 202405678L, IctvId = 19900123L, Id = 22L)))
+    n
+  })
+  expect_contract_error(derive_scaffold(twins),
+                        "neoipcr_infectious_agent_contract_node_id")
+
+  # The scaffold's synonym Flavivirus has its concept's IctvId.
+  expect_no_error(assert_contract(derive_scaffold()))
+})
+
+test_that("a node of no version, without a name, whose parent is no node of its version, or whose depth is not its parent's plus one breaks the contract", {
+  for (change in list(
+    function(n) {
+      n$version[n$name == "Candida"] <- "taxa"
+      n
+    },
+    function(n) {
+      n$name[n$name == "Candida"] <- " "
+      n
+    },
+    function(n) {
+      n$parent_id[n$name == "Candida"] <- "MycoBank|1"
+      n
+    },
+    function(n) {
+      n$depth[n$name == "Candida"] <- 2L
+      n
+    },
+    function(n) {
+      n$depth[n$name == "Fungi"] <- 1L
+      n
+    }))
+    expect_contract_error(with_nodes(change),
+                          "neoipcr_infectious_agent_contract_node_tree")
+})
+
+test_that("a node on no path, or a node of the groups version that is not its reporting group, breaks the contract", {
+  expect_contract_error(
+    with_nodes(function(n) rbind(n, tibble::tibble(
+      version = "ontology", node_id = "MycoBank|1",
+      parent_id = "MycoBank|455206", name = "Aspergillus", rank = "Genus",
+      depth = 1L))),
+    "neoipcr_infectious_agent_contract_node_tree")
+
+  for (column in c("name", "parent_id"))
+    expect_contract_error(
+      with_nodes(function(n) {
+        n[[column]][n$version == "groups" & n$node_id == "enterobacterales"] <-
+          "gram-positive-cocci"
+        n
+      }),
+      "neoipcr_infectious_agent_contract_node_tree")
+})
+
+test_that("an Id other than 0 and 3561 without a path in a version, one of them with a path, or a path of an Id the classification lacks breaks the contract", {
+  for (version in c("groups", "ontology"))
+    expect_contract_error(
+      with_closure(function(x)
+        x[!(x$version == version & x$input_id == 31L), ]),
+      "neoipcr_infectious_agent_contract_closure")
+
+  for (id in c(0L, 3561L, 999L))
+    expect_contract_error(
+      with_closure(function(x) {
+        path <- x[x$version == "ontology" & x$input_id == 40L, ]
+        path$input_id <- id
+        rbind(x, path)
+      }),
+      "neoipcr_infectious_agent_contract_closure")
+})
+
+test_that("a path that is no chain from a top-level node to the node its Id is recorded at breaks the contract", {
+  at <- function(x, id, depth, version = "ontology")
+    which(x$version == version & x$input_id == id & x$depth == depth)
+  for (change in list(
+    function(x) x[-at(x, 31L, 2L), ],
+    function(x) x[-at(x, 31L, 5L), ],
+    function(x) x[-at(x, 31L, 0L), ],
+    function(x) rbind(x, x[at(x, 31L, 5L), ]),
+    function(x) {
+      x$depth[at(x, 40L, 1L)] <- 2L
+      x
+    },
+    function(x) {
+      x$node_id[at(x, 40L, 1L)] <- "MycoBank|1"
+      x
+    },
+    function(x) {
+      x$node_id[at(x, 17L, 5L)] <- "NeoIPC|64"
+      x
+    },
+    function(x) x[-at(x, 31L, 1L, "groups"), ]))
+    expect_contract_error(with_closure(change),
+                          "neoipcr_infectious_agent_contract_path")
+
+  # A path over the reporting groups that ends at another group than the
+  # Id's, and a path over the full ontology from another top-level node than
+  # the Id's, or, for an Id beneath Eukaryota, from a top-level node of the
+  # list rather than from beneath one.
+  tables <- derive_scaffold()
+  x <- tables$classification
+  x$reporting_group[x$input_id == 40L] <- "viruses"
+  tables$classification <- x
+  expect_contract_error(tables, "neoipcr_infectious_agent_contract_path")
+
+  tables <- derive_scaffold()
+  x <- tables$classification
+  x$hierarchy[x$input_id == 21L] <- "Eukaryota"
+  tables$classification <- x
+  expect_contract_error(tables, "neoipcr_infectious_agent_contract_path")
+
+  tables <- derive_scaffold(protozoa_tree(), protozoa_classification())
+  x <- tables$classification
+  x$hierarchy[x$input_id == 40L] <- "Viruses"
+  tables$classification <- x
+  expect_contract_error(tables, "neoipcr_infectious_agent_contract_path")
+})
+
 # --- The comparison with the bundled classification ---------------------------
 
 test_that("the comparison says there is nothing to compare with where no classification is bundled", {
@@ -1164,60 +1737,269 @@ test_that("the comparison refuses an Id removed without acknowledgement, and acc
       previous, current, acknowledged_removed_ids = 31L)))
 })
 
-# --- The digests' text ----------------------------------------------------------
+# --- The digests' texts -------------------------------------------------------
 
-digest_text <- function(tables, columns = names(tables$classification))
-  neoipcr:::infectious_agent_digest_text(tables$classification,
-                                         tables$reporting_groups, columns)
+digest_texts <- function(tables)
+  neoipcr:::infectious_agent_digest_texts(tables)
 
-tables_digest_text <- function(tables)
-  digest_text(tables, neoipcr:::infectious_agent_tables_digest_columns)
+# The digests whose text the tables derived from `tree` and `classification`
+# change against those of `base`.
+changed_digests <- function(base, tree = scaffold_tree(),
+                            classification = scaffold_classification()) {
+  before <- digest_texts(base)
+  after <- digest_texts(derive_scaffold(tree, classification))
+  names(before)[before != after]
+}
 
-test_that("the tables digest covers what places an Id in a table's rows, and no flag", {
+flag <- function(node, name, value = TRUE, tree = scaffold_tree())
+  edit_node(tree, node, function(n) {
+    n[[name]] <- value
+    n
+  })
+
+renamed <- function(node, name, tree = scaffold_tree())
+  edit_node(tree, node, function(n) {
+    n$Name <- name
+    n
+  })
+
+with_candida_species <- function(...)
+  edit_node(scaffold_tree(), "Candida", function(n) {
+    n$Children <- list(c(
+      list(Name = "Candida albicans", ConceptType = "Species",
+           ConceptSource = "MycoBank", ConceptId = 256187L, Id = 41L),
+      list(...)))
+    n
+  })
+
+test_that("the provenance's digests are the classification, each version's tree, the concept each Id names, the common commensals, and the resistance categories' applicability", {
+  expect_identical(names(digest_texts(derive_scaffold())),
+                   c("classification", "groups_tree", "ontology_tree",
+                     "concept_mapping", "common_commensal", "applicability"))
+})
+
+test_that("the groups tree digest covers what places an Id among the rows over the reporting groups and their summary block, the classification its columns", {
   expect_identical(
-    neoipcr:::infectious_agent_tables_digest_columns,
-    c("input_id", "hierarchy", "kingdom", "order", "family", "genus",
-      "species", "agent_group", "coagulase", "reporting_group",
-      "gram_reaction", "oxygen_requirement"))
-
-  tables <- derive_scaffold()
-  flagged <- derive_scaffold(edit_node(scaffold_tree(), "Candida",
-                                       function(n) {
-                                         n$CommonCommensal <- TRUE
-                                         n
-                                       }))
-  expect_identical(tables_digest_text(flagged), tables_digest_text(tables))
-  expect_false(identical(digest_text(flagged), digest_text(tables)))
-
-  regrouped <- derive_scaffold(classification = edit_group(
-    scaffold_classification(), "fungi", function(g) {
-      g$Name <- "Fungi of all kinds"
-      g
-    }))
-  expect_false(identical(tables_digest_text(regrouped),
-                         tables_digest_text(tables)))
+    neoipcr:::infectious_agent_groups_tree_digest_columns,
+    c("input_id", "reporting_group", "gram_reaction", "oxygen_requirement"))
 })
 
-test_that("the digests' text does not depend on the order of the rows", {
-  tables <- derive_scaffold()
-  shuffled <- tables
-  shuffled$classification <- tables$classification[
-    rev(seq_len(nrow(tables$classification))), ]
-  shuffled$reporting_groups <- tables$reporting_groups[
-    rev(seq_len(nrow(tables$reporting_groups))), ]
+test_that("a common-commensal flag changes the classification and common-commensal digests alone", {
+  base <- derive_scaffold()
 
-  expect_identical(digest_text(shuffled), digest_text(tables))
+  expect_identical(changed_digests(base, flag("Candida", "CommonCommensal")),
+                   c("classification", "common_commensal"))
+  expect_identical(
+    changed_digests(base, flag("Coagulase-negative staphylococci",
+                               "CommonCommensal", FALSE)),
+    c("classification", "common_commensal"))
 })
 
-test_that("the digests' text tells a missing value from the text NA, and keeps a value's tabs and line breaks apart", {
+test_that("a resistance category applied to another Id changes the classification and applicability digests alone", {
+  base <- derive_scaffold()
+
+  expect_identical(changed_digests(base, flag("Candida", "MRSA")),
+                   c("classification", "applicability"))
+  expect_identical(changed_digests(base, flag("Klebsiella", "Colistin",
+                                              FALSE)),
+                   c("classification", "applicability"))
+})
+
+test_that("an Id added changes the flag digests only where a flag applies to it", {
+  base <- derive_scaffold()
+  added <- c("classification", "groups_tree", "ontology_tree",
+             "concept_mapping")
+
+  expect_identical(changed_digests(base, with_candida_species()), added)
+  expect_identical(changed_digests(base, with_candida_species(VRE = TRUE)),
+                   c(added, "applicability"))
+  expect_identical(
+    changed_digests(base, with_candida_species(CommonCommensal = TRUE)),
+    c(added, "common_commensal"))
+})
+
+test_that("a subspecies that becomes a synonym of its species changes the concept mapping digest alone, beside the classification digest", {
+  base <- derive_scaffold()
+  tree <- edit_node(scaffold_tree(), "Staphylococcus aureus", function(n) {
+    n$Synonyms <- c(n$Synonyms, n$Children)
+    n$Children <- NULL
+    n
+  })
+
+  # The subspecies counted in its species before as after, on the same path,
+  # but now as the species' concept, so that an infection recording both
+  # counts one infectious agent where it counted two.
+  derived <- derive_scaffold(tree)
+  expect_identical(rows_of(base$classification, 16L)$output_id, 16L)
+  expect_identical(rows_of(derived$classification, 16L)$output_id, 14L)
+  expect_identical(path_of(derived, 16L), path_of(base, 16L))
+  expect_identical(changed_digests(base, tree),
+                   c("classification", "concept_mapping"))
+})
+
+test_that("a node renamed or moved, or a corrected record number, changes the ontology tree digest, a group of the classification or an attribute value renamed, or an Id placed in another group, the groups tree digest, and a synonym renamed the classification digest alone", {
+  base <- derive_scaffold(streptococci_tree(), streptococci_classification())
+  changed <- function(tree = streptococci_tree(),
+                      classification = streptococci_classification())
+    changed_digests(base, tree, classification)
+  ontology_changed <- c("classification", "ontology_tree")
+  groups_changed <- c("classification", "groups_tree")
+
+  # A group named in no rank column, and one without an Id, are covered by
+  # the ontology tree digest through the nodes.
+  expect_identical(
+    changed(renamed("Streptococcus anginosus group",
+                    "Streptococcus milleri group", streptococci_tree())),
+    ontology_changed)
+  expect_identical(
+    changed(renamed("Streptococcus mitis group", "Mitis group",
+                    streptococci_tree())),
+    ontology_changed)
+  moved <- edit_node(streptococci_tree(), "Viridans streptococci",
+                     function(n) {
+                       f <- n$Children[[1]]$Children[[1]]
+                       n$Children[[1]]$Children <- NULL
+                       n$Children <- c(n$Children, list(f))
+                       n
+                     })
+  expect_identical(changed(moved), ontology_changed)
+  corrected <- edit_node(streptococci_tree(), "Staphylococcaceae",
+                         function(n) {
+                           n$ConceptId <- "family/staphylococcaceae-1"
+                           n
+                         })
+  expect_identical(changed(corrected), ontology_changed)
+
+  expect_identical(
+    changed(classification = edit_group(
+      streptococci_classification(), "fungi", function(g) {
+        g$Name <- "Fungi of all kinds"
+        g
+      })),
+    groups_changed)
+  expect_identical(
+    changed(classification = edit_assignments(
+      streptococci_classification(), "gram-reaction", function(a) a)),
+    character())
+  renamed_value <- streptococci_classification()
+  renamed_value$Attributes[[1]]$Values[[1]]$Name <- "Gram-positive bacteria"
+  expect_identical(changed(classification = renamed_value), groups_changed)
+  expect_identical(
+    changed(classification = add_member(
+      streptococci_classification(), "enterobacterales",
+      entry("Streptococcus", "LPSN", "genus/streptococcus"))),
+    character())
+  regrouped <- edit_group(streptococci_classification(), "gram-positive-cocci",
+                          function(g) {
+                            g$Members <- g$Members[1]
+                            g
+                          })
+  regrouped <- add_member(regrouped, "enterobacterales",
+                          entry("Streptococcus", "LPSN", "genus/streptococcus"))
+  expect_identical(changed(classification = regrouped), groups_changed)
+
+  expect_identical(
+    changed(renamed("Micrococcus aureus", "Micrococcus aureus Rosenbach",
+                    streptococci_tree())),
+    "classification")
+})
+
+test_that("a group's ECDC category corrected, a group on no Id's path added, an attribute renamed, or a value no Id takes added or renamed, none of which a table reads, changes the classification digest alone", {
+  base <- derive_scaffold()
+
+  corrected <- edit_group(scaffold_classification(), "enterobacterales",
+                          function(g) {
+                            g$EcdcCategory <- "Gram-negative bacilli"
+                            g
+                          })
+  expect_identical(changed_digests(base, classification = corrected),
+                   "classification")
+
+  # A group that no member places holds no Id, so that it is a row of no
+  # table.
+  added <- edit_group(scaffold_classification(), "bacteria", function(g) {
+    g$Children <- c(g$Children, list(list(
+      Key = "anaerobes", Name = "Anaerobes", EcdcCategory = "Anaerobes")))
+    g
+  })
+  expect_identical(changed_digests(base, classification = added),
+                   "classification")
+
+  renamed_attribute <- scaffold_classification()
+  renamed_attribute$Attributes[[1]]$Name <- "Gram stain"
+  expect_identical(changed_digests(base, classification = renamed_attribute),
+                   "classification")
+
+  # A value that no assignment gives an Id is the summary row of no table,
+  # whatever its key, even one another attribute takes, and its name, in
+  # either attribute.
+  with_value <- function(attribute, key, name) {
+    x <- scaffold_classification()
+    x$Attributes[[attribute]]$Values <- c(
+      x$Attributes[[attribute]]$Values, list(list(Key = key, Name = name)))
+    x
+  }
+  expect_identical(
+    changed_digests(base, classification = with_value(1L, "variable",
+                                                      "Gram-variable")),
+    "classification")
+  expect_identical(
+    changed_digests(base, classification = with_value(2L, "aerobic",
+                                                      "Aerobic")),
+    "classification")
+  # The Gram reaction's Ids take the key "positive", which the oxygen
+  # requirement's Ids do not.
+  expect_identical(
+    changed_digests(base, classification = with_value(2L, "positive",
+                                                      "Positive")),
+    "classification")
+  untaken <- derive_scaffold(
+    classification = with_value(1L, "variable", "Gram-variable"))
+  expect_identical(
+    changed_digests(untaken, classification = with_value(
+      1L, "variable", "Gram-indeterminate")),
+    "classification")
+  expect_identical(
+    changed_digests(untaken, classification = with_value(
+      1L, "indeterminate", "Gram-variable")),
+    "classification")
+})
+
+test_that("a release that gives an ICTV node another ConceptId leaves every digest as it is, and one that renames it too only the digests that cover its name", {
+  base <- derive_scaffold()
+
+  expect_identical(
+    changed_digests(base, with_virus_genus(function(n) {
+      n$ConceptId <- 202501234L
+      n
+    })),
+    character())
+  expect_identical(
+    changed_digests(base, with_virus_genus(function(n) {
+      n$ConceptId <- 202501234L
+      n$Name <- "Orthoflavivirus novus"
+      n
+    })),
+    c("classification", "ontology_tree"))
+})
+
+test_that("the digests' texts do not depend on the order of the rows", {
+  tables <- derive_scaffold(streptococci_tree(),
+                            streptococci_classification())
+  shuffled <- lapply(tables, function(x) x[rev(seq_len(nrow(x))), ])
+
+  expect_identical(digest_texts(shuffled), digest_texts(tables))
+})
+
+test_that("the digests' texts tell a missing value from the text NA, and keep a value's tabs and line breaks apart", {
   tables <- derive_scaffold()
   named <- tables
-  named$classification$agent_group[named$classification$input_id == 40L] <- "NA"
-  expect_false(identical(digest_text(named), digest_text(tables)))
+  named$classification$species[named$classification$input_id == 40L] <- "NA"
+  expect_false(identical(digest_texts(named), digest_texts(tables)))
 
   a <- tables
   b <- tables
   a$classification$input_name[1] <- "a\tb"
   b$classification$input_name[1] <- "a\\tb"
-  expect_false(identical(digest_text(a), digest_text(b)))
+  expect_false(identical(digest_texts(a), digest_texts(b)))
 })

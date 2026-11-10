@@ -44,8 +44,8 @@ NULL
 # inheritance). Rationale: `calc-api.R` and adjacent downstream
 # consumers do one-hop joins from enrollments to hierarchy metadata
 # tibbles via `enrollments$<hierarchy>_key` (e.g.
-# `get_countries_with_wb_class()` at calc-api.R:894 joins
-# `enrollments` with `metadata$countries` on `country_key`). Strict
+# `get_countries_with_wb_class()` in calc-api.R joins `enrollments`
+# with `metadata$countries` on `country_key`). Strict
 # inheritance via `patients_cols` would remove these keys under the
 # full-chain case, silently breaking every such consumer.
 #

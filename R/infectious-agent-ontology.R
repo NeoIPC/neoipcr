@@ -15,6 +15,22 @@
 infectious_agent_hierarchies <- c(
   "Not listed", "Unidentifiable", "Viruses", "Bacteria", "Eukaryota")
 
+# The top-level nodes of the list beneath which the paths over the full
+# ontology start: such a node is no node of that version, and each concept
+# directly beneath it is a top-level node there, at depth 0. The full
+# ontology's top-level rows are thus Bacteria, Fungi, Protozoa, and Viruses,
+# Eukaryota, which holds the fungi and the protozoa, having none. An Id at such
+# a node would have no row, which the contract refuses.
+infectious_agent_skipped_hierarchies <- "Eukaryota"
+
+# The ConceptSource whose nodes are keyed over the full ontology by their
+# IctvId rather than their ConceptId: an ICTV node's ConceptId is its node in
+# the Master Species List of the International Committee on Taxonomy of
+# Viruses that the list follows, which changes with each release the list
+# adopts, unchanged taxa included, while its IctvId, unique among the list's
+# concepts, stays a taxon's across releases.
+infectious_agent_ictv_source <- "ICTV"
+
 # The ranks a node's ConceptType may name.
 infectious_agent_concept_types <- c(
   "Realm", "Domain", "Kingdom", "Subkingdom", "Phylum", "Subphylum", "Class",
@@ -24,7 +40,7 @@ infectious_agent_concept_types <- c(
 # The rank columns, by the ConceptType of the node each names.
 infectious_agent_rank_columns <- c(
   kingdom = "Kingdom", order = "Order", family = "Family", genus = "Genus",
-  species = "Species", agent_group = "Group")
+  species = "Species")
 
 # The flag columns, by the key of the list's flag each takes.
 infectious_agent_flag_columns <- c(
@@ -49,12 +65,16 @@ infectious_agent_attribute_columns <- c(
 infectious_agent_not_listed_id <- 0L
 infectious_agent_unidentifiable_id <- 3561L
 
+# The versions of the rows of the infectious-agent tables: over the reporting
+# groups, and over the full ontology.
+infectious_agent_row_versions <- c("groups", "ontology")
+
 # The bundled tables' columns and their classes.
 infectious_agent_classification_columns <- c(
   input_id = "integer", input_name = "character", output_id = "integer",
   output_name = "character", hierarchy = "character", kingdom = "character",
   order = "character", family = "character", genus = "character",
-  species = "character", agent_group = "character", coagulase = "character",
+  species = "character", coagulase = "character",
   common_commensal = "logical", applies_3gcr = "logical",
   applies_car = "logical", applies_cor = "logical", applies_mrsa = "logical",
   applies_vre = "logical", reporting_group = "character",
@@ -62,21 +82,75 @@ infectious_agent_classification_columns <- c(
 infectious_agent_reporting_group_columns <- c(
   key = "character", name = "character", parent_key = "character",
   ecdc_category = "character")
+infectious_agent_attribute_value_columns <- c(
+  attribute = "character", attribute_name = "character", key = "character",
+  name = "character")
+infectious_agent_node_columns <- c(
+  version = "character", node_id = "character", parent_id = "character",
+  name = "character", rank = "character", depth = "integer")
+infectious_agent_closure_columns <- c(
+  version = "character", input_id = "integer", node_id = "character",
+  depth = "integer")
 
-# The columns the tables digest covers: what places an Id among a reporting
-# table's rows. The flags stay out, so that a change of flags alone leaves the
-# tables of stored reference datasets comparable.
-infectious_agent_tables_digest_columns <- c(
-  "input_id", "hierarchy", names(infectious_agent_rank_columns), "coagulase",
-  "reporting_group", names(infectious_agent_attribute_columns))
+# The classification's columns the groups tree digest covers, beside the
+# `attribute`, `key`, and `name` of each attribute value some Id takes and
+# the nodes and closure over the reporting groups: what places an Id among
+# the rows of that version and its summary block and labels them. The nodes
+# carry the key, name, parent, and depth of every group a row can be, which
+# the contract holds to the group tree, so the group tree stays out, its ECDC
+# categories and its groups on no Id's path with it, and so do each
+# attribute's name and the values no Id takes, which are the summary row of
+# no table: no table reads them. The rank columns, the hierarchy, and the
+# coagulase, which no table reads, stay out too, and so do the flags and the
+# concept each Id names, each with a digest of its own, so that a change to
+# one alone leaves the tables that do not read it comparable.
+infectious_agent_groups_tree_digest_columns <- c(
+  "input_id", "reporting_group", names(infectious_agent_attribute_columns))
 
 #' Derive the bundled infectious-agent tables
 #'
+#' The rows of the infectious-agent tables come in two versions, `"groups"`,
+#' over the reporting groups, and `"ontology"`, over the full ontology. Both
+#' are given by a node table and a closure, so that the tables find an Id's
+#' rows with one join: an Id's path in a version runs from a top-level node of
+#' that version's tree, at depth 0, to the node the Id is recorded at, its
+#' deepest node there, each node on it once.
+#'
+#' * Over the reporting groups, an Id is recorded at its reporting group, and
+#'   its path holds that group and each group above it.
+#' * Over the full ontology, an Id is recorded at its concept, a synonym
+#'   standing for the concept it names, or, where the concept lies beneath a
+#'   species, as a subspecies, a serotype, or a group of a species does, at the
+#'   nearest species above it. Its path holds every concept from the list's
+#'   top-level node down to that node, those without an Id and the groups among
+#'   them, so that no node is collapsed into its only child; beneath a
+#'   top-level node of `infectious_agent_skipped_hierarchies`, it starts at the
+#'   concept directly beneath that node.
+#'
+#' The Ids 0 and 3561, which say nothing of what the infectious agent was, are
+#' on no path. A node is keyed by `node_id`: over the full ontology its
+#' `ConceptSource` and `ConceptId`, separated by `|`, an ICTV node's `IctvId`
+#' standing in for its `ConceptId` (see `infectious_agent_ictv_source`), and
+#' over the reporting groups its group's key, each of which stays what it is
+#' for a node that a release leaves unchanged, so that the rows of datasets
+#' computed apart match.
+#'
 #' @param tree The parsed infectious-agent list.
 #' @param classification The parsed reporting classification.
-#' @returns A list of two tibbles: `classification`, one row per Id-bearing
-#'   node of the list in ascending order of `input_id`, and `reporting_groups`,
-#'   the tree of reporting groups in pre-order.
+#' @returns A list of five tibbles:
+#'   * `classification`, one row per Id-bearing node of the list, in ascending
+#'     order of `input_id`;
+#'   * `reporting_groups`, the tree of reporting groups, in pre-order;
+#'   * `attribute_values`, the values of the attributes the classification
+#'     table carries: `attribute`, the table's column, `attribute_name`, `key`,
+#'     the value the column holds, and `name`, in the classification's order;
+#'   * `nodes`, one row per node on a path: `version`, `node_id`, `parent_id`,
+#'     `NA` for a top-level node, `name`, `rank`, the node's `ConceptType`, `NA`
+#'     for a reporting group and a node without one, and `depth`, 0 for a
+#'     top-level node; the groups first, then the ontology, each in pre-order;
+#'   * `closure`, one row per Id and node on its path in each version:
+#'     `version`, `input_id`, `node_id`, and `depth`, ascending by `version`,
+#'     `input_id`, and `depth`.
 #' @noRd
 derive_infectious_agent_tables <- function(tree, classification)
 {
@@ -111,8 +185,18 @@ derive_infectious_agent_tables <- function(tree, classification)
   for (column in names(infectious_agent_attribute_columns))
     columns[[column]] <- attributes[[column]][rows]
 
+  inside <- !columns$input_id %in% c(infectious_agent_not_listed_id,
+                                     infectious_agent_unidentifiable_id)
+  over_groups <- infectious_agent_group_paths(
+    reporting_groups, columns$input_id[inside],
+    columns$reporting_group[inside])
+  over_ontology <- infectious_agent_ontology_paths(nodes, rows[inside])
+
   list(classification = tibble::as_tibble(columns),
-       reporting_groups = reporting_groups)
+       reporting_groups = reporting_groups,
+       attribute_values = infectious_agent_attribute_values(classification),
+       nodes = rbind(over_groups$nodes, over_ontology$nodes),
+       closure = rbind(over_groups$closure, over_ontology$closure))
 }
 
 #' Walk the infectious-agent list
@@ -129,8 +213,9 @@ derive_infectious_agent_tables <- function(tree, classification)
 #'   the row of the concept the node names, its own for a concept; `parent`,
 #'   the row of the concept above a concept, `NA` for a top-level node and a
 #'   synonym; `top`, the name of its top-level node; `key`, its
-#'   `ConceptSource` and `ConceptId` as the classification names it; and the
-#'   flag columns.
+#'   `ConceptSource` and `ConceptId` as the classification names it;
+#'   `node_key`, its `node_id` over the full ontology
+#'   (`infectious_agent_node_key()`); and the flag columns.
 #' @noRd
 walk_infectious_agent_tree <- function(tree)
 {
@@ -214,7 +299,8 @@ walk_infectious_agent_tree <- function(tree)
       list(id = id, name = name, concept_type = concept_type,
            is_synonym = synonym, concept = own,
            parent = if (synonym) NA_integer_ else parent, top = top,
-           key = infectious_agent_concept_key(value)),
+           key = infectious_agent_concept_key(value),
+           node_key = infectious_agent_node_key(value)),
       effective)
     if ("Hierarchies" %in% names(value))
       visit(value[["Hierarchies"]], FALSE, NA_integer_, own, top, effective)
@@ -240,7 +326,8 @@ walk_infectious_agent_tree <- function(tree)
     concept = column("concept", integer(1)),
     parent = column("parent", integer(1)),
     top = enc2utf8(column("top", character(1))),
-    key = enc2utf8(column("key", character(1))))
+    key = enc2utf8(column("key", character(1))),
+    node_key = enc2utf8(column("node_key", character(1))))
   for (flag in names(infectious_agent_flag_columns))
     out[[flag]] <- column(flag, logical(1))
   tibble::as_tibble(out)
@@ -492,6 +579,155 @@ infectious_agent_reporting_group_tree <- function(classification)
     ecdc_category = column("ecdc_category"))
 }
 
+# The values of the attributes the classification table carries, each with
+# its attribute's name, in the classification's order; of two attributes with
+# one Key, the first counts, as for their assignments.
+infectious_agent_attribute_values <- function(classification)
+{
+  rows <- list()
+  taken <- character()
+  attributes <- if (is_yaml_mapping(classification))
+    yaml_items(classification[["Attributes"]]) else list()
+  for (attribute in Filter(is_yaml_mapping, attributes)) {
+    column <- names(infectious_agent_attribute_columns)[
+      match(yaml_text(attribute[["Key"]]), infectious_agent_attribute_columns)]
+    if (is.na(column) || column %in% taken)
+      next
+    taken <- c(taken, column)
+    attribute_name <- blank_as_na(yaml_text(attribute[["Name"]]))
+    for (value in Filter(is_yaml_mapping, yaml_items(attribute[["Values"]]))) {
+      name <- blank_as_na(yaml_text(value[["Name"]]))
+      if (!is.na(name))
+        check_infectious_agent_name(name, "value of an attribute")
+      rows[[length(rows) + 1L]] <- list(
+        attribute = column, attribute_name = attribute_name,
+        key = blank_as_na(yaml_text(value[["Key"]])), name = name)
+    }
+  }
+  column <- function(name)
+    enc2utf8(vapply(rows, function(r) r[[name]], character(1)))
+  tibble::tibble(
+    attribute = column("attribute"),
+    attribute_name = column("attribute_name"),
+    key = column("key"),
+    name = column("name"))
+}
+
+# The attribute values some Id of the classification table takes, each as
+# its attribute (the table's column) and its key, separated by a tab.
+infectious_agent_taken_attribute_values <- function(classification)
+  unlist(lapply(names(infectious_agent_attribute_columns), function(column) {
+    x <- classification[[column]]
+    paste(column, unique(x[!is.na(x)]), sep = "\t", recycle0 = TRUE)
+  }))
+
+#' The paths of the Ids over the reporting groups
+#'
+#' @param reporting_groups The group tree, in pre-order.
+#' @param ids The Ids whose paths to give.
+#' @param groups The reporting group of each of `ids`; an Id without one has
+#'   no path.
+#' @returns A list of `nodes` and `closure`, in the shape
+#'   `derive_infectious_agent_tables()` documents, of the version `"groups"`.
+#' @noRd
+infectious_agent_group_paths <- function(reporting_groups, ids, groups)
+{
+  # A group's parent precedes it in pre-order, and so does the first group
+  # that shares the parent's key, so each step up the tree moves to an
+  # earlier group and every walk ends.
+  parent <- match(reporting_groups$parent_key, reporting_groups$key,
+                  incomparables = NA)
+  depth <- integer(nrow(reporting_groups))
+  for (i in seq_len(nrow(reporting_groups)))
+    if (!is.na(parent[i]))
+      depth[i] <- depth[parent[i]] + 1L
+  paths <- lapply(match(groups, reporting_groups$key, incomparables = NA),
+                  function(group) infectious_agent_path(group, parent))
+  infectious_agent_paths(
+    "groups", ids, paths, node_id = reporting_groups$key,
+    parent_id = reporting_groups$parent_key, name = reporting_groups$name,
+    rank = rep(NA_character_, nrow(reporting_groups)), depth = depth)
+}
+
+#' The paths of the Ids over the full ontology
+#'
+#' An Id is recorded at its concept or, where the concept lies beneath a
+#' species, at the nearest species above it, and its path runs from the list's
+#' top-level node to there through every concept between, or, beneath a
+#' top-level node of `infectious_agent_skipped_hierarchies`, from the concept
+#' directly beneath it. An Id recorded at such a node has no path.
+#'
+#' @param nodes The walk, as `walk_infectious_agent_tree()` returns it.
+#' @param rows The rows of the walk whose paths to give, each an Id-bearing
+#'   node, a concept or a synonym.
+#' @returns A list of `nodes` and `closure`, in the shape
+#'   `derive_infectious_agent_tables()` documents, of the version `"ontology"`.
+#' @noRd
+infectious_agent_ontology_paths <- function(nodes, rows)
+{
+  skipped <- !nodes$is_synonym & is.na(nodes$parent) &
+    nodes$name %in% infectious_agent_skipped_hierarchies
+  parent <- nodes$parent
+  parent[parent %in% which(skipped)] <- NA_integer_
+  depth <- rep(NA_integer_, nrow(nodes))
+  species <- rep(NA_integer_, nrow(nodes))
+  # A concept's parent is visited before it, so one pass in the order of the
+  # walk sees each parent's depth and species.
+  for (i in which(!nodes$is_synonym & !skipped)) {
+    if (is.na(parent[i])) {
+      depth[i] <- 0L
+    } else {
+      depth[i] <- depth[parent[i]] + 1L
+      species[i] <- species[parent[i]]
+    }
+    if (identical(nodes$concept_type[i], "Species"))
+      species[i] <- i
+  }
+  recorded <- ifelse(is.na(species), seq_len(nrow(nodes)), species)
+  recorded[skipped] <- NA_integer_
+  paths <- lapply(recorded[nodes$concept[rows]],
+                  function(node) infectious_agent_path(node, parent))
+  infectious_agent_paths(
+    "ontology", nodes$id[rows], paths, node_id = nodes$node_key,
+    parent_id = nodes$node_key[parent], name = nodes$name,
+    rank = nodes$concept_type, depth = depth)
+}
+
+# The rows from a tree's top-level row down to `row`, following `parent`;
+# none where `row` is NA.
+infectious_agent_path <- function(row, parent)
+{
+  path <- integer()
+  while (!is.na(row)) {
+    path <- c(row, path)
+    row <- parent[row]
+  }
+  path
+}
+
+# The nodes on the paths, in the order of the tree's rows, and the closure,
+# one row per Id and node on its path, from the paths as rows of the tree and
+# the tree's columns.
+infectious_agent_paths <- function(version, ids, paths, node_id, parent_id,
+                                   name, rank, depth)
+{
+  steps <- as.integer(unlist(paths, use.names = FALSE))
+  on_path <- sort(unique(steps))
+  list(
+    nodes = tibble::tibble(
+      version = rep(version, length(on_path)),
+      node_id = enc2utf8(node_id[on_path]),
+      parent_id = enc2utf8(parent_id[on_path]),
+      name = enc2utf8(name[on_path]),
+      rank = rank[on_path],
+      depth = depth[on_path]),
+    closure = tibble::tibble(
+      version = rep(version, length(steps)),
+      input_id = rep(ids, lengths(paths)),
+      node_id = enc2utf8(node_id[steps]),
+      depth = depth[steps]))
+}
+
 #' Assert the bundled infectious-agent tables' contract
 #'
 #' The tables carry their documented columns, of their classes; the option for
@@ -499,17 +735,30 @@ infectious_agent_reporting_group_tree <- function(classification)
 #' which every resistance category applies, in no reporting group; the option
 #' for one the laboratory could not identify (Id 3561) is one too, without any
 #' flag, in no reporting group; every other top-level node holds Id-bearing
-#' nodes; every other Id is in a leaf of the group tree; every bacterium has a
-#' Gram reaction and an oxygen requirement, and no other node either; the group
-#' tree's keys are unique, each group has a name, and each parent is a group;
-#' and the staphylococci take each of the three coagulases.
+#' nodes; no Id is at a top-level node of
+#' `infectious_agent_skipped_hierarchies`, where it would have no row over the
+#' full ontology; every other Id is in a leaf of the group tree; every
+#' bacterium has a Gram reaction and an oxygen requirement, and no other node
+#' either; the group tree's keys are unique, each group has a name, and each
+#' parent is a group; the staphylococci take each of the three coagulases;
+#' each attribute value the classification gives is one of its attribute's
+#' values, each listed once with a name; each node has a version, a `node_id`
+#' that no other node of its version has, over the full ontology both a
+#' `ConceptSource` and a `ConceptId`, an ICTV node an `IctvId` in place of the
+#' `ConceptId`, a name, and a parent of its version one level above it, and is
+#' on a path, a node of the groups version being its reporting group; every Id
+#' but 0 and 3561 has a path in each version, and no other Id one; and each
+#' path is a chain from a top-level node to the node its Id is recorded at:
+#' over the reporting groups its reporting group, and over the full ontology,
+#' from its hierarchy, or from beneath it where the paths start beneath it,
+#' its species or, without one, its concept.
 #'
-#' @param classification The derived classification table.
-#' @param reporting_groups The derived group tree.
+#' @param tables The derived tables, as `derive_infectious_agent_tables()`
+#'   returns them.
 #' @returns `TRUE`, invisibly; each element of the contract the tables break is
 #'   an error of a class of its own.
 #' @noRd
-assert_infectious_agent_contract <- function(classification, reporting_groups)
+assert_infectious_agent_contract <- function(tables)
 {
   call <- rlang::current_env()
   violation <- function(class, message)
@@ -519,14 +768,24 @@ assert_infectious_agent_contract <- function(classification, reporting_groups)
                 "neoipcr_infectious_agent_ontology_error"),
       call = call,
       .internal = TRUE)
+  among <- function(x, n = 10L)
+    sprintf("%d, among them %s", length(x),
+            paste(utils::head(x, n), collapse = ", "))
 
   for (table in list(
-    list(name = "classification", x = classification,
+    list(name = "classification", x = tables$classification,
          columns = infectious_agent_classification_columns),
-    list(name = "group tree", x = reporting_groups,
-         columns = infectious_agent_reporting_group_columns))) {
-    classes <- vapply(table$x, function(column) class(column)[[1]],
-                      character(1))
+    list(name = "group tree", x = tables$reporting_groups,
+         columns = infectious_agent_reporting_group_columns),
+    list(name = "attribute values", x = tables$attribute_values,
+         columns = infectious_agent_attribute_value_columns),
+    list(name = "node table", x = tables$nodes,
+         columns = infectious_agent_node_columns),
+    list(name = "closure", x = tables$closure,
+         columns = infectious_agent_closure_columns))) {
+    classes <- if (is.data.frame(table$x))
+      vapply(table$x, function(column) class(column)[[1]], character(1))
+    else character()
     if (!identical(classes, table$columns))
       violation("neoipcr_infectious_agent_contract_column", c(
         sprintf("The %s does not carry the columns of the contract.",
@@ -537,6 +796,8 @@ assert_infectious_agent_contract <- function(classification, reporting_groups)
         "x" = sprintf("Found: %s.", paste0(names(classes), " <", classes, ">",
                                             collapse = ", "))))
   }
+  classification <- tables$classification
+  reporting_groups <- tables$reporting_groups
 
   resistance <- grep("^applies_", names(infectious_agent_flag_columns),
                      value = TRUE)
@@ -570,6 +831,21 @@ assert_infectious_agent_contract <- function(classification, reporting_groups)
     violation("neoipcr_infectious_agent_contract_hierarchy", sprintf(
       "No Id-bearing node of the classification is beneath the top-level node %s.",
       paste0("'", absent, "'", collapse = ", ")))
+
+  # An Id at such a node is one whose concept bears the node's name and that
+  # has no path over the full ontology; one beneath it has a path.
+  over_ontology <- tables$closure$input_id[
+    tables$closure$version == "ontology"]
+  at_skipped <- classification$input_id[
+    classification$hierarchy %in% infectious_agent_skipped_hierarchies &
+      classification$output_name == classification$hierarchy &
+      !classification$input_id %in% over_ontology]
+  if (length(at_skipped) > 0L)
+    violation("neoipcr_infectious_agent_contract_skipped_node", c(
+      sprintf("An Id is at the top-level node %s, beneath which the paths over the full ontology start, so that it has no row there.",
+              paste0("'", infectious_agent_skipped_hierarchies, "'",
+                     collapse = ", ")),
+      "x" = sprintf("Ids that break it: %s.", among(at_skipped))))
 
   leaves <- setdiff(reporting_groups$key, c(reporting_groups$parent_key, NA))
   grouped <- !classification$input_id %in% c(
@@ -605,6 +881,125 @@ assert_infectious_agent_contract <- function(classification, reporting_groups)
     violation("neoipcr_infectious_agent_contract_coagulase", sprintf(
       "The staphylococci do not take each of the coagulases %s, and only those.",
       paste(infectious_agent_coagulase_groups, collapse = ", ")))
+
+  values <- tables$attribute_values
+  value_keys <- paste(values$attribute, values$key, sep = "\t")
+  given <- infectious_agent_taken_attribute_values(classification)
+  unknown <- setdiff(given, value_keys)
+  if (length(unknown) > 0L || anyNA(values$key) || anyNA(values$name) ||
+      anyDuplicated(value_keys) > 0L ||
+      !all(values$attribute %in% names(infectious_agent_attribute_columns)))
+    violation("neoipcr_infectious_agent_contract_attribute_value", c(
+      "An attribute value of the classification is none of its attribute's values, or a value is listed twice or without a key or a name.",
+      "x" = sprintf("Values that are none of their attribute's: %s.",
+                    if (length(unknown) > 0L)
+                      among(sub("\t", " = ", unknown, fixed = TRUE))
+                    else "none")))
+
+  nodes <- tables$nodes
+  closure <- tables$closure
+  ontology <- nodes$version == "ontology"
+  parts <- strsplit(nodes$node_id, "|", fixed = TRUE)
+  keyed <- !is.na(nodes$node_id) & nzchar(trimws(nodes$node_id)) &
+    (!ontology | vapply(parts, function(p)
+      length(p) == 2L && all(nzchar(trimws(p))), logical(1)))
+  node_keys <- paste(nodes$version, nodes$node_id, sep = "\t")
+  repeated <- duplicated(node_keys)
+  if (!all(keyed) || any(repeated))
+    violation("neoipcr_infectious_agent_contract_node_id", c(
+      "A node has no node_id, a node of the full ontology lacks its ConceptSource or its ConceptId, an ICTV node its IctvId, or two nodes of a version share a node_id.",
+      "x" = sprintf("Nodes that break it: %s.",
+                    among(unique(nodes$name[!keyed | repeated])))))
+
+  same <- function(a, b)
+    (is.na(a) & is.na(b)) | (!is.na(a) & !is.na(b) & a == b)
+  parent <- match(paste(nodes$version, nodes$parent_id, sep = "\t"),
+                  node_keys)
+  parent[is.na(nodes$parent_id)] <- NA_integer_
+  placed <- ifelse(is.na(nodes$parent_id), nodes$depth == 0L,
+                   !is.na(parent) & nodes$depth == nodes$depth[parent] + 1L)
+  group_nodes <- which(nodes$version == "groups")
+  group <- match(nodes$node_id[group_nodes], reporting_groups$key)
+  grouped <- rep(TRUE, nrow(nodes))
+  grouped[group_nodes] <- !is.na(group) &
+    same(nodes$name[group_nodes], reporting_groups$name[group]) &
+    same(nodes$parent_id[group_nodes], reporting_groups$parent_key[group]) &
+    is.na(nodes$rank[group_nodes])
+  sound <- nodes$version %in% infectious_agent_row_versions &
+    !is.na(nodes$name) & nzchar(trimws(nodes$name)) & placed %in% TRUE &
+    grouped
+  if (!all(sound))
+    violation("neoipcr_infectious_agent_contract_node_tree", c(
+      "A node has no version or no name, a parent that is no node of its version or a depth that is not its parent's plus one, or, over the reporting groups, is not its reporting group.",
+      "x" = sprintf("Nodes that break it: %s.",
+                    among(nodes$name[!sound]))))
+
+  inside <- setdiff(classification$input_id,
+                    c(infectious_agent_not_listed_id,
+                      infectious_agent_unidentifiable_id))
+  for (version in infectious_agent_row_versions) {
+    with_path <- unique(closure$input_id[closure$version == version])
+    missing <- setdiff(inside, with_path)
+    extra <- setdiff(with_path, inside)
+    tree <- if (version == "groups") "reporting groups" else "full ontology"
+    if (length(missing) > 0L || length(extra) > 0L)
+      violation("neoipcr_infectious_agent_contract_closure", c(
+        sprintf("Over the %s, an Id other than 0 and 3561 has no path, or an Id that is 0, 3561, or no Id of the classification has one.",
+                tree),
+        "x" = sprintf("Without a path: %s.",
+                      if (length(missing) > 0L) among(missing) else "none"),
+        "x" = sprintf("With a path that should have none: %s.",
+                      if (length(extra) > 0L) among(extra) else "none")))
+  }
+  if (!all(closure$version %in% infectious_agent_row_versions))
+    violation("neoipcr_infectious_agent_contract_closure",
+              "A path of the closure is of no version of the tables' rows.")
+
+  ordered <- closure[order(closure$version, closure$input_id, closure$depth,
+                           method = "radix"), ]
+  path <- paste(ordered$version, ordered$input_id, sep = "\t")
+  position <- stats::ave(seq_along(path), path, FUN = seq_along) - 1L
+  node <- match(paste(ordered$version, ordered$node_id, sep = "\t"),
+                node_keys)
+  previous <- utils::head(c(NA_character_, ordered$node_id), nrow(ordered))
+  previous[position == 0L] <- NA_character_
+  linked <- !is.na(node) & same(ordered$depth, position) &
+    same(nodes$depth[node], ordered$depth) &
+    same(nodes$parent_id[node], previous)
+  id <- match(ordered$input_id, classification$input_id)
+  first <- position == 0L & ordered$version == "ontology"
+  # Beneath a skipped top-level node, a path starts at a node beneath it,
+  # which is none of the list's top-level nodes.
+  top_name <- nodes$name[node[first]]
+  hierarchy <- classification$hierarchy[id[first]]
+  linked[first] <- linked[first] &
+    ifelse(hierarchy %in% infectious_agent_skipped_hierarchies,
+           !is.na(top_name) & !top_name %in% infectious_agent_hierarchies,
+           same(top_name, hierarchy))
+  last <- !duplicated(path, fromLast = TRUE)
+  recorded <- ifelse(ordered$version == "groups",
+                     classification$reporting_group[id],
+                     ifelse(is.na(classification$species[id]),
+                            classification$output_name[id],
+                            classification$species[id]))
+  reached <- ifelse(ordered$version == "groups", ordered$node_id,
+                    nodes$name[node])
+  linked[last] <- linked[last] & same(reached[last], recorded[last])
+  broken <- unique(path[!linked %in% TRUE])
+  if (length(broken) > 0L)
+    violation("neoipcr_infectious_agent_contract_path", c(
+      "A path is no chain from a top-level node, one node per level, each beneath the one before, to the node its Id is recorded at: over the reporting groups its reporting group, and over the full ontology, from its hierarchy, or from beneath it where the paths start beneath it, its species or, without one, its concept.",
+      "x" = sprintf("Paths that break it, by version and Id: %s.",
+                    among(sub("\t", " ", broken, fixed = TRUE)))))
+
+  # Checked after the paths, so that a path cut short is reported as such
+  # rather than as the nodes it no longer reaches.
+  stranded <- !node_keys %in% paste(closure$version, closure$node_id,
+                                    sep = "\t")
+  if (any(stranded))
+    violation("neoipcr_infectious_agent_contract_node_tree", c(
+      "A node lies on no path.",
+      "x" = sprintf("Nodes on no path: %s.", among(nodes$name[stranded]))))
 
   invisible(TRUE)
 }
@@ -681,22 +1076,91 @@ compare_infectious_agent_classifications <- function(
                  removed = removed))
 }
 
-#' The text the provenance's digests are taken over
+#' The texts the provenance's digests are taken over
+#'
+#' Each digest covers one part of the bundled tables that the tables of a
+#' calculated dataset read, so that a comparison of the tables of datasets
+#' computed apart keys on the digests of what each reads, and each changes
+#' when its part changes, and only then:
+#'
+#' * `classification`: every bundled table, whole;
+#' * `groups_tree`: what places an Id among the rows over the reporting
+#'   groups and their summary block and labels them: the classification's
+#'   columns `infectious_agent_groups_tree_digest_columns` names, the
+#'   `attribute`, `key`, and `name` of each attribute value some Id takes,
+#'   and the nodes and the closure of the groups version, whose nodes carry
+#'   the key, name, parent, and depth of every group a row can be;
+#' * `ontology_tree`: what places an Id among the rows over the full ontology
+#'   and labels them: the nodes and the closure of the ontology version;
+#' * `concept_mapping`: the concept each Id names (`input_id`, `output_id`),
+#'   by which the tables count an infectious agent once per infection;
+#' * `common_commensal`: the Ids flagged as common commensals;
+#' * `applicability`: the Ids to which each resistance category applies.
+#'
+#' The two digests of flags cover the Ids whose flag is set, not every Id, since
+#' a code the list lacks counts as neither a common commensal nor an infectious
+#' agent to which a resistance category applies: an Id added or removed
+#' without the flag leaves what those flags decide unchanged. No digest but
+#' `classification` covers the classification's rank columns, `hierarchy`,
+#' `coagulase`, `input_name`, or `output_name`, the group tree, with its ECDC
+#' categories and its groups on no Id's path, an attribute's name, or an
+#' attribute value no Id takes, which no table reads: a table labels its rows
+#' with the names of the nodes and of the attribute values its Ids take.
+#'
+#' @param tables The derived tables, as `derive_infectious_agent_tables()`
+#'   returns them.
+#' @returns A named character vector of the six texts, each UTF-8, as
+#'   `infectious_agent_digest_text()` writes them.
+#' @noRd
+infectious_agent_digest_texts <- function(tables)
+{
+  classification <- tables$classification
+  of_version <- function(table, version)
+    tables[[table]][tables[[table]]$version == version, ]
+  flagged <- function(column)
+    classification$input_id[classification[[column]] %in% TRUE]
+  resistance <- setdiff(names(infectious_agent_flag_columns),
+                        "common_commensal")
+  applicable <- lapply(resistance, flagged)
+  values <- tables$attribute_values
+  taken <- paste(values$attribute, values$key, sep = "\t") %in%
+    infectious_agent_taken_attribute_values(classification)
+
+  c(classification = infectious_agent_digest_text(
+      tables[c("classification", "reporting_groups", "attribute_values",
+               "nodes", "closure")]),
+    groups_tree = infectious_agent_digest_text(list(
+      classification =
+        classification[infectious_agent_groups_tree_digest_columns],
+      attribute_values = values[taken, c("attribute", "key", "name")],
+      nodes = of_version("nodes", "groups"),
+      closure = of_version("closure", "groups"))),
+    ontology_tree = infectious_agent_digest_text(list(
+      nodes = of_version("nodes", "ontology"),
+      closure = of_version("closure", "ontology"))),
+    concept_mapping = infectious_agent_digest_text(list(
+      concept_mapping = classification[c("input_id", "output_id")])),
+    common_commensal = infectious_agent_digest_text(list(
+      common_commensals = tibble::tibble(
+        input_id = flagged("common_commensal")))),
+    applicability = infectious_agent_digest_text(list(
+      applicability = tibble::tibble(
+        category = rep(resistance, lengths(applicable)),
+        input_id = as.integer(unlist(applicable, use.names = FALSE))))))
+}
+
+#' The text a digest is taken over
 #'
 #' Each table under a header line, its column names, and one line per row,
 #' fields separated by tabs; a missing value is written `\N`, and a backslash,
-#' a tab, a carriage return, and a line feed within a value are escaped. The
-#' classification's rows ascend by `input_id` and the group tree's by `key` in
-#' the C locale's order, so that the text depends on the tables' content alone.
+#' a tab, a carriage return, and a line feed within a value are escaped. Each
+#' table's rows ascend by its columns in turn, in the C locale's order, so that
+#' the text depends on the tables' content alone.
 #'
-#' @param classification The classification table.
-#' @param reporting_groups The group tree.
-#' @param columns The classification's columns the text covers; the group tree's
-#'   are all covered.
+#' @param tables A named list of data frames.
 #' @returns A character scalar, UTF-8.
 #' @noRd
-infectious_agent_digest_text <- function(classification, reporting_groups,
-                                         columns)
+infectious_agent_digest_text <- function(tables)
 {
   field <- function(x) {
     x <- as.character(x)
@@ -707,16 +1171,14 @@ infectious_agent_digest_text <- function(classification, reporting_groups,
     escaped[is.na(x)] <- "\\N"
     enc2utf8(escaped)
   }
-  lines <- function(title, x)
+  lines <- function(title, x) {
+    if (nrow(x) > 0L)
+      x <- x[do.call(order, c(unname(as.list(x)), method = "radix")), ]
     c(paste0("# ", title),
       paste(names(x), collapse = "\t"),
       if (nrow(x) > 0L) do.call(paste, c(lapply(x, field), sep = "\t")))
-
-  classification <- classification[order(classification$input_id), columns]
-  reporting_groups <- reporting_groups[
-    order(reporting_groups$key, method = "radix"), ]
-  paste(c(lines("classification", classification),
-          lines("reporting_groups", reporting_groups)),
+  }
+  paste(unlist(Map(lines, names(tables), tables), use.names = FALSE),
         collapse = "\n")
 }
 
@@ -754,6 +1216,18 @@ blank_as_na <- function(x) if (nzchar(trimws(x))) x else NA_character_
 infectious_agent_concept_key <- function(node)
   paste0(yaml_text(node[["ConceptSource"]]), "|",
          yaml_text(node[["ConceptId"]]))
+
+# A node's node_id over the full ontology: its ConceptSource and ConceptId,
+# but an ICTV node's IctvId in place of its ConceptId (see
+# infectious_agent_ictv_source), so that an ICTV node without an IctvId has
+# the node_id "ICTV|", which the contract refuses.
+infectious_agent_node_key <- function(node)
+{
+  source <- yaml_text(node[["ConceptSource"]])
+  if (!identical(source, infectious_agent_ictv_source))
+    return(infectious_agent_concept_key(node))
+  paste0(source, "|", yaml_text(node[["IctvId"]]))
+}
 
 # An Id as the toolkit's walkers read one, through int.TryParse() of its text,
 # but from 0 only, since it is the code of an option of non-negative integers:

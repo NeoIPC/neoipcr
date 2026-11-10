@@ -407,10 +407,12 @@ event_data_cols_for <- function(event_type_key)
 # `multiple` is BSI-only (TRUE_ONLY in DHIS2) — rows for other event
 # types carry NA.
 #
-# `name` is sparse free-text; the orchestrator splits it off into
-# `unknownPathogenNames` at [R/import-dhis2.R:174-181] unconditionally
-# under the schema contract (the legacy `if ("name" %in% names(...))`
-# guard becomes obsolete — the column is always declared).
+# `name` is sparse free-text, which `findings_cols` does not declare. It is
+# always a column of the intermediate of `read_infectious_agent_findings()`
+# in `R/dhis2-events.R`, whose pivot pins the type levels, and that reader
+# splits it off into `unknownPathogenNames` through
+# `split_unknown_pathogen_names()` before `finalize_to_schema()` drops it as
+# a scratch column.
 #
 # Link / hierarchy keys inherit strictly from `events_cols` (lean
 # children under fat-events, directly materialized under pseudo
@@ -545,16 +547,12 @@ substanceDays_cols <- with_entity_gate(
 
 # ---- unknownPathogenNames ------------------------------------------------
 #
-# Split off from `infectiousAgentFindings` at
-# [R/import-dhis2.R:174-181] so the main findings tibble doesn't carry
-# a mostly-NA free-text column. Rows where a user manually typed a
-# pathogen name (typically when `pathogen_key == 0` / "unknown") end
-# up here.
-#
-# Under the schema contract the split runs unconditionally —
-# `name` is always a declared column on findings (possibly all-NA),
-# so the `"name" %in% names(findings)` guard in the orchestrator
-# becomes unnecessary.
+# Split off from `infectiousAgentFindings` by
+# `read_infectious_agent_findings()` in `R/dhis2-events.R`, through
+# `split_unknown_pathogen_names()`, so the main findings tibble doesn't
+# carry a mostly-NA free-text column. Rows where a user manually typed the
+# name of an infectious agent (typically when `pathogen_key == 0` /
+# "unknown") end up here.
 #
 # Link is via `agent_finding_key` (findings PK), not `event_key`.
 # Gate is `include_event != "no"` so the tibble exists exactly when

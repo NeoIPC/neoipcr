@@ -2,13 +2,13 @@
 % Please edit documentation in R/calc-tables.R
 \name{get_infectious_agent_detection_rate_per_agent_table}
 \alias{get_infectious_agent_detection_rate_per_agent_table}
-\title{Get the table with infectious agent detection rates of the pathogens in a
-somewhat meaningful taxonomic structure}
+\title{Get the table of the infectious agents detected in nosocomial infections}
 \usage{
 get_infectious_agent_detection_rate_per_agent_table(
   x,
   use_cache = TRUE,
-  include_quartiles = TRUE
+  include_quartiles = TRUE,
+  rows = c("groups", "ontology")
 )
 }
 \arguments{
@@ -20,13 +20,72 @@ include_quartiles is TRUE.}
 
 \item{include_quartiles}{Include quartile columns (q1, q2, q3) in the output.
 Set to FALSE for department-level reports to simplify output.}
+
+\item{rows}{The rows of the table: \code{"groups"}, the default, over the
+reporting groups, or \code{"ontology"}, over the full ontology. A calculated
+dataset carries both.}
 }
 \value{
-A table containing infectious agent detection rates
+A table with one row per row described above: \code{level}, 0 for the
+Total, 1 for a summary row and a top-level node, and one more for each
+level below; \code{rank}, the node's concept type, \code{NA} for the Total, a summary
+row, a reporting group, and a residual row; \code{node_id}, the row's key, \code{NA}
+for the Total, which stays the same for a node across releases of the list
+that keep it; \code{parent_id}, the \code{node_id} of the row's parent, \code{NA} for a
+top-level row; \code{group}, the row's label; \code{n}, the infectious agents (the
+Total) or the infections (every other row) counted; \code{total}, the
+denominator; \code{pooled}, the rate per 100, \code{NA} without a denominator;
+\code{ci_lower} and \code{ci_upper}, its interval; with \code{include_quartiles}, the
+departments' quartiles \code{q1}, \code{q2}, and \code{q3}, their bootstrap intervals
+\code{q1_ci_lower} to \code{q3_ci_upper}, and \code{quartile_departments}, the number of
+departments that enter them; \code{n_outside_tree}, on the Total only; and, for
+each infection type (\code{bsi}, \code{hap}, \code{nec}, and \code{ssi}), \verb{n_<type>},
+\verb{total_<type>}, \verb{pooled_<type>}, \verb{ci_lower_<type>}, and \verb{ci_upper_<type>}.
 }
 \description{
-The rates are per 100 infections with an infectious agent: infections one
-of whose slots names one, "Not listed", "Unidentifiable", and a code the
-infectious-agent list lacks included. A slot holding only a source, a
-resistance category, or a name names none.
+Counts the infectious agents that the slots of the infection forms record,
+each once per infection, and only in a slot the form asks for: a sepsis
+form's slots unless it is recorded culture-negative, a pneumonia's own slots
+where its test is positive, an SSI's own slots where a depth is tested
+positive, and the secondary-BSI slots where the follow-up is answered Yes.
+A slot holding only a source, a resistance category, or a name records
+none. An infection is microbiologically confirmed where such a slot records
+an infectious agent; two codes of one concept, a synonym and the code it
+stands for, count as one infectious agent.
+}
+\details{
+The first row, the Total, gives the infectious agents per 100 confirmed
+infections, "Not listed", "Unidentifiable", and the codes the
+infectious-agent list lacks included, with an exact Poisson interval;
+\code{n_outside_tree} gives how many of them have no other row. Every other row
+gives the share of the confirmed infections with an infectious agent in the
+tree in which an infectious agent at or beneath the row's node was found,
+with a Wilson interval. An infection counts once in each row, so a parent's
+share need not be the sum of its children's, and the shares can add up to
+more than 100\%. A table has a row for each node at or above an infectious
+agent found; each row's children follow it, siblings by their share,
+descending.
+
+Over the reporting groups (\code{rows = "groups"}), the rows are the groups of
+the reporting classification of the NeoIPC infectious-agent list, nested as
+it nests them, below a summary block of the bacteria by Gram reaction and by
+oxygen requirement, a row per value found, keyed \code{"<attribute>|<value>"}.
+Over the full ontology (\code{rows = "ontology"}), the rows are every node of an
+infectious agent's path through the list, from its top-level row, Bacteria,
+Fungi, Protozoa, or Viruses, to the node at which it is recorded, a concept
+beneath a species (a subspecies, a serotype, or a group such as the
+polioviruses) counting in its species; where infectious agents are recorded
+at a node that has nodes beneath it in the full ontology (a species has
+none), a residual row labelled "n.o.s." (not otherwise specified), last
+among the node's children, counts them, whether or not the table has a row
+beneath the node, so that a department's rows are those a reference
+holding it gives the department.
+
+Beside the column of all infection types, each row has the same measures
+among the confirmed infections of each type, without quartiles. A
+department enters a row's quartiles where at least 5 confirmed infections
+are in its denominator of the row, at 0 where none of them is the row's; a
+row shows its quartiles where at least 5 departments enter and their median
+denominator exceeds the number of infections in which the pooled rate gives
+1 event; the bootstrap of their intervals takes the same departments.
 }

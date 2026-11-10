@@ -104,21 +104,22 @@ get_gestational_age_figure_data <- function(x) {
   )
 }
 
-# The departments' quartiles of a rate or share with their bootstrap
-# intervals.
-quartile_ci_cols <- c(
+# The departments' quartiles of a rate or share as `.department_quartiles()`
+# gives them: the quartiles, their bootstrap intervals, and the number of
+# departments that enter them.
+department_quartile_cols <- c(
   "q1", "q2", "q3",
   "q1_ci_lower", "q1_ci_upper", "q2_ci_lower", "q2_ci_upper",
-  "q3_ci_lower", "q3_ci_upper")
+  "q3_ci_lower", "q3_ci_upper", "quartile_departments")
 
-# The columns a table without quartiles leaves out: the quartiles with their
-# intervals, the secondary-BSI table's quartiles of the departments'
-# follow-up shares, and the quartiles of the departments' shares tested in
-# the table by infection type, with their intervals.
+# The columns a table without quartiles leaves out: the departments'
+# quartiles, the secondary-BSI table's quartiles of the departments'
+# follow-up shares, and the departments' quartiles of the shares tested in the
+# table by infection type.
 quartile_cols <- c(
-  quartile_ci_cols,
+  department_quartile_cols,
   "followup_q1", "followup_q2", "followup_q3",
-  paste0("tested_", quartile_ci_cols))
+  paste0("tested_", department_quartile_cols))
 
 # `include_event` is the event tiers the table accepts: the infectious-agent
 # tables read the findings' `pathogen_key`, which only the full tier carries.
@@ -152,6 +153,18 @@ check_ds_and_try_get_table <- function(
   # columns)
   if(is_neoipcr_rep_ds(x))
   {
+    # NEOIPC-PERMANENT(dataset-format): never drop this refusal. A calculated
+    # dataset serialized before one of its tables existed has no slot for it,
+    # and a file on disk outlives the code that wrote it; the dataset holds
+    # nothing the table could be computed from, so without the refusal the
+    # builder fails far from the cause.
+    if (is.null(x[[table_name]]))
+      rlang::abort(
+        c(gettextf("The calculated dataset has no table %s.",
+                   paste0("`", table_name, "`")),
+          "i" = gettext("It was calculated by a version of neoipcr that did not compute this table; calculate it again from its raw dataset.")),
+        class = "neoipcr_table_not_in_dataset")
+
     if(!include_quartiles && is_neoipcr_ref_ds(x))
       return(
         x[[table_name]] |>
@@ -995,9 +1008,11 @@ get_cumulative_incidence_table <- function(
 
 #' Get the table of microbiological testing by infection type
 #'
-#' Each row of an infection type gives two shares, in percent: how often the
-#' infection's site was tested microbiologically, and how often a test
-#' recorded an infectious agent, the yield of the testing.
+#' Each row, one for primary sepsis/BSI, pneumonia, and SSI, gives two
+#' shares, in percent: how often the infection's site was tested
+#' microbiologically, which the treating team decides and the laboratory
+#' available to it allows, and how often a test recorded an infectious agent,
+#' the yield of the testing. Neither tells a true from a false result.
 #'
 #' 1. **Tested:** the pneumonias whose microbiological test, and the SSIs
 #'    whose culture at the depth their infection type records, is recorded
@@ -1008,24 +1023,26 @@ get_cumulative_incidence_table <- function(
 #'    an SSI, at its own depth) with at least one own slot naming an
 #'    infectious agent, over the tested infections.
 #'
-#' Primary sepsis/BSI has only the positive share, over every episode, sampled
-#' or not: its form's single item "No positive blood culture" cannot tell a
-#' blood culture never taken from a negative one. An episode counts where an
-#' own slot names an infectious agent and the form is not recorded
-#' culture-negative. A slot names an infectious agent where it holds one,
-#' "Not listed", "Unidentifiable", and a code the infectious-agent list lacks
-#' included; a slot holding only a source, a resistance category, or a name
-#' does not. A secondary-BSI slot counts in neither share, and the follow-up
-#' for a secondary BSI moves neither: [get_secondary_bsi_rate_table()] gives
-#' both. NEC has no row, since it has no test of its own and its infectious
-#' agents are recorded only for a secondary BSI. The row `"all"` is the share
-#' of every infection, NEC included, in which any slot names an infectious
-#' agent, whatever the form asks for; it has no tested share.
+#' Primary sepsis/BSI has only the positive share, over every episode,
+#' clinical sepsis included, sampled or not: its form's single item "No
+#' positive blood culture" cannot tell a blood culture never taken from a
+#' negative one. An episode counts where an own slot names an infectious agent
+#' and the form is not recorded culture-negative. A slot names an infectious
+#' agent where it holds one, "Not listed", "Unidentifiable", and a code the
+#' infectious-agent list lacks included; a slot holding only a source, a
+#' resistance category, or a name does not. A secondary-BSI slot counts in
+#' neither share, and the follow-up for a secondary BSI moves neither:
+#' [get_secondary_bsi_rate_table()] gives both. NEC has no row, since it has
+#' no test of its own and its infectious agents are recorded only for a
+#' secondary BSI; nor do all types together, whose share would depend on each
+#' department's mix of infection types.
 #'
-#' The departments' quartiles of each share take the departments whose
-#' denominator of the share is above 0, and are shown where at least 5 such
-#' departments enter and their median denominator exceeds the denominator in
-#' which the pooled share gives 1 infection.
+#' A department enters a share's quartiles where at least 5 infections are in
+#' its denominator of the share, at 0 where none of them is in its numerator.
+#' A share shows its quartiles where at least 5 departments enter and their
+#' median denominator exceeds the number of infections in which the pooled
+#' share gives 1 infection; the bootstrap of their intervals takes the same
+#' departments.
 #'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
 #'  object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
@@ -1034,23 +1051,24 @@ get_cumulative_incidence_table <- function(
 #' @param include_quartiles Include the quartile columns of both shares in the
 #'  output. Set to FALSE for department-level reports to simplify output.
 #'
-#' @returns A table with a row for each of `"all"`, `"bsi"`, `"hap"`, and
-#'  `"ssi"` (`inf`), in that order:
+#' @returns A table with a row for each of `"bsi"`, `"hap"`, and `"ssi"`
+#'  (`inf`), in that order:
 #'
 #'  * the positive share: `n`, the positive infections; `tested`, its
-#'    denominator, the tested infections (every episode for `"bsi"` and every
-#'    infection for `"all"`); `pooled`, the share; `ci_lower` and `ci_upper`,
-#'    its Wilson interval; and with `include_quartiles` the departments'
-#'    quartiles (`q1`, `q2`, `q3`) with their bootstrap intervals
-#'    (`q1_ci_lower`, `q1_ci_upper`, and so on);
+#'    denominator, the tested infections, every episode for `"bsi"`;
+#'    `pooled`, the share, `NA` without a denominator; `ci_lower` and
+#'    `ci_upper`, its Wilson interval; and with `include_quartiles` the
+#'    departments' quartiles (`q1`, `q2`, `q3`), their bootstrap intervals
+#'    (`q1_ci_lower` to `q3_ci_upper`), and `quartile_departments`, the
+#'    number of departments that enter them, given whether or not the
+#'    quartiles are shown;
 #'  * the tested share: `total`, every infection of the type, its
-#'    denominator, which counts every episode for `"bsi"` and every infection
-#'    for `"all"` too; `tested_pooled`, the share; `tested_ci_lower` and
+#'    denominator; `tested_pooled`, the share; `tested_ci_lower` and
 #'    `tested_ci_upper`, its Wilson interval; and with `include_quartiles` the
-#'    departments' quartiles (`tested_q1`, `tested_q2`, `tested_q3`) with
-#'    their bootstrap intervals (`tested_q1_ci_lower`, `tested_q1_ci_upper`,
-#'    and so on). The share, its interval, and its quartiles are `NA` for
-#'    `"bsi"` and `"all"`, which have no tested share.
+#'    departments' quartiles (`tested_q1`, `tested_q2`, `tested_q3`), their
+#'    bootstrap intervals (`tested_q1_ci_lower` to `tested_q3_ci_upper`), and
+#'    `tested_quartile_departments`. The share and all its columns but
+#'    `total` are `NA` for `"bsi"`, whose `total` counts every episode.
 #' @export
 get_infectious_agent_detection_rate_per_inf_type_table <- function(
     x, use_cache = TRUE, include_quartiles = TRUE) {
@@ -1059,89 +1077,99 @@ get_infectious_agent_detection_rate_per_inf_type_table <- function(
     cache_key, use_cache, include_quartiles, include_event = "full")))
     return(r)
 
-  # The row of all types keeps every infection and every slot: it is the share
-  # that the reports' text gives over every infection. `pick()` keeps the
-  # `group_cols` that `.keep = "none"` would drop.
-  shares <- function(group_cols)
-    dplyr::bind_rows(
-      x |>
-        get_infectious_agent_detection_rates(
-          group_cols = group_cols,
-          use_cache = use_cache) |>
+  types <- testing_infection_types
+  counts <- get_infectious_agent_detection_rates_per_inf_type(
+    x, use_cache = use_cache)
+  # The measures of the share of the infections of `share_types` counted in
+  # the column `events` among those counted in `denominator`.
+  share <- function(share_types, events, denominator)
+    .infectious_agent_rate_columns(
+      counts[counts$event_type_key %in% share_types, ] |>
         dplyr::mutate(
-          dplyr::pick(tidyselect::all_of(group_cols)),
-          event_type_key = "all",
-          n = .data$inf_with_pathogen,
-          tested = .data$total_inf,
-          pooled = .data$iwp_per_t,
-          total = .data$total_inf,
-          tested_pooled = NA_real_,
+          event_type_key = .data$event_type_key,
+          department_key = .data$department_key,
+          n = .data[[events]],
+          total = .data[[denominator]],
           .keep = "none"),
-      x |>
-        get_infectious_agent_detection_rates_per_inf_type(
-          group_cols = group_cols,
-          use_cache = use_cache) |>
-        dplyr::mutate(
-          dplyr::pick(tidyselect::all_of(group_cols)),
-          event_type_key = as.character(.data$event_type_key),
-          n = .data$positive_inf,
-          tested = .data$tested_inf,
-          pooled = .data$positive_per_tested,
-          total = .data$total_inf,
-          tested_pooled = .data$tested_per_t,
-          .keep = "none"))
+      keys = tibble::tibble(event_type_key = share_types),
+      by = "event_type_key",
+      scale = 100,
+      interval = "wilson",
+      denominator = "count",
+      include_quartiles = include_quartiles)
 
-  r <- shares(NULL)
-  # The rows without a tested share, sepsis/BSI and all types, count their
-  # infections in both `tested` and `total`, and get no interval for it.
-  r <- r |>
-    dplyr::bind_cols(wilson_ci_cols(r$n, r$tested, scale = 100)) |>
-    dplyr::bind_cols(
-      wilson_ci_cols(
-        dplyr::if_else(is.na(r$tested_pooled), NA_integer_, r$tested),
-        r$total,
-        scale = 100) |>
-        dplyr::rename(
-          "tested_ci_lower" = "ci_lower",
-          "tested_ci_upper" = "ci_upper"))
-  return_class <- "neoipcr_tbl_iadrpit"
-
-  if(include_quartiles) {
-    dept_rates <- shares("department_key")
-    r <- r |>
-      dplyr::left_join(
-        inf_type_share_quartiles(r$event_type_key, r$pooled, dept_rates,
-                                 "n", "tested"),
-        dplyr::join_by("event_type_key")) |>
-      dplyr::left_join(
-        inf_type_share_quartiles(r$event_type_key, r$tested_pooled,
-                                 dept_rates, "tested", "total") |>
-          dplyr::rename_with(\(nm) paste0("tested_", nm), !"event_type_key"),
-        dplyr::join_by("event_type_key"))
-    return_class <- c("neoipcr_tbl_iadrpit_ref", return_class)
-  }
-
-  r |>
+  # Primary sepsis/BSI has no tested share, its form not recording whether a
+  # blood culture was taken.
+  tested <- share(setdiff(types, "bsi"), "tested", "total") |>
+    dplyr::select(!c("n", "total")) |>
+    dplyr::rename_with(\(name) paste0("tested_", name), !"event_type_key")
+  r <- share(types, "positive", "tested") |>
+    dplyr::rename("tested" = "total") |>
+    dplyr::left_join(
+      dplyr::summarise(counts, total = sum(.data$total),
+                       .by = "event_type_key"),
+      dplyr::join_by("event_type_key")) |>
+    dplyr::left_join(tested, dplyr::join_by("event_type_key")) |>
     dplyr::mutate(
-      inf = factor(.data$event_type_key, levels = c("all","bsi","hap","ssi")),
-      .before = 1,
-      .keep = "unused") |>
+      inf = factor(.data$event_type_key, levels = types),
+      total = dplyr::coalesce(.data$total, 0L)) |>
     dplyr::select(tidyselect::any_of(c(
-      "inf", "n", "tested", "pooled", "ci_lower", "ci_upper", quartile_ci_cols,
-      "total", "tested_pooled", "tested_ci_lower", "tested_ci_upper",
-      paste0("tested_", quartile_ci_cols)))) |>
-    dplyr::arrange(.data$inf) |>
-    add_class(return_class) |>
-    cache(x, cache_key)
+      "inf", "n", "tested", "pooled", "ci_lower", "ci_upper",
+      department_quartile_cols, "total", "tested_pooled", "tested_ci_lower",
+      "tested_ci_upper", paste0("tested_", department_quartile_cols)))) |>
+    add_class("neoipcr_tbl_iadrpit")
+  if (include_quartiles)
+    r <- add_class(r, "neoipcr_tbl_iadrpit_ref")
+
+  cache(r, x, cache_key)
 }
 
-#' Get the table with infectious agent detection rates of the pathogens in a
-#'  somewhat meaningful taxonomic structure
+#' Get the table of the infectious agents detected in nosocomial infections
 #'
-#' The rates are per 100 infections with an infectious agent: infections one
-#' of whose slots names one, "Not listed", "Unidentifiable", and a code the
-#' infectious-agent list lacks included. A slot holding only a source, a
-#' resistance category, or a name names none.
+#' Counts the infectious agents that the slots of the infection forms record,
+#' each once per infection, and only in a slot the form asks for: a sepsis
+#' form's slots unless it is recorded culture-negative, a pneumonia's own slots
+#' where its test is positive, an SSI's own slots where a depth is tested
+#' positive, and the secondary-BSI slots where the follow-up is answered Yes.
+#' A slot holding only a source, a resistance category, or a name records
+#' none. An infection is microbiologically confirmed where such a slot records
+#' an infectious agent; two codes of one concept, a synonym and the code it
+#' stands for, count as one infectious agent.
+#'
+#' The first row, the Total, gives the infectious agents per 100 confirmed
+#' infections, "Not listed", "Unidentifiable", and the codes the
+#' infectious-agent list lacks included, with an exact Poisson interval;
+#' `n_outside_tree` gives how many of them have no other row. Every other row
+#' gives the share of the confirmed infections with an infectious agent in the
+#' tree in which an infectious agent at or beneath the row's node was found,
+#' with a Wilson interval. An infection counts once in each row, so a parent's
+#' share need not be the sum of its children's, and the shares can add up to
+#' more than 100%. A table has a row for each node at or above an infectious
+#' agent found; each row's children follow it, siblings by their share,
+#' descending.
+#'
+#' Over the reporting groups (`rows = "groups"`), the rows are the groups of
+#' the reporting classification of the NeoIPC infectious-agent list, nested as
+#' it nests them, below a summary block of the bacteria by Gram reaction and by
+#' oxygen requirement, a row per value found, keyed `"<attribute>|<value>"`.
+#' Over the full ontology (`rows = "ontology"`), the rows are every node of an
+#' infectious agent's path through the list, from its top-level row, Bacteria,
+#' Fungi, Protozoa, or Viruses, to the node at which it is recorded, a concept
+#' beneath a species (a subspecies, a serotype, or a group such as the
+#' polioviruses) counting in its species; where infectious agents are recorded
+#' at a node that has nodes beneath it in the full ontology (a species has
+#' none), a residual row labelled "n.o.s." (not otherwise specified), last
+#' among the node's children, counts them, whether or not the table has a row
+#' beneath the node, so that a department's rows are those a reference
+#' holding it gives the department.
+#'
+#' Beside the column of all infection types, each row has the same measures
+#' among the confirmed infections of each type, without quartiles. A
+#' department enters a row's quartiles where at least 5 confirmed infections
+#' are in its denominator of the row, at 0 where none of them is the row's; a
+#' row shows its quartiles where at least 5 departments enter and their median
+#' denominator exceeds the number of infections in which the pooled rate gives
+#' 1 event; the bootstrap of their intervals takes the same departments.
 #'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
 #'  object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
@@ -1149,226 +1177,134 @@ get_infectious_agent_detection_rate_per_inf_type_table <- function(
 #' @param use_cache Use the cache. Ignored if x is a neoipcr_rep_ds object
 #' @param include_quartiles Include quartile columns (q1, q2, q3) in the output.
 #'  Set to FALSE for department-level reports to simplify output.
+#' @param rows The rows of the table: `"groups"`, the default, over the
+#'  reporting groups, or `"ontology"`, over the full ontology. A calculated
+#'  dataset carries both.
 #'
-#' @returns A table containing infectious agent detection rates
+#' @returns A table with one row per row described above: `level`, 0 for the
+#'  Total, 1 for a summary row and a top-level node, and one more for each
+#'  level below; `rank`, the node's concept type, `NA` for the Total, a summary
+#'  row, a reporting group, and a residual row; `node_id`, the row's key, `NA`
+#'  for the Total, which stays the same for a node across releases of the list
+#'  that keep it; `parent_id`, the `node_id` of the row's parent, `NA` for a
+#'  top-level row; `group`, the row's label; `n`, the infectious agents (the
+#'  Total) or the infections (every other row) counted; `total`, the
+#'  denominator; `pooled`, the rate per 100, `NA` without a denominator;
+#'  `ci_lower` and `ci_upper`, its interval; with `include_quartiles`, the
+#'  departments' quartiles `q1`, `q2`, and `q3`, their bootstrap intervals
+#'  `q1_ci_lower` to `q3_ci_upper`, and `quartile_departments`, the number of
+#'  departments that enter them; `n_outside_tree`, on the Total only; and, for
+#'  each infection type (`bsi`, `hap`, `nec`, and `ssi`), `n_<type>`,
+#'  `total_<type>`, `pooled_<type>`, `ci_lower_<type>`, and `ci_upper_<type>`.
 #' @export
 get_infectious_agent_detection_rate_per_agent_table <- function(
-    x, use_cache = TRUE, include_quartiles = TRUE) {
-  cache_key <- "infectious_agent_detection_rate_per_agent_table"
+    x, use_cache = TRUE, include_quartiles = TRUE,
+    rows = c("groups", "ontology")) {
+  rows <- rlang::arg_match(rows)
+  cache_key <- infectious_agent_detection_table_names[[rows]]
   if(!is.null(r <- x |> check_ds_and_try_get_table(
     cache_key, use_cache, include_quartiles, include_event = "full")))
     return(r)
 
-  # Choose the appropriate helper function, the columns to include and the class
-  # to return based on include_quartiles
-  if(include_quartiles) {
-    get_rates <- function(...) {
-      get_infectious_agent_detection_rates_with_department_quartiles(...)
-    }
-    rate_cols <- c("n","inf_with_pathogen","rate","q1","q2","q3",
-                   "q1_ci_lower","q1_ci_upper","q2_ci_lower","q2_ci_upper",
-                   "q3_ci_lower","q3_ci_upper")
-    return_class <- c("neoipcr_tbl_iadrpa_ref", "neoipcr_tbl_iadrpa")
-  } else {
-    get_rates <- function(...) {
-      get_infectious_agent_detection_rates(...) |>
-        dplyr::rename(rate = "n_per_iwp")
-    }
-    rate_cols <- c("n","inf_with_pathogen","rate")
-    return_class <- "neoipcr_tbl_iadrpa"
-  }
+  d <- get_infectious_agent_detection_rates(x, rows = rows, use_cache = use_cache)
 
-  lv0 <- dplyr::bind_cols(
-    lv = 0L,
-    tl = "none",
-    .ontology_path = "",
-    group = "Total",
-    x |>
-      get_rates(use_cache = use_cache) |>
-      dplyr::select(tidyselect::all_of(rate_cols)))
-  d <- x |>
-    get_rates(
-      group_cols = "domain",
-      use_cache = use_cache) |>
-    dplyr::select("group"="domain",tidyselect::all_of(rate_cols)) |>
-    dplyr::arrange(dplyr::desc(.data$rate))
-  for (i in seq_len(nrow(d))) {
-    di <- d[i,]
-    if(!is.na(di$group) && di$group == "Bacteria") {
-      op_domain <- di$group
-      lv1 <- dplyr::bind_cols(lv = 1L, tl = "domain",
-        .ontology_path = op_domain, di)
-      o <- x |>
-        get_rates(
-          group_cols = c("domain","order"),
-          use_cache = use_cache) |>
-        dplyr::filter(.data$domain == di$group) |>
-        dplyr::select("group"="order",tidyselect::all_of(rate_cols)) |>
-        dplyr::arrange(dplyr::desc(.data$rate))
-      for (j in seq_len(nrow(o))) {
-        oj <- o[j,]
-        op_order <- paste0(op_domain, "|", oj$group)
-        lv2 <- dplyr::bind_cols(lv = 2L, tl = "order",
-          .ontology_path = op_order, oj)
-        g <- x |>
-          get_rates(
-            group_cols = c("order","genus"),
-            use_cache = use_cache) |>
-          dplyr::filter(.data$order == oj$group) |>
-          dplyr::select("group"="genus",tidyselect::all_of(rate_cols)) |>
-          dplyr::arrange(dplyr::desc(.data$rate))
-        for (k in seq_len(nrow(g))) {
-          gk <- g[k,]
-          op_genus <- paste0(op_order, "|", gk$group)
-          lv3 <- dplyr::bind_cols(lv = 3L, tl = "genus",
-            .ontology_path = op_genus,
-            gk |> dplyr::mutate(group = paste(.data$group, "spp.")))
-          if(gk$group == "Staphylococcus") {
-            c <- x |>
-              get_rates(
-                group_cols = c("genus","coagulase"),
-                use_cache = use_cache) |>
-              dplyr::filter(.data$genus == "Staphylococcus") |>
-              dplyr::select("group"="coagulase",tidyselect::all_of(rate_cols)) |>
-              dplyr::arrange(dplyr::desc(.data$rate))
-            for (l in seq_len(nrow(c))) {
-              cl <- c[l,]
-              c_text <- switch (as.character(cl$group),
-                "n" = "Coagulase-negative staphylococci",
-                "p" = "Coagulase-positive staphylococci",
-                "Staphylococcus spp. n.o.s.")
-              op_coag <- paste0(op_genus, "|",
-                switch(as.character(cl$group),
-                  "n" = "n", "p" = "p", "~"))
-              lv4 <- dplyr::bind_cols(
-                lv = 4L,
-                tl = switch (as.character(cl$group), "n" = "coag_type",
-                             "p" = "coag_type", "coag_type_nos"),
-                .ontology_path = op_coag,
-                cl |> dplyr::mutate(group = c_text))
-              s <- x |>
-                get_rates(
-                  group_cols = c("genus","coagulase","species"),
-                  use_cache = use_cache) |>
-                dplyr::filter(.data$genus == "Staphylococcus" & .data$coagulase == cl$group) |>
-                dplyr::select("group"="species",tidyselect::all_of(rate_cols)) |>
-                dplyr::arrange(dplyr::desc(.data$rate))
-              lv5 <- dplyr::bind_rows(
-                dplyr::bind_cols(
-                  lv = 5L,
-                  tl = "species",
-                  s |> dplyr::filter(!is.na(.data$group)) |>
-                    dplyr::mutate(.ontology_path = paste0(
-                      op_coag, "|", .data$group))),
-                dplyr::bind_cols(
-                  lv = 5L,
-                  tl = "species_nos",
-                  s |> dplyr::filter(is.na(.data$group)) |>
-                    dplyr::mutate(
-                      .ontology_path = paste0(op_coag, "|~"),
-                      group = paste(c_text, "n.o.s."))))
-              lv3 <- dplyr::bind_rows(lv3,lv4,lv5)
-            }
-          }
-          else {
-            s <- x |>
-              get_rates(
-                group_cols = c("genus","coagulase","species"),
-                use_cache = use_cache) |>
-              dplyr::filter(.data$genus == gk$group) |>
-              dplyr::select("group"="species",tidyselect::all_of(rate_cols)) |>
-              dplyr::arrange(dplyr::desc(.data$rate))
-            lv4 <- dplyr::bind_rows(
-              dplyr::bind_cols(
-                lv = 4L,
-                tl = "species",
-                s |> dplyr::filter(!is.na(.data$group)) |>
-                  dplyr::mutate(.ontology_path = paste0(
-                    op_genus, "|", .data$group))),
-              dplyr::bind_cols(
-                lv = 4L,
-                tl = "species_nos",
-                s |> dplyr::filter(is.na(.data$group)) |>
-                  dplyr::mutate(
-                    .ontology_path = paste0(op_genus, "|~"),
-                    group = paste(gk$group,"spp. n.o.s."))))
-            lv3 <- dplyr::bind_rows(lv3,lv4)
-          }
-          lv2 <- dplyr::bind_rows(lv2,lv3)
-        }
-        lv1 <- dplyr::bind_rows(lv1,lv2)
-      }
-      lv0 <- dplyr::bind_rows(lv0,lv1)
-    }
-    else if (!is.na(di$group)) {
-      kd <- x |>
-        get_rates(
-          group_cols = c("domain","kingdom"),
-          use_cache = use_cache) |>
-        dplyr::filter(.data$domain == di$group) |>
-        dplyr::select("group"="kingdom",tidyselect::all_of(rate_cols)) |>
-        dplyr::arrange(dplyr::desc(.data$rate))
-      for (j in seq_len(nrow(kd))) {
-        kj <- kd[j,]
-        op_kingdom <- paste0(di$group, "|", kj$group)
-        lv1 <- dplyr::bind_cols(lv = 1L, tl = "kingdom",
-          .ontology_path = op_kingdom, kj)
-        g <- x |>
-          get_rates(
-            group_cols = c("kingdom","genus"),
-            use_cache = use_cache) |>
-          dplyr::filter(.data$kingdom == kj$group) |>
-          dplyr::select("group"="genus",tidyselect::all_of(rate_cols)) |>
-          dplyr::arrange(dplyr::desc(.data$rate))
-        for (k in seq_len(nrow(g))) {
-          gk <- g[k,]
-          op_genus <- paste0(op_kingdom, "|", gk$group)
-          lv2 <- dplyr::bind_cols(lv = 2L, tl = "genus",
-            .ontology_path = op_genus,
-            gk |> dplyr::mutate(group = paste(.data$group, "spp.")))
-          s <- x |>
-            get_rates(
-              group_cols = c("genus","coagulase","species"),
-              use_cache = use_cache) |>
-            dplyr::filter(.data$genus == gk$group) |>
-            dplyr::select("group"="species",tidyselect::all_of(rate_cols)) |>
-            dplyr::arrange(dplyr::desc(.data$rate))
-          lv3 <- dplyr::bind_rows(
-            dplyr::bind_cols(
-              lv = 3L,
-              tl = "species",
-              s |> dplyr::filter(!is.na(.data$group)) |>
-                dplyr::mutate(.ontology_path = paste0(
-                  op_genus, "|", .data$group))),
-            dplyr::bind_cols(
-              lv = 3L,
-              tl = "species_nos",
-              s |> dplyr::filter(is.na(.data$group)) |>
-                dplyr::mutate(
-                  .ontology_path = paste0(op_genus, "|~"),
-                  group = paste(gk$group,"spp. n.o.s."))))
-          lv1 <- dplyr::bind_rows(lv1,lv2,lv3)
-        }
-      }
-      lv0 <- dplyr::bind_rows(lv0,lv1)
-    }
-  }
+  total <- .infectious_agent_rate_columns(
+    dplyr::mutate(d$total, .row = "total"),
+    keys = tibble::tibble(.row = "total"),
+    by = ".row",
+    scale = 100,
+    interval = "poisson",
+    denominator = "count",
+    include_quartiles = include_quartiles,
+    types = infectious_agent_infection_types)
+  node_rows <- .infectious_agent_rate_columns(
+    d$rows,
+    keys = d$layout["node_id"],
+    by = "node_id",
+    scale = 100,
+    interval = "wilson",
+    denominator = "count",
+    include_quartiles = include_quartiles,
+    types = infectious_agent_infection_types)
 
-  lv0 |>
-    (\(d) dplyr::bind_cols(d, poisson_ci_cols(d$n, d$inf_with_pathogen, multiplier = 100)))() |>
-    dplyr::select(!"inf_with_pathogen") |>
-    dplyr::rename("level"="lv","taxon"="tl","pooled"="rate") |>
-    add_class(return_class) |>
-    cache(x, cache_key)
+  r <- dplyr::bind_rows(
+    tibble::tibble(
+      level = 0L,
+      rank = NA_character_,
+      node_id = NA_character_,
+      parent_id = NA_character_,
+      group = "Total",
+      n_outside_tree = d$n_outside_tree) |>
+      dplyr::bind_cols(dplyr::select(total, !".row")),
+    d$layout |>
+      dplyr::left_join(node_rows, dplyr::join_by("node_id"))) |>
+    dplyr::relocate("n_outside_tree", .before = "n_bsi") |>
+    add_class("neoipcr_tbl_iadrpa")
+  if (include_quartiles)
+    r <- add_class(r, "neoipcr_tbl_iadrpa_ref")
+
+  cache(r, x, cache_key)
 }
 
-#' Get the table of infection rates with antibiotic resistant bacteria in a
-#'  somewhat meaningful taxonomic structure
+# The slots of a calculated dataset, and the cache keys, of the two versions of
+# the table of the infectious agents detected.
+infectious_agent_detection_table_names <- c(
+  groups = "infectious_agent_detection_rate_per_agent_table",
+  ontology = "infectious_agent_detection_rate_per_agent_ontology_table")
+
+#' Get the table of the nosocomial infections with resistant infectious agents
 #'
-#' The rates are shares of the infections with an infectious agent:
-#' infections one of whose slots names one, "Not listed", "Unidentifiable",
-#' and a code the infectious-agent list lacks included. A slot holding only a
-#' source, a resistance category, or a name names none.
+#' For each resistance category, third-generation cephalosporin resistance
+#' (3GCR), carbapenem resistance, colistin resistance, methicillin-resistant
+#' *Staphylococcus aureus* (MRSA), and vancomycin-resistant *Enterococcus*
+#' (VRE), a block gives the density of the infections with a resistant
+#' infectious agent per 1000 patient-days, with an exact Poisson interval,
+#' every infant being at risk: first the category's Total, the infections
+#' with at least one infectious agent recorded resistant in the category,
+#' then the rows on the paths of the infectious agents to which the NeoIPC
+#' infectious-agent list applies the category, each with the infections in
+#' which an infectious agent at or beneath its node is recorded resistant in
+#' it. A block has each such row that lies at or above an infectious agent
+#' found to which the list applies the category or that has a result for
+#' it, so that whether a row is there depends only on the infectious agents
+#' at or beneath it. An infection counts once in each row, so a parent's
+#' density need not be the sum of its children's. The patient-days are all
+#' those of the dataset, as the incidence densities count them.
+#'
+#' The infectious agents are those that
+#' [get_infectious_agent_detection_rate_per_agent_table()] counts, each once
+#' per infection and only in a slot the form asks for, and one is resistant
+#' where a slot naming it records it resistant. "Not listed",
+#' "Unidentifiable", and a code the list lacks count in a Total only, and
+#' `n_outside_tree` gives how many of them are recorded resistant. A value
+#' recorded for a category that the list does not apply to its infectious
+#' agent counts as any other, in the Total and in the block's rows at or
+#' above the infectious agent's node, which it gives the block.
+#'
+#' Over the reporting groups (`rows = "groups"`), the rows of a block below
+#' its Total are a summary block of the bacteria by Gram reaction and by
+#' oxygen requirement, a row per value found that an infectious agent the
+#' list applies the category to has, keyed `"<attribute>|<value>"`, and then
+#' the groups of the reporting classification, nested as it nests them. Over
+#' the full ontology (`rows = "ontology"`), they are the nodes of the paths
+#' through the list, from the top-level row, Bacteria, Fungi, Protozoa, or
+#' Viruses, to the node at which an infectious agent is recorded, a concept
+#' beneath a species (a subspecies, a serotype, or a group such as the
+#' polioviruses) counting in its species; where infectious agents are
+#' recorded at a node that has a node of those paths beneath it in the full
+#' ontology (a species has none), a residual row labelled "n.o.s." (not
+#' otherwise specified), last among the node's children, counts them, whether
+#' or not the block has a row beneath the node. Each row's children follow
+#' it, siblings by their density, descending.
+#'
+#' A department enters a row's quartiles with at least 50 patient-days, at 0
+#' where it has none of the row's infections, unless the list applies the
+#' category to infectious agents it detected and none of them has a result
+#' for it, as [get_resistance_test_rate_table()] counts them: its 0 would
+#' dilute the quartiles. A row shows its quartiles where at least 5
+#' departments enter and their median patient-days exceed the patient-days in
+#' which the pooled density gives 1 infection; the bootstrap of their
+#' intervals takes the same departments.
 #'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
 #'  object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
@@ -1376,355 +1312,302 @@ get_infectious_agent_detection_rate_per_agent_table <- function(
 #' @param use_cache Use the cache. Ignored if x is a neoipcr_rep_ds object
 #' @param include_quartiles Include quartile columns (q1, q2, q3) in the output.
 #'  Set to FALSE for department-level reports to simplify output.
+#' @param rows The rows of the table: `"groups"`, the default, over the
+#'  reporting groups, or `"ontology"`, over the full ontology. A calculated
+#'  dataset carries both.
 #'
-#' @returns A table containing infection rates with antibiotic resistant
-#'  bacteria
+#' @returns A table with the blocks described above, in the order of `abr`,
+#'  the resistance category, a factor with the levels `"3gcr"`, `"car"`,
+#'  `"cor"`, `"mrsa"`, and `"vre"`; then `level`, 0 for a Total, 1 for a
+#'  summary row and a top-level node, and one more for each level below;
+#'  `rank`, the node's concept type, `NA` for a Total, a summary row, a
+#'  reporting group, and a residual row; `node_id`, the row's key, `NA` for a
+#'  Total; `parent_id`, the `node_id` of the row's parent, `NA` for a
+#'  top-level row; `group`, the row's label; `n`, the infections counted;
+#'  `total`, the patient-days; `pooled`, the density per 1000 patient-days,
+#'  `NA` without patient-days; `ci_lower` and `ci_upper`, its interval; with
+#'  `include_quartiles`, the departments' quartiles `q1`, `q2`, and `q3`,
+#'  their bootstrap intervals `q1_ci_lower` to `q3_ci_upper`, and
+#'  `quartile_departments`, the number of departments that enter them; and
+#'  `n_outside_tree`, on a Total only.
 #' @export
 get_abr_infection_rate_table <- function(
-    x, use_cache = TRUE, include_quartiles = TRUE) {
-  cache_key <- "abr_infection_rate_table"
+    x, use_cache = TRUE, include_quartiles = TRUE,
+    rows = c("groups", "ontology")) {
+  rows <- rlang::arg_match(rows)
+  cache_key <- abr_infection_rate_table_names[[rows]]
   if(!is.null(r <- x |> check_ds_and_try_get_table(
     cache_key, use_cache, include_quartiles, include_event = "full")))
     return(r)
 
-  # Choose the appropriate helper function, the columns to include and the class
-  # to return based on include_quartiles
-  if(include_quartiles) {
-    get_resistance <- function(...) {
-      get_resistance_rate_with_department_quartiles(...)
-    }
-    rate_cols <- c("n","inf_w_ia","rate","q1","q2","q3",
-                   "q1_ci_lower","q1_ci_upper","q2_ci_lower","q2_ci_upper",
-                   "q3_ci_lower","q3_ci_upper")
-    return_class <- c("neoipcr_tbl_abr_ir_ref", "neoipcr_tbl_abr_ir")
-  } else {
-    get_resistance <- function(...) {
-      get_resistance_rate(...) |>
-        dplyr::rename("n"="inf_rs","rate"="inf_rs_rate")
-    }
-    rate_cols <- c("n","inf_w_ia","rate")
-    return_class <- "neoipcr_tbl_abr_ir"
+  d <- get_infectious_agent_resistance_rates(
+    x, rows = rows, use_cache = use_cache)
+  patient_days <- get_risk_time(
+    x, group_cols = "department_key", use_cache = use_cache) |>
+    dplyr::select("department_key", "patient_days")
+  untested <- get_resistance_test_counts(x, use_cache = use_cache) |>
+    dplyr::filter(.data$cond == "routine", .data$total > 0L, .data$n == 0L)
+
+  # Each department's patient-days for each row of `keys`, with the row's
+  # infections `n` there, 0 where it has none.
+  over_patient_days <- function(counts, keys)
+    keys |>
+    dplyr::cross_join(patient_days) |>
+    dplyr::full_join(counts, by = c(names(keys), "department_key")) |>
+    dplyr::mutate(
+      n = dplyr::coalesce(.data$n, 0L),
+      total = dplyr::coalesce(.data$patient_days, 0L)) |>
+    dplyr::select(!"patient_days")
+
+  block <- function(category) {
+    outside <- untested$department_key[untested$abr == category]
+    totals <- d$total[d$total$abr == category, ]
+    total_key <- tibble::tibble(.row = "total")
+    total <- .infectious_agent_rate_columns(
+      over_patient_days(
+        tibble::tibble(
+          .row = "total",
+          department_key = totals$department_key,
+          n = totals$resistant),
+        total_key),
+      keys = total_key,
+      by = ".row",
+      scale = 1000,
+      interval = "poisson",
+      denominator = "days",
+      include_quartiles = include_quartiles,
+      outside_quartiles = outside)
+
+    counts <- d$rows[d$rows$abr == category, ]
+    keys <- tibble::tibble(node_id = unique(counts$node_id))
+    node_rows <- .infectious_agent_rate_columns(
+      over_patient_days(
+        tibble::tibble(
+          node_id = counts$node_id,
+          department_key = counts$department_key,
+          n = counts$resistant),
+        keys),
+      keys = keys,
+      by = "node_id",
+      scale = 1000,
+      interval = "poisson",
+      denominator = "days",
+      include_quartiles = include_quartiles,
+      outside_quartiles = outside)
+    layout <- .infectious_agent_layout(
+      tibble::tibble(node_id = node_rows$node_id, rate = node_rows$pooled),
+      rows)
+
+    dplyr::bind_rows(
+      tibble::tibble(
+        abr = category,
+        level = 0L,
+        rank = NA_character_,
+        node_id = NA_character_,
+        parent_id = NA_character_,
+        group = "Total") |>
+        dplyr::bind_cols(dplyr::select(total, !".row")) |>
+        dplyr::mutate(n_outside_tree = sum(totals$n_outside_tree)),
+      layout |>
+        dplyr::left_join(node_rows, dplyr::join_by("node_id")) |>
+        dplyr::mutate(abr = category, .before = 1))
   }
 
-  abr_types <- c("3gcr","car","cor")
-  tbl <- NULL
+  r <- purrr::map(infectious_agent_resistance_categories, block) |>
+    purrr::list_rbind() |>
+    dplyr::mutate(
+      abr = factor(.data$abr, levels = infectious_agent_resistance_categories)) |>
+    add_class("neoipcr_tbl_abr_ir")
+  if (include_quartiles)
+    r <- add_class(r, "neoipcr_tbl_abr_ir_ref")
 
-  for (abr_type in abr_types) {
-    t <- x |>
-      get_resistance(
-        resistance = abr_type,
-        use_cache = use_cache) |>
-      dplyr::select(tidyselect::all_of(rate_cols))
-
-    lv0 <- dplyr::bind_cols(
-      abr_type = abr_type,
-      lv = 0L,
-      tl = "none",
-      .ontology_path = abr_type,
-      group = "Total",
-      t)
-
-    if(length(t$n) > 0 && t$n > 0) {
-      o <- x |>
-        get_resistance(
-          resistance = abr_type,
-          group_cols = "order",
-          use_cache = use_cache) |>
-        dplyr::select("group"="order",tidyselect::all_of(rate_cols)) |>
-        dplyr::arrange(dplyr::desc(.data$rate))
-
-      for (j in seq_len(nrow(o))) {
-        oj <- o[j,]
-
-        if(oj$n > 0) {
-          op_order <- paste0(abr_type, "|", oj$group)
-          lv1 <- dplyr::bind_cols(
-            abr_type = abr_type,
-            lv = 2L,
-            tl = "order",
-            .ontology_path = op_order,
-            oj)
-          g <- x |>
-            get_resistance(
-              resistance = abr_type,
-              group_cols = c("order","genus"),
-              use_cache = use_cache) |>
-            dplyr::filter(.data$order == oj$group) |>
-            dplyr::select("group"="genus",tidyselect::all_of(rate_cols)) |>
-            dplyr::arrange(dplyr::desc(.data$rate))
-
-          for (k in seq_len(nrow(g))) {
-            gk <- g[k,]
-
-            if(gk$n > 0) {
-              op_genus <- paste0(op_order, "|", gk$group)
-              lv2 <- dplyr::bind_cols(
-                abr_type = abr_type,
-                lv = 3L,
-                tl = "genus",
-                .ontology_path = op_genus,
-                gk |>
-                  dplyr::mutate(group = paste(.data$group, "spp.")))
-              s <- x |>
-                get_resistance(
-                  resistance = abr_type,
-                  group_cols = c("genus","species"),
-                  use_cache = use_cache) |>
-                dplyr::filter(.data$genus == gk$group) |>
-                dplyr::select("group"="species",tidyselect::all_of(rate_cols)) |>
-                dplyr::arrange(dplyr::desc(.data$rate))
-              lv3 <- dplyr::bind_rows(
-                dplyr::bind_cols(
-                  abr_type = abr_type,
-                  lv = 4L,
-                  tl = "species",
-                  s |>
-                    dplyr::filter(!is.na(.data$group) & .data$n > 0) |>
-                    dplyr::mutate(.ontology_path = paste0(
-                      op_genus, "|", .data$group))),
-                dplyr::bind_cols(
-                  abr_type = abr_type,
-                  lv = 4L,
-                  tl = "species_nos",
-                  s |>
-                    dplyr::filter(is.na(.data$group) & .data$n > 0) |>
-                    dplyr::mutate(
-                      .ontology_path = paste0(op_genus, "|~"),
-                      group = paste(gk$group,"spp. n.o.s."))))
-              lv2 <- dplyr::bind_rows(lv2,lv3)
-              lv1 <- dplyr::bind_rows(lv1,lv2)
-            }
-          }
-          lv0 <- dplyr::bind_rows(lv0,lv1)
-          }
-        }
-      }
-    tbl <- dplyr::bind_rows(tbl,lv0)
-  }
-
-  # MRSA only has one species
-  tbl <-dplyr::bind_rows(
-    tbl,
-    dplyr::bind_cols(
-      abr_type = "mrsa",
-      lv = 0L,
-      tl = "species",
-      .ontology_path = "mrsa",
-      x |>
-        get_resistance(
-          resistance = "mrsa",
-          group_cols = "species",
-          use_cache = use_cache) |>
-        dplyr::select("group"="species",tidyselect::all_of(rate_cols))))
-
-  # VRE is reported only for the Enterococcus genus. Non-Enterococcus or
-  # NA-genus rows would otherwise produce duplicate "Enterococcus spp."
-  # entries via the hardcoded label below.
-  g <- x |>
-    get_resistance(
-      resistance = "vre",
-      group_cols = "genus",
-      use_cache = use_cache) |>
-    dplyr::filter(.data$genus == "Enterococcus") |>
-    dplyr::select("group"="genus",tidyselect::all_of(rate_cols)) |>
-    dplyr::mutate(group = "Enterococcus spp.")
-
-  lv0 <- dplyr::bind_cols(
-    abr_type = "vre",
-    lv = 0L,
-    tl = "genus",
-    .ontology_path = "vre",
-    g)
-
-  if(length(g$n) > 0 && g$n > 0) {
-    s <- x |>
-      get_resistance(
-        resistance = "vre",
-        group_cols = c("species"),
-        use_cache = use_cache) |>
-      dplyr::select("group"="species",tidyselect::all_of(rate_cols)) |>
-      dplyr::arrange(dplyr::desc(.data$rate))
-
-    lv1 <- dplyr::bind_rows(
-      dplyr::bind_cols(
-        abr_type = "vre",
-        lv = 1L,
-        tl = "species",
-        s |>
-          dplyr::filter(!is.na(.data$group) & .data$n > 0) |>
-          dplyr::mutate(.ontology_path = paste0("vre|", .data$group))),
-      dplyr::bind_cols(
-        abr_type = "vre",
-        lv = 1L,
-        tl = "species_nos",
-        s |>
-          dplyr::filter(is.na(.data$group) & .data$n > 0) |>
-          dplyr::mutate(
-            .ontology_path = "vre|~",
-            group = paste(g$group," n.o.s."))))
-
-    lv0 <- dplyr::bind_rows(lv0,lv1)
-  }
-
-  tbl <-dplyr::bind_rows(tbl,lv0)
-
-  tbl |>
-    (\(d) dplyr::bind_cols(d, wilson_ci_cols(d$n, d$inf_w_ia, scale = 100)))() |>
-    dplyr::select(!"inf_w_ia") |>
-    dplyr::rename("abr"="abr_type","level"="lv","taxon"="tl","pooled"="rate") |>
-    add_class(return_class) |>
-    cache(x, cache_key)
+  cache(r, x, cache_key)
 }
 
-#' Get a table with organism-specific resistance rates
+# The slots of a calculated dataset, and the cache keys, of the two versions of
+# the table of the infections with resistant infectious agents.
+abr_infection_rate_table_names <- c(
+  groups = "abr_infection_rate_table",
+  ontology = "abr_infection_rate_ontology_table")
+
+#' Get the table of the resistance rates per infectious agent
 #'
-#' Unlike the ABR infection rate table which uses infection-level denominators
-#' (infections with resistant organism / all infections with a pathogen), this
-#' table uses organism-level denominators (resistant detections of organism X /
-#' all tested detections of organism X). This answers the question "what
-#' fraction of K. pneumoniae is carbapenem-resistant?"
+#' For each resistance category, third-generation cephalosporin resistance
+#' (3GCR), carbapenem resistance, colistin resistance, methicillin-resistant
+#' *Staphylococcus aureus* (MRSA), and vancomycin-resistant *Enterococcus*
+#' (VRE), a block gives the rows on the paths of the infectious agents to
+#' which the NeoIPC infectious-agent list applies the category, each that
+#' lies at or above an infectious agent found to which the list applies the
+#' category or that has a result for it, so that whether a row is there
+#' depends only on the infectious agents at or beneath it. A row's rate is
+#' the share, in percent with a Wilson interval, of the infections in which
+#' an infectious agent at or beneath the row's node has a result for the
+#' category, recorded resistant or not, in which one is recorded resistant.
+#' Beside it, the Tested share gives, of the infections
+#' with an infectious agent at or beneath the node to which the list applies
+#' the category, those in which one has a result, so that an infectious agent
+#' the category cannot apply to does not lower a parent row's share; "Not
+#' tested" and a blank count as no result.
+#'
+#' The infectious agents are those that
+#' [get_infectious_agent_detection_rate_per_agent_table()] counts, each once
+#' per infection and only in a slot the form asks for: one that two slots of
+#' an infection name has a result where either has one and is resistant where
+#' either records it resistant. An infection counts once in each row,
+#' resistant where an infectious agent of the row's node is, so every
+#' infection counts, not only an infant's first isolate. A value recorded for
+#' a category that the list does not apply to its infectious agent counts in
+#' the rate as any other, in the block's rows at or above the infectious
+#' agent's node, which it gives the block. "Not listed", "Unidentifiable", and
+#' a code the list lacks have no row.
+#'
+#' Over the reporting groups (`rows = "groups"`), a block's rows are a summary
+#' block of the bacteria by Gram reaction and by oxygen requirement, a row per
+#' value found that an infectious agent the list applies the category to
+#' has, keyed `"<attribute>|<value>"`, and then the groups of the reporting
+#' classification, nested as it nests them. Over the full ontology
+#' (`rows = "ontology"`), they are the nodes of the paths through the list,
+#' from the top-level row, Bacteria, Fungi, Protozoa, or Viruses, to the node
+#' at which an infectious agent is recorded, a concept beneath a species (a
+#' subspecies, a serotype, or a group such as the polioviruses) counting in
+#' its species; where infectious agents are recorded at a node that has a
+#' node of those paths beneath it in the full ontology (a species has none),
+#' a residual row labelled "n.o.s." (not otherwise specified), last among the
+#' node's children, counts them, whether or not the block has a row beneath
+#' the node. Each row's children follow it, siblings by their rate,
+#' descending.
+#'
+#' A department enters a row's quartiles where at least 5 infections are in
+#' its denominator of the row, at 0 where none of them is resistant; a row
+#' shows its quartiles where at least 5 departments enter and their median
+#' denominator exceeds the number of infections in which the pooled rate
+#' gives 1 resistant one; the bootstrap of their intervals takes the same
+#' departments. The Tested share has no quartiles.
 #'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
 #'  object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
 #'  include_quartiles is TRUE.
 #' @param use_cache Use the cache. Ignored if x is a neoipcr_rep_ds object
-#' @param include_quartiles Include the quartile columns
+#' @param include_quartiles Include quartile columns (q1, q2, q3) in the output.
+#'  Set to FALSE for department-level reports to simplify output.
+#' @param rows The rows of the table: `"groups"`, the default, over the
+#'  reporting groups, or `"ontology"`, over the full ontology. A calculated
+#'  dataset carries both.
 #'
-#' @returns A tibble with organism-specific resistance rates grouped by
-#'  resistance type
+#' @returns A table with the blocks described above, in the order of `abr`,
+#'  the resistance category, a factor with the levels `"3gcr"`, `"car"`,
+#'  `"cor"`, `"mrsa"`, and `"vre"`; then `level`, 1 for a summary row and a
+#'  top-level node, and one more for each level below; `rank`, the node's
+#'  concept type, `NA` for a summary row, a reporting group, and a residual
+#'  row; `node_id`, the row's key; `parent_id`, the `node_id` of the row's
+#'  parent, `NA` for a top-level row; `group`, the row's label; `n`, the
+#'  infections with a resistant infectious agent; `total`, those with a
+#'  result; `pooled`, the rate in percent, `NA` without a result; `ci_lower`
+#'  and `ci_upper`, its interval; with `include_quartiles`, the departments'
+#'  quartiles `q1`, `q2`, and `q3`, their bootstrap intervals `q1_ci_lower` to
+#'  `q3_ci_upper`, and `quartile_departments`, the number of departments that
+#'  enter them; and the Tested share: `tested_n`, the infections with a result
+#'  for an infectious agent the category applies to, `tested_total`, those
+#'  with such an infectious agent, `tested_pooled`, the share in percent, and
+#'  `tested_ci_lower` and `tested_ci_upper`, its interval.
 #' @export
-get_organism_resistance_rate_table <- function(
-    x, use_cache = TRUE, include_quartiles = TRUE) {
-  cache_key <- "organism_resistance_rate_table"
+get_infectious_agent_resistance_rate_table <- function(
+    x, use_cache = TRUE, include_quartiles = TRUE,
+    rows = c("groups", "ontology")) {
+  rows <- rlang::arg_match(rows)
+  cache_key <- infectious_agent_resistance_rate_table_names[[rows]]
   if(!is.null(r <- x |> check_ds_and_try_get_table(
     cache_key, use_cache, include_quartiles, include_event = "full")))
     return(r)
 
-  if(include_quartiles) {
-    get_resistance <- function(...) {
-      get_organism_resistance_rate_with_department_quartiles(...)
-    }
-    rate_cols <- c("n","ia_tst_tot","rate","q1","q2","q3",
-                   "q1_ci_lower","q1_ci_upper","q2_ci_lower","q2_ci_upper",
-                   "q3_ci_lower","q3_ci_upper")
-    return_class <- c("neoipcr_tbl_org_rr_ref", "neoipcr_tbl_org_rr")
-  } else {
-    get_resistance <- function(...) {
-      get_resistance_rate(...) |>
-        dplyr::rename("n"="ia_rs","rate"="ia_rs_rate")
-    }
-    rate_cols <- c("n","ia_tst_tot","rate")
-    return_class <- "neoipcr_tbl_org_rr"
+  d <- get_infectious_agent_resistance_rates(
+    x, rows = rows, use_cache = use_cache)
+
+  block <- function(category) {
+    counts <- d$rows[d$rows$abr == category, ]
+    keys <- tibble::tibble(node_id = unique(counts$node_id))
+    rate <- .infectious_agent_rate_columns(
+      tibble::tibble(
+        node_id = counts$node_id,
+        department_key = counts$department_key,
+        n = counts$resistant,
+        total = counts$tested),
+      keys = keys,
+      by = "node_id",
+      scale = 100,
+      interval = "wilson",
+      denominator = "count",
+      include_quartiles = include_quartiles)
+    tested <- .infectious_agent_rate_columns(
+      tibble::tibble(
+        node_id = counts$node_id,
+        department_key = counts$department_key,
+        n = counts$applicable_tested,
+        total = counts$applicable),
+      keys = keys,
+      by = "node_id",
+      scale = 100,
+      interval = "wilson",
+      denominator = "count") |>
+      dplyr::rename_with(\(name) paste0("tested_", name), !"node_id")
+    layout <- .infectious_agent_layout(
+      tibble::tibble(node_id = rate$node_id, rate = rate$pooled), rows)
+
+    layout |>
+      dplyr::left_join(rate, dplyr::join_by("node_id")) |>
+      dplyr::left_join(tested, dplyr::join_by("node_id")) |>
+      dplyr::mutate(abr = category, .before = 1)
   }
 
-  abr_types <- c("3gcr","car","cor","mrsa","vre")
-  tbl <- NULL
+  r <- purrr::map(infectious_agent_resistance_categories, block) |>
+    purrr::list_rbind() |>
+    dplyr::mutate(
+      abr = factor(.data$abr, levels = infectious_agent_resistance_categories)) |>
+    add_class("neoipcr_tbl_iarr")
+  if (include_quartiles)
+    r <- add_class(r, "neoipcr_tbl_iarr_ref")
 
-  for (abr_type in abr_types) {
-    g <- x |>
-      get_resistance(
-        resistance = abr_type,
-        group_cols = c("genus","species"),
-        use_cache = use_cache) |>
-      dplyr::filter(.data$ia_tst_tot >= 1)
-
-    if (nrow(g) < 1) next
-
-    for (k in seq_len(nrow(g))) {
-      gk <- g[k,]
-      genus_name <- gk$genus
-      species_name <- gk$species
-      op_genus <- paste0(abr_type, "|", genus_name)
-
-      if (!is.na(species_name)) {
-        lv <- 1L
-        tl <- "species"
-        op <- paste0(op_genus, "|", species_name)
-        grp <- species_name
-      } else {
-        lv <- 1L
-        tl <- "species_nos"
-        op <- paste0(op_genus, "|~")
-        grp <- paste(genus_name, "spp. n.o.s.")
-      }
-
-      row <- dplyr::bind_cols(
-        abr_type = abr_type,
-        lv = lv,
-        tl = tl,
-        .ontology_path = op,
-        group = grp,
-        gk |> dplyr::select(tidyselect::all_of(rate_cols)))
-
-      tbl <- dplyr::bind_rows(tbl, row)
-    }
-
-    # Add a genus summary row for every genus represented in g, so that every
-    # species and species_nos row has a visible parent in the rendered table.
-    unique_genera <- unique(g$genus)
-
-    if (length(unique_genera) > 0) {
-      genus_summary <- x |>
-        get_resistance(
-          resistance = abr_type,
-          group_cols = "genus",
-          use_cache = use_cache) |>
-        dplyr::filter(.data$genus %in% unique_genera)
-
-      for (j in seq_len(nrow(genus_summary))) {
-        gs <- genus_summary[j,]
-        genus_row <- dplyr::bind_cols(
-          abr_type = abr_type,
-          lv = 0L,
-          tl = "genus",
-          .ontology_path = paste0(abr_type, "|", gs$genus),
-          group = paste(gs$genus, "spp."),
-          gs |> dplyr::select(tidyselect::all_of(rate_cols)))
-        tbl <- dplyr::bind_rows(tbl, genus_row)
-      }
-    }
-  }
-
-  if (is.null(tbl) || nrow(tbl) == 0) {
-    tbl <- tibble::tibble(
-      abr_type = character(),
-      lv = integer(),
-      tl = character(),
-      .ontology_path = character(),
-      group = character(),
-      n = numeric(),
-      ia_tst_tot = numeric(),
-      rate = numeric())
-    if (include_quartiles)
-      tbl <- tbl |>
-        dplyr::mutate(
-          q1 = numeric(), q2 = numeric(), q3 = numeric(),
-          q1_ci_lower = numeric(), q1_ci_upper = numeric(),
-          q2_ci_lower = numeric(), q2_ci_upper = numeric(),
-          q3_ci_lower = numeric(), q3_ci_upper = numeric())
-  }
-
-  # Sort: within each abr_type, genus summary rows first, then species rows
-  # sorted by rate descending
-  tbl <- tbl |>
-    dplyr::arrange(
-      factor(.data$abr_type, levels = c("3gcr","car","cor","mrsa","vre")),
-      .data$.ontology_path,
-      -.data$rate)
-
-  tbl |>
-    (\(d) dplyr::bind_cols(d, wilson_ci_cols(d$n, d$ia_tst_tot, scale = 100)))() |>
-    dplyr::rename("abr"="abr_type","level"="lv","taxon"="tl","pooled"="rate") |>
-    add_class(return_class) |>
-    cache(x, cache_key)
+  cache(r, x, cache_key)
 }
 
-#' Get the table with resistance test rates of the recorded resistance
-#'  mechanisms
+# The slots of a calculated dataset, and the cache keys, of the two versions of
+# the table of the resistance rates per infectious agent.
+infectious_agent_resistance_rate_table_names <- c(
+  groups = "infectious_agent_resistance_rate_table",
+  ontology = "infectious_agent_resistance_rate_ontology_table")
+
+#' Get the table of the completeness of antimicrobial susceptibility testing
 #'
-#' The rates count the slots that name an infectious agent; a slot holding a
-#' resistance category without one is no detection and counts in neither the
-#' numerator nor the denominator.
+#' For each resistance category, third-generation cephalosporin resistance
+#' (`"3gcr"`), carbapenem resistance (`"car"`), colistin resistance
+#' (`"cor"`), methicillin-resistant *Staphylococcus aureus* (`"mrsa"`), and
+#' vancomycin-resistant *Enterococcus* (`"vre"`), a row gives the share, in
+#' percent with a Wilson interval, of the detections of an infectious agent to
+#' which the NeoIPC infectious-agent list applies the category that have a
+#' result for it, recorded resistant or not. A detection is an infectious
+#' agent in an infection, counted once per infection and only in a slot the
+#' form asks for, with a result where either slot naming it has one; "Not
+#' tested" and a blank count as undocumented, in the denominator and not the
+#' numerator. "Not listed", to which the list applies every category, counts
+#' in every row; "Unidentifiable" and a code the list lacks, to which it
+#' applies none, in no row. A value recorded for a category that the list
+#' does not apply to its infectious agent counts in no row, since its
+#' detection is in no denominator of the category.
+#'
+#' Two conditional rows hold only the detections recorded resistant to 3GCR:
+#' carbapenem resistance in case of 3GCR (`cond = "if_3gcr"`), and colistin
+#' resistance in case of 3GCR and carbapenem resistance
+#' (`cond = "if_3gcr&car"`), whose detections are also recorded resistant to
+#' carbapenems. An infectious agent to which the list does not apply 3GCR,
+#' such as *Acinetobacter*, counts in the plain rows (`cond = "routine"`)
+#' only.
+#'
+#' A department enters a row's quartiles where at least 5 detections are in
+#' its denominator of the row, at 0 where none of them has a result; a row
+#' shows its quartiles where at least 5 departments enter and their median
+#' denominator exceeds the number of detections in which the pooled share
+#' gives 1 with a result; the bootstrap of their intervals takes the same
+#' departments.
 #'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
 #'  object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
@@ -1733,7 +1616,14 @@ get_organism_resistance_rate_table <- function(
 #' @param include_quartiles Include quartile columns (q1, q2, q3) in the output.
 #'  Set to FALSE for department-level reports to simplify output.
 #'
-#' @returns A table containing resistance test rates
+#' @returns A table with seven rows: `abr`, the resistance category, a factor
+#'  with the levels above; `cond`, the row, a factor with the levels
+#'  `"routine"`, `"if_3gcr"`, and `"if_3gcr&car"`; `n`, the detections with a
+#'  result; `total`, the detections the row holds; `pooled`, their share in
+#'  percent, `NA` without a detection; `ci_lower` and `ci_upper`, its
+#'  interval; and with `include_quartiles` the departments' quartiles `q1`,
+#'  `q2`, and `q3`, their bootstrap intervals `q1_ci_lower` to `q3_ci_upper`,
+#'  and `quartile_departments`, the number of departments that enter them.
 #' @export
 get_resistance_test_rate_table <- function(
     x, use_cache = TRUE, include_quartiles = TRUE) {
@@ -1742,66 +1632,23 @@ get_resistance_test_rate_table <- function(
     cache_key, use_cache, include_quartiles, include_event = "full")))
     return(r)
 
-  if(include_quartiles) {
-    test_fn <- get_resistance_test_rate_with_department_quartiles
-    return_class <- c("neoipcr_tbl_rtr_ref", "neoipcr_tbl_rtr")
-  } else {
-    test_fn <- get_resistance_test_rate
-    return_class <- "neoipcr_tbl_rtr"
-  }
-
-  c("3gcr","car","cor","mrsa","vre") |>
-    lapply(\(r) dplyr::bind_cols(res = r, type = "routine", test_fn(x, r))) |>
-    dplyr::bind_rows() |>
-    dplyr::bind_rows(
-      x |>
-        test_fn(
-          resistance = "car",
-          group_cols = "3gcr") |>
-        dplyr::filter(.data$`3gcr` == "yes") |>
-        dplyr::mutate(type = "if_3gcr", res = "car")) |>
-    dplyr::bind_rows(
-      x |>
-        test_fn(
-          resistance = "cor",
-          group_cols = c("3gcr","car")) |>
-        dplyr::filter(.data$`3gcr` == "yes" & .data$car == "yes") |>
-        dplyr::mutate(type = "if_3gcr&car", res = "cor")) |>
+  r <- .infectious_agent_rate_columns(
+    get_resistance_test_counts(x, use_cache = use_cache),
+    keys = resistance_test_rows,
+    by = c("abr", "cond"),
+    scale = 100,
+    interval = "wilson",
+    denominator = "count",
+    include_quartiles = include_quartiles) |>
     dplyr::mutate(
-      abr = factor(.data$res, levels = c("3gcr","car","cor","mrsa","vre")),
-      cond = factor(.data$type, levels = c("routine","if_3gcr","if_3gcr&car")),
-      .keep = "unused"
-    ) |>
-    dplyr::select("abr","cond","n"="tested","total","pooled"="rate",
-                  tidyselect::any_of(c("q1","q2","q3",
-                    "q1_ci_lower","q1_ci_upper","q2_ci_lower","q2_ci_upper",
-                    "q3_ci_lower","q3_ci_upper"))) |>
-    (\(d) dplyr::bind_cols(d, wilson_ci_cols(d$n, d$total, scale = 100)))() |>
-    dplyr::select(!"total") |>
-    (\(r) {
-      expected <- tibble::tibble(
-        abr = factor(
-          c("3gcr","car","cor","mrsa","vre","car","cor"),
-          levels = c("3gcr","car","cor","mrsa","vre")),
-        cond = factor(
-          c("routine","routine","routine","routine","routine","if_3gcr","if_3gcr&car"),
-          levels = c("routine","if_3gcr","if_3gcr&car")))
-      missing <- dplyr::anti_join(expected, r, by = c("abr", "cond"))
-      if (nrow(missing) > 0) {
-        missing_rows <- missing |>
-          dplyr::mutate(n = 0L, pooled = NA_real_,
-                        ci_lower = NA_real_, ci_upper = NA_real_)
-        if ("q1" %in% names(r)) {
-          missing_rows <- missing_rows |>
-            dplyr::mutate(q1 = NA_real_, q2 = NA_real_, q3 = NA_real_)
-        }
-        r <- dplyr::bind_rows(r, missing_rows)
-      }
-      r
-    })() |>
-    dplyr::arrange(.data$abr, .data$cond) |>
-    add_class(return_class) |>
-    cache(x, cache_key)
+      abr = factor(.data$abr, levels = infectious_agent_resistance_categories),
+      cond = factor(.data$cond,
+                    levels = c("routine", "if_3gcr", "if_3gcr&car"))) |>
+    add_class("neoipcr_tbl_rtr")
+  if (include_quartiles)
+    r <- add_class(r, "neoipcr_tbl_rtr_ref")
+
+  cache(r, x, cache_key)
 }
 
 #' Get the table secondary BSI rates of the recorded infections
@@ -2001,34 +1848,3 @@ followup_share_quartiles <- function(dept_rates, event_type_keys)
       followup_q1 = numeric(),
       followup_q2 = numeric(),
       followup_q3 = numeric()))
-
-# The departments' quartiles of a share of the table by infection type
-# (`q1`, `q2`, `q3`), with their bootstrap intervals, for the rows
-# `event_type_keys`, whose pooled shares, in percent, are `pooled`, from
-# `dept_rates`, which gives each department's numerator (the column named by
-# `events`) and denominator (the column named by `denominator`) of the share
-# per `event_type_key`. A department enters a row's quartiles where its
-# denominator is above 0. The quartiles are shown where at least 5
-# departments enter and their median denominator exceeds the denominator in
-# which the pooled share gives 1 infection, `round(100 / pooled)`, so that a
-# row whose pooled share is 0 or `NA` shows none; otherwise they and their
-# intervals are `NA`.
-inf_type_share_quartiles <- function(
-    event_type_keys, pooled, dept_rates, events, denominator) {
-  none <- tibble::as_tibble(rlang::rep_named(quartile_ci_cols, list(NA_real_)))
-  purrr::map2(event_type_keys, pooled, \(type, share) {
-    d <- dept_rates[dept_rates$event_type_key == type &
-                      dplyr::coalesce(dept_rates[[denominator]] > 0, FALSE), ]
-    if (nrow(d) < 5L ||
-        !isTRUE(round(100 / share) < stats::median(d[[denominator]])))
-      return(none)
-    q <- stats::quantile(d[[events]] / d[[denominator]] * 100,
-                         probs = quartile_probs, names = FALSE)
-    dplyr::bind_cols(
-      tibble::tibble(q1 = q[1], q2 = q[2], q3 = q[3]),
-      bootstrap_quantile_ci(d[[events]], d[[denominator]],
-                            type = "binomial", multiplier = 100))
-  }) |>
-    purrr::list_rbind(ptype = none[0, ]) |>
-    dplyr::mutate(event_type_key = event_type_keys, .before = 1)
-}

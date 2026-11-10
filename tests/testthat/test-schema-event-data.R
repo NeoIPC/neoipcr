@@ -459,17 +459,3 @@ test_that("split_unknown_pathogen_names: intermediate with `name` split correctl
   expect_equal(result$name, c("Custom pathogen A", "Custom pathogen B"))
   expect_equal(result$agent_finding_key, c(3L, 4L))
 })
-
-test_that("split_unknown_pathogen_names: intermediate without `name` → schema shape", {
-  # Under pseudo events, the intermediate has no `name` column (payload
-  # atoms are gated off upstream). The split must gracefully emit the
-  # schema's shape.
-  opts_pseudo <- dhis2_dataset_options(include_event = "pseudo")
-  intermediate <- tibble::tibble(
-    agent_finding_key = 1L,
-    event_key         = 1L)
-  result <- neoipcr:::split_unknown_pathogen_names(intermediate, opts_pseudo)
-  schema <- neoipcr:::compile_schema(
-    neoipcr:::unknownPathogenNames_cols, opts_pseudo)
-  expect_schema_matches(result, schema)
-})

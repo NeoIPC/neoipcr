@@ -7,6 +7,34 @@
 
 bundled <- function() neoipcr:::internal_infectious_agent_classification
 
+# Every bundled table, as the derivation returns them.
+bundled_tables <- function() list(
+  classification = neoipcr:::internal_infectious_agent_classification,
+  reporting_groups = neoipcr:::internal_infectious_agent_reporting_groups,
+  attribute_values = neoipcr:::internal_infectious_agent_attribute_values,
+  nodes = neoipcr:::internal_infectious_agent_nodes,
+  closure = neoipcr:::internal_infectious_agent_closure)
+
+# The names of the nodes on an Id's path in a version of the tables' rows,
+# its top-level node first.
+path_names <- function(id, version = "ontology") {
+  closure <- neoipcr:::internal_infectious_agent_closure
+  nodes <- neoipcr:::internal_infectious_agent_nodes
+  path <- closure[closure$version == version & closure$input_id == id, ]
+  path <- path[order(path$depth), ]
+  nodes <- nodes[nodes$version == version, ]
+  nodes$name[match(path$node_id, nodes$node_id)]
+}
+
+# The keys of the reporting groups on an Id's path.
+group_path <- function(id) {
+  closure <- neoipcr:::internal_infectious_agent_closure
+  path <- closure[closure$version == "groups" & closure$input_id == id, ]
+  path$node_id[order(path$depth)]
+}
+
+id_of <- function(name) bundled()$input_id[bundled()$input_name == name]
+
 code_sets <- function()
   jsonlite::fromJSON(
     testthat::test_path("fixtures", "infectious-agent-code-sets.json"),
@@ -87,8 +115,7 @@ test_that("the accessor hands on no lineage and no flag", {
 # --- The bundled facts -----------------------------------------------------------
 
 test_that("the bundled tables keep their contract", {
-  expect_no_error(neoipcr:::assert_infectious_agent_contract(
-    bundled(), neoipcr:::internal_infectious_agent_reporting_groups))
+  expect_no_error(neoipcr:::assert_infectious_agent_contract(bundled_tables()))
 })
 
 test_that("the not-listed option takes every resistance category and no group, and the unidentifiable one no flag", {
@@ -159,8 +186,112 @@ test_that("the group tree's leaves hold every reporting group the classification
 })
 
 test_that("no bundled column is a factor", {
-  for (x in list(bundled(), neoipcr:::internal_infectious_agent_reporting_groups))
+  for (x in bundled_tables())
     expect_false(any(vapply(x, is.factor, logical(1))))
+})
+
+# --- The paths of the tables' rows -------------------------------------------
+
+test_that("Staphylococcus aureus and Staphylococcus argenteus count in the Staphylococcus aureus complex, a group without an Id within the coagulase-positive staphylococci", {
+  complex <- c("Staphylococcus", "Coagulase-positive staphylococci",
+               "Staphylococcus aureus complex")
+
+  expect_identical(path_names(934L)[[1]], "Bacteria")
+  expect_identical(utils::tail(path_names(934L), 4L),
+                   c(complex, "Staphylococcus aureus"))
+  expect_identical(utils::tail(path_names(2778L), 4L),
+                   c(complex, "Staphylococcus argenteus"))
+  expect_false("Staphylococcus aureus complex" %in% bundled()$input_name)
+  expect_identical(group_path(934L), c("bacteria", "gram-positive-cocci"))
+})
+
+test_that("the viridans streptococci hold groups within groups, each on the paths of the nodes it holds", {
+  expect_identical(utils::tail(path_names(3638L), 4L),
+                   c("Streptococcus", "Viridans streptococci",
+                     "Streptococcus anginosus group", "Group F streptococci"))
+  expect_identical(utils::tail(path_names(2803L), 3L),
+                   c("Streptococcus", "Viridans streptococci",
+                     "Streptococcus mutans group"))
+})
+
+test_that("a subspecies, a serotype, and a group beneath a species count in the species", {
+  infantis <- id_of("Bifidobacterium longum subsp. infantis")
+  longum <- id_of("Bifidobacterium longum")
+  expect_identical(path_names(infantis), path_names(longum))
+  expect_identical(utils::tail(path_names(infantis), 1L),
+                   "Bifidobacterium longum")
+
+  polio <- path_names(id_of("Enterovirus coxsackiepol"))
+  expect_identical(utils::tail(polio, 1L), "Enterovirus coxsackiepol")
+  for (name in c("Poliovirus", "Poliovirus 1"))
+    expect_identical(path_names(id_of(name)), polio)
+})
+
+test_that("a finding recorded above the order has a path of its own, from the kingdom, which every level holds", {
+  expect_identical(path_names(3427L), c("Fungi", "Dikarya", "Ascomycota"))
+})
+
+test_that("the full ontology's top-level nodes are Bacteria, Fungi, Protozoa, and Viruses, and Eukaryota is no node", {
+  nodes <- neoipcr:::internal_infectious_agent_nodes
+  nodes <- nodes[nodes$version == "ontology", ]
+  top <- nodes[nodes$depth == 0L, ]
+
+  expect_setequal(top$name, c("Bacteria", "Fungi", "Protozoa", "Viruses"))
+  expect_true(all(is.na(top$parent_id)))
+  expect_false("Eukaryota" %in% nodes$name)
+  # The Ids beneath it keep the list's top-level node as their hierarchy.
+  albicans <- id_of("Candida albicans")
+  expect_identical(path_names(albicans)[[1]], "Fungi")
+  expect_identical(bundled()$hierarchy[bundled()$input_id == albicans],
+                   "Eukaryota")
+})
+
+test_that("an Id's path over the reporting groups runs through each group that holds its reporting group", {
+  expect_identical(group_path(id_of("Pseudomonas aeruginosa")),
+                   c("bacteria", "gram-negative-bacilli",
+                     "non-fermenting-gram-negative-bacilli"))
+  expect_identical(group_path(id_of("Candida albicans")), c("fungi", "yeasts"))
+})
+
+test_that("the Ids 0 and 3561 are on no path, and every other Id has one in each version", {
+  closure <- neoipcr:::internal_infectious_agent_closure
+  inside <- setdiff(bundled()$input_id, c(0L, 3561L))
+
+  expect_false(any(c(0L, 3561L) %in% closure$input_id))
+  for (version in c("groups", "ontology"))
+    expect_identical(sort(unique(closure$input_id[closure$version == version])),
+                     inside)
+})
+
+test_that("a node of the full ontology is keyed by its ConceptSource and ConceptId, an ICTV node by its IctvId, a node of the groups version by its group's key", {
+  nodes <- neoipcr:::internal_infectious_agent_nodes
+  node_id <- function(name)
+    nodes$node_id[nodes$version == "ontology" & nodes$name == name]
+
+  expect_identical(node_id("Staphylococcus aureus"),
+                   "LPSN|species/staphylococcus-aureus")
+  expect_identical(node_id("Viridans streptococci"), "NeoIPC|68")
+  # Its ConceptId in the list is 202501428, the node of the Master Species
+  # List the list follows.
+  expect_identical(node_id("Simplexvirus humanalpha1"), "ICTV|19710176")
+  ictv <- nodes$node_id[nodes$version == "ontology" &
+                          startsWith(nodes$node_id, "ICTV|")]
+  expect_gt(length(ictv), 0L)
+  expect_true(all(grepl("^ICTV\\|[0-9]+$", ictv)))
+  expect_true(all(nodes$node_id[nodes$version == "groups"] %in%
+                    neoipcr:::internal_infectious_agent_reporting_groups$key))
+})
+
+test_that("the attribute values name each value the classification gives a bacterium", {
+  values <- neoipcr:::internal_infectious_agent_attribute_values
+
+  expect_identical(
+    values$name[values$attribute == "gram_reaction" &
+                  values$key == "positive"],
+    "Gram-positive")
+  for (attribute in c("gram_reaction", "oxygen_requirement"))
+    expect_true(all(stats::na.omit(bundled()[[attribute]]) %in%
+                      values$key[values$attribute == attribute]))
 })
 
 # --- The provenance ------------------------------------------------------------
@@ -173,7 +304,8 @@ test_that("the provenance names the repository, the commit, and the release, and
     names(provenance),
     c("repository", "tag", "version", "commit", "list_sha256",
       "reporting_classification_sha256", "classification_digest",
-      "tables_digest"))
+      "groups_tree_digest", "ontology_tree_digest", "concept_mapping_digest",
+      "common_commensal_digest", "applicability_digest"))
   expect_identical(provenance$repository, "NeoIPC/Surveillance-Toolkit")
   expect_match(provenance$commit, "^[0-9a-f]{40}$")
   expect_type(provenance$tag, "character")
@@ -190,14 +322,15 @@ test_that("the provenance names the repository, the commit, and the release, and
 test_that("the provenance's digests are those of the bundled tables", {
   skip_if(getRversion() < "4.5.0", "tools::sha256sum() needs R 4.5 or later")
   provenance <- neoipcr:::internal_infectious_agent_ontology
-  digest <- function(columns)
-    tools::sha256sum(bytes = charToRaw(neoipcr:::infectious_agent_digest_text(
-      bundled(), neoipcr:::internal_infectious_agent_reporting_groups,
-      columns)))
+  texts <- neoipcr:::infectious_agent_digest_texts(bundled_tables())
+  digest <- function(name) tools::sha256sum(bytes = charToRaw(texts[[name]]))
 
-  expect_identical(provenance$classification_digest, digest(names(bundled())))
-  expect_identical(provenance$tables_digest,
-                   digest(neoipcr:::infectious_agent_tables_digest_columns))
+  expect_identical(names(texts),
+                   c("classification", "groups_tree", "ontology_tree",
+                     "concept_mapping", "common_commensal", "applicability"))
+  for (name in names(texts))
+    expect_identical(provenance[[paste0(name, "_digest")]], digest(name),
+                     label = name)
 })
 
 test_that("neoipcr_supported_versions() gives the release of the list the bundled tables come from", {

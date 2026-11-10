@@ -1,5 +1,7 @@
 ---
-output: github_document
+output:
+  github_document:
+    pandoc_args: ["--eol", "lf"]
 ---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
@@ -168,6 +170,83 @@ are welcome and need no git knowledge.
 ## Licensing
 
 MIT — see [LICENSE.md](LICENSE.md).
+
+The package bundles the infectious-agent tables by which it classifies findings,
+built from a release of the NeoIPC infectious-agent list and its reporting
+classification in the Surveillance-Toolkit's
+[`metadata/common/infectious-agents/`](https://github.com/NeoIPC/Surveillance-Toolkit/tree/main/metadata/common/infectious-agents).
+That directory is licensed
+[CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/), the strictest
+of its sources' licences. The tables are a factual extract of it: for each infectious
+agent its code, its names and synonyms, its rank and lineage, the identifier of its
+record in its source, and the common-commensal status, resistance categories,
+reporting group (with the groups above it), Gram reaction, and oxygen requirement that
+NeoIPC assigns it. The list's
+[licence](https://github.com/NeoIPC/Surveillance-Toolkit/blob/main/metadata/common/infectious-agents/LICENSE.md)
+leaves such an extract outside those terms, licensed with the work that carries it,
+and requires an extract that NeoIPC publishes to attribute the sources that the
+list's
+[README](https://github.com/NeoIPC/Surveillance-Toolkit/blob/main/metadata/common/infectious-agents/README.md)
+lists:
+
+- **NHSN Organism List**:
+  <https://www.cdc.gov/nhsn/xls/master-organism-com-commensals-lists.xlsx>, the
+  2024 edition, whose classification the common-commensal status follows, except
+  where NHSN is silent or the list records that NeoIPC departs from it. Source:
+  [Centers for Disease Control and Prevention National Healthcare Safety Network (NHSN)](https://www.cdc.gov/nhsn/index.html).
+  Available on the NHSN website for no charge. Reference to specific commercial
+  products, manufacturers, companies, or trademarks does not constitute its
+  endorsement or recommendation by the U.S. Government, Department of Health and
+  Human Services, or Centers for Disease Control and Prevention. Not subject to
+  copyright but some [requirements](https://www.cdc.gov/other/agencymaterials.html)
+  must be followed.
+- **List of Prokaryotic names with Standing in Nomenclature (LPSN)**:
+  <https://lpsn.dsmz.de/>. Parte, A.C., Sardà Carbasse, J., Meier-Kolthoff, J.P.,
+  Reimer, L.C. and Göker, M. (2020). List of Prokaryotic names with Standing in
+  Nomenclature (LPSN) moves to the DSMZ. International Journal of Systematic and
+  Evolutionary Microbiology, 70, 5607-5612; DOI:
+  [10.1099/ijsem.0.004332](https://doi.org/10.1099/ijsem.0.004332).
+- **List of Recommended Names for Bacteria of Medical Importance**: Göker, M.,
+  Christensen, H., Fingerle, V., Kostovski, M., Margos, G., Moore, E.R.B., Oren, A.,
+  Patrick, S., Reischl, U. and Vázquez-Boland, J.A. (2025). List of Recommended Names
+  for bacteria of medical importance: report of the Ad Hoc Committee on Mitigating
+  Changes in Prokaryotic Nomenclature. International Journal of Systematic and
+  Evolutionary Microbiology, 75(10); DOI:
+  [10.1099/ijsem.0.006943](https://doi.org/10.1099/ijsem.0.006943).
+- **MycoBank**: <https://www.mycobank.org/>, and its web services,
+  `https://webservices.bio-aware.com/westerdijk/mycobank`. Vincent Robert, Duong Vu,
+  Ammar Ben Hadj Amor, Nathalie van de Wiele, Carlo Brouwer, Bernard Jabas, Szaniszlo
+  Szoke, Ahmed Dridi, Maher Triki, Samy ben Daoud, Oussema Chouchen, Lea Vaas, Arthur
+  de Cock, Joost A. Stalpers, Dora Stalpers, Gerard J.M. Verkley, Marizeth Groenewald,
+  Felipe Borges dos Santos, Gerrit Stegehuis, Wei Li, Linhuan Wu, Run Zhang, Juncai
+  Ma, Miaomiao Zhou, Sergio Pérez Gorjón, Lily Eurwilaichitr, Supawadee Ingsriswang,
+  Karen Hansen, Conrad Schoch, Barbara Robbertse, Laszlo Irinyi, Wieland Meyer,
+  Gianluigi Cardinali, David L. Hawksworth, John W. Taylor, and Pedro W. Crous. 2013.
+  MycoBank gearing up for new horizons. IMA Fungus · volume 4 · no 2: 371–379; DOI:
+  [10.5598/imafungus.2013.04.02.16](https://doi.org/10.5598/imafungus.2013.04.02.16).
+- **International Committee on Taxonomy of Viruses (ICTV)**:
+  <https://ictv.global/taxonomy>. Lefkowitz E, Hendrickson R, International
+  Committee on Taxonomy of Viruses.
+  [ICTV Master Species List (MSL), MSL41.v1, as corrected on 14 October 2026](https://doi.org/10.5281/zenodo.23376199).
+  Zenodo; 2026. doi: 10.5281/zenodo.23376199. International Committee on Taxonomy of
+  Viruses.
+  [Virus Metadata Resource (VMR), MSL41.v1, as exported on 14 October 2026](https://github.com/ICTV-Virus-Knowledgebase/ICTVdatabase).
+  ICTVdatabase; 2026. Black EJ, Powell CS, Dempsey DM, Hendrickson RC, Mims LR,
+  Lefkowitz EJ.
+  [Virus taxonomy: the database of the International Committee on Taxonomy of Viruses](https://doi.org/10.1093/nar/gkaf1159).
+  Nucleic Acids Res. 2026;54(D1):D776-D789. doi: 10.1093/nar/gkaf1159.
+- **ECDC HAI-Net ICU protocol**: European Centre for Disease Prevention and Control.
+  [Protocol for the surveillance of healthcare-associated infections and prevention indicators in European intensive care units](https://doi.org/10.2900/7455254):
+  HAI-Net ICU protocol, version 2.3. Stockholm: ECDC; 2025. doi: 10.2900/7455254.
+- **BacDive**: <https://bacdive.dsmz.de/>, read through its API
+  (<https://api.bacdive.dsmz.de/>). Schober I, Koblitz J, Sardà Carbasse J, et al.
+  [BacDive in 2025: the core database for prokaryotic strain data](https://doi.org/10.1093/nar/gkae959).
+  Nucleic Acids Res. 2025;53(D1):D748-D756. doi: 10.1093/nar/gkae959. BacDive's
+  content is licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+As the list's licence says, the CDC's requirements for the use of agency materials
+still apply wherever content derived from the NHSN Organism List, such as that
+common-commensal status, is reproduced.
 
 ## Funding
 

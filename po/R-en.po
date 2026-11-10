@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-11-10 00:51+0100\n"
+"POT-Creation-Date: 2026-11-12 08:31+0100\n"
 "PO-Revision-Date: 2025-05-27 16:56+0200\n"
 "Last-Translator: Brar Piening <brar.piening@charite.de>\n"
 "Language-Team: NeoIPC-Support <NeoIPC-Support@charite.de>\n"
@@ -16,33 +16,64 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: R/calc-api.R:390
+#: R/calc-api.R:534
 msgid "No dataset to benchmark: pass at least one calculated dataset."
 msgstr ""
 
-#: R/calc-api.R:911 R/calc-procedure-categories.R:45
+#: R/calc-api.R:951 R/calc-procedure-categories.R:45
 msgid "Procedure category"
 msgstr ""
 
-#: R/calc-api.R:911
+#: R/calc-api.R:951
 msgid "N"
 msgstr ""
 
-#: R/calc-api.R:911
+#: R/calc-api.R:951
 msgid "Pooled"
 msgstr ""
 
-#: R/calc-api.R:911
+#: R/calc-api.R:951
 msgid "Q1"
 msgstr "Q₁"
 
-#: R/calc-api.R:911
+#: R/calc-api.R:951
 msgid "Q2"
 msgstr "Q₂"
 
-#: R/calc-api.R:911
+#: R/calc-api.R:951
 msgid "Q3"
 msgstr "Q₃"
+
+#: R/calc-api.R:1210 R/infectious-agents.R:43
+msgid "Not in the list: %s."
+msgstr ""
+
+#: R/calc-api.R:1211
+msgid ""
+"The infectious-agent tables count such a code in their Totals only, and no "
+"resistance category applies to it."
+msgstr ""
+
+#: R/calc-api.R:1344
+msgid "the unnamed dataset"
+msgstr ""
+
+#: R/calc-api.R:1347
+msgid "Left empty for %s: %s."
+msgstr ""
+
+#: R/calc-api.R:1355
+msgid ""
+"%s was calculated before calculated datasets carried the versions of their "
+"rate definitions; calculate it again from its raw dataset to compare it."
+msgstr ""
+
+#: R/calc-api.R:1366
+msgid ""
+"Each such table keeps the rows of the datasets joined into it; a figure "
+"takes no rows from a dataset for which it is left empty, and any other such "
+"table leaves that dataset's columns empty."
+msgstr ""
 
 #: R/calc-procedure-categories.R:45
 msgid "Procedure code"
@@ -88,27 +119,37 @@ msgstr ""
 msgid "Not yet categorized"
 msgstr ""
 
-#: R/calc-tables.R:943
+#: R/calc-tables.R:163
+msgid "The calculated dataset has no table %s."
+msgstr ""
+
+#: R/calc-tables.R:165
+msgid ""
+"It was calculated by a version of neoipcr that did not compute this table; "
+"calculate it again from its raw dataset."
+msgstr ""
+
+#: R/calc-tables.R:956
 msgid "%s must be a data frame."
 msgstr ""
 
-#: R/calc-tables.R:948
+#: R/calc-tables.R:961
 msgid "%s lacks a required column:"
 msgstr ""
 
-#: R/calc-tables.R:950
+#: R/calc-tables.R:963
 msgid "%s lacks required columns:"
 msgstr ""
 
-#: R/calc-tables.R:954
+#: R/calc-tables.R:967
 msgid "%s and %s must be %s columns."
 msgstr ""
 
-#: R/calc-tables.R:957
+#: R/calc-tables.R:970
 msgid "Every window needs %s, with neither date missing."
 msgstr ""
 
-#: R/calc-tables.R:960
+#: R/calc-tables.R:973
 msgid "Every window must have a non-missing %s."
 msgstr ""
 
@@ -449,10 +490,6 @@ msgstr ""
 msgid ""
 "Reading an unsupported server is unverified: it may fail outright, or return "
 "incomplete data without reporting an error."
-msgstr ""
-
-#: R/infectious-agents.R:43
-msgid "Not in the list: %s."
 msgstr ""
 
 #: R/infectious-agents.R:64 R/infectious-agents.R:73
@@ -822,6 +859,24 @@ msgstr ""
 #: R/validation.R:930
 msgid "The rules are numbered %d to %d; see %s."
 msgstr ""
+
+msgid ""
+"The findings hold %d code that is not in the NeoIPC infectious-agent list."
+msgid_plural ""
+"The findings hold %d codes that are not in the NeoIPC infectious-agent list."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid ""
+"%d table was calculated under other rate definitions, or from another "
+"release of the NeoIPC infectious-agent list, than in the first dataset that "
+"holds it, and is not joined."
+msgid_plural ""
+"%d tables were calculated under other rate definitions, or from another "
+"release of the NeoIPC infectious-agent list, than in the first dataset that "
+"holds them, and are not joined."
+msgstr[0] ""
+msgstr[1] ""
 
 msgid "%d value"
 msgid_plural "%d values"

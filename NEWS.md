@@ -14,35 +14,122 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+* neoipcr classifies infectious-agent findings by tables built from a release of the NeoIPC
+  infectious-agent list and its reporting classification in the Surveillance-Toolkit, the release
+  that `neoipcr_supported_versions()` gives as the new element `infectious_agents`. The tables they
+  replace came from a concept table the toolkit does not hold: they gave some of the list's codes to
+  other taxa and lacked others, "Unidentifiable" (`Id` 3561) among them, so that a finding with a
+  code they lacked dropped out of every infectious-agent table, its Total included. The package
+  bundles only the factual extract of the list that the list's licence leaves outside its terms, no
+  longer a copy of the whole list, and its README attributes the extract's sources. It no longer
+  suggests yaml.
+* `get_infectious_agents()` is the package's export over the list: each code with its name and the
+  concept it names (`id`, `name`, `concept_id`, `concept_name`), a synonym naming the concept it
+  stands for. A code the list lacks returns no row, under a warning of class
+  `neoipcr_unknown_infectious_agent_code`, and `ids` that are no codes are refused with an error of
+  class `neoipcr_invalid_infectious_agent_ids`. `get_pathogen_taxonomy()` is removed; the lineage and
+  the flags it returned stay internal.
 * An infection counts as one with an infectious agent only where one of its findings names one, "Not
   listed" (`Id` 0), "Unidentifiable" (`Id` 3561), and a code the infectious-agent list lacks included.
   A slot that holds only a companion value (the source, the "recovered multiple times" item, a
   resistance category, or a free-text name) yields a finding without `pathogen_key`, and such a
-  finding no longer makes its infection one with an infectious agent. This holds for the share of
-  infections with an infectious agent, the share per infection type, the denominators of the
-  detection rates per infectious agent and of the infection rates with antibiotic-resistant
-  infectious agents, and the secondary-BSI rate; the resistance test rates no longer count such a slot
-  as a tested detection either.
+  finding no longer makes its infection one with an infectious agent, in any infectious-agent table
+  or in the secondary-BSI rate.
+* The infectious-agent tables count a slot only where the form asks for it, so that every infection
+  a numerator counts is in its denominator: a sepsis form's slots unless it is recorded
+  culture-negative; a pneumonia's own slots where its test is positive; an SSI's own slots where its
+  culture at any depth is positive, whatever depth its infection type records and whether or not it
+  was followed up for a secondary BSI; and the secondary-BSI slots of a NEC, pneumonia, or SSI where
+  its follow-up is answered Yes. An infectious agent left in another slot counts in none of them.
 * The secondary-BSI rate counts a NEC, pneumonia, or SSI as one with a secondary BSI only where its
   follow-up is answered Yes and one of its secondary-BSI findings names an infectious agent. An
   infectious agent left in the secondary-BSI slots under another answer, which only a validation
   exception or `include_invalid_patients = TRUE` lets through, no longer counts, so the rate is a
   share of the infections followed up by construction.
-* `get_infectious_agent_detection_rate_per_inf_type_table()` gives each infection type two shares:
-  the share tested (`tested_pooled`, with `tested_ci_lower` and `tested_ci_upper`), the pneumonias
-  whose microbiological test, and the SSIs whose culture at the depth their infection type records,
-  is recorded positive or negative, over every infection of the type (`total`); and the share
-  positive (`pooled`), the tested infections whose test is positive (for an SSI, at its own depth)
-  with an infectious agent in an own slot (`n`), over the tested ones (`tested`). A test recorded
-  "Not tested" or left blank counts as not tested. Primary sepsis/BSI keeps one share, over every
-  episode, since its form cannot tell a blood culture never taken from a negative one; an episode
-  recorded culture-negative counts as not positive whatever its slots hold. Secondary-BSI slots count
-  in neither share, and the follow-up for a secondary BSI moves neither; the secondary-BSI table
-  gives both. NEC has no row: it has no test of its own, and its infectious agents are recorded only
-  for a secondary BSI. The reference table gives the departments' quartiles of each share over the
-  departments with the share's denominator above 0 (`tested_q1` to `tested_q3`, with their bootstrap
-  intervals, for the share tested). The row of all types stays the share of every infection, NEC
-  included, in which a slot names an infectious agent, with no share tested.
+* `get_infectious_agent_detection_rate_per_inf_type_table()` has a row each for primary sepsis/BSI,
+  pneumonia, and SSI, each with two shares: the share tested (`tested_pooled`, with
+  `tested_ci_lower` and `tested_ci_upper`), the pneumonias whose microbiological test, and the SSIs
+  whose culture at the depth their infection type records, is recorded positive or negative, over
+  every infection of the type (`total`); and the share positive (`pooled`), the tested infections
+  whose test is positive (for an SSI, at its own depth) with an infectious agent in an own slot
+  (`n`), over the tested ones (`tested`). A test recorded "Not tested" or left blank counts as not
+  tested. Primary sepsis/BSI has the positive share alone, over every episode, since its form cannot
+  tell a blood culture never taken from a negative one; an episode recorded culture-negative counts
+  as not positive whatever its slots hold. Secondary-BSI slots count in neither share, and the
+  follow-up for a secondary BSI moves neither; the secondary-BSI table gives both. NEC has no row: it
+  has no test of its own, and its infectious agents are recorded only for a secondary BSI. Nor does
+  any row give all types together, whose share would depend on each department's mix of infection
+  types. In the reference table, a department enters a share's quartiles with at least 5 infections
+  in its denominator of the share, at 0 where none of them is in its numerator; a share shows them
+  where at least 5 departments enter and their median denominator exceeds the number of infections
+  in which the pooled share gives 1 infection, and gives the number of departments that enter them,
+  shown or not, as `quartile_departments`, and for the share tested as
+  `tested_quartile_departments`, beside `tested_q1` to `tested_q3` and their bootstrap intervals.
+* `get_infectious_agent_detection_rate_per_agent_table()` takes its rows from the released NeoIPC
+  infectious-agent list and its reporting classification, by the new argument `rows`: `"groups"`,
+  the default, over the reporting groups, below a summary block of the bacteria by Gram reaction and
+  oxygen requirement, or `"ontology"`, over every level of each infectious agent's path through the
+  list from its top-level row, Bacteria, Fungi, Protozoa, or Viruses, to the node at which it is
+  recorded, with a residual "n.o.s." (not otherwise specified) row where infectious agents are
+  recorded at a node that has nodes beneath it in the full ontology (a species has none, the
+  concepts beneath it counting in it), whatever other infectious agents the dataset holds, so that a
+  department's rows match those a reference holding it gives it.
+  A row's `node_id` stays the same across releases of the list that keep its node: over the full
+  ontology it is the node's source and its record there, which for a node whose source is the
+  International Committee on Taxonomy of Viruses (ICTV) is the identifier that links its taxon
+  across the releases of the ICTV Master Species List rather than its node in one release. Each row
+  other than the Total is the share of the confirmed infections with an infectious agent in the
+  tree in which one at or beneath the row's node was found, with a Wilson interval, so a parent's
+  share need not be the sum of its children's; an infectious agent counts once per infection, a
+  synonym as its concept, and only in a slot the form asks for. The Total gives the infectious
+  agents per 100 confirmed infections, "Not listed", "Unidentifiable", and the codes the list lacks
+  included, with an exact Poisson interval and their number as `n_outside_tree`. The columns are
+  `level`, `rank`, `node_id`, `parent_id`, `group`, `n`, `total`, `pooled`, `ci_lower`, and
+  `ci_upper`, a column of each measure per infection type (`n_bsi`, `total_bsi`, `pooled_bsi`, and
+  so on), and in a reference dataset the quartiles with `quartile_departments`, by the rule of the
+  per-type table; `taxon` and `.ontology_path` are gone. Both calculation functions carry both
+  versions, the ontology version as `infectious_agent_detection_rate_per_agent_ontology_table`.
+* The three resistance tables count detections: an infectious agent in an infection, once per
+  infection and only in a slot the form asks for, with a result for a resistance category where
+  either slot naming it is recorded resistant or not, and resistant where either records it
+  resistant; "Not tested" and a blank are no result. Which infectious agents a category applies to
+  comes from the released list, so methicillin-resistant *Staphylococcus aureus* (MRSA) covers the
+  *S. aureus* complex, *Staphylococcus argenteus* included, and vancomycin-resistant *Enterococcus*
+  (VRE) the genus and its species. `get_abr_infection_rate_table()` and
+  `get_infectious_agent_resistance_rate_table()` take the argument `rows` of the per-agent table and
+  give each resistance category (`abr`) a block of the rows of that version on the paths of the
+  infectious agents to which the list applies it, those that lie at or above an infectious agent
+  found to which it applies the category or that has a result for it, with the per-agent table's
+  `level`, `rank`, `node_id`, `parent_id`, and `group`, a residual row only beneath a node that has
+  a node on those paths beneath it; each infection counts once per row. A value recorded for a
+  category that cannot apply to its infectious agent counts in the block's rows at or above it as
+  any other, and whether a dataset has a row depends only on the infectious agents at or beneath it.
+  Both calculation functions carry both versions, as `abr_infection_rate_table` and
+  `abr_infection_rate_ontology_table`, and as `infectious_agent_resistance_rate_table` and
+  `infectious_agent_resistance_rate_ontology_table`.
+* `get_abr_infection_rate_table()` gives densities per 1000 patient-days, every infant being at risk,
+  in place of shares of the infections with an infectious agent: per category a Total, the
+  infections with any infectious agent recorded resistant, "Not listed", "Unidentifiable", and the
+  codes the list lacks included (their number as `n_outside_tree`), then its rows, with exact Poisson
+  intervals and the patient-days as `total`. A department enters a row's quartiles with at least 50
+  patient-days, at 0 without the row's infections, unless the list applies the category to
+  infectious agents it detected and none of them has a result for it.
+* `get_organism_resistance_rate_table()` is renamed `get_infectious_agent_resistance_rate_table()`,
+  its class `neoipcr_tbl_iarr`, and its slot `infectious_agent_resistance_rate_table`. A row's rate is
+  the share of the infections in which an infectious agent of the row's node has a result for the
+  category in which one is recorded resistant (`n`, `total`, `pooled`), and beside it the Tested
+  share (`tested_n`, `tested_total`, `tested_pooled`, `tested_ci_lower`, `tested_ci_upper`) over the
+  infections with an infectious agent of the node to which the list applies the category. A
+  department enters a row's quartiles with at least 5 infections with a result.
+* `get_resistance_test_rate_table()` gives, for each category, the share of the detections to which
+  the list applies it that have a result, a blank counting as undocumented in the denominator, where
+  it counted every slot holding a value of the category and left the blanks out. "Not listed" counts
+  in every category, "Unidentifiable" and a code the list lacks in none, and a value recorded for a
+  category that the list does not apply to its infectious agent in none. The conditional rows hold
+  only the detections recorded resistant to third-generation cephalosporins (3GCR), and for colistin
+  also to carbapenems, where they counted a blank as resistant. The table gives each row's
+  denominator as `total` and the number of departments that enter its quartiles, those with at least
+  5 detections in its denominator.
 * `get_secondary_bsi_rate_table()` shows beside each rate the share of the type's infections
   followed up for a secondary BSI (`followup_pooled`), with its counts (`followup_n`, the infections
   followed up, answered Yes or No; `total_n`, all infections of the type), and the reference table
@@ -53,6 +140,72 @@ section above it for the next changes.
   `secondary_bsi`, since a rare infectious agent can single out a patient in a pseudonymized
   dataset, and the infectious-agent figures need them. The refusal of these and every other import
   option a function requires has the class `neoipcr_unmet_import_options`.
+* `calculate_department_data()` and `calculate_reference_data()` stamp each table of the dataset
+  they return with the version of the definitions of its rates, in `metadata$rate_definitions`
+  (`table`, `version`), beside the digests of what the table reads from the bundled infectious-agent
+  list, and no other: the common-commensal flags for the incidence densities
+  (`common_commensal_digest`); the concept each code names, by which an infectious agent counts once
+  per infection, for the tables whose rows are infectious agents and the completeness of
+  antimicrobial susceptibility testing (`concept_mapping_digest`); the tree of the version a table
+  whose rows are infectious agents is laid out over (`groups_tree_digest` or `ontology_tree_digest`)
+  and the `layout` of its rows; and to which infectious agents each resistance category applies, for
+  the tables of the resistance categories (`applicability_digest`). A release of the list that
+  changes only the full ontology thus leaves the tables over the reporting groups comparable, and
+  one that changes only the concept a code names makes the tables that count by it incomparable.
+  `metadata$infectious_agent_tables` names the list's release (`version`, `commit`) and the layout,
+  and `metadata$neoipcr_version` the package version. Both warn once, with the class
+  `neoipcr_unknown_infectious_agent_code` and the codes in its field `codes`, where the findings hold
+  codes the list lacks.
+* `get_benchmark_data()` joins a table only across datasets whose stamps of it match. A dataset
+  whose stamps of a table differ from those of the first dataset that holds it is not joined into
+  the table: the table keeps the rows of the datasets joined, the table and dataset are listed in
+  the new element `not_comparable`, and a warning of class `neoipcr_tables_not_comparable` is
+  raised; a figure takes none of that dataset's rows, and any other table leaves that dataset's
+  columns empty. A stamp that a dataset lacks, such as one a later version adds, counts as missing
+  there, so that only the tables whose stamp in the other dataset has a value in it are not joined.
+  A dataset calculated before the stamps existed counts as calculated under other definitions for
+  every table. The tables whose rows are infectious agents are joined on `node_id`, within `abr`
+  where they have one, and take the order of the reference: the first reference dataset joined
+  into the table, or else the first dataset that holds it. So departments benchmarked against each
+  other take the order of the first one that holds the table, and a department passed before a
+  reference whose table is not joined keeps its own. The benchmark holds the rows of every dataset
+  in the reference's order, the summary block above the tree, and any other row the reference
+  lacks after its siblings, in its order in the joined table, but before a residual "n.o.s." row,
+  which stays last among its node's children; a dataset without a row has it at 0 over its own
+  denominator of the row. The joined table holds the rows of the datasets in the order in which
+  they are passed, the first dataset's first, each later one adding the rows the earlier ones
+  lack. A summary row is one whose `node_id` names an attribute of the bundled classification
+  before its `|`, whatever its value, and the summary rows are laid out attribute by attribute in
+  the reference's order of the attributes and their values, which the benchmark takes from the
+  reference's summary rows of every block of the table, each block holding them in the order of
+  the release of the list the reference was calculated from, whether or not the bundled
+  classification holds their values. Where the blocks leave that order open, as for two attributes,
+  or two values, that the blocks order neither directly nor through others, the bundled
+  classification decides it as far as the blocks allow: place by place, of the attributes or values
+  the blocks let come next, the first in its order, a value it lacks after those it holds, and two
+  values it lacks in the order in which the reference's table first shows them. An attribute of
+  which the reference holds no row in the table comes directly after the last of the reference's
+  attributes that the bundled classification orders before it, or first, several such attributes in
+  the bundled classification's order; a value the reference holds nowhere in the table directly
+  after the reference's value of its attribute that the reference places last among those the
+  bundled classification orders before it, or else directly before the reference's first value of
+  its attribute, and last in its attribute's run where the bundled classification lacks it; and
+  rows that share a place in the bundled classification's order, those whose value it lacks in
+  their order in the joined table. So the attributes, and the values that the reference holds in
+  the table or the bundled classification holds, follow one order in every block, while the values
+  that neither holds follow, in each block, their order in the joined table, which can differ
+  between blocks. A summary row of an attribute the bundled classification lacks, which only a
+  dataset calculated by another version of neoipcr can hold, is placed as a top-level row of the
+  tree. Where a dataset calculated before the stamps holds a table whose rows are infectious
+  agents first or alone, the table keeps its rows as they are, that dataset's resistance rates per
+  infectious agent, held as `organism_resistance_rate_table`, counting as its
+  `infectious_agent_resistance_rate_table`.
+* A table builder given a calculated dataset that lacks its table, one calculated before the table
+  existed, refuses it with an error of class `neoipcr_table_not_in_dataset`.
+* Every stored reference dataset must be calculated again with this version, and so must every
+  stored department dataset that is to be benchmarked: its infectious-agent tables count otherwise
+  than the rules above, its tables lack the ontology versions and the renamed slot, and, without the
+  stamps, `get_benchmark_data()` joins none of its tables with those of a dataset calculated now.
 
 # neoipcr 0.0.0.9008
 

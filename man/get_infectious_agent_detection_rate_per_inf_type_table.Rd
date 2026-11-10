@@ -21,29 +21,32 @@ include_quartiles is TRUE.}
 output. Set to FALSE for department-level reports to simplify output.}
 }
 \value{
-A table with a row for each of \code{"all"}, \code{"bsi"}, \code{"hap"}, and
-\code{"ssi"} (\code{inf}), in that order:
+A table with a row for each of \code{"bsi"}, \code{"hap"}, and \code{"ssi"}
+(\code{inf}), in that order:
 \itemize{
 \item the positive share: \code{n}, the positive infections; \code{tested}, its
-denominator, the tested infections (every episode for \code{"bsi"} and every
-infection for \code{"all"}); \code{pooled}, the share; \code{ci_lower} and \code{ci_upper},
-its Wilson interval; and with \code{include_quartiles} the departments'
-quartiles (\code{q1}, \code{q2}, \code{q3}) with their bootstrap intervals
-(\code{q1_ci_lower}, \code{q1_ci_upper}, and so on);
+denominator, the tested infections, every episode for \code{"bsi"};
+\code{pooled}, the share, \code{NA} without a denominator; \code{ci_lower} and
+\code{ci_upper}, its Wilson interval; and with \code{include_quartiles} the
+departments' quartiles (\code{q1}, \code{q2}, \code{q3}), their bootstrap intervals
+(\code{q1_ci_lower} to \code{q3_ci_upper}), and \code{quartile_departments}, the
+number of departments that enter them, given whether or not the
+quartiles are shown;
 \item the tested share: \code{total}, every infection of the type, its
-denominator, which counts every episode for \code{"bsi"} and every infection
-for \code{"all"} too; \code{tested_pooled}, the share; \code{tested_ci_lower} and
+denominator; \code{tested_pooled}, the share; \code{tested_ci_lower} and
 \code{tested_ci_upper}, its Wilson interval; and with \code{include_quartiles} the
-departments' quartiles (\code{tested_q1}, \code{tested_q2}, \code{tested_q3}) with
-their bootstrap intervals (\code{tested_q1_ci_lower}, \code{tested_q1_ci_upper},
-and so on). The share, its interval, and its quartiles are \code{NA} for
-\code{"bsi"} and \code{"all"}, which have no tested share.
+departments' quartiles (\code{tested_q1}, \code{tested_q2}, \code{tested_q3}), their
+bootstrap intervals (\code{tested_q1_ci_lower} to \code{tested_q3_ci_upper}), and
+\code{tested_quartile_departments}. The share and all its columns but
+\code{total} are \code{NA} for \code{"bsi"}, whose \code{total} counts every episode.
 }
 }
 \description{
-Each row of an infection type gives two shares, in percent: how often the
-infection's site was tested microbiologically, and how often a test
-recorded an infectious agent, the yield of the testing.
+Each row, one for primary sepsis/BSI, pneumonia, and SSI, gives two
+shares, in percent: how often the infection's site was tested
+microbiologically, which the treating team decides and the laboratory
+available to it allows, and how often a test recorded an infectious agent,
+the yield of the testing. Neither tells a true from a false result.
 }
 \details{
 \enumerate{
@@ -57,22 +60,24 @@ an SSI, at its own depth) with at least one own slot naming an
 infectious agent, over the tested infections.
 }
 
-Primary sepsis/BSI has only the positive share, over every episode, sampled
-or not: its form's single item "No positive blood culture" cannot tell a
-blood culture never taken from a negative one. An episode counts where an
-own slot names an infectious agent and the form is not recorded
-culture-negative. A slot names an infectious agent where it holds one,
-"Not listed", "Unidentifiable", and a code the infectious-agent list lacks
-included; a slot holding only a source, a resistance category, or a name
-does not. A secondary-BSI slot counts in neither share, and the follow-up
-for a secondary BSI moves neither: \code{\link[=get_secondary_bsi_rate_table]{get_secondary_bsi_rate_table()}} gives
-both. NEC has no row, since it has no test of its own and its infectious
-agents are recorded only for a secondary BSI. The row \code{"all"} is the share
-of every infection, NEC included, in which any slot names an infectious
-agent, whatever the form asks for; it has no tested share.
+Primary sepsis/BSI has only the positive share, over every episode,
+clinical sepsis included, sampled or not: its form's single item "No
+positive blood culture" cannot tell a blood culture never taken from a
+negative one. An episode counts where an own slot names an infectious agent
+and the form is not recorded culture-negative. A slot names an infectious
+agent where it holds one, "Not listed", "Unidentifiable", and a code the
+infectious-agent list lacks included; a slot holding only a source, a
+resistance category, or a name does not. A secondary-BSI slot counts in
+neither share, and the follow-up for a secondary BSI moves neither:
+\code{\link[=get_secondary_bsi_rate_table]{get_secondary_bsi_rate_table()}} gives both. NEC has no row, since it has
+no test of its own and its infectious agents are recorded only for a
+secondary BSI; nor do all types together, whose share would depend on each
+department's mix of infection types.
 
-The departments' quartiles of each share take the departments whose
-denominator of the share is above 0, and are shown where at least 5 such
-departments enter and their median denominator exceeds the denominator in
-which the pooled share gives 1 infection.
+A department enters a share's quartiles where at least 5 infections are in
+its denominator of the share, at 0 where none of them is in its numerator.
+A share shows its quartiles where at least 5 departments enter and their
+median denominator exceeds the number of infections in which the pooled
+share gives 1 infection; the bootstrap of their intervals takes the same
+departments.
 }

@@ -31,4 +31,10 @@ The dataset must have been imported with \code{include_department},
 infectious-agent figures read the findings' \code{pathogen_key}, which the
 \code{"pseudo"} tier leaves out. Another dataset is refused with an error of
 class \code{neoipcr_unmet_import_options}.
+
+Where the findings hold codes the NeoIPC infectious-agent list lacks, a
+warning of class \code{neoipcr_unknown_infectious_agent_code} is raised once,
+as \code{\link[=calculate_reference_data]{calculate_reference_data()}} raises it. The result carries the versions
+of its tables' rate definitions as \code{\link[=calculate_reference_data]{calculate_reference_data()}} describes
+them.
 }

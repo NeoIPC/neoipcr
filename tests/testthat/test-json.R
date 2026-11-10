@@ -70,15 +70,22 @@ test_that("a serialized reference table by infection type gives a share a type l
   records <- jsonlite::parse_json(json)
 
   expect_equal(vapply(records, \(r) r$inf, character(1)),
-               c("all", "bsi", "hap", "ssi"))
-  hap <- records[[3]]
+               c("bsi", "hap", "ssi"))
+  hap <- records[[2]]
   expect_equal(c(hap$n, hap$tested, hap$total), c(1L, 1L, 2L))
   expect_equal(c(hap$pooled, hap$tested_pooled), c(100, 50))
-  bsi <- records[[2]]
+  # No department reaches the minimum of 5, and the number entering is given
+  # all the same.
+  expect_equal(c(hap$quartile_departments, hap$tested_quartile_departments),
+               c(0L, 0L))
+  bsi <- records[[1]]
   expect_equal(c(bsi$n, bsi$tested, bsi$total), c(1L, 1L, 1L))
-  expect_true(all(c("tested_pooled", "tested_q1") %in% names(bsi)))
+  expect_true(all(c("tested_pooled", "tested_q1",
+                    "tested_quartile_departments") %in% names(bsi)))
   expect_null(bsi$tested_pooled)
   expect_null(bsi$tested_q1)
+  expect_null(bsi$tested_quartile_departments)
+  expect_equal(bsi$quartile_departments, 0L)
 })
 
 test_that("serialized reference metadata names neither the exception records nor the departments", {

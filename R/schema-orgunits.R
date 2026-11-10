@@ -203,10 +203,17 @@ get_hospitals_schema <- function(opts)
 # hierarchy level. This pragmatic design deviates from the strict
 # `col_inherited_from()` rule used on hospitals: inheritance would say
 # "departments doesn't carry `country_key` under full-chain-intact
-# because hospitals reaches it via its own country_key". But existing
-# downstream consumers (e.g. `R/dhis2-trackedEntities.R:151-153`) read
-# `metadata$departments$country_key` directly, so the pre-join is the
-# load-bearing behaviour the schema must describe, not optimise away.
+# because hospitals reaches it via its own country_key". But
+# `.postfilter_hierarchy_cascade()` in `R/filter.R` reads the hierarchy
+# keys `metadata$departments` carries, `country_key` among them, through
+# `.surviving_hierarchy_keys()`, to decide which hospitals, countries, and
+# World Bank income classes survive, so the pre-join is the load-bearing
+# behaviour the schema must describe, not optimize away. The fact readers,
+# `read_patients()` in `R/dhis2-trackedEntities.R`, `read_enrollments()` in
+# `R/dhis2-enrollments.R`, and `read_events()` in `R/dhis2-events.R`, take
+# the hierarchy keys from the departments' internal map,
+# `metadata$.departments_internal_map`, a snapshot taken before this schema
+# is applied.
 # Under pseudo / no modes, the fat-lookup role collapses to just the
 # link-FK and PK.
 #
@@ -356,10 +363,11 @@ get_departmentTrials_schema <- function(opts)
 # `value_type_family()`): integer types → `value_integer`, decimal types →
 # `value_number`, boolean types → `value_logical`, DATE and AGE →
 # `value_date`, DATETIME → `value_datetime`, everything else → `value_text`.
-# A missing or unparseable value leaves every typed column NA (the latter
-# with a warning). The raw string is not kept. `valueType` on the definitions stays the DHIS2
-# enum name as character: the enum grows upstream, and fixed factor levels
-# would turn a value type added later into a schema violation.
+# A missing or unparseable value leaves every typed column NA, and a warning
+# reports an unparseable one. The raw string is not kept. `valueType` on the
+# definitions stays the DHIS2 enum name as character: the enum grows
+# upstream, and fixed factor levels would turn a value type added later into
+# a schema violation.
 #
 # `IsTestunit` is not an ordinary attribute here: the orchestrator reads it
 # on every import, whatever `include_custom_attributes` says, folds it into

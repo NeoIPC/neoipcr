@@ -2,10 +2,14 @@
 % Please edit documentation in R/calc-tables.R
 \name{get_abr_infection_rate_table}
 \alias{get_abr_infection_rate_table}
-\title{Get the table of infection rates with antibiotic resistant bacteria in a
-somewhat meaningful taxonomic structure}
+\title{Get the table of the nosocomial infections with resistant infectious agents}
 \usage{
-get_abr_infection_rate_table(x, use_cache = TRUE, include_quartiles = TRUE)
+get_abr_infection_rate_table(
+  x,
+  use_cache = TRUE,
+  include_quartiles = TRUE,
+  rows = c("groups", "ontology")
+)
 }
 \arguments{
 \item{x}{The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
@@ -16,14 +20,78 @@ include_quartiles is TRUE.}
 
 \item{include_quartiles}{Include quartile columns (q1, q2, q3) in the output.
 Set to FALSE for department-level reports to simplify output.}
+
+\item{rows}{The rows of the table: \code{"groups"}, the default, over the
+reporting groups, or \code{"ontology"}, over the full ontology. A calculated
+dataset carries both.}
 }
 \value{
-A table containing infection rates with antibiotic resistant
-bacteria
+A table with the blocks described above, in the order of \code{abr},
+the resistance category, a factor with the levels \code{"3gcr"}, \code{"car"},
+\code{"cor"}, \code{"mrsa"}, and \code{"vre"}; then \code{level}, 0 for a Total, 1 for a
+summary row and a top-level node, and one more for each level below;
+\code{rank}, the node's concept type, \code{NA} for a Total, a summary row, a
+reporting group, and a residual row; \code{node_id}, the row's key, \code{NA} for a
+Total; \code{parent_id}, the \code{node_id} of the row's parent, \code{NA} for a
+top-level row; \code{group}, the row's label; \code{n}, the infections counted;
+\code{total}, the patient-days; \code{pooled}, the density per 1000 patient-days,
+\code{NA} without patient-days; \code{ci_lower} and \code{ci_upper}, its interval; with
+\code{include_quartiles}, the departments' quartiles \code{q1}, \code{q2}, and \code{q3},
+their bootstrap intervals \code{q1_ci_lower} to \code{q3_ci_upper}, and
+\code{quartile_departments}, the number of departments that enter them; and
+\code{n_outside_tree}, on a Total only.
 }
 \description{
-The rates are shares of the infections with an infectious agent:
-infections one of whose slots names one, "Not listed", "Unidentifiable",
-and a code the infectious-agent list lacks included. A slot holding only a
-source, a resistance category, or a name names none.
+For each resistance category, third-generation cephalosporin resistance
+(3GCR), carbapenem resistance, colistin resistance, methicillin-resistant
+\emph{Staphylococcus aureus} (MRSA), and vancomycin-resistant \emph{Enterococcus}
+(VRE), a block gives the density of the infections with a resistant
+infectious agent per 1000 patient-days, with an exact Poisson interval,
+every infant being at risk: first the category's Total, the infections
+with at least one infectious agent recorded resistant in the category,
+then the rows on the paths of the infectious agents to which the NeoIPC
+infectious-agent list applies the category, each with the infections in
+which an infectious agent at or beneath its node is recorded resistant in
+it. A block has each such row that lies at or above an infectious agent
+found to which the list applies the category or that has a result for
+it, so that whether a row is there depends only on the infectious agents
+at or beneath it. An infection counts once in each row, so a parent's
+density need not be the sum of its children's. The patient-days are all
+those of the dataset, as the incidence densities count them.
+}
+\details{
+The infectious agents are those that
+\code{\link[=get_infectious_agent_detection_rate_per_agent_table]{get_infectious_agent_detection_rate_per_agent_table()}} counts, each once
+per infection and only in a slot the form asks for, and one is resistant
+where a slot naming it records it resistant. "Not listed",
+"Unidentifiable", and a code the list lacks count in a Total only, and
+\code{n_outside_tree} gives how many of them are recorded resistant. A value
+recorded for a category that the list does not apply to its infectious
+agent counts as any other, in the Total and in the block's rows at or
+above the infectious agent's node, which it gives the block.
+
+Over the reporting groups (\code{rows = "groups"}), the rows of a block below
+its Total are a summary block of the bacteria by Gram reaction and by
+oxygen requirement, a row per value found that an infectious agent the
+list applies the category to has, keyed \code{"<attribute>|<value>"}, and then
+the groups of the reporting classification, nested as it nests them. Over
+the full ontology (\code{rows = "ontology"}), they are the nodes of the paths
+through the list, from the top-level row, Bacteria, Fungi, Protozoa, or
+Viruses, to the node at which an infectious agent is recorded, a concept
+beneath a species (a subspecies, a serotype, or a group such as the
+polioviruses) counting in its species; where infectious agents are
+recorded at a node that has a node of those paths beneath it in the full
+ontology (a species has none), a residual row labelled "n.o.s." (not
+otherwise specified), last among the node's children, counts them, whether
+or not the block has a row beneath the node. Each row's children follow
+it, siblings by their density, descending.
+
+A department enters a row's quartiles with at least 50 patient-days, at 0
+where it has none of the row's infections, unless the list applies the
+category to infectious agents it detected and none of them has a result
+for it, as \code{\link[=get_resistance_test_rate_table]{get_resistance_test_rate_table()}} counts them: its 0 would
+dilute the quartiles. A row shows its quartiles where at least 5
+departments enter and their median patient-days exceed the patient-days in
+which the pooled density gives 1 infection; the bootstrap of their
+intervals takes the same departments.
 }

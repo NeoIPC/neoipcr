@@ -1179,8 +1179,11 @@ make_calc_test_ds <- function() {
 # `multiple`, a resistance category); a column left out keeps
 # `make_test_iaf()`'s default. Departments 1 to the highest key exist, each
 # with one patient and one enrolment, its admission and surveillance-end
-# forms, and the department's infections.
-make_infection_calc_test_ds <- function(forms, findings = NULL) {
+# forms, and the department's infections; `patient_days` gives each
+# department's stay its patient-days, one value per department, the
+# surveillance-end form's default where left out.
+make_infection_calc_test_ds <- function(forms, findings = NULL,
+                                        patient_days = NULL) {
   if (!"department_key" %in% names(forms))
     forms$department_key <- 1L
   forms$department_key <- as.integer(forms$department_key)
@@ -1236,6 +1239,12 @@ make_infection_calc_test_ds <- function(forms, findings = NULL) {
       make_test_iaf(inf_keys[findings$form]),
       as.list(findings[setdiff(names(findings), "form")]))
 
+  surveillance_end <- if (is.null(patient_days))
+    make_test_surveillance_end_data(n_dep + dep_keys)
+  else
+    make_test_surveillance_end_data(
+      n_dep + dep_keys, patient_days = as.integer(patient_days))
+
   make_test_ds(
     metadata                = md,
     patients                = make_test_patients(n_dep, department_key = dep_keys),
@@ -1243,12 +1252,195 @@ make_infection_calc_test_ds <- function(forms, findings = NULL) {
       n_dep, patient_keys = dep_keys, department_key = dep_keys),
     events                  = events,
     admissionData           = make_test_admission_data(dep_keys),
-    surveillanceEndData     = make_test_surveillance_end_data(n_dep + dep_keys),
+    surveillanceEndData     = surveillance_end,
     sepsisData              = form_data("bsi", make_test_sepsis_data),
     necData                 = form_data("nec", make_test_nec_data),
     pneumoniaData           = form_data("hap", make_test_pneumonia_data),
     ssiData                 = form_data("ssi", make_test_ssi_data),
     infectiousAgentFindings = iaf)
+}
+
+# Golden fixture of the infectious-agent tables: 17 infections of department 1,
+# their infectious agents spread over the reporting groups, two eukaryotic
+# kingdoms (Fungi and Protozoa), and three virus families (Orthoherpesviridae,
+# Picornaviridae, Adenoviridae). By form, with the codes its slots hold:
+#   1. sepsis: Staphylococcus aureus (934) and S. epidermidis (810), one genus;
+#   2. sepsis: the genus Staphylococcus (481), recorded above its species;
+#   3. sepsis: Escherichia coli (1807);
+#   4. sepsis: Candida albicans (2273);
+#   5. pneumonia tested positive and answered Yes: Klebsiella pneumoniae (390)
+#      in its own and in a secondary-BSI slot;
+#   6. pneumonia tested positive: Pseudomonas aeruginosa (1958) and the genus
+#      Candida (3422), recorded above its species;
+#   7. NEC answered Yes: Enterococcus faecalis (2345) in a secondary-BSI slot;
+#   8. NEC answered No: E. coli (1807) in a secondary-BSI slot, which the form
+#      does not ask for;
+#   9. superficial SSI tested positive there: Aspergillus fumigatus (1717) and
+#      Prototheca zopfii (2411);
+#  10. sepsis: two synonyms of the herpes simplex virus 1 (2617 and 2616);
+#  11. sepsis: Enterovirus betacoxsackie (3496);
+#  12. pneumonia tested positive: Mastadenovirus adami (3598);
+#  13. sepsis: "Not listed" (0) alone;
+#  14. sepsis: "Unidentifiable" (3561) and S. aureus (934);
+#  15. deep SSI tested positive there: a code the list lacks (99999999) alone;
+#  16. sepsis: a slot holding a source and a resistance category alone;
+#  17. sepsis recorded culture-negative: S. aureus (934) in a slot the form does
+#      not ask for.
+make_infectious_agent_calc_test_ds <- function() {
+  forms <- tibble::tibble(
+    event_type_key = c("bsi", "bsi", "bsi", "bsi", "hap", "hap", "nec",
+                       "nec", "ssi", "bsi", "bsi", "hap", "bsi", "bsi",
+                       "ssi", "bsi", "bsi"),
+    sec_bsi = c(NA, NA, NA, NA, "1", "-1", "1", "0", "-1", NA, NA, "-1", NA,
+                NA, "-1", NA, NA),
+    microbiological_test_result = c(NA, NA, NA, NA, "1", "1", NA, NA, NA, NA,
+                                    NA, "1", NA, NA, NA, NA, NA),
+    infection_type = c(rep(NA, 8), "1", rep(NA, 5), "2", NA, NA),
+    organisms_superf = c(rep(NA, 8), "1", rep(NA, 5), "-1", NA, NA),
+    organisms_deep = c(rep(NA, 14), "1", NA, NA),
+    organisms_organ = NA_character_,
+    no_pos_culture = c(FALSE, FALSE, FALSE, FALSE, NA, NA, NA, NA, NA, FALSE,
+                       FALSE, NA, FALSE, FALSE, NA, FALSE, TRUE))
+  findings <- tibble::tibble(
+    form = c(1L, 1L, 2L, 3L, 4L, 5L, 5L, 6L, 6L, 7L, 8L, 9L, 9L, 10L, 10L,
+             11L, 12L, 13L, 14L, 14L, 15L, 16L, 17L),
+    secondary_bsi = c(FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE,
+                      FALSE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE,
+                      FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
+    pathogen_key = c(934L, 810L, 481L, 1807L, 2273L, 390L, 390L, 1958L, 3422L,
+                     2345L, 1807L, 1717L, 2411L, 2617L, 2616L, 3496L, 3598L,
+                     0L, 3561L, 934L, 99999999L, NA, 934L),
+    `3gcr` = factor(c(rep("no", 21), "yes", "no"),
+                    levels = c("no", "yes", "not_tested")))
+  make_infection_calc_test_ds(forms, findings)
+}
+
+# Golden fixture of the resistance tables: 18 infections of department 1,
+# whose stay has 200 patient-days. The resistance categories are
+# third-generation cephalosporin resistance (3GCR), carbapenem and colistin
+# resistance, methicillin-resistant Staphylococcus aureus (MRSA), and
+# vancomycin-resistant Enterococcus (VRE); every category a slot does not
+# name below is blank. By form, with the codes its slots hold:
+#   1. sepsis: Escherichia coli (1807), 3GCR resistant, colistin not tested;
+#   2. pneumonia tested positive and answered Yes: Klebsiella pneumoniae (390)
+#      in its own slot, 3GCR not resistant, and in a secondary-BSI slot, 3GCR
+#      resistant and carbapenem not resistant;
+#   3. sepsis: Staphylococcus aureus (934), MRSA, and 3GCR resistant, a
+#      category the list does not apply to it;
+#   4. sepsis: Staphylococcus argenteus (2778), not MRSA;
+#   5. sepsis: Enterococcus faecium (1865), vancomycin not tested;
+#   6. sepsis: Enterococcus faecalis (2345), VRE;
+#   7. sepsis: Streptococcus agalactiae (2600), no resistance category;
+#   8. sepsis: E. faecalis (2345), vancomycin blank;
+#   9. sepsis: Acinetobacter baumannii (1660), 3GCR resistant, a category the
+#      list does not apply to it, carbapenem resistant, and colistin not
+#      resistant;
+#  10. sepsis: "Not listed" (0), 3GCR, carbapenem, and colistin resistant;
+#  11. sepsis: "Unidentifiable" (3561), MRSA;
+#  12. deep SSI tested positive there: a code the list lacks (99999999), 3GCR
+#      resistant;
+#  13. sepsis recorded culture-negative: E. coli (1807), 3GCR, carbapenem, and
+#      colistin resistant, in a slot the form does not ask for;
+#  14. sepsis: a slot holding a carbapenem resistance alone;
+#  15. sepsis: E. coli (1807), 3GCR, carbapenem, and colistin resistant, and
+#      K. pneumoniae (390), 3GCR not resistant;
+#  16. NEC answered No: E. coli (1807), 3GCR resistant, in a secondary-BSI
+#      slot, which the form does not ask for;
+#  17. sepsis: K. pneumoniae (390), 3GCR not tested;
+#  18. sepsis: the genus Enterococcus (503), recorded above its species, not
+#      VRE.
+make_resistance_calc_test_ds <- function() {
+  forms <- tibble::tibble(
+    event_type_key = c("bsi", "hap", "bsi", "bsi", "bsi", "bsi", "bsi", "bsi",
+                       "bsi", "bsi", "bsi", "ssi", "bsi", "bsi", "bsi", "nec",
+                       "bsi", "bsi"),
+    sec_bsi = c(NA, "1", rep(NA, 9), "-1", NA, NA, NA, "0", NA, NA),
+    microbiological_test_result = c(NA, "1", rep(NA, 16)),
+    infection_type = c(rep(NA, 11), "2", rep(NA, 6)),
+    organisms_superf = c(rep(NA, 11), "-1", rep(NA, 6)),
+    organisms_deep = c(rep(NA, 11), "1", rep(NA, 6)),
+    organisms_organ = NA_character_,
+    no_pos_culture = c(FALSE, NA, rep(FALSE, 9), NA, TRUE, FALSE, FALSE, NA,
+                       FALSE, FALSE))
+  findings <- tibble::tribble(
+    ~form, ~secondary_bsi, ~pathogen_key, ~`3gcr`,      ~car,  ~cor,         ~mrsa, ~vre,
+       1L, FALSE,                  1807L, "yes",        NA,    "not_tested", NA,    NA,
+       2L, FALSE,                   390L, "no",         NA,    NA,           NA,    NA,
+       2L, TRUE,                    390L, "yes",        "no",  NA,           NA,    NA,
+       3L, FALSE,                   934L, "yes",        NA,    NA,           "yes", NA,
+       4L, FALSE,                  2778L, NA,           NA,    NA,           "no",  NA,
+       5L, FALSE,                  1865L, NA,           NA,    NA,           NA,    "not_tested",
+       6L, FALSE,                  2345L, NA,           NA,    NA,           NA,    "yes",
+       7L, FALSE,                  2600L, NA,           NA,    NA,           NA,    NA,
+       8L, FALSE,                  2345L, NA,           NA,    NA,           NA,    NA,
+       9L, FALSE,                  1660L, "yes",        "yes", "no",         NA,    NA,
+      10L, FALSE,                     0L, "yes",        "yes", "yes",        NA,    NA,
+      11L, FALSE,                  3561L, NA,           NA,    NA,           "yes", NA,
+      12L, FALSE,              99999999L, "yes",        NA,    NA,           NA,    NA,
+      13L, FALSE,                  1807L, "yes",        "yes", "yes",        NA,    NA,
+      14L, FALSE,            NA_integer_, NA,           "yes", NA,           NA,    NA,
+      15L, FALSE,                  1807L, "yes",        "yes", "yes",        NA,    NA,
+      15L, FALSE,                   390L, "no",         NA,    NA,           NA,    NA,
+      16L, TRUE,                   1807L, "yes",        NA,    NA,           NA,    NA,
+      17L, FALSE,                   390L, "not_tested", NA,    NA,           NA,    NA,
+      18L, FALSE,                   503L, NA,           NA,    NA,           NA,    "no")
+  with_antibiotic_entries(
+    make_infection_calc_test_ds(forms, findings, patient_days = 200L))
+}
+
+# A sepsis per form of `findings` (columns `form`, numbered from 1,
+# `pathogen_key`, and any of the resistance categories), of the department
+# `department_key` gives it, by form, with a stay of `patient_days` per
+# department, departments 1 to the highest key, and an antibiotic entry on
+# it. A resistance category `findings` does not name is blank, where
+# make_test_iaf() records every category as not resistant.
+make_sepsis_findings_test_ds <- function(findings, department_key = 1L,
+                                         patient_days = 100L) {
+  for (category in c("3gcr", "car", "cor", "mrsa", "vre"))
+    if (!category %in% names(findings))
+      findings[[category]] <- NA_character_
+  department_key <- rep_len(as.integer(department_key), max(findings$form))
+  with_antibiotic_entries(make_infection_calc_test_ds(
+    forms = tibble::tibble(event_type_key = "bsi",
+                           department_key = department_key),
+    findings = findings,
+    patient_days = rep_len(as.integer(patient_days), max(department_key))))
+}
+
+# `ds` with an antibiotic entry on each surveillance-end form, since
+# `get_risk_time()` leaves a stay without one out of the patient-days.
+with_antibiotic_entries <- function(ds) {
+  ds$substanceDays <- make_test_substance_days(
+    ds$events$event_key[ds$events$event_type_key == "end"])
+  ds
+}
+
+# Departments' quartiles of the resistance tables: 8 departments, each
+# infection a sepsis.
+#   * Departments 1-5: 100 patient-days, 5 infections with Escherichia coli
+#     (1807), k - 1 of department k's 3GCR resistant and the others not;
+#   * department 6: 40 patient-days, 4 infections with E. coli, 3GCR
+#     resistant;
+#   * department 7: 100 patient-days, 5 infections with E. coli, 3GCR blank;
+#   * department 8: 100 patient-days, 1 infection with Staphylococcus aureus
+#     (934), MRSA blank.
+# Every other resistance category is blank.
+make_resistance_quartile_test_ds <- function() {
+  departments <- c(rep(1:5, each = 5), rep(6L, 4), rep(7L, 5), 8L)
+  resistant <- unlist(lapply(1:5, \(k) c(rep("yes", k - 1L), rep("no", 6L - k))))
+  with_antibiotic_entries(make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key = "bsi",
+      department_key = departments),
+    findings = tibble::tibble(
+      form = seq_along(departments),
+      pathogen_key = c(rep(1807L, 34), 934L),
+      `3gcr` = c(resistant, rep("yes", 4), rep(NA, 6)),
+      car = NA_character_,
+      cor = NA_character_,
+      mrsa = NA_character_,
+      vre = NA_character_),
+    patient_days = c(rep(100L, 5), 40L, 100L, 100L)))
 }
 
 

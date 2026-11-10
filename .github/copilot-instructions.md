@@ -143,7 +143,8 @@ When adding or renaming an `R/*.R` file, update its line below and its [R code r
 - `validation-rules-infections.R`: infection consistency
 - `validation-rules-patient.R`: patient record
 - `validation-rules-definitions.R`: case definitions
-- `pathogens.R`: infectious-agent classification and list
+- `infectious-agents.R`: `get_infectious_agents()`
+- `infectious-agent-ontology.R`: bundled-table derivation
 - `ichi.R`: `is_valid_ichi_code()`
 - `json.R`: `write_json()`
 - `types-check.R`: class predicates, calculation preconditions

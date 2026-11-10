@@ -135,8 +135,7 @@ ontology <- new.env()
 sys.source(file.path("R", "infectious-agent-ontology.R"), envir = ontology,
            keep.source = FALSE)
 tables <- ontology$derive_infectious_agent_tables(tree, classification)
-ontology$assert_infectious_agent_contract(tables$classification,
-                                          tables$reporting_groups)
+ontology$assert_infectious_agent_contract(tables)
 
 bundle_path <- file.path("R", "sysdata.rda")
 bundled <- new.env()
@@ -147,12 +146,15 @@ ontology$compare_infectious_agent_classifications(
        inherits = FALSE),
   tables$classification, acknowledged_removed_ids)
 
-digest <- function(columns)
-  tools::sha256sum(bytes = charToRaw(ontology$infectious_agent_digest_text(
-    tables$classification, tables$reporting_groups, columns)))
+digests <- vapply(ontology$infectious_agent_digest_texts(tables),
+                  function(text) tools::sha256sum(bytes = charToRaw(text)),
+                  character(1))
 bundle <- list(
   internal_infectious_agent_classification = tables$classification,
   internal_infectious_agent_reporting_groups = tables$reporting_groups,
+  internal_infectious_agent_attribute_values = tables$attribute_values,
+  internal_infectious_agent_nodes = tables$nodes,
+  internal_infectious_agent_closure = tables$closure,
   internal_infectious_agent_ontology = list(
     repository = repository,
     tag = tag,
@@ -160,8 +162,12 @@ bundle <- list(
     commit = commit,
     list_sha256 = sha256[["list"]],
     reporting_classification_sha256 = sha256[["reporting_classification"]],
-    classification_digest = digest(names(tables$classification)),
-    tables_digest = digest(ontology$infectious_agent_tables_digest_columns)))
+    classification_digest = digests[["classification"]],
+    groups_tree_digest = digests[["groups_tree"]],
+    ontology_tree_digest = digests[["ontology_tree"]],
+    concept_mapping_digest = digests[["concept_mapping"]],
+    common_commensal_digest = digests[["common_commensal"]],
+    applicability_digest = digests[["applicability"]]))
 
 if (check) {
   differences <- c(

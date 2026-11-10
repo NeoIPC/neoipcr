@@ -100,12 +100,10 @@ read_events <- function(events, enrollments, metadata, dataset_options)
       occurredAt = readr::parse_date(
         stringr::str_sub(.data$occurredAt, end = 10)))
 
-  # Hierarchy-key fat-lookup: pull each key that events_cols declares
-  # under the current opts directly off `metadata$departments`. Under
-  # the three-mode schema contract, departments carries exactly the
-  # hierarchy keys whose `include_*` option is non-"no" (when
-  # `include_department == "full"`), so the column list is a pure
-  # function of opts — no legacy branching needed.
+  # Hierarchy keys and `isTest`: join each that `events_cols` declares under
+  # `opts` from the departments' internal map,
+  # `metadata$.departments_internal_map`, by `orgUnit`, as read_patients()
+  # and read_enrollments() do.
   hierarchy_keys <- c("department_key", "hospital_key",
                       "country_key", "world_bank_class_key")
   expected <- names(compile_schema(events_cols, opts))
@@ -391,11 +389,9 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
 # `findings_cols`'s `scratch` set (allowed into `finalize_to_schema()`
 # but stripped from the public output, because the design keeps the
 # main findings tibble lean — see the schema comment on
-# `unknownPathogenNames_cols`). Splitting *after* finalize sees no
-# `name` column and produces an always-empty `unknownPathogenNames`,
-# which silently broke Validation-Report Rule 20. The split therefore
-# runs on the pre-finalize intermediate while `name` is still
-# attached.
+# `unknownPathogenNames_cols`). `split_unknown_pathogen_names()` reads
+# `name`, so the split runs on the pre-finalize intermediate while `name`
+# is still attached.
 read_infectious_agent_findings <- function(events_raw, processed_events, metadata, dataset_options)
 {
   opts <- dataset_options
@@ -522,15 +518,6 @@ split_unknown_pathogen_names <- function(intermediate, opts)
 {
   if (!entity_exists(unknownPathogenNames_cols, opts))
     return(compile_schema(unknownPathogenNames_cols, opts))
-
-  # Under pseudo events, payload atoms (including `name`) are gated off
-  # upstream — the intermediate has no `name` column to split. Emit the
-  # schema's 0-row shape directly.
-  if (!("name" %in% names(intermediate))) {
-    public <- compile_schema(unknownPathogenNames_cols, opts)
-    assert_schema(public, unknownPathogenNames_cols, opts)
-    return(public)
-  }
 
   public <- intermediate |>
     dplyr::filter(!is.na(.data$name) & nzchar(.data$name)) |>

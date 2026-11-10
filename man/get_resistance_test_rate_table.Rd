@@ -2,8 +2,7 @@
 % Please edit documentation in R/calc-tables.R
 \name{get_resistance_test_rate_table}
 \alias{get_resistance_test_rate_table}
-\title{Get the table with resistance test rates of the recorded resistance
-mechanisms}
+\title{Get the table of the completeness of antimicrobial susceptibility testing}
 \usage{
 get_resistance_test_rate_table(x, use_cache = TRUE, include_quartiles = TRUE)
 }
@@ -18,10 +17,45 @@ include_quartiles is TRUE.}
 Set to FALSE for department-level reports to simplify output.}
 }
 \value{
-A table containing resistance test rates
+A table with seven rows: \code{abr}, the resistance category, a factor
+with the levels above; \code{cond}, the row, a factor with the levels
+\code{"routine"}, \code{"if_3gcr"}, and \code{"if_3gcr&car"}; \code{n}, the detections with a
+result; \code{total}, the detections the row holds; \code{pooled}, their share in
+percent, \code{NA} without a detection; \code{ci_lower} and \code{ci_upper}, its
+interval; and with \code{include_quartiles} the departments' quartiles \code{q1},
+\code{q2}, and \code{q3}, their bootstrap intervals \code{q1_ci_lower} to \code{q3_ci_upper},
+and \code{quartile_departments}, the number of departments that enter them.
 }
 \description{
-The rates count the slots that name an infectious agent; a slot holding a
-resistance category without one is no detection and counts in neither the
-numerator nor the denominator.
+For each resistance category, third-generation cephalosporin resistance
+(\code{"3gcr"}), carbapenem resistance (\code{"car"}), colistin resistance
+(\code{"cor"}), methicillin-resistant \emph{Staphylococcus aureus} (\code{"mrsa"}), and
+vancomycin-resistant \emph{Enterococcus} (\code{"vre"}), a row gives the share, in
+percent with a Wilson interval, of the detections of an infectious agent to
+which the NeoIPC infectious-agent list applies the category that have a
+result for it, recorded resistant or not. A detection is an infectious
+agent in an infection, counted once per infection and only in a slot the
+form asks for, with a result where either slot naming it has one; "Not
+tested" and a blank count as undocumented, in the denominator and not the
+numerator. "Not listed", to which the list applies every category, counts
+in every row; "Unidentifiable" and a code the list lacks, to which it
+applies none, in no row. A value recorded for a category that the list
+does not apply to its infectious agent counts in no row, since its
+detection is in no denominator of the category.
+}
+\details{
+Two conditional rows hold only the detections recorded resistant to 3GCR:
+carbapenem resistance in case of 3GCR (\code{cond = "if_3gcr"}), and colistin
+resistance in case of 3GCR and carbapenem resistance
+(\code{cond = "if_3gcr&car"}), whose detections are also recorded resistant to
+carbapenems. An infectious agent to which the list does not apply 3GCR,
+such as \emph{Acinetobacter}, counts in the plain rows (\code{cond = "routine"})
+only.
+
+A department enters a row's quartiles where at least 5 detections are in
+its denominator of the row, at 0 where none of them has a result; a row
+shows its quartiles where at least 5 departments enter and their median
+denominator exceeds the number of detections in which the pooled share
+gives 1 with a result; the bootstrap of their intervals takes the same
+departments.
 }

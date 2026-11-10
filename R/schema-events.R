@@ -46,10 +46,12 @@ NULL
 #
 # Mirrors the "fat departments" / fat-enrollments deviation: direct
 # materialization under the option's own gate, not strict inheritance
-# from `enrollments_cols`. Rationale: downstream analytics (calc-rates
-# joins built from `names(x$events)` + `intersect(group_cols, ...)`
-# — see [R/calc-rates.R:798]) read hierarchy keys directly off events.
-# Strict inheritance from enrollments under the full-chain case would
+# from `enrollments_cols`. Rationale: downstream analytics read
+# hierarchy keys directly off events, such as
+# `get_incidence_density_rates()` and
+# `get_dev_ass_incidence_density_rates()` in calc-rates.R, which group
+# `x$events` by `group_cols` such as `department_key`. Strict
+# inheritance from enrollments under the full-chain case would
 # silently remove these keys and break every such consumer. Same
 # pattern as enrollments, same rationale.
 event_hierarchy_col <- function(col_name, opts_key, type = integer())
@@ -175,9 +177,9 @@ events_cols <- with_entity_gate(
     # parsed to POSIXct in `read_events()` from the raw ISO-8601 Instants.
     # `createdAtClient` / `updatedAtClient` were silently dropped by the
     # legacy `read_event_details()`'s final select despite being in the
-    # API request fields (line 20 of `dhis2-events.R`); declaring them
-    # here fixes that latent drop-bug, same pattern as the `isTest`
-    # fix in phase-b-events.
+    # API request fields (`get_events_request()` in `R/dhis2-events.R`);
+    # declaring them here fixes that latent drop-bug, same pattern as the
+    # `isTest` fix in phase-b-events.
     schema_col(
       "scheduledAt", as.POSIXct(character()),
       include_when = \(opts) opts$include_event == "full" &&
