@@ -121,10 +121,13 @@ validation_rule_50 <- function(x, exceptions)
 # the secondary-BSI organisms recorded on them: the item Yes (code 1 of the
 # option set NEOIPC_YES_NO_NO_FOLLOWUP) with no organism on any of the three
 # forms, and organisms under an item that is not Yes — No, No follow-up or
-# unanswered — on a pneumonia or NEC form, where the organism fields the
-# client hides still show while they hold a value. The same organisms on an
-# SSI form sit in a section the client hides whatever it holds, so the team
-# cannot see them and they are not this rule's finding.
+# unanswered — on a pneumonia or NEC form, whose rules hide the organism
+# fields one by one: the client blanks such a field's value on a form the
+# user can edit and shows it on one the user cannot, such as a completed
+# form, so a value there was stored where no client blanked it and is visible
+# to the team. The same organisms on an SSI form sit in a section the client
+# hides whatever it holds, so the team cannot see them and they are not this
+# rule's finding.
 validation_rule_55 <- function(x, exceptions)
 {
   check_neoipcr_ds(x)

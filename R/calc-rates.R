@@ -1155,13 +1155,16 @@ get_secondary_bsi_rates <- function(x, group_cols = NULL, use_cache = TRUE) {
 #      answer that records a secondary BSI (NEOIPC_NEC_SEC_BSI_VAL_NO_VAL_OR_0,
 #      NEOIPC_HAP_SEC_BSI_VAL_NO_VAL_OR_0, NEOIPC_SSI_NO_SEC_BSI).
 # The rules hide the slots of counted slots 1 to 3 and an SSI's secondary-BSI
-# slots as sections, which Tracker Capture hides whatever they hold. They hide
-# a pneumonia's or NEC's secondary-BSI slots field by field, and Tracker
-# Capture shows such a field while it holds a value, while the Capture app
-# hides it and assigns it no value. An infectious agent kept there under an
-# answer other than Yes contradicts the answer, and validation rule 55 reports
-# it as an error, so only an exception or `include_invalid_patients = TRUE`
-# brings it here. An infectious agent in a slot that does not count, which
+# slots as sections, which Tracker Capture hides whatever they hold, keeping
+# their values. They hide a pneumonia's or NEC's secondary-BSI slots field by
+# field: on a form the user can edit, Tracker Capture then blanks the value of
+# such a field, with a notice, and the Capture app assigns it no value, while
+# Tracker Capture shows the value on a form it does not let the user edit,
+# such as a completed one. An infectious agent kept there under an answer
+# other than Yes was therefore stored where no client blanked it, as by an
+# import; it contradicts the answer, and validation rule 55 reports it as an
+# error, so only an exception or `include_invalid_patients = TRUE` brings it
+# here. An infectious agent in a slot that does not count, which
 # reconciliations 5 and 6 and validation rule 55 remove only in part, counts
 # for nothing, and neither does an infection that is not recordable, whose own
 # slots counted slot 3 can show although it was not tested at its own depth,
