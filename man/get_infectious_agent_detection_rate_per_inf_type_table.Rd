@@ -2,7 +2,7 @@
 % Please edit documentation in R/calc-tables.R
 \name{get_infectious_agent_detection_rate_per_inf_type_table}
 \alias{get_infectious_agent_detection_rate_per_inf_type_table}
-\title{Get the table with infectious agent detection rates per type of infection}
+\title{Get the table of microbiological testing by infection type}
 \usage{
 get_infectious_agent_detection_rate_per_inf_type_table(
   x,
@@ -17,33 +17,62 @@ include_quartiles is TRUE.}
 
 \item{use_cache}{Use the cache. Ignored if x is a neoipcr_rep_ds object}
 
-\item{include_quartiles}{Include quartile columns (q1, q2, q3) in the output.
-Set to FALSE for department-level reports to simplify output.}
+\item{include_quartiles}{Include the quartile columns of both shares in the
+output. Set to FALSE for department-level reports to simplify output.}
 }
 \value{
-A table containing infectious agent detection rates per type of
-infection: \code{inf}, the infection type or \code{"all"}; \code{n}, the infections with
-an infectious agent; \code{pooled}, their share; \code{ci_lower} and \code{ci_upper}, its
-Wilson interval; and with \code{include_quartiles} the departments' quartiles.
+A table with a row for each of \code{"all"}, \code{"bsi"}, \code{"hap"}, and
+\code{"ssi"} (\code{inf}), in that order:
+\itemize{
+\item the positive share: \code{n}, the positive infections; \code{tested}, its
+denominator, the tested infections (every episode for \code{"bsi"} and every
+infection for \code{"all"}); \code{pooled}, the share; \code{ci_lower} and \code{ci_upper},
+its Wilson interval; and with \code{include_quartiles} the departments'
+quartiles (\code{q1}, \code{q2}, \code{q3}) with their bootstrap intervals
+(\code{q1_ci_lower}, \code{q1_ci_upper}, and so on);
+\item the tested share: \code{total}, every infection of the type, its
+denominator, which counts every episode for \code{"bsi"} and every infection
+for \code{"all"} too; \code{tested_pooled}, the share; \code{tested_ci_lower} and
+\code{tested_ci_upper}, its Wilson interval; and with \code{include_quartiles} the
+departments' quartiles (\code{tested_q1}, \code{tested_q2}, \code{tested_q3}) with
+their bootstrap intervals (\code{tested_q1_ci_lower}, \code{tested_q1_ci_upper},
+and so on). The share, its interval, and its quartiles are \code{NA} for
+\code{"bsi"} and \code{"all"}, which have no tested share.
+}
 }
 \description{
-The row of an infection type is the share of the infections of its type
-that could have an infectious agent recorded in which at least one was, in
-percent. Its denominator leaves out the infections that cannot have one
-recorded: a pneumonia neither tested (its microbiological test recorded as
-"Not tested" or left blank) nor followed up for a secondary BSI, an SSI
-neither tested at the depth its infection type records nor followed up,
-and a NEC not followed up, whose infectious agents are recorded only for a
-secondary BSI. Every primary sepsis/BSI stays, culture-negative or not
-sampled, since the form cannot tell a blood culture never taken from a
-negative one. An infection counts in its numerator where a slot names an
-infectious agent ("Not listed", "Unidentifiable", and a code the
-infectious-agent list lacks included; a slot holding only a source, a
-resistance category, or a name does not) and only where the form asks for
-the slot: a sepsis form's slots unless it is recorded culture-negative, a
-pneumonia's own slots where its test is positive, an SSI's own slots where
-a depth is tested positive, and the secondary-BSI slots where the follow-up
-is answered Yes, the answer that records a secondary BSI. The row \code{"all"}
-is the share of every infection in which a slot names an infectious agent,
-whatever the form asks for.
+Each row of an infection type gives two shares, in percent: how often the
+infection's site was tested microbiologically, and how often a test
+recorded an infectious agent, the yield of the testing.
+}
+\details{
+\enumerate{
+\item \strong{Tested:} the pneumonias whose microbiological test, and the SSIs
+whose culture at the depth their infection type records, is recorded
+positive or negative, over every infection of the type. A test recorded
+"Not tested" or left blank counts as not tested, and so does an SSI
+without an infection type.
+\item \strong{Positive:} the tested infections whose test is recorded positive (for
+an SSI, at its own depth) with at least one own slot naming an
+infectious agent, over the tested infections.
+}
+
+Primary sepsis/BSI has only the positive share, over every episode, sampled
+or not: its form's single item "No positive blood culture" cannot tell a
+blood culture never taken from a negative one. An episode counts where an
+own slot names an infectious agent and the form is not recorded
+culture-negative. A slot names an infectious agent where it holds one,
+"Not listed", "Unidentifiable", and a code the infectious-agent list lacks
+included; a slot holding only a source, a resistance category, or a name
+does not. A secondary-BSI slot counts in neither share, and the follow-up
+for a secondary BSI moves neither: \code{\link[=get_secondary_bsi_rate_table]{get_secondary_bsi_rate_table()}} gives
+both. NEC has no row, since it has no test of its own and its infectious
+agents are recorded only for a secondary BSI. The row \code{"all"} is the share
+of every infection, NEC included, in which any slot names an infectious
+agent, whatever the form asks for; it has no tested share.
+
+The departments' quartiles of each share take the departments whose
+denominator of the share is above 0, and are shown where at least 5 such
+departments enter and their median denominator exceeds the denominator in
+which the pooled share gives 1 infection.
 }

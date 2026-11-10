@@ -195,12 +195,13 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 - `n_departments`, `n_patients`, `n_enrollments`, `n_patient_days` — summary counts.
 - `n_surgical_departments`, `n_surgical_patients`, `n_surgical_procedures` — surgery-specific counts.
 - `n_infections` — tibble (`inf_type`, `total`).
-- Eleven result tables: `usage_density_rate_table`, `antibiotic_utilization_table`, `surgery_rate_table`, `incidence_density_rate_table`, `dev_ass_incidence_density_rate_table`, `infectious_agent_detection_rate_per_agent_table`, `infectious_agent_detection_rate_per_inf_type_table`, `abr_infection_rate_table`, `organism_resistance_rate_table`, `secondary_bsi_rate_table`, `resistance_test_rate_table` — each a tibble with factors, counts, pooled rate, and 95 % Poisson CI. **No quartile columns** — that's what distinguishes `neoipcr_rep_ds` from `neoipcr_ref_ds`.
+- Eleven result tables: `usage_density_rate_table`, `antibiotic_utilization_table`, `surgery_rate_table`, `incidence_density_rate_table`, `dev_ass_incidence_density_rate_table`, `infectious_agent_detection_rate_per_agent_table`, `infectious_agent_detection_rate_per_inf_type_table`, `abr_infection_rate_table`, `organism_resistance_rate_table`, `secondary_bsi_rate_table`, `resistance_test_rate_table` — each a tibble with factors, counts, pooled rate, and its 95 % interval: Wilson for the shares (`infectious_agent_detection_rate_per_inf_type_table`, `abr_infection_rate_table`, `organism_resistance_rate_table`, `resistance_test_rate_table`, `secondary_bsi_rate_table`), Poisson for the others. **No quartile columns** — that's what distinguishes `neoipcr_rep_ds` from `neoipcr_ref_ds`.
 
 **Invariants**:
 
 - Computed via `calculate_department_data()`. Requires `include_patient`, `include_enrollment`, and `include_department` each at `"pseudo"` or `"full"`, and `include_event` at `"full"`: the infectious-agent figures read the findings' `pathogen_key` and `secondary_bsi`, which the `"pseudo"` tier leaves out because a rare infectious agent can single out a patient. Another dataset is refused with an error of class `neoipcr_unmet_import_options`.
 - `secondary_bsi_rate_table` also carries, beside each rate, the infections followed up for a secondary BSI (`followup_n`), all infections of the type (`total_n`), and the share followed up (`followup_pooled`).
+- `infectious_agent_detection_rate_per_inf_type_table` has the rows `all`, `bsi`, `hap`, and `ssi` (`inf`), NEC having none. Each gives two shares: the share positive among the tested (`n` over `tested`, `pooled`, `ci_lower`, `ci_upper`) and the share tested (`tested` over `total`, every infection of the type; `tested_pooled`, `tested_ci_lower`, `tested_ci_upper`), the latter `NA` for `bsi`, whose form does not record whether a blood culture was taken, and for `all`, the share of every infection in which a slot names an infectious agent.
 - Summary counts inherit the user's `dataset_options` (display-purpose metadata).
 - Result tables carry pooled-rate + CI only — no department-level distribution statistics.
 
@@ -219,6 +220,7 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 - Every result table gains `q1`, `q2`, `q3` (25th / 50th / 75th percentiles of department-level rates).
 - Tables for which bootstrap CIs are computed gain `q1_ci_lower` / `q1_ci_upper` / `q2_ci_lower` / `q2_ci_upper` / `q3_ci_lower` / `q3_ci_upper`.
 - `secondary_bsi_rate_table` gains `followup_q1` / `followup_q2` / `followup_q3`, the quartiles of the departments' shares of infections followed up, over the departments with at least 5 infections of the type, `NA` with fewer than 5 such departments.
+- `infectious_agent_detection_rate_per_inf_type_table` also gains the quartiles of the departments' shares tested, `tested_q1` / `tested_q2` / `tested_q3`, with their bootstrap intervals (`tested_q1_ci_lower` and so on). Each share's quartiles take the departments whose denominator of the share is above 0, and are `NA` with fewer than 5 such departments or where their median denominator does not exceed `round(100 / pooled)`.
 - `metadata$dataset_options$department_filter` is the marker `"applied"` (or `NULL` for an empty filter), never the department codes; the emitted copy is asserted to name no department. `validationSummary` and `reconciliationSummary` are carried as in §4.2.
 
 **Invariants** (in addition to §4.2):

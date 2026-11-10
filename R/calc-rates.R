@@ -483,15 +483,20 @@ get_infection_counts <- function(x, group_cols = NULL, use_cache = TRUE) {
     cache(x, cache_key)
 }
 
-# The share of microbiologically confirmed infections per infection type:
-# for each `event_type_key`, by `group_cols` (columns of `x$events`), the
-# infections that could have an infectious agent recorded (`total_inf`), those
-# among them with one recorded in a slot the form asks for (`inf_with_pathogen`),
-# and their share (`iwp_per_t`, in percent); see
-# `.infectious_agent_recording()` for which infections and slots count.
-# Without `group_cols` every infection type has a row, with none of its
-# infections at 0; with them, a group has a row for each type it has
-# infections of.
+# The microbiological testing of the infections per infection type and its
+# yield: for primary sepsis/BSI, pneumonia, and SSI (`event_type_key`), by
+# `group_cols` (columns of `x$events`), every infection of the type
+# (`total_inf`), the infections whose site was tested (`tested_inf`), those
+# tested positive with an infectious agent in an own slot (`positive_inf`),
+# the share tested (`tested_per_t`) and the share positive among the tested
+# (`positive_per_tested`), both in percent; see
+# `.infectious_agent_recording()` for what counts as tested and positive. A
+# sepsis/BSI form does not record whether a blood culture was taken, so every
+# episode is in its positive share's denominator (`tested_inf`) and it has no
+# share tested (`NA`). NEC has no row: it has no test of its own, its
+# infectious agents being recorded only for a secondary BSI. Without
+# `group_cols` every type has a row, with none of its infections at 0; with
+# them, a group has a row for each type it has infections of.
 get_infectious_agent_detection_rates_per_inf_type <- function(
     x, group_cols = NULL, use_cache = TRUE) {
   if(is.null(group_cols))
@@ -502,7 +507,7 @@ get_infectious_agent_detection_rates_per_inf_type <- function(
   if(use_cache && !is.null(r <- get_cached(x, cache_key)))
     return(r)
 
-  inf_events <- c("bsi","nec","hap","ssi")
+  inf_events <- c("bsi","hap","ssi")
 
   r <- x$events |>
     dplyr::filter(.data$event_type_key %in% inf_events) |>
@@ -514,8 +519,9 @@ get_infectious_agent_detection_rates_per_inf_type <- function(
         as.character(.data$event_type_key),
         levels = inf_events)) |>
     dplyr::summarise(
-      total_inf = sum(.data$recordable),
-      inf_with_pathogen = sum(.data$recordable & .data$confirmed),
+      total_inf = dplyr::n(),
+      tested_inf = sum(dplyr::coalesce(.data$tested, TRUE)),
+      positive_inf = sum(.data$positive),
       .by = tidyselect::all_of(c(group_cols, "event_type_key")))
 
   if(is.null(group_cols))
@@ -523,12 +529,16 @@ get_infectious_agent_detection_rates_per_inf_type <- function(
     dplyr::left_join(r, dplyr::join_by("event_type_key")) |>
     dplyr::mutate(
       dplyr::across(
-        c("total_inf", "inf_with_pathogen"),
+        c("total_inf", "tested_inf", "positive_inf"),
         \(v) dplyr::coalesce(v, 0L)))
 
   r |>
     dplyr::mutate(
-      iwp_per_t = .data$inf_with_pathogen / .data$total_inf * 100) |>
+      tested_per_t = dplyr::if_else(
+        .data$event_type_key == "bsi",
+        NA_real_,
+        .data$tested_inf / .data$total_inf * 100),
+      positive_per_tested = .data$positive_inf / .data$tested_inf * 100) |>
     cache(x, cache_key)
 }
 
@@ -1126,53 +1136,43 @@ get_secondary_bsi_rates <- function(x, group_cols = NULL, use_cache = TRUE) {
           event_key = d$event_key,
           sec_bsi = as.character(d$sec_bsi))))
 
-# Whether each infection of `x` could have an infectious agent recorded
-# (`recordable`), and whether one of its counted slots names one
-# (`confirmed`, only where recordable), by `event_key`, for the share of
-# microbiologically confirmed infections per infection type. Each form item is
-# read as its stored option code ("1" Yes, "0" No, "-1" Not tested or No
-# follow-up); a follow-up answered Yes or No counts as followed up, and an
-# event without a form row has every item unanswered.
+# Whether the site of each primary sepsis/BSI, pneumonia, and SSI of `x` was
+# tested microbiologically (`tested`), and whether its test was positive with
+# an infectious agent named in an own slot, one with `secondary_bsi` FALSE
+# (`positive`), by `event_key`. Each form item is read as its stored option
+# code ("1" Yes, positive; "0" No, negative; "-1" Not tested); a blank item
+# counts as not tested, and an event without a form row has every item blank.
+# The pneumonia stage makes its test compulsory, and the program rules make the
+# culture at the SSI's depth mandatory, so a blank occurs only on a form not
+# completed or one stored without the client.
 #
-# Recordable infections:
-#   1. a primary sepsis/BSI always, culture-negative or not sampled, since
-#      `no_pos_culture` cannot tell a culture never taken from a negative one;
-#   2. a pneumonia tested (`microbiological_test_result` Yes or No) or
-#      followed up for a secondary BSI;
-#   3. a NEC followed up for a secondary BSI, its only infectious-agent slots;
-#   4. an SSI tested at the depth its `infection_type` records (the culture
-#      item of that depth Yes or No) or followed up.
-# Counted slots, those the program rules of the NEOIPC_CORE program ask for:
-#   1. a sepsis form's slots unless it is recorded culture-negative
-#      (NEOIPC_BSI_IF_NO_POS_CULTURE);
-#   2. a pneumonia's own slots only where its test is Yes
-#      (NEOIPC_HAP_MIBI_TEST_RESULT_VAL_NO_VAL_OR_0);
-#   3. an SSI's own slots only where the culture of any depth is Yes
-#      (NEOIPC_SSI_NO_MIBI_RESULT_AVAILABLE, on the value
-#      NEOIPC_SSI_SET_AGENTS_IDENTIFIED_FROM_ANY_SITE assigns), whichever
-#      depth the infection type records;
-#   4. the secondary-BSI slots only where the follow-up is answered Yes, the
-#      answer that records a secondary BSI (NEOIPC_NEC_SEC_BSI_VAL_NO_VAL_OR_0,
-#      NEOIPC_HAP_SEC_BSI_VAL_NO_VAL_OR_0, NEOIPC_SSI_NO_SEC_BSI).
-# The rules hide the slots of counted slots 1 to 3 and an SSI's secondary-BSI
-# slots as sections, which Tracker Capture hides whatever they hold, keeping
-# their values. They hide a pneumonia's or NEC's secondary-BSI slots field by
-# field: on a form the user can edit, Tracker Capture then blanks the value of
-# such a field, with a notice, and the Capture app assigns it no value, while
-# Tracker Capture shows the value on a form it does not let the user edit,
-# such as a completed one. An infectious agent kept there under an answer
-# other than Yes was therefore stored where no client blanked it, as by an
-# import; it contradicts the answer, and validation rule 55 reports it as an
-# error, so only an exception or `include_invalid_patients = TRUE` brings it
-# here. An infectious agent in a slot that does not count, which
-# reconciliations 5 and 6 and validation rule 55 remove only in part, counts
-# for nothing, and neither does an infection that is not recordable, whose own
-# slots counted slot 3 can show although it was not tested at its own depth,
-# so that no share passes 100%.
+#   1. A sepsis/BSI's `tested` is `NA`: the form's single item "No positive
+#      blood culture" (`no_pos_culture`) cannot tell a culture never taken
+#      from a negative one. It is positive where an own slot names an
+#      infectious agent and the form is not recorded culture-negative, the
+#      form asking for the slots only then (NEOIPC_BSI_IF_NO_POS_CULTURE).
+#   2. A pneumonia is tested where its `microbiological_test_result` is
+#      positive or negative, and positive where the test is positive and an
+#      own slot names an infectious agent, the form asking for the slots only
+#      then (NEOIPC_HAP_MIBI_TEST_RESULT_VAL_NO_VAL_OR_0).
+#   3. An SSI is tested where the culture at the depth its `infection_type`
+#      records is positive or negative, and positive where that culture is
+#      positive and an own slot names an infectious agent; an SSI without an
+#      infection type is not tested. The form asks for the slots where the
+#      culture of any depth is positive (NEOIPC_SSI_NO_MIBI_RESULT_AVAILABLE,
+#      on the value NEOIPC_SSI_SET_AGENTS_IDENTIFIED_FROM_ANY_SITE assigns),
+#      so an infectious agent there makes the SSI positive only with its own
+#      depth's culture positive.
+# The test item, not the slots alone, decides `positive`, since an
+# infectious agent can stay in an own slot the form no longer asks for:
+# Tracker Capture keeps the values of a section it hides, and only
+# reconciliation 6 removes them, from a sepsis form recorded culture-negative
+# that it repairs.
+# A secondary-BSI slot makes no infection positive; the secondary-BSI rate
+# counts it, and the follow-up for a secondary BSI decides neither column.
 .infectious_agent_recording <- function(x) {
   named <- .findings_naming_infectious_agent(x$infectiousAgentFindings)
-  primary   <- named$event_key[named$secondary_bsi %in% FALSE]
-  secondary <- named$event_key[named$secondary_bsi %in% TRUE]
+  own <- named$event_key[named$secondary_bsi %in% FALSE]
 
   form_items <- function(d, items)
     tibble::as_tibble(d)[c("event_key", intersect(items, names(d)))] |>
@@ -1182,48 +1182,39 @@ get_secondary_bsi_rates <- function(x, group_cols = NULL, use_cache = TRUE) {
     tibble::tibble(
       event_key = integer(),
       no_pos_culture = logical(),
-      sec_bsi = character(),
       microbiological_test_result = character(),
       infection_type = character(),
       organisms_superf = character(),
       organisms_deep = character(),
       organisms_organ = character()),
     form_items(x$sepsisData, "no_pos_culture"),
-    form_items(x$necData, "sec_bsi"),
-    form_items(x$pneumoniaData, c("sec_bsi", "microbiological_test_result")),
+    form_items(x$pneumoniaData, "microbiological_test_result"),
     form_items(
       x$ssiData,
-      c("sec_bsi", "infection_type", "organisms_superf", "organisms_deep",
+      c("infection_type", "organisms_superf", "organisms_deep",
         "organisms_organ")))
 
   x$events |>
-    dplyr::filter(.data$event_type_key %in% c("bsi","nec","hap","ssi")) |>
+    dplyr::filter(.data$event_type_key %in% c("bsi","hap","ssi")) |>
     dplyr::select("event_key", "event_type_key") |>
     dplyr::left_join(forms, dplyr::join_by("event_key")) |>
     dplyr::mutate(
       type = as.character(.data$event_type_key),
-      followed_up = .data$sec_bsi %in% c("1", "0"),
-      depth_culture = dplyr::case_when(
-        .data$infection_type %in% "1" ~ .data$organisms_superf,
-        .data$infection_type %in% "2" ~ .data$organisms_deep,
-        .data$infection_type %in% "3" ~ .data$organisms_organ),
-      tested = dplyr::case_when(
-        .data$type == "hap" ~
-          .data$microbiological_test_result %in% c("1", "0"),
-        .data$type == "ssi" ~ .data$depth_culture %in% c("1", "0"),
-        .default = FALSE),
-      recordable = .data$type == "bsi" | .data$tested | .data$followed_up,
-      primary_shown = dplyr::case_when(
-        .data$type == "bsi" ~ !dplyr::coalesce(.data$no_pos_culture, FALSE),
-        .data$type == "hap" ~ .data$microbiological_test_result %in% "1",
-        .data$type == "ssi" ~
-          .data$organisms_superf %in% "1" |
-          .data$organisms_deep %in% "1" |
-          .data$organisms_organ %in% "1",
-        .default = FALSE),
-      secondary_shown = .data$type != "bsi" & .data$sec_bsi %in% "1",
-      confirmed = .data$recordable & (
-        (.data$primary_shown & .data$event_key %in% primary) |
-          (.data$secondary_shown & .data$event_key %in% secondary))) |>
-    dplyr::select("event_key", "recordable", "confirmed")
+      test_result = dplyr::case_when(
+        .data$type == "hap" ~ .data$microbiological_test_result,
+        .data$type == "ssi" & .data$infection_type %in% "1" ~
+          .data$organisms_superf,
+        .data$type == "ssi" & .data$infection_type %in% "2" ~
+          .data$organisms_deep,
+        .data$type == "ssi" & .data$infection_type %in% "3" ~
+          .data$organisms_organ),
+      tested = dplyr::if_else(
+        .data$type == "bsi",
+        NA,
+        .data$test_result %in% c("1", "0")),
+      positive = .data$event_key %in% own & dplyr::if_else(
+        .data$type == "bsi",
+        !dplyr::coalesce(.data$no_pos_culture, FALSE),
+        .data$test_result %in% "1")) |>
+    dplyr::select("event_key", "tested", "positive")
 }

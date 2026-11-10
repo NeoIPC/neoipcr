@@ -51,7 +51,7 @@ writeLines(x, con, sep = "\n", useBytes = TRUE)
 | **Calculations** | |
 | `R/calc-api.R` | Pipeline entry points (`calculate_reference_data`, `calculate_department_data`, `get_benchmark_data`, `pretty_names`) |
 | `R/calc-tables.R` | Public table and figure builders (epidemiological progression: usage → incidence → detection → resistance), including `get_cumulative_incidence_table()`: infections among the admissions of caller-supplied calendar windows |
-| `R/calc-rates.R` | Internal rate and count computers, including `get_cumulative_incidence()` (uncached: its windows are caller data, not options), and the rules every infectious-agent figure shares: a finding names an infectious agent only with a `pathogen_key` (`.findings_naming_infectious_agent()`), and which infections could have one recorded and which slots their forms ask for (`.infectious_agent_recording()`) |
+| `R/calc-rates.R` | Internal rate and count computers, including `get_cumulative_incidence()` (uncached: its windows are caller data, not options), and the rule every infectious-agent figure shares, that a finding names an infectious agent only with a `pathogen_key` (`.findings_naming_infectious_agent()`), and, for the table by infection type, whether an infection's site was tested and its test recorded an infectious agent in an own slot (`.infectious_agent_recording()`) |
 | `R/calc-denominators.R` | Risk-time, population, substance-day, and AWaRe denominators |
 | `R/calc-procedure-categories.R` | Procedure categories derived from International Classification of Health Interventions (ICHI) codes |
 | `R/scales.R` | Birth-weight and gestational-age binning helpers (`ga7`, `bw50`, `bw125`, `bw250`, `bw500`) |

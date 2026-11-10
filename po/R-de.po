@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-11-10 00:25+0100\n"
+"POT-Creation-Date: 2026-11-10 10:36+0100\n"
 "PO-Revision-Date: 2025-05-27 16:54+0200\n"
 "Last-Translator: Brar Piening <brar.piening@charite.de>\n"
 "Language-Team: NeoIPC-Support <NeoIPC-Support@charite.de>\n"
@@ -90,27 +90,27 @@ msgstr "Kein chirurgischer Eingriff"
 msgid "Not yet categorized"
 msgstr "Noch nicht kategorisiert"
 
-#: R/calc-tables.R:936
+#: R/calc-tables.R:943
 msgid "%s must be a data frame."
 msgstr ""
 
-#: R/calc-tables.R:941
+#: R/calc-tables.R:948
 msgid "%s lacks a required column:"
 msgstr ""
 
-#: R/calc-tables.R:943
+#: R/calc-tables.R:950
 msgid "%s lacks required columns:"
 msgstr ""
 
-#: R/calc-tables.R:947
+#: R/calc-tables.R:954
 msgid "%s and %s must be %s columns."
 msgstr ""
 
-#: R/calc-tables.R:950
+#: R/calc-tables.R:957
 msgid "Every window needs %s, with neither date missing."
 msgstr ""
 
-#: R/calc-tables.R:953
+#: R/calc-tables.R:960
 msgid "Every window must have a non-missing %s."
 msgstr ""
 

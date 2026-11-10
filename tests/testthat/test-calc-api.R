@@ -192,6 +192,59 @@ test_that("get_benchmark_data refuses a call without any dataset", {
   expect_error(get_benchmark_data(), class = "neoipcr_no_benchmark_datasets")
 })
 
+test_that("the benchmark of a department against the reference carries both shares of the table by infection type", {
+  # Each of departments 1-5 has a sepsis naming an infectious agent and 8
+  # pneumonias, `tested[d]` of department d tested and `positive[d]` of these
+  # positive with an infectious agent in an own slot; department 1 is
+  # benchmarked against all 5.
+  tested   <- c(2L, 4L, 6L, 8L, 8L)
+  positive <- c(1L, 1L, 3L, 2L, 8L)
+  infections <- function(departments) {
+    forms <- dplyr::bind_rows(lapply(departments, \(d) tibble::tibble(
+      department_key              = d,
+      event_type_key              = c(rep("hap", 8), "bsi"),
+      microbiological_test_result = c(
+        rep(c("1", "0", "-1"),
+            c(positive[d], tested[d] - positive[d], 8L - tested[d])),
+        NA))))
+    make_infection_calc_test_ds(
+      forms,
+      findings = tibble::tibble(
+        form          = which(forms$microbiological_test_result %in% "1" |
+                                forms$event_type_key == "bsi"),
+        secondary_bsi = FALSE,
+        pathogen_key  = 1L))
+  }
+  ref <- calculate_reference_data(infections(1:5), use_cache = FALSE)
+  own <- calculate_department_data(infections(1L), use_cache = FALSE)
+
+  tbl <- get_benchmark_data(own = own, ref = ref)$
+    infectious_agent_detection_rate_per_inf_type_table
+  expect_equal(as.character(tbl$inf), c("all", "bsi", "hap", "ssi"))
+  hap <- tbl[tbl$inf == "hap", ]
+  expect_equal(c(hap$n_own, hap$tested_own, hap$total_own), c(1L, 2L, 8L))
+  expect_equal(c(hap$pooled_own, hap$tested_pooled_own), c(50, 25))
+  expect_equal(c(hap$n_ref, hap$tested_ref, hap$total_ref), c(15L, 28L, 40L))
+  expect_equal(c(hap$pooled_ref, hap$tested_pooled_ref), c(1500 / 28, 70))
+  expect_equal(c(hap$q1_ref, hap$q2_ref, hap$q3_ref), c(25, 50, 50))
+  expect_equal(c(hap$tested_q1_ref, hap$tested_q2_ref, hap$tested_q3_ref),
+               c(50, 75, 100))
+  expect_false(anyNA(unlist(hap[paste0(
+    "tested_q", rep(1:3, each = 2), c("_ci_lower_ref", "_ci_upper_ref"))])))
+  # The department's own table has no quartiles.
+  expect_false(any(grepl("q[123].*_own$", names(tbl))))
+  bsi <- tbl[tbl$inf == "bsi", ]
+  expect_equal(c(bsi$n_own, bsi$tested_own, bsi$total_own), c(1L, 1L, 1L))
+  expect_equal(c(bsi$n_ref, bsi$tested_ref, bsi$total_ref), c(5L, 5L, 5L))
+  expect_true(all(is.na(c(bsi$tested_pooled_own, bsi$tested_pooled_ref,
+                          bsi$tested_q1_ref))))
+
+  # The reference's table without quartiles leaves out both shares'.
+  expect_false(any(grepl("q[123]", names(
+    get_infectious_agent_detection_rate_per_inf_type_table(
+      ref, include_quartiles = FALSE)))))
+})
+
 test_that("get_benchmark_data carries each dataset's validation summary under its name", {
   ds <- make_calc_test_ds()
   own <- calculate_department_data(ds, use_cache = FALSE)

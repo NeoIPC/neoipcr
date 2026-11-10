@@ -104,14 +104,21 @@ get_gestational_age_figure_data <- function(x) {
   )
 }
 
-# The columns a table without quartiles leaves out: the quartiles with their
-# intervals, and the secondary-BSI table's quartiles of the departments'
-# follow-up shares.
-quartile_cols <- c(
+# The departments' quartiles of a rate or share with their bootstrap
+# intervals.
+quartile_ci_cols <- c(
   "q1", "q2", "q3",
   "q1_ci_lower", "q1_ci_upper", "q2_ci_lower", "q2_ci_upper",
-  "q3_ci_lower", "q3_ci_upper",
-  "followup_q1", "followup_q2", "followup_q3")
+  "q3_ci_lower", "q3_ci_upper")
+
+# The columns a table without quartiles leaves out: the quartiles with their
+# intervals, the secondary-BSI table's quartiles of the departments'
+# follow-up shares, and the quartiles of the departments' shares tested in
+# the table by infection type, with their intervals.
+quartile_cols <- c(
+  quartile_ci_cols,
+  "followup_q1", "followup_q2", "followup_q3",
+  paste0("tested_", quartile_ci_cols))
 
 # `include_event` is the event tiers the table accepts: the infectious-agent
 # tables read the findings' `pathogen_key`, which only the full tier carries.
@@ -986,39 +993,64 @@ get_cumulative_incidence_table <- function(
     add_class("neoipcr_tbl_cuminc")
 }
 
-#' Get the table with infectious agent detection rates per type of infection
+#' Get the table of microbiological testing by infection type
 #'
-#' The row of an infection type is the share of the infections of its type
-#' that could have an infectious agent recorded in which at least one was, in
-#' percent. Its denominator leaves out the infections that cannot have one
-#' recorded: a pneumonia neither tested (its microbiological test recorded as
-#' "Not tested" or left blank) nor followed up for a secondary BSI, an SSI
-#' neither tested at the depth its infection type records nor followed up,
-#' and a NEC not followed up, whose infectious agents are recorded only for a
-#' secondary BSI. Every primary sepsis/BSI stays, culture-negative or not
-#' sampled, since the form cannot tell a blood culture never taken from a
-#' negative one. An infection counts in its numerator where a slot names an
-#' infectious agent ("Not listed", "Unidentifiable", and a code the
-#' infectious-agent list lacks included; a slot holding only a source, a
-#' resistance category, or a name does not) and only where the form asks for
-#' the slot: a sepsis form's slots unless it is recorded culture-negative, a
-#' pneumonia's own slots where its test is positive, an SSI's own slots where
-#' a depth is tested positive, and the secondary-BSI slots where the follow-up
-#' is answered Yes, the answer that records a secondary BSI. The row `"all"`
-#' is the share of every infection in which a slot names an infectious agent,
-#' whatever the form asks for.
+#' Each row of an infection type gives two shares, in percent: how often the
+#' infection's site was tested microbiologically, and how often a test
+#' recorded an infectious agent, the yield of the testing.
+#'
+#' 1. **Tested:** the pneumonias whose microbiological test, and the SSIs
+#'    whose culture at the depth their infection type records, is recorded
+#'    positive or negative, over every infection of the type. A test recorded
+#'    "Not tested" or left blank counts as not tested, and so does an SSI
+#'    without an infection type.
+#' 2. **Positive:** the tested infections whose test is recorded positive (for
+#'    an SSI, at its own depth) with at least one own slot naming an
+#'    infectious agent, over the tested infections.
+#'
+#' Primary sepsis/BSI has only the positive share, over every episode, sampled
+#' or not: its form's single item "No positive blood culture" cannot tell a
+#' blood culture never taken from a negative one. An episode counts where an
+#' own slot names an infectious agent and the form is not recorded
+#' culture-negative. A slot names an infectious agent where it holds one,
+#' "Not listed", "Unidentifiable", and a code the infectious-agent list lacks
+#' included; a slot holding only a source, a resistance category, or a name
+#' does not. A secondary-BSI slot counts in neither share, and the follow-up
+#' for a secondary BSI moves neither: [get_secondary_bsi_rate_table()] gives
+#' both. NEC has no row, since it has no test of its own and its infectious
+#' agents are recorded only for a secondary BSI. The row `"all"` is the share
+#' of every infection, NEC included, in which any slot names an infectious
+#' agent, whatever the form asks for; it has no tested share.
+#'
+#' The departments' quartiles of each share take the departments whose
+#' denominator of the share is above 0, and are shown where at least 5 such
+#' departments enter and their median denominator exceeds the denominator in
+#' which the pooled share gives 1 infection.
 #'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
 #'  object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
 #'  include_quartiles is TRUE.
 #' @param use_cache Use the cache. Ignored if x is a neoipcr_rep_ds object
-#' @param include_quartiles Include quartile columns (q1, q2, q3) in the output.
-#'  Set to FALSE for department-level reports to simplify output.
+#' @param include_quartiles Include the quartile columns of both shares in the
+#'  output. Set to FALSE for department-level reports to simplify output.
 #'
-#' @returns A table containing infectious agent detection rates per type of
-#'  infection: `inf`, the infection type or `"all"`; `n`, the infections with
-#'  an infectious agent; `pooled`, their share; `ci_lower` and `ci_upper`, its
-#'  Wilson interval; and with `include_quartiles` the departments' quartiles.
+#' @returns A table with a row for each of `"all"`, `"bsi"`, `"hap"`, and
+#'  `"ssi"` (`inf`), in that order:
+#'
+#'  * the positive share: `n`, the positive infections; `tested`, its
+#'    denominator, the tested infections (every episode for `"bsi"` and every
+#'    infection for `"all"`); `pooled`, the share; `ci_lower` and `ci_upper`,
+#'    its Wilson interval; and with `include_quartiles` the departments'
+#'    quartiles (`q1`, `q2`, `q3`) with their bootstrap intervals
+#'    (`q1_ci_lower`, `q1_ci_upper`, and so on);
+#'  * the tested share: `total`, every infection of the type, its
+#'    denominator, which counts every episode for `"bsi"` and every infection
+#'    for `"all"` too; `tested_pooled`, the share; `tested_ci_lower` and
+#'    `tested_ci_upper`, its Wilson interval; and with `include_quartiles` the
+#'    departments' quartiles (`tested_q1`, `tested_q2`, `tested_q3`) with
+#'    their bootstrap intervals (`tested_q1_ci_lower`, `tested_q1_ci_upper`,
+#'    and so on). The share, its interval, and its quartiles are `NA` for
+#'    `"bsi"` and `"all"`, which have no tested share.
 #' @export
 get_infectious_agent_detection_rate_per_inf_type_table <- function(
     x, use_cache = TRUE, include_quartiles = TRUE) {
@@ -1028,129 +1060,78 @@ get_infectious_agent_detection_rate_per_inf_type_table <- function(
     return(r)
 
   # The row of all types keeps every infection and every slot: it is the share
-  # that the reports' text gives over every infection, while the type rows
-  # take only what each type can record.
-  r <- dplyr::bind_rows(
-    x |>
-      get_infectious_agent_detection_rates(use_cache = use_cache) |>
-      dplyr::mutate(event_type_key = "all"),
-    x |>
-      get_infectious_agent_detection_rates_per_inf_type(use_cache = use_cache) |>
-      dplyr::mutate(event_type_key = as.character(.data$event_type_key))) |>
-    dplyr::select("event_type_key","inf_with_pathogen","total_inf","pooled"="iwp_per_t")
-  r <- r |>
-    dplyr::bind_cols(wilson_ci_cols(r$inf_with_pathogen, r$total_inf, scale = 100)) |>
-    dplyr::select(!"total_inf") |>
-    add_class("neoipcr_tbl_iadrpit")
-
-  if(include_quartiles) {
-
-    dept_rates <- dplyr::bind_rows(
+  # that the reports' text gives over every infection. `pick()` keeps the
+  # `group_cols` that `.keep = "none"` would drop.
+  shares <- function(group_cols)
+    dplyr::bind_rows(
       x |>
         get_infectious_agent_detection_rates(
-          group_cols = "department_key",
+          group_cols = group_cols,
           use_cache = use_cache) |>
-        dplyr::mutate(event_type_key = "all"),
+        dplyr::mutate(
+          dplyr::pick(tidyselect::all_of(group_cols)),
+          event_type_key = "all",
+          n = .data$inf_with_pathogen,
+          tested = .data$total_inf,
+          pooled = .data$iwp_per_t,
+          total = .data$total_inf,
+          tested_pooled = NA_real_,
+          .keep = "none"),
       x |>
         get_infectious_agent_detection_rates_per_inf_type(
-          group_cols = "department_key",
+          group_cols = group_cols,
           use_cache = use_cache) |>
-        dplyr::mutate(event_type_key = as.character(.data$event_type_key)))
+        dplyr::mutate(
+          dplyr::pick(tidyselect::all_of(group_cols)),
+          event_type_key = as.character(.data$event_type_key),
+          n = .data$positive_inf,
+          tested = .data$tested_inf,
+          pooled = .data$positive_per_tested,
+          total = .data$total_inf,
+          tested_pooled = .data$tested_per_t,
+          .keep = "none"))
 
-    # The departments with infections in a row's denominator, and their median
-    # number of them, for the test whether the row shows its quartiles.
-    dep_stats <- dept_rates |>
-      dplyr::filter(.data$total_inf > 0) |>
-      dplyr::group_by(.data$event_type_key) |>
-      dplyr::summarise(
-        median = stats::median(.data$total_inf),
-        n = dplyr::n())
+  r <- shares(NULL)
+  # The rows without a tested share, sepsis/BSI and all types, count their
+  # infections in both `tested` and `total`, and get no interval for it.
+  r <- r |>
+    dplyr::bind_cols(wilson_ci_cols(r$n, r$tested, scale = 100)) |>
+    dplyr::bind_cols(
+      wilson_ci_cols(
+        dplyr::if_else(is.na(r$tested_pooled), NA_integer_, r$tested),
+        r$total,
+        scale = 100) |>
+        dplyr::rename(
+          "tested_ci_lower" = "ci_lower",
+          "tested_ci_upper" = "ci_upper"))
+  return_class <- "neoipcr_tbl_iadrpit"
 
+  if(include_quartiles) {
+    dept_rates <- shares("department_key")
     r <- r |>
-      dplyr::inner_join(
-        dept_rates |>
-          dplyr::group_by(.data$event_type_key) |>
-          dplyr::summarise(
-            q = list(
-              stats::quantile(
-                .data$iwp_per_t,
-                probs = quartile_probs,
-                # In this case NaN indicates that the department has not even
-                # reported an infection.
-                # Since infections with pathogens per total infections only
-                # makes sense for departments with infections we remove those
-                # with NaN here.
-                na.rm = TRUE,
-                names = FALSE))) |>
-          tidyr::unnest_wider("q", names_sep = ""),
+      dplyr::left_join(
+        inf_type_share_quartiles(r$event_type_key, r$pooled, dept_rates,
+                                 "n", "tested"),
         dplyr::join_by("event_type_key")) |>
-      dplyr::inner_join(
-        dep_stats,
-        dplyr::join_by("event_type_key")) |>
-      ensure_quartile_cols() |>
-      dplyr::mutate(
-        drop_quartiles = tidyr::replace_na(
-          .data$n < 5 | round(100 / .data$pooled) >= .data$median,
-          TRUE),
-        q1 = dplyr::if_else(
-          .data$drop_quartiles,
-          NA,
-          .data$q1),
-        q2 = dplyr::if_else(
-          .data$drop_quartiles,
-          NA,
-          .data$q2),
-        q3 = dplyr::if_else(
-          .data$drop_quartiles,
-          NA,
-          .data$q3))
-
-    # Bootstrap CIs for quartiles where gate passes
-    if (nrow(r) > 0L) {
-      boot_cis <- r |>
-        dplyr::group_by(.data$event_type_key) |>
-        dplyr::group_map(~ {
-          if (.x$drop_quartiles[1]) {
-            ci <- tibble::tibble(q1_ci_lower = NA_real_, q1_ci_upper = NA_real_,
-                           q2_ci_lower = NA_real_, q2_ci_upper = NA_real_,
-                           q3_ci_lower = NA_real_, q3_ci_upper = NA_real_)
-          } else {
-            d <- dept_rates |>
-              dplyr::filter(.data$event_type_key == .y$event_type_key,
-                            .data$total_inf > 0)
-            ci <- bootstrap_quantile_ci(d$inf_with_pathogen, d$total_inf,
-                                  type = "binomial", multiplier = 100)
-          }
-          dplyr::bind_cols(.y, ci)
-        }) |>
-        dplyr::bind_rows()
-
-      r <- r |> dplyr::left_join(boot_cis, by = "event_type_key")
-    }
-
-    r <- r |>
-      dplyr::select(!tidyselect::any_of(c("drop_quartiles", "n", "median"))) |>
-      add_class("neoipcr_tbl_iadrpit_ref")
+      dplyr::left_join(
+        inf_type_share_quartiles(r$event_type_key, r$tested_pooled,
+                                 dept_rates, "tested", "total") |>
+          dplyr::rename_with(\(nm) paste0("tested_", nm), !"event_type_key"),
+        dplyr::join_by("event_type_key"))
+    return_class <- c("neoipcr_tbl_iadrpit_ref", return_class)
   }
-  expected_levels <- c("all","bsi","hap","nec","ssi")
-  missing <- setdiff(expected_levels, r$event_type_key)
-  if(length(missing) > 0)
-    r <- r |>
-    dplyr::bind_rows(
-      tibble::tibble(
-        event_type_key = missing,
-        inf_with_pathogen = 0L,
-        pooled = NA_real_,
-        ci_lower = NA_real_,
-        ci_upper = NA_real_))
 
   r |>
-    dplyr::rename("n"="inf_with_pathogen") |>
     dplyr::mutate(
-      inf = factor(.data$event_type_key, levels = expected_levels),
+      inf = factor(.data$event_type_key, levels = c("all","bsi","hap","ssi")),
       .before = 1,
       .keep = "unused") |>
+    dplyr::select(tidyselect::any_of(c(
+      "inf", "n", "tested", "pooled", "ci_lower", "ci_upper", quartile_ci_cols,
+      "total", "tested_pooled", "tested_ci_lower", "tested_ci_upper",
+      paste0("tested_", quartile_ci_cols)))) |>
     dplyr::arrange(.data$inf) |>
+    add_class(return_class) |>
     cache(x, cache_key)
 }
 
@@ -2020,3 +2001,34 @@ followup_share_quartiles <- function(dept_rates, event_type_keys)
       followup_q1 = numeric(),
       followup_q2 = numeric(),
       followup_q3 = numeric()))
+
+# The departments' quartiles of a share of the table by infection type
+# (`q1`, `q2`, `q3`), with their bootstrap intervals, for the rows
+# `event_type_keys`, whose pooled shares, in percent, are `pooled`, from
+# `dept_rates`, which gives each department's numerator (the column named by
+# `events`) and denominator (the column named by `denominator`) of the share
+# per `event_type_key`. A department enters a row's quartiles where its
+# denominator is above 0. The quartiles are shown where at least 5
+# departments enter and their median denominator exceeds the denominator in
+# which the pooled share gives 1 infection, `round(100 / pooled)`, so that a
+# row whose pooled share is 0 or `NA` shows none; otherwise they and their
+# intervals are `NA`.
+inf_type_share_quartiles <- function(
+    event_type_keys, pooled, dept_rates, events, denominator) {
+  none <- tibble::as_tibble(rlang::rep_named(quartile_ci_cols, list(NA_real_)))
+  purrr::map2(event_type_keys, pooled, \(type, share) {
+    d <- dept_rates[dept_rates$event_type_key == type &
+                      dplyr::coalesce(dept_rates[[denominator]] > 0, FALSE), ]
+    if (nrow(d) < 5L ||
+        !isTRUE(round(100 / share) < stats::median(d[[denominator]])))
+      return(none)
+    q <- stats::quantile(d[[events]] / d[[denominator]] * 100,
+                         probs = quartile_probs, names = FALSE)
+    dplyr::bind_cols(
+      tibble::tibble(q1 = q[1], q2 = q[2], q3 = q[3]),
+      bootstrap_quantile_ci(d[[events]], d[[denominator]],
+                            type = "binomial", multiplier = 100))
+  }) |>
+    purrr::list_rbind(ptype = none[0, ]) |>
+    dplyr::mutate(event_type_key = event_type_keys, .before = 1)
+}

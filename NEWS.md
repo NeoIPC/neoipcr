@@ -28,18 +28,21 @@ section above it for the next changes.
   infectious agent left in the secondary-BSI slots under another answer, which only a validation
   exception or `include_invalid_patients = TRUE` lets through, no longer counts, so the rate is a
   share of the infections followed up by construction.
-* `get_infectious_agent_detection_rate_per_inf_type_table()` leaves out of each type's denominator
-  the infections that cannot have an infectious agent recorded: a pneumonia neither tested (its
-  microbiological test recorded as "Not tested" or left blank) nor followed up for a secondary BSI,
-  an SSI neither tested at the depth its infection type records (the culture there "Not tested" or
-  left blank) nor followed up, and a NEC not followed up. Every primary sepsis/BSI stays,
-  culture-negative or not sampled. An infectious agent counts only in a slot the form asks for: a
-  sepsis form's slots unless it is recorded culture-negative, a pneumonia's own slots where its test
-  is positive, an SSI's own slots where a depth is tested positive, and the secondary-BSI slots where
-  the follow-up is answered Yes, the answer that records a secondary BSI, so that no share can pass
-  100%. The departments' quartiles and the test whether a row shows them take the same
-  denominators. The row of all types stays the share of every infection in which a slot names an
-  infectious agent.
+* `get_infectious_agent_detection_rate_per_inf_type_table()` gives each infection type two shares:
+  the share tested (`tested_pooled`, with `tested_ci_lower` and `tested_ci_upper`), the pneumonias
+  whose microbiological test, and the SSIs whose culture at the depth their infection type records,
+  is recorded positive or negative, over every infection of the type (`total`); and the share
+  positive (`pooled`), the tested infections whose test is positive (for an SSI, at its own depth)
+  with an infectious agent in an own slot (`n`), over the tested ones (`tested`). A test recorded
+  "Not tested" or left blank counts as not tested. Primary sepsis/BSI keeps one share, over every
+  episode, since its form cannot tell a blood culture never taken from a negative one; an episode
+  recorded culture-negative counts as not positive whatever its slots hold. Secondary-BSI slots count
+  in neither share, and the follow-up for a secondary BSI moves neither; the secondary-BSI table
+  gives both. NEC has no row: it has no test of its own, and its infectious agents are recorded only
+  for a secondary BSI. The reference table gives the departments' quartiles of each share over the
+  departments with the share's denominator above 0 (`tested_q1` to `tested_q3`, with their bootstrap
+  intervals, for the share tested). The row of all types stays the share of every infection, NEC
+  included, in which a slot names an infectious agent, with no share tested.
 * `get_secondary_bsi_rate_table()` shows beside each rate the share of the type's infections
   followed up for a secondary BSI (`followup_pooled`), with its counts (`followup_n`, the infections
   followed up, answered Yes or No; `total_n`, all infections of the type), and the reference table

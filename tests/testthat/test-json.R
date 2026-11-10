@@ -55,6 +55,32 @@ test_that("write_json emits NA as null", {
   expect_null(parsed$value)
 })
 
+test_that("a serialized reference table by infection type gives a share a type lacks as null", {
+  # A sepsis and a pneumonia tested positive name an infectious agent; a
+  # second pneumonia is not tested.
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key              = c("bsi", "hap", "hap"),
+      microbiological_test_result = c(NA, "1", "-1")),
+    findings = tibble::tibble(
+      form = 1:2, secondary_bsi = FALSE, pathogen_key = 1L))
+
+  json <- write_json(calculate_reference_data(ds, use_cache = FALSE)$
+                       infectious_agent_detection_rate_per_inf_type_table)
+  records <- jsonlite::parse_json(json)
+
+  expect_equal(vapply(records, \(r) r$inf, character(1)),
+               c("all", "bsi", "hap", "ssi"))
+  hap <- records[[3]]
+  expect_equal(c(hap$n, hap$tested, hap$total), c(1L, 1L, 2L))
+  expect_equal(c(hap$pooled, hap$tested_pooled), c(100, 50))
+  bsi <- records[[2]]
+  expect_equal(c(bsi$n, bsi$tested, bsi$total), c(1L, 1L, 1L))
+  expect_true(all(c("tested_pooled", "tested_q1") %in% names(bsi)))
+  expect_null(bsi$tested_pooled)
+  expect_null(bsi$tested_q1)
+})
+
 test_that("serialized reference metadata names neither the exception records nor the departments", {
   ds <- make_calc_test_ds()
   ds$metadata$dataset_options$department_filter <- "DEPT_ONLY"
