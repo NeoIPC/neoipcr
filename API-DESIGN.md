@@ -1523,31 +1523,31 @@ the onset rules where a sepsis/BSI, a pneumonia, or an NEC begins before day of 
 the repeat rule where an infection of any type, an SSI included, begins fewer than 14 days after the previous one of its
 type that does not itself fail the repeat rule, in any stay of its patient record, each a validation error that leaves
 the infection out of every table and count while its patient record stays (§13.1.5); the repeat rule, as an SSI's
-attribution does (§13.10.1), reads every stay of the patient record, those of other periods included, before the period
-narrows the dataset, and leaves out only the period's infections it flags, so that a period's count does not depend on
-where the period starts. Of 2 infections of 1 type on 1 date, the one that is not microbiologically confirmed (§13.8.1,
-item 3) fails the repeat rule, and of 2 alike the one created later, by the rank the import gives a patient record's
-infection forms by `createdAt` and then by DHIS2 event id, in code-point order, since 2 forms saved in 1 request can
-share a `createdAt` to the millisecond; a dataset keeps the rank whatever `include_timestamps` and `include_dhis2_ids`
-say, which decide only whether it also keeps `createdAt` and the id, so that the keys the import assigns at random do
-not decide which fails, and `validate()`, judging the rule over the stays its dataset holds (§13.10.1), breaks the tie
-as the import's validation pass does. A failing repeat leaves with its infectious agents: a positive blood culture
-recorded as a new infection 5 days after a clinical sepsis leaves that episode counted as clinical sepsis and the
-culture's infectious agent in no table, which the methods texts say, and the Validation Report's finding asks the
-department to record the later finding on the earlier infection's form. An SSI's onset is otherwise judged by its
-procedure's follow-up window alone (§13.10.1), although the protocol states both cut-offs for every infection it
-records, SSIs included, in the general text of its section on infection data collection: an SSI within its procedure's
-window is hospital-acquired by its definition, and the cut-off of day 3 would drop the SSIs on days 1 and 2 of a
-readmission that §13.10.1 counts, which the methods texts say. The protocol gives the cut-off of day 3 of the stay for
-transfers and readmissions; §13 applies it to a sepsis/BSI, a pneumonia, or an NEC in every stay, as NHSN (Patient
-Safety Component Manual, ch. 2) and ITS-KISS, the intensive-care component of the German hospital infection surveillance
-system (KISS; Nationales Referenzzentrum für Surveillance von nosokomialen Infektionen. *Protokoll: Surveillance
-nosokomialer Infektionen auf Intensivstationen*. Updated January 2026), judge every admission by its third day, so that
-the rule, judged from the dates, does not depend on the recorded admission type, which can be wrong; this changes only
-an infection that an exception keeps before day of life 4, since a stay that begins on the day of birth has its days 1
-and 2 on days of life 1 and 2. An infection that the protocol accepts before day of life 4, as clearly
-hospital-acquired, is kept by an exception that names its record for each rule it fails. Primary sepsis/BSI leaves out
-secondary BSI, which its own table shows.
+attribution does (§13.10.1), reads every stay of the patient record, those of other periods and those not yet completed
+included, before the period narrows the dataset, and leaves out only the period's infections it flags, so that a
+period's count does not depend on where the period starts. Of 2 infections of 1 type on 1 date, the one that is not
+microbiologically confirmed (§13.8.1, item 3) fails the repeat rule, and of 2 alike the one created later, by the rank
+the import gives a patient record's infection forms by `createdAt` and then by DHIS2 event id, in code-point order,
+since 2 forms saved in 1 request can share a `createdAt` to the millisecond; a dataset keeps the rank whatever
+`include_timestamps` and `include_dhis2_ids` say, which decide only whether it also keeps `createdAt` and the id, so
+that the keys the import assigns at random do not decide which fails, and `validate()`, judging the rule over the stays
+its dataset holds (§13.10.1), breaks the tie as the import's validation pass does. A failing repeat leaves with its
+infectious agents: a positive blood culture recorded as a new infection 5 days after a clinical sepsis leaves that
+episode counted as clinical sepsis and the culture's infectious agent in no table, which the methods texts say, and the
+Validation Report's finding asks the department to record the later finding on the earlier infection's form. An SSI's
+onset is otherwise judged by its procedure's follow-up window alone (§13.10.1), although the protocol states both
+cut-offs for every infection it records, SSIs included, in the general text of its section on infection data collection:
+an SSI within its procedure's window is hospital-acquired by its definition, and the cut-off of day 3 would drop the
+SSIs on days 1 and 2 of a readmission that §13.10.1 counts, which the methods texts say. The protocol gives the cut-off
+of day 3 of the stay for transfers and readmissions; §13 applies it to a sepsis/BSI, a pneumonia, or an NEC in every
+stay, as NHSN (Patient Safety Component Manual, ch. 2) and ITS-KISS, the intensive-care component of the German hospital
+infection surveillance system (KISS; Nationales Referenzzentrum für Surveillance von nosokomialen Infektionen.
+*Protokoll: Surveillance nosokomialer Infektionen auf Intensivstationen*. Updated January 2026), judge every admission
+by its third day, so that the rule, judged from the dates, does not depend on the recorded admission type, which can be
+wrong; this changes only an infection that an exception keeps before day of life 4, since a stay that begins on the day
+of birth has its days 1 and 2 on days of life 1 and 2. An infection that the protocol accepts before day of life 4, as
+clearly hospital-acquired, is kept by an exception that names its record for each rule it fails. Primary sepsis/BSI
+leaves out secondary BSI, which its own table shows.
 
 The 3 kinds of primary sepsis/BSI add up to it, and the 2 kinds of NEC to NEC. A BSI with both a recognized pathogen and
 a common commensal counts with the recognized pathogen; the common commensals are those the released NeoIPC
