@@ -1283,25 +1283,26 @@ department's figure, and a zero's upper limit (§13.1.3), while its quartiles ta
    patients can rest on fewer than 8. A figure of 0, a share of 100%, and a figure to which a single patient
    contributes, which leave nothing to estimate a design effect from, and a figure whose own design effect rests on
    fewer than 8 degrees of freedom, which leaves too little, take instead the network's design effect for the row and
-   the department dataset's birth-weight class (§13.11.2), which the same steps compute over the patients of all
-   departments in that class that have a positive denominator of the row, at least 1, and which the reference stores;
-   where it stores none for that class, as where the class's own figure is 0 or 100%, they take the reference's design
-   effect for the row over its whole range, and where it stores none for the row either, as where the network's figure
-   is 0 or 100% or the reference lacks the row (§13.8.2), what they take without a reference, so that such a 0 of a row
-   that does not count days counts the department's events as independent, which the methods texts say. Without a
-   reference, such a figure takes the following: one that counts days, a share of days or a ratio of days over
-   patient-days (the Access, Watch, Reserve, and Not classified rows of §13.6.1 and an ATC group's use rate, §13.7), the
-   design effect that makes its effective denominator Kish's effective number of the department's patients (item 3); the
-   mean days per exposed patient and the operations per patient operated on, an effective count equal to their number of
-   patients, 1 for a single patient, since a design effect of 1 would count the days or operations as independent
-   events; and any other, a design effect of 1. A figure of 2 or more patients that has a design effect of its own,
-   being neither 0 nor a share of 100%, takes the larger of that fallback and its own, so that without a reference no
-   interval falls below the figure's own estimate, as a design effect of 1 would for events clustered within patients. A
-   figure whose own design effect rests on 8 or more degrees of freedom keeps it, with a reference or without. A share
-   whose denominator counts the department's patients, each once (the patients exposed of §13.6.2, the patients
-   receiving a substance or group of §13.7, and the patients operated on of §13.9.3), takes a design effect of 1
-   whatever its figure, with a reference or without, since its patients are its clusters, each a 0 or a 1, and leave no
-   clustering to correct for, so that it carries no degrees of freedom.
+   the department dataset's birth-weight class, 1 of the protocol's 4 (§13.11.2), which the same steps compute over the
+   patients of all departments in that class that have a positive denominator of the row, at least 1, and which the
+   reference stores; where it stores none for that class, as where the class's own figure is 0 or 100% or the dataset
+   lies over a gestational-age range, which has no birth-weight class, they take the reference's design effect for the
+   row over its whole range, and where it stores none for the row either, as where the network's figure is 0 or 100% or
+   the reference lacks the row (§13.8.2), what they take without a reference, so that such a 0 of a row that does not
+   count days counts the department's events as independent, which the methods texts say. Without a reference, such a
+   figure takes the following: one that counts days, a share of days or a ratio of days over patient-days (the Access,
+   Watch, Reserve, and Not classified rows of §13.6.1 and an ATC group's use rate, §13.7), the design effect that makes
+   its effective denominator Kish's effective number of the department's patients (item 3); the mean days per exposed
+   patient and the operations per patient operated on, an effective count equal to their number of patients, 1 for a
+   single patient, since a design effect of 1 would count the days or operations as independent events; and any other, a
+   design effect of 1. A figure of 2 or more patients that has a design effect of its own, being neither 0 nor a share
+   of 100%, takes the larger of that fallback and its own, so that without a reference no interval falls below the
+   figure's own estimate, as a design effect of 1 would for events clustered within patients. A figure whose own design
+   effect rests on 8 or more degrees of freedom keeps it, with a reference or without. A share whose denominator counts
+   the department's patients, each once (the patients exposed of §13.6.2, the patients receiving a substance or group of
+   §13.7, and the patients operated on of §13.9.3), takes a design effect of 1 whatever its figure, with a reference or
+   without, since its patients are its clusters, each a 0 or a 1, and leave no clustering to correct for, so that it
+   carries no degrees of freedom.
 5. **Scope:** the intervals describe neonatal departments like the participating ones.
 
 No lower limit is printed below its measure's minimum, an open one of a quartile included: 0, but 1 for the operations
@@ -1353,9 +1354,10 @@ only in exact arithmetic. The steps follow these sources:
 The Interval columns below name each row's method, the gamma interval or Clopper-Pearson's, as items 2 to 4 apply it,
 the row's quartiles taking the interval of item 1. Beside a table's figures, a reference dataset stores what these
 intervals need: for each quartile's interval, which of its sides are open; for each row, the network's design effect
-over the reference's whole range and for each birth-weight class (item 4), and the degrees of freedom of the pooled
-interval; and, for each row with quartiles, the number of departments that enter them (§13.1.6) and how many of them
-recorded none of the row's events.
+over the reference's whole range and, in a reference over the whole range, for each of the protocol's 4 birth-weight
+classes (item 4), the 2 without a reference of their own included, and the degrees of freedom of the pooled interval;
+and, for each row with quartiles, the number of departments that enter them (§13.1.6) and how many of them recorded none
+of the row's events.
 
 #### §13.1.5. Which Records Count, and Where
 
@@ -1370,16 +1372,18 @@ recorded none of the row's events.
 - A stay without an antibiotic entry counts with all its days and exposures, its antibiotic days being 0; an antibiotic
   entry without days adds none, every sum counting the days that are known, and no analysis is refused.
 - A patient record that a validation rule flags as an error leaves every table with all its stays, unless an exception
-  names the record or the dataset is imported with `include_invalid_patients = TRUE`, which runs no validation pass; but
-  an infection that fails the onset or repeat rules (§13.3), or an SSI that no procedure form holds in its window
-  (§13.10.1), leaves by itself, with its infectious agents and secondary BSI, every table and every count of the
-  dataset, `n_infections` and `n_severe_infection_patients` included, and its patient record stays, since removing the
-  record would select infants on the outcome, and the NeoIPC Core Protocol (version 1.2, pp. 15 and 30) and the National
-  Healthcare Safety Network (NHSN; Patient Safety Component Manual, ch. 2, p. 2-2) leave out such an infection, not the
-  infant.
-- A patient record without a recorded birth weight leaves every table and figure, the overall report and a department's
-  own dataset included, and the overall report states their number, so that no report gives their figures back and no
-  per-class report withholds a row for them (§13.11.2); the Validation Reports query a missing birth weight.
+  names the record; but an infection that fails the onset or repeat rules (§13.3), or an SSI that no procedure form
+  holds in its window (§13.10.1), leaves by itself, with its infectious agents and secondary BSI, every table and every
+  count of the dataset, `n_infections` and `n_severe_infection_patients` included, and its patient record stays, since
+  removing the record would select infants on the outcome, and the NeoIPC Core Protocol (version 1.2, pp. 15 and 30) and
+  the National Healthcare Safety Network (NHSN; Patient Safety Component Manual, ch. 2, p. 2-2) leave out such an
+  infection, not the infant. A dataset imported with `include_invalid_patients = TRUE` runs no validation pass and
+  removes neither: it keeps every record and every recorded infection, since the Validation Reports, which import so,
+  must see what the rules find to report it, and its rates are not comparable with a validated dataset's.
+- A patient record without a recorded birth weight counts in every report but those of a birth-weight class, whose
+  ranges it falls outside, a department's own dataset included; the birth-weight division counts these patients in its
+  unpublished rest (§13.11.2), the overall report states their number, and the Validation Reports query a missing birth
+  weight.
 - A patient is a patient record of 1 department, so an infant whom 2 departments register counts twice in a reference
   dataset.
 
@@ -1394,7 +1398,13 @@ departments and of patients that contribute to its pooled rates and, for every r
 departments that enter them; where a table's rows differ in the departments that enter, the statement gives the number
 per row, and where a row's pooled figure leaves out departments with a positive denominator of the row, as those of the
 density of infections with resistant infectious agents do (§13.8.5), the dataset carries, and the statement gives, the
-contributing departments and patients per row as well.
+contributing departments and patients per row as well. A per-class report that withholds its overview's counts
+(§13.11.2) states its departments but not its patients beneath each table it keeps, "Pooled: {departments}
+departments.", and its dataset stores those numbers of patients as withheld, so that a Partner Report compared with it
+states only the reference's departments too, since a table's patients, those that contribute a positive denominator,
+come close to all its patients where nearly every infant has the device, as with peripheral catheters, and would be all
+of them were the statement to count every patient of the pooled departments, the overall report's patients less the
+printed parts' then giving back the rest's (§13.11.2).
 
 #### §13.1.7. Version of the Rate Definitions
 
@@ -1453,16 +1463,17 @@ groups, since each classification gives a substance at most 1 group.
 `calculate_reference_data()` and `calculate_department_data()` give `n_departments`, a single count, and `n_patients`,
 `n_enrollments`, and `n_patient_days`, each with its `total` and, in a reference dataset over the whole range, the
 departments' `pooled_mean`, `q1`, `q2`, and `q3`, the type 7 quartiles of §13.1.1 over every department, truncated to
-whole numbers. Both also give `n_patients_without_birth_weight`, the patient records of the period that leave the
-dataset for lacking a recorded birth weight (§13.1.5), counted from the import before they leave. A reference dataset
-with a birth-weight or gestational-age range stores no quartiles of these counts, and a per-class report prints none,
-since with few departments they give the departments' sizes back; the overall Reference Report prints them only where at
-least 5 departments enter, as §13.1.1's display test shows every row's quartiles; from 5 departments, a quartile can
-equal 1 department's count, as a rate's quartile can equal 1 department's rate, without naming the department. The
-reports' introductions print the counts and the mean surveillance time per admission, which replaces today's average
-surveillance period per patient record; the overall Reference Report also prints the departments' quartiles of patient
-records and of patient-days, which no report prints today, and the number of patient records left out for lacking a
-recorded birth weight. None of them has an interval or flag, and no report prints `pooled_mean`.
+whole numbers. Both also give `n_patients_without_birth_weight`, the patient records of the period without a recorded
+birth weight, which fall in no birth-weight class (§13.1.5). A reference dataset with a birth-weight or gestational-age
+range stores no quartiles of these counts, and a per-class report prints none, since with few departments they give the
+departments' sizes back; the overall Reference Report prints them only where at least 5 departments enter, as §13.1.1's
+display test shows every row's quartiles; from 5 departments, a quartile can equal 1 department's count, as a rate's
+quartile can equal 1 department's rate, without naming the department. The reports' introductions print the counts and
+the mean surveillance time per admission, which replaces today's average surveillance period per patient record, a
+per-class report only where at least 3 departments contribute patient records and its division's joint rule lets it
+(§13.11.2); the overall Reference Report also prints the departments' quartiles of patient records and of patient-days,
+which no report prints today, and the number of patient records without a recorded birth weight. None of them has an
+interval or flag, and no report prints `pooled_mean`.
 
 | Measure | Counted | Over | Scale | Interval | Flag | Quartiles |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -1502,11 +1513,29 @@ hold). Since departments differ in how many of these days their stays hold, a ra
 departments otherwise than one over the days at risk alone, and since the 13 days dilute a rate the more, the higher it
 is, they draw a department's ratio to the reference towards 1, which the methods texts say. A patient with a sepsis/BSI
 and a pneumonia counts once for each in severe infection, and a further episode of the same type counts where it begins
-14 days or more after the previous one and after a period without symptoms of infection. An infection fails the onset
-rules, a validation error that leaves it out of every table and count while its patient record stays (§13.1.5), where a
-sepsis/BSI, a pneumonia, or an NEC begins before day of life 4 or before day 3 of its stay, or where an infection of any
-type, an SSI included, begins fewer than 14 days after the previous one of its type. An SSI's onset is otherwise judged
-by its procedure's follow-up window alone (§13.10.1), although the protocol states both cut-offs for every infection it
+14 days or more after the previous one of that type that does not itself fail this rule, and after a period without
+symptoms of infection, as the protocol requires 14 days "to register the same type of infection again" (version 1.2,
+p. 15): a failing repeat resets nothing, while an infection that fails the onset rules below or an SSI that no procedure
+form holds in its window starts the 14 days, as NHSN's 14-day repeat infection timeframe starts from a BSI present on
+admission, which it does not report, and from a group B streptococcal BSI in the first 6 days of life, which it does not
+report as a central line–associated BSI (Patient Safety Component Manual, ch. 4, pp. 4-12 and 4-13). An infection fails
+the onset rules where a sepsis/BSI, a pneumonia, or an NEC begins before day of life 4 or before day 3 of its stay, and
+the repeat rule where an infection of any type, an SSI included, begins fewer than 14 days after the previous one of its
+type that does not itself fail the repeat rule, in any stay of its patient record, each a validation error that leaves
+the infection out of every table and count while its patient record stays (§13.1.5); the repeat rule, as an SSI's
+attribution does (§13.10.1), reads every stay of the patient record, those of other periods included, before the period
+narrows the dataset, and leaves out only the period's infections it flags, so that a period's count does not depend on
+where the period starts. Of 2 infections of 1 type on 1 date, the one that is not microbiologically confirmed (§13.8.1,
+item 3) fails the repeat rule, and of 2 alike the one created later, by the rank the import gives a patient record's
+infection forms by `createdAt` and then by DHIS2 event id, in code-point order, since 2 forms saved in 1 request can
+share a `createdAt` to the millisecond; a dataset keeps the rank whatever `include_timestamps` and `include_dhis2_ids`
+say, which decide only whether it also keeps `createdAt` and the id, so that the keys the import assigns at random do
+not decide which fails, and `validate()`, judging the rule over the stays its dataset holds (§13.10.1), breaks the tie
+as the import's validation pass does. A failing repeat leaves with its infectious agents: a positive blood culture
+recorded as a new infection 5 days after a clinical sepsis leaves that episode counted as clinical sepsis and the
+culture's infectious agent in no table, which the methods texts say, and the Validation Report's finding asks the
+department to record the later finding on the earlier infection's form. An SSI's onset is otherwise judged by its
+procedure's follow-up window alone (§13.10.1), although the protocol states both cut-offs for every infection it
 records, SSIs included, in the general text of its section on infection data collection: an SSI within its procedure's
 window is hospital-acquired by its definition, and the cut-off of day 3 would drop the SSIs on days 1 and 2 of a
 readmission that §13.10.1 counts, which the methods texts say. The protocol gives the cut-off of day 3 of the stay for
@@ -1539,7 +1568,8 @@ severe infections (`n` of the severe-infection row), the patients with at least 
 both `calculate_reference_data()` and `calculate_department_data()` give with its `total`, counting each patient record
 once whatever its episodes and stays), and all patients (`n_patients`). Strata by birth-weight class or gestational-age
 range are reports of their own (§13.11.2), not rows of this table; a per-class report that withholds the
-severe-infection row leaves the severe infections and the patients with at least 1 out of its opening.
+severe-infection row leaves the severe infections and the patients with at least 1 out of its opening, and one that
+withholds its overview's counts (§13.11.2) leaves out all patients as well.
 
 ### §13.4. Incidence Density Rates of Device-Associated Infections
 
@@ -1563,14 +1593,19 @@ the association is temporal, not proven causal. The protocol's note on device-as
 least 4 calendar days of ventilation, departs from this rule, and the note and the reports' methods text, which follows
 the note today, are to follow the rule; since neoipcr counts the association that the form records, a department that
 followed the note recorded none where ventilation lasted exactly 3 calendar days, which the methods texts say, citing
-version 1.2's rule for every device (p. 20), until the protocol's next release corrects the note. A device day has the
-catheter in place, or the support given, for at least 12 hours that calendar day, as version 1.2 of the NeoIPC Core
-Protocol (pp. 35 and 41) and the forms in use define it; an edition whose period spans a change of that definition in
-the forms names both definitions and the date of the change. A device's first 2 days, which cannot carry an associated
-infection, stay in its denominator, since the day counts carry no dates by which to remove them. The sepsis/BSI rows
-include clinical sepsis, so the CVC row is not the central line–associated BSI rate of the National Healthcare Safety
-Network (NHSN). The protocol's definition of a PVC day makes no exception for a CVC, so a day with both catheters counts
-for both; a department that counts such days otherwise makes its PVC rates differ by that convention.
+version 1.2's rule for every device (p. 20), until the protocol's next release corrects the note. A catheter day has the
+catheter in place for at least 12 hours that calendar day, and a day of INV or NIV more than 12 hours of that support,
+as the protocol's draft and the canonical metadata define them; version 1.2 of the NeoIPC Core Protocol (pp. 35 and 41)
+and the forms in use count at least 12 hours for every device, and the forms take the draft's definition with the
+migration of production to the canonical metadata. A stay's days of INV and NIV are counted as the forms on which its
+surveillance-end form was completed define them, so that an edition names at least 12 hours where all its stays were
+completed before that migration, more than 12 hours where all were completed after it, and both definitions and the date
+of the migration where some were completed before it and some after it, as the stays of a period that ends before it can
+be, which the methods texts say. A device's first 2 days, which cannot carry an associated infection, stay in its
+denominator, since the day counts carry no dates by which to remove them. The sepsis/BSI rows include clinical sepsis,
+so the CVC row is not the central line–associated BSI rate of the National Healthcare Safety Network (NHSN). The
+protocol's definition of a PVC day makes no exception for a CVC, so a day with both catheters counts for both; a
+department that counts such days otherwise makes its PVC rates differ by that convention.
 
 ### §13.5. Secondary Bloodstream Infections
 
@@ -1591,7 +1626,8 @@ share with the departments' quartiles of their shares; a department that follows
 enters the pooled rate and the quartiles as any other. A secondary BSI is attributed to its infection by an infectious
 agent in the blood that matches one from the primary site; the NEC form records none from the primary site, so for NEC
 the match cannot be checked. No density of bloodstream infections of all origins is given, since it would undercount
-wherever follow-up is partial.
+wherever follow-up is partial. Where the SSI rate withholds its overall cell, the SSI row is withheld with every figure
+it prints (§13.10.4).
 
 ### §13.6. Exposure to Risk and Protective Factors
 
@@ -2033,7 +2069,7 @@ are `MAA.FA.AA` in neurosurgery (group 1), `JCH.AE.AA` and `JCH.FA.AA` in non-ca
 `PAK.AE.AA`, `PAK.AE.AB`, and `PAK.FA.AA` in abdominal surgery (group 4). Of the codes of percutaneous drainage, only
 the pleura's counts (§13.9.1), and that of any other site, the abdomen's (`PAK.JB.AE`) and the peritoneum's
 (`KMA.JB.AE`) included, is a needle puncture and no surgical procedure, a drain placed through an incision being coded
-as open drainage, such as the peritoneum's (`KMA.JB.AA`).
+as open drainage, such as the peritoneum's (`KMA.JB.AA`) or the abdomen's (`PAK.JB.AA`).
 
 A procedure counts once, by all its codes, whichever of them was entered as the main code:
 
@@ -2049,11 +2085,11 @@ whose codes a group takes, such as one holding only a code that is no valid ICHI
 dataset's surgical counts, and the SSI rate's denominator until its codes are corrected, and §13.10.1 states what it
 does to the attribution of an SSI. Validation rules report, as warnings that remove no record, a procedure that holds
 only an approach code, a code that no group takes or whose group depends on what was done, such as `KMA.FA.AA`, a
-percutaneous drainage of the peritoneum (`KMA.JB.AE`), since a primary peritoneal drain placed through an incision may
-have been coded so, and a procedure recorded as wound class I although a code of its group opens a tract. A code that is
-no valid ICHI code fails validation as an error, which removes its patient record (§13.1.5), so that for such a code the
-rule on a procedure whose codes no group takes decides only where an exception or `include_invalid_patients = TRUE`
-keeps the record.
+percutaneous drainage of the peritoneum (`KMA.JB.AE`) or of the abdomen (`PAK.JB.AE`), since a primary peritoneal drain
+placed through an incision may have been coded so, and a procedure recorded as wound class I although a code of its
+group opens a tract. A code that is no valid ICHI code fails validation as an error, which removes its patient record
+(§13.1.5), so that for such a code the rule on a procedure whose codes no group takes decides only where an exception or
+`include_invalid_patients = TRUE` keeps the record.
 
 #### §13.9.3. Measures
 
@@ -2163,14 +2199,18 @@ unsuppressed, which the Partner Report compares with the reference's. The per-cl
   since an SSI belongs to its procedure's follow-up, which can run past a discharge into a readmission; the protocol
   ends the follow-up at transfer and discharge as well, which the reports' methods texts say. An SSI that a later stay
   records counts with the procedure it is attributed to, in the period and for the department of the stay that holds the
-  procedure (§13.1.5), so that a period's numerator and denominator hold the same procedures. Attribution, and the
-  validation of an SSI against the procedure forms of its patient record, read every stay of the patient record, those
-  of other periods and those not yet completed included, and the period narrows the dataset only after them, a finding
-  of that validation removing no stay of any period, while the rest of the validation pass judges the period's stays
-  after the narrowing, so that an error on a form of another period removes none of them; an SSI not yet recorded when
-  its procedure's period is calculated is missing from that period, which the methods texts say. The rate thus counts
-  the SSIs seen in hospital, in the procedure's stay or a later one, and how much of the window a department observes
-  depends on how long its patients stay after surgery and whether they return, which the methods texts say.
+  procedure (§13.1.5), so that a period's numerator and denominator hold the same procedures. Attribution, the
+  validation of an SSI against the procedure forms of its patient record, and the repeat rule (§13.3) read every stay of
+  the patient record, those of other periods and those not yet completed included, and the period narrows the dataset
+  only after them, a finding of either rule removing no stay of any period, while the rest of the validation pass judges
+  the period's stays after the narrowing, so that an error on a form of another period removes none of them.
+  `validate()` judges both rules over the stays its dataset holds: in a dataset that holds every stay of its patient
+  records, as the Validation Reports' datasets do, imported without a period and with the stays not yet completed, it
+  finds what the import's pass finds, while in a dataset imported with a period and without a validation pass (§13.1.5)
+  its findings can differ wherever a stay of another period bears on them. An SSI not yet recorded when its procedure's
+  period is calculated is missing from that period, which the methods texts say. The rate thus counts the SSIs seen in
+  hospital, in the procedure's stay or a later one, and how much of the window a department observes depends on how long
+  its patients stay after surgery and whether they return, which the methods texts say.
 
 #### §13.10.2. Rows
 
@@ -2218,32 +2258,32 @@ more than half of them, and the departments beyond the 2 largest together contri
 procedures, the p% rule of statistical disclosure control at p = 10 (Hundepool A, Domingo-Ferrer J, Franconi L, et al.
 *Statistical Disclosure Control*. Wiley; 2012. doi:10.1002/9781118348239), so that the cell's SSIs come from enough
 departments that neither of the 2 largest can attribute the others' SSIs to 1 department. The SSI rate alone holds its
-cells to a minimum, where the other rates flag a small figure (§13.1.2), since its cells are small by design: it splits
-few procedures by group, stratum, and depth, so many of its cells come from 1 or 2 departments, while every other rate
-is a row over the whole network to which most departments contribute, where a row from 1 or 2 departments is rare and
-its flag shows it. Where the largest department holds 10 or fewer procedures, any further department meets the 10%, so
-the p% test withholds no cell that the other conditions pass below 22 procedures (11, 10, and 1 from 3 departments). The
-SSIs themselves, which the rule does not test, one department can bound for another only to within those of the
-remaining departments, which may be none: a cell of 3 departments leaves each the others' sum, whatever the rule. This
-is accepted, and the methods texts say so, since a test of the SSIs too would withhold most cells, whose few SSIs come
-from 1 or 2 departments. A cell below the minimum is suppressed, its counts with its rate, and further cells are
-suppressed wherever a total would give a suppressed one back, until the suppressed cells meet the minimum together.
-Where the overall cell is suppressed, the report and the reference dataset also withhold every figure that counts the
-SSIs apart or that, over all infection types, gives them back less the other types: the SSI part and the Total's figures
-of the infectious-agent section's opening (§13.8.4), the SSI rows and columns of §13.5, §13.8.3, and §13.8.4, §13.8.3's
-column for all types with its Total, the Tested share of §13.8.6, with its counts and interval, in every block of both
-versions, every figure of §13.8.7, and `n_infections` for SSIs and for all types together. The Tested share's
-denominator and §13.8.7's applicable detections count every type, so less §13.8.3's counts of the other types give the
-SSIs back, exactly for a node whose infectious agents all take the category, as for *Staphylococcus aureus* in the MRSA
-block, and nearly in §13.8.7. The other types' columns still print, and so do §13.8.5 and the rates of §13.8.6, since no
-printed figure gives their SSI part back; the Partner Report shows the department's own figures where the reference
-withholds them, without reference figures, with a note. The procedures stay printed in the surgery table (§13.9), so the
-rule protects the SSIs, not the procedures. A withheld figure is stored as withheld, which `get_benchmark_data()` and
-the Partner Report keep apart from one the reference lacks. A cell is empty only where it has no surgical procedure
-before those on the date of death and those with an SSI present at surgery leave: an empty cell needs no protection,
-counts as no suppressed cell, makes no other cell suppressed, and joins no pool, an empty group showing 0 procedures and
-no rate, while a cell whose procedures all left the denominator counts as a cell below the minimum, its SSIs present at
-surgery withheld with it.
+cells to a minimum, where the overall report's other rates flag a small figure (§13.1.2), since its cells are small by
+design: it splits few procedures by group, stratum, and depth, so many of its cells come from 1 or 2 departments, while
+every other rate is a row over the whole network to which most departments contribute, where a row from 1 or 2
+departments is rare and its flag shows it. Where the largest department holds 10 or fewer procedures, any further
+department meets the 10%, so the p% test withholds no cell that the other conditions pass below 22 procedures (11, 10,
+and 1 from 3 departments). The SSIs themselves, which the rule does not test, one department can bound for another only
+to within those of the remaining departments, which may be none: a cell of 3 departments leaves each the others' sum,
+whatever the rule. This is accepted, and the methods texts say so, since a test of the SSIs too would withhold most
+cells, whose few SSIs come from 1 or 2 departments. A cell below the minimum is suppressed, its counts with its rate,
+and further cells are suppressed wherever a total would give a suppressed one back, until the suppressed cells meet the
+minimum together. Where the overall cell is suppressed, the report and the reference dataset also withhold every figure
+that counts the SSIs apart or that, over all infection types, gives them back less the other types: the SSI part and the
+Total's figures of the infectious-agent section's opening (§13.8.4), the SSI rows and columns of §13.5, §13.8.3, and
+§13.8.4, §13.8.3's column for all types with its Total, the Tested share of §13.8.6, with its counts and interval, in
+every block of both versions, every figure of §13.8.7, and `n_infections` for SSIs and for all types together. The
+Tested share's denominator and §13.8.7's applicable detections count every type, so less §13.8.3's counts of the other
+types give the SSIs back, exactly for a node whose infectious agents all take the category, as for *Staphylococcus
+aureus* in the MRSA block, and nearly in §13.8.7. The other types' columns still print, and so do §13.8.5 and the rates
+of §13.8.6, since no printed figure gives their SSI part back; the Partner Report shows the department's own figures
+where the reference withholds them, without reference figures, with a note. The procedures stay printed in the surgery
+table (§13.9), so the rule protects the SSIs, not the procedures. A withheld figure is stored as withheld, which
+`get_benchmark_data()` and the Partner Report keep apart from one the reference lacks. A cell is empty only where it has
+no surgical procedure before those on the date of death and those with an SSI present at surgery leave: an empty cell
+needs no protection, counts as no suppressed cell, makes no other cell suppressed, and joins no pool, an empty group
+showing 0 procedures and no rate, while a cell whose procedures all left the denominator counts as a cell below the
+minimum, its SSIs present at surgery withheld with it.
 
 The groups below the minimum are pooled into 1 row: while the pool misses the minimum, a further group with procedures
 joins it, the one with the fewest procedures among those with which it would meet it, or, where none would, the one with
@@ -2284,9 +2324,13 @@ bins centred on the round values even that heaping out. Lines at 500, 1000, and 
 bar on a line holding infants of both classes, so that the first and last bars of a birth-weight class's report hold
 only its class's infants, which the legend says. A 1-week bin holds a completed week, the 26-week bar holding 26+0 to
 26+6, as the protocol counts gestational age and its eligibility (below 32 weeks, up to 31+6), so that the bars of a
-gestational-age range's report hold only its range's infants. The marks and the density curve print only where at least
-10 patient records contribute, so that none gives an infant's own birth weight or gestational age back, a curve over few
-infants peaking at each one's value; the binned bars always print.
+gestational-age range's report hold only its range's infants. The marks and the density curve print only where the
+figure counts at least 10 patient records, those with its variable recorded, a curve over few infants peaking at each
+one's value; from 10, a mark can still equal an unnamed infant's value, as the median of an odd number of records does,
+which the edition accepts, as it accepts a quartile equal to an unnamed department's count (§13.2). The binned bars,
+which give each value to within 50 g or 1 week, print in every report, a per-class report's only where at least 3
+departments contribute records to the figure, its division's joint rule lets them, and the report prints its overview's
+counts (§13.11.2).
 
 #### §13.11.2. Birth-Weight Classes and Gestational-Age Ranges
 
@@ -2302,7 +2346,7 @@ each with a reference dataset of its own:
 
 | Report | Patients | Range |
 | --- | --- | --- |
-| Overall | every recorded birth weight | none |
+| Overall | every patient | none |
 | "500–999 g" | birth weight 500 to 999 g | `birth_weight_from = 500`, `birth_weight_to = 999` |
 | "1000–1499 g" | birth weight 1000 to 1499 g | `birth_weight_from = 1000`, `birth_weight_to = 1499` |
 | "24–27 weeks" | gestational age 24+0 to 27+6 | `gestational_age_from = 24`, `gestational_age_to = 27` |
@@ -2311,55 +2355,89 @@ each with a reference dataset of its own:
 The protocol's classes below 500 g and of 1500 g or more hold too few patients for a reference of their own, so no
 report is published for them, which the methods texts say, and a Partner Report over either compares with the overall
 reference, its header noting that the birth-weight filter differs from the reference's. A patient without a recorded
-birth weight leaves every report, the overall report included, which states their number (§13.1.5), so that no report
-gives their figures back and no report withholds a row for them. `calculate_reference_data()` takes any bounds, but only
-the per-class reports in the table above withhold rows as below; no reference dataset or Reference Report over other
-bounds is published, and the reporting service shows such a dataset to its administrators alone, who may explore the
-reference over any bounds.
+birth weight falls in no birth-weight class and counts in the birth-weight division's rest (below), the overall report
+stating their number (§13.1.5). `calculate_reference_data()` takes any bounds, but only the per-class reports in the
+table above withhold rows as below; no reference dataset or Reference Report over other bounds is published, and the
+reporting service shows such a dataset to its administrators alone, who may explore the reference over any bounds.
 
 A report of a class or a range, a per-class report below, is the same Reference Report, rendered with its range and a
 preset of its table parameters. It prints the overview, without the departments' quartiles of patient records and
 patient-days (§13.2), the case-mix figures (§13.11.1), and the tables of §13.3, §13.4, and §13.6, and leaves out those
 of §13.5, §13.7, §13.8 with its opening, §13.9, and §13.10, as NEO-KISS's reference data give the infectious agents and
-resistance over all classes; its header names its class or range. It compares a department with patients like its own at
-the price of statistical power: with fewer departments and patients, its intervals widen, more quartiles fail the
-display test, and more rows carry the flag or are withheld, which the methods texts say. It prints a pooled figure only
-where at least 3 departments contribute to the figure's denominator, none contributing more than half of it and the
-departments beyond the 2 largest together at least 10% of the largest one's part (§13.10.4), since a pooled figure from
-1 or 2 departments shows their own rates, and so that neither of the 2 largest can attribute the others' events to 1
-department. Where the departments with days of a device or factor, or those with patients exposed to it, fail this rule,
-the report withholds every figure of it, its associated infection rate (§13.4), its exposure rate (§13.6.1), and its
-share of patients exposed and mean days (§13.6.2), since these give one another back, and the smallest further row that
-would give it back, such as INV or any ventilatory support beside NIV. A withheld row withholds every figure it prints,
-its counts, rate, interval, and quartiles with the note on their zeros, and its numbers in the contributors' statement
-(§13.1.6), and a text that quotes it follows it, as the opening of §13.3 does.
+resistance over all classes; its header names its class or range. It prints its overview's counts (§13.2) only where at
+least 3 departments contribute patient records, and each of its case-mix figures only where at least 3 departments
+contribute records to the figure, those with its variable recorded (§13.11.1), since with 2 each could subtract its own
+counts and bars and read the other's patient records and patient-days and its infants' values of the other variable to
+within a bin; the overall report's bars, which print in every case, give back a class's birth weights or a range's
+gestational ages to within a bin, and a range's patient records as their sum, where few departments contribute to them,
+as any sparse span of its histogram does, such as its bars below 500 g, which the edition accepts as it accepts a
+quartile equal to an unnamed department's count (§13.2), and the methods texts say so. It compares a department with
+patients like its own at the price of statistical power: with fewer departments and patients, its intervals widen, more
+quartiles fail the display test, and more rows carry the flag or are withheld, which the methods texts say. It prints a
+pooled figure only where at least 3 departments contribute to the figure's denominator, none contributing more than half
+of it and the departments beyond the 2 largest together at least 10% of the largest one's part (§13.10.4), since a
+pooled figure from 1 or 2 departments shows their own rates, and so that neither of the 2 largest can attribute the
+others' events to 1 department. Where the departments with days of a device or factor, or those with patients exposed to
+it, fail this rule, the report withholds every figure of it, its associated infection rate (§13.4), its exposure rate
+(§13.6.1), and its share of patients exposed and mean days (§13.6.2), since these give one another back, and, of the
+further rows that would give it back, the one with the fewest days, such as INV or any ventilatory support beside NIV;
+an AWaRe category comes back as all substance-days, which the Access share gives, less the other 3 categories, so its
+further row is the other category with the fewest days, the withheld categories meeting the rule together and further
+ones following where they do not, and the Access share keeps printing, but a report that withholds the Access row itself
+while it prints its patient-days, by this rule or by the joint rule below, withholds the Access share too, whose count
+is that row's substance-days. A withheld row withholds every figure it prints, its counts, rate, interval, and quartiles
+with the note on their zeros, and its numbers in the contributors' statement (§13.1.6), and a text that quotes it
+follows it, as the opening of §13.3 does.
 
-The birth-weight classes divide the overall report's patients into the 2 published classes and the rest, below 500 g or
-of 1500 g or more, and the gestational-age ranges into the 2 published ranges and the rest, below 24 weeks, of 32 weeks
-or more, or without a recorded gestational age. Within each division, the overall report's row, less the printed parts',
-gives back the sum of the parts that do not print it, the rest always among them, so these must together meet the rule
-that withholds a row, and a per-class report that withholds a row is never the only part not printing it where another
-part has a denominator of the row. Where they do not meet the rule together, or a per-class report would be the only
-part, a further per-class report of the division with a denominator of the row withholds it, the one with the smallest
-denominator among those with which they would meet it, or, where none would, the one with the smallest denominator, ties
-going by the order in the table above, until they meet it or every per-class report of the division with a denominator
-withholds it; for a device or factor withheld as a whole, the further reports are chosen once, by its days, and each
-withholds every figure of it and the same further rows, so that no report prints part of it. A row whose denominator is
-0 in a part counts as no withheld row and makes no other part withhold it, since it shows no department's figures, so a
-part that alone has a denominator of a row withholds it alone. Each division is decided on its own, since the reports of
-the one are no sums or differences of the other's. The overall report holds its own rows to no such rule: it prints a
-row that every per-class report of a division withholds, flagged where small, keeping the rule of flagging small cells
-rather than suppressing them that its rates follow, the SSI rate's minimum cell (§13.10.4) aside, so the withholding
-protects only the split among the parts that have a denominator of the row, a part without one showing that it holds
-none of it, which the methods texts say.
+The birth-weight classes divide the overall report's patients into the 2 published classes and the rest, below 500 g, of
+1500 g or more, or without a recorded birth weight, and the gestational-age ranges into the 2 published ranges and the
+rest, below 24 weeks, of 32 weeks or more, or without a recorded gestational age. Within each division, the overall
+report's row, less the printed parts', gives back the sum of the parts that do not print it, the rest always among them,
+so these must together meet the rule that withholds a row, and a per-class report that withholds a row is never the only
+part not printing it where another part has a denominator of the row. Where they do not meet the rule together, or a
+per-class report would be the only part, a further per-class report of the division with a denominator of the row
+withholds it, the one with the smallest denominator among those with which they would meet it, or, where none would, the
+one with the smallest denominator, ties going by the order in the table above, until they meet it or every per-class
+report of the division with a denominator withholds it; for a device or factor withheld as a whole, the further reports
+are chosen once, by its days, and each withholds every figure of it and the same further rows, so that no report prints
+part of it. A row whose denominator is 0 in a part counts as no withheld row and makes no other part withhold it, since
+it shows no department's figures, so a part that alone has a denominator of a row withholds it alone. Each division is
+decided on its own, since the reports of the one are no sums or differences of the other's. The overall report holds its
+own rows to no such rule: it prints a row that every per-class report of a division withholds, flagged where small,
+keeping the rule of flagging small cells rather than suppressing them that its rates follow, the SSI rate's minimum cell
+(§13.10.4) aside, so the withholding protects only the split among the parts that have a denominator of the row, a part
+without one showing that it holds none of it, which the methods texts say.
+
+The overview's counts, with the mean surveillance time per admission, and each case-mix figure take the same joint rule:
+the overall report, which prints them in every case, less the printed parts' gives back those of the parts that do not
+print them, the rest always among them, and with an empty rest a withheld report's, so these parts must together have at
+least 3 departments contributing patient records, to a figure those with its variable recorded; where they do not, a
+further per-class report of the division withholds them, chosen as for a row, its patient records, or the figure's,
+standing for the denominator, so that the rest is protected in all that a per-class report prints. A per-class report
+that withholds its overview's counts, by its own test or by this rule, also withholds both case-mix figures and every
+row over patient-days or patients, those of §13.3, the exposure rates of §13.6.1 over patient-days, and all of §13.6.2,
+since its bars add up to its patient records with the variable recorded and a row's count and rate give back its
+denominator wherever events occurred, a mean days per exposed patient thus giving back the factor's exposed patients,
+who come close to all its patients where nearly every infant has the factor, as with peripheral catheters, while the
+joint rule chooses a row's further report by the row's own denominator; the device-associated rates (§13.4) and the
+Access share, over device-days and substance-days, give back no number of patients and keep their own tests, and the
+contributors' statement beneath each table it keeps gives its departments but not its patients (§13.1.6). The joint
+rules of the rows and the figures then count it among the parts that do not print them, and for a device or factor whose
+rows of §13.6 it withholds so, the joint rule chooses the further reports for those rows once, by its days, each
+withholding all of them, as for a device or factor withheld as a whole, since they give one another back. This changes
+something only where this rule withholds a report's counts, since one that fails its own test holds fewer than 3
+departments, whose rows and figures fail as well.
 
 `calculate_reference_data()` over the whole range decides from its import, which holds each department's part of each
-row's denominator in every class and range, which rows each per-class report withholds, and stores the list, by table,
-row, and report and naming no department, in the overall reference dataset, from which each per-class run takes it. Each
-per-class run stores the rows its report withholds as withheld, and only the tables its report prints, with its own
-counts of §13.2, its `n_severe_infection_patients`, stored as withheld where its report withholds the severe-infection
-row, and its case-mix figures (§13.11.1), so that a report rendered from its dataset shows what its PDF shows, and its
-dataset is uploaded beside the overall one, so that a department whose patients differ systematically from the network's
-can compare with a reference over a range like its own. `get_benchmark_data()` keeps a reference row stored as withheld
-apart from a row the reference lacks: the Partner Report prints the department's figures beside a note that the
-reference withholds the row, and a table that the reference lacks without reference columns, with a note saying why.
+row's denominator in every class and range, which rows each per-class report withholds, and whether it withholds its
+overview's counts and each case-mix figure, and stores the list, by table, row, and report and naming no department, in
+the overall reference dataset, from which each per-class run takes it. Each per-class run stores the rows its report
+withholds as withheld, and only the tables its report prints, with its own counts of §13.2, its case-mix figures
+(§13.11.1), and the numbers of patients of its contributors' statements (§13.1.6), stored as withheld where its report
+withholds them, and its `n_severe_infection_patients`, stored as withheld where its report withholds the
+severe-infection row, so that a report rendered from its dataset shows what its PDF shows, and its dataset is uploaded
+beside the overall one, so that a department whose patients differ systematically from the network's can compare with a
+reference over a range like its own. `get_benchmark_data()` keeps a reference row, count, or figure stored as withheld
+apart from one the reference lacks: the Partner Report prints the department's own beside a note that the reference
+withholds it, states the reference's contributors without their patients where it withholds their number (§13.1.6), and
+prints a table that the reference lacks without reference columns, with a note saying why.
