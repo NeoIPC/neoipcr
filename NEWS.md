@@ -260,6 +260,17 @@ section above it for the next changes.
   type-3 admission without its day of life, which rule 46 reports. An exception that keeps an
   early-onset infection of an inborn infant on day of life 1 or 2 now needs a record for a rule 30,
   34, or 38 as well as for its rule 29, 33, or 37, since both families now fire.
+* The package now holds the internal interval engine the reference report's figures rest on: the
+  interval of the departments' quartiles between two order statistics with binomial ranks, a side
+  open where its rank would rest on the lowest or highest department alone; the exact gamma and
+  Clopper-Pearson intervals on the effective counts and denominators a design effect leaves; the
+  bias-reduced cluster-robust (CR2) design effect with its Bell-McCaffrey degrees of freedom, for
+  the clustering of episodes within patients and within departments, on counts, on a share, and on
+  a mean; Kish's effective number of a department's patients; the choice a department figure makes
+  between its own design effect, the reference's, and the fallback for a department without one;
+  and the sparse-data, low-degrees-of-freedom, and few-patients flags beside the measure minima
+  that cut a lower limit. None of it is exported, and the quartile figures take the bootstrap
+  interval.
 
 # neoipcr 0.0.0.9008
 

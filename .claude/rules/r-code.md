@@ -56,7 +56,7 @@ writeLines(x, con, sep = "\n", useBytes = TRUE)
 | `R/calc-procedure-categories.R` | Procedure categories derived from International Classification of Health Interventions (ICHI) codes |
 | `R/scales.R` | Birth-weight and gestational-age binning helpers (`ga7`, `bw50`, `bw125`, `bw250`, `bw500`) |
 | `R/cache.R` | Cache primitives (`cache`, `get_cached`, `new_cache`, `clean_cache`) and `add_class` |
-| `R/ci.R` | Confidence interval functions (`neoipc_poisson_ci()`, `neoipc_wilson_ci()`) |
+| `R/ci.R` | Confidence interval functions (`neoipc_poisson_ci()`, `neoipc_wilson_ci()`) and the internal interval engine: order-statistic quartile intervals, gamma and Clopper-Pearson intervals on effective counts, the design-effect engine, and the figure flags |
 | **Schema engine** | |
 | `R/schema-tools.R` | `schema_col()`, `compile_schema()`, `schema_codes()`, `assert_schema()`, `finalize_to_schema()`: the column-as-declaration engine. `with_entity_gate(cols, gate)`, `entity_gate()`, and `entity_exists()` attach a containing-entity-gate predicate, so `compile_schema`, `assert_schema`, and `finalize_to_schema` short-circuit to 0×0 when the gate rejects `opts`. Internal, no `@export`. |
 | `R/schema-cols-shared.R` | Cross-entity column declarations: `col_patient_key`, `col_enrollment_key`, `col_event_key`, `col_department_key`, `col_hospital_key`, `col_country_key`, `col_wb_class_key`, `col_isTest`, plus `col_inherited_from()` (hierarchy-inheritance helper) and `attribute_cols()` / `tea_attribute_cols()` (companion-column helpers for partner-site-entered attributes). Loads before every `schema-<domain>.R` via `@include`. |

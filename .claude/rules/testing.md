@@ -6,7 +6,7 @@ paths: "tests/**"
 
 | File | Scope |
 |------|-------|
-| `tests/testthat/test-ci.R` | `neoipc_poisson_ci()`, `neoipc_wilson_ci()`, bootstrap confidence intervals, vectorized wrappers |
+| `tests/testthat/test-ci.R` | `neoipc_poisson_ci()`, `neoipc_wilson_ci()`, bootstrap confidence intervals, vectorized wrappers, the internal interval engine (order-statistic quartile intervals, gamma and Clopper-Pearson intervals on effective counts, the design-effect engine, and the figure flags) |
 | `tests/testthat/test-dhis2-metadata.R` | `read_metadata()` validation and data-reading tests; `read_metadata_trials()` — the trials group set found by its code, exact code matching and the unknown-trial abort |
 | `tests/testthat/test-dhis2-metadata-orgunits.R` | The `/organisationUnits` request shapes (the opt-in department and hospital `attributeValues` fragments, the `IsTestunit` follow-up request, the always-on `attributes:` definitions request) and the organisation-unit attribute path: value split, hospital deduplication with the list column, resolver (UID → code, undefined dropped, non-surviving parents dropped), the typed-value helpers (`value_type_family()`, `spread_typed_values()`), definitions reader |
 | `tests/testthat/test-dhis2-options.R` | `dhis2_dataset_options()` constructor: serialization, class order, the `include_custom_attributes` vocabulary, the `reconcile` default and its way through `serializable_dataset_options()` |

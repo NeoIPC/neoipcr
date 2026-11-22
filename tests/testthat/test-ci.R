@@ -342,3 +342,606 @@ test_that("bootstrap_quantile_ci does not corrupt global RNG state", {
   actual <- stats::runif(1)
   expect_equal(actual, expected)
 })
+
+# --- .order_statistic_quartile_ci() -------------------------------------------
+
+test_that(".order_statistic_quartile_ci takes the decided ranks at 5, 15 and 30 departments", {
+  # The rank table of the API design's §13.1.4 item 1, on strictly
+  # increasing rates: the r-th order statistic is the r-th value.
+  res5 <- neoipcr:::.order_statistic_quartile_ci(1:5, rep(1, 5))
+  expect_equal(res5$q1_ci_lower, NA_real_)
+  expect_true(res5$q1_ci_lower_open)
+  expect_equal(res5$q1_ci_upper, 4)
+  expect_false(res5$q1_ci_upper_open)
+  expect_equal(res5$q2_ci_lower, NA_real_)
+  expect_true(res5$q2_ci_lower_open)
+  expect_equal(res5$q2_ci_upper, NA_real_)
+  expect_true(res5$q2_ci_upper_open)
+  expect_equal(res5$q3_ci_lower, 2)
+  expect_false(res5$q3_ci_lower_open)
+  expect_equal(res5$q3_ci_upper, NA_real_)
+  expect_true(res5$q3_ci_upper_open)
+  expect_equal(res5$entering_departments, 5L)
+
+  res15 <- neoipcr:::.order_statistic_quartile_ci(1:15, rep(1, 15))
+  expect_true(res15$q1_ci_lower_open)
+  expect_equal(res15$q1_ci_upper, 8)
+  expect_equal(res15$q2_ci_lower, 4)
+  expect_equal(res15$q2_ci_upper, 12)
+  expect_equal(res15$q3_ci_lower, 8)
+  expect_true(res15$q3_ci_upper_open)
+
+  res30 <- neoipcr:::.order_statistic_quartile_ci(1:30, rep(1, 30))
+  expect_false(res30$q1_ci_lower_open)
+  expect_equal(res30$q1_ci_lower, 3)
+  expect_equal(res30$q1_ci_upper, 13)
+  expect_equal(res30$q2_ci_lower, 10)
+  expect_equal(res30$q2_ci_upper, 21)
+  expect_equal(res30$q3_ci_lower, 18)
+  expect_equal(res30$q3_ci_upper, 28)
+  expect_false(res30$q3_ci_upper_open)
+})
+
+test_that(".order_statistic_quartile_ci keeps the open sides the API design names", {
+  # Q1's lower and Q3's upper limit close from 20 departments, each limit of
+  # Q2 from 9; the ranks before that do not exist or fall on the lowest or
+  # highest department, so the side is open.
+  for (n in 5:19) {
+    res <- neoipcr:::.order_statistic_quartile_ci(seq_len(n), rep(1, n))
+    expect_true(res$q1_ci_lower_open, info = paste0("Q1 lower open at n = ", n))
+    expect_true(res$q3_ci_upper_open, info = paste0("Q3 upper open at n = ", n))
+  }
+  res20 <- neoipcr:::.order_statistic_quartile_ci(1:20, rep(1, 20))
+  expect_false(res20$q1_ci_lower_open)
+  expect_equal(res20$q1_ci_lower, 2)
+  expect_false(res20$q3_ci_upper_open)
+  expect_equal(res20$q3_ci_upper, 19)
+
+  for (n in 5:8) {
+    res <- neoipcr:::.order_statistic_quartile_ci(seq_len(n), rep(1, n))
+    expect_true(res$q2_ci_lower_open, info = paste0("Q2 lower open at n = ", n))
+    expect_true(res$q2_ci_upper_open, info = paste0("Q2 upper open at n = ", n))
+  }
+  res9 <- neoipcr:::.order_statistic_quartile_ci(1:9, rep(1, 9))
+  expect_equal(res9$q2_ci_lower, 2)
+  expect_equal(res9$q2_ci_upper, 8)
+})
+
+test_that(".order_statistic_quartile_ci widens when the departments differ", {
+  # Same pooled figure and same median, the departments' spread differing:
+  # the interval runs between order statistics, so a wider spread of the
+  # departments' rates widens it.
+  exposure <- rep(1000, 30)
+  even <- rep(100, 30)
+  spread <- round(seq(20, 180, length.out = 30))
+  expect_equal(sum(spread), sum(even))
+  res_even <- neoipcr:::.order_statistic_quartile_ci(even, exposure)
+  res_spread <- neoipcr:::.order_statistic_quartile_ci(spread, exposure)
+  expect_equal(res_even$q2_ci_lower, res_even$q2_ci_upper)
+  expect_true((res_spread$q2_ci_upper - res_spread$q2_ci_lower) >
+                (res_even$q2_ci_upper - res_even$q2_ci_lower))
+  expect_true((res_spread$q1_ci_upper - res_spread$q1_ci_lower) >
+                (res_even$q1_ci_upper - res_even$q1_ci_lower))
+})
+
+test_that(".order_statistic_quartile_ci reports the Q1 of 0 with the interval [0, 0] and its note", {
+  # Eight zero departments of 15: as many as Q1's upper rank, so the printed
+  # Q1 is 0 with the interval [0, 0] and the note counts the zeros.
+  events <- c(rep(0, 8), rep(50, 7))
+  res <- neoipcr:::.order_statistic_quartile_ci(events, rep(1000, 15))
+  expect_equal(res$q1_ci_lower, NA_real_)
+  expect_true(res$q1_ci_lower_open)
+  expect_equal(res$q1_ci_upper, 0)
+  expect_true(res$q1_zero_note)
+  expect_equal(res$zero_departments, 8L)
+  expect_equal(res$entering_departments, 15L)
+
+  # Seven zeros: x(8) is a positive rate, so the interval is not [0, 0] and
+  # the note does not apply even though the Q1 is 0.
+  events7 <- c(rep(0, 7), rep(50, 8))
+  res7 <- neoipcr:::.order_statistic_quartile_ci(events7, rep(1000, 15))
+  expect_equal(res7$q1_ci_upper, 50 / 1000)
+  expect_false(res7$q1_zero_note)
+  expect_equal(res7$zero_departments, 7L)
+})
+
+test_that(".order_statistic_quartile_ci scales by the multiplier", {
+  # Nine departments: the median's interval [x(2), x(8)], on rates
+  # events / exposure * multiplier.
+  res <- neoipcr:::.order_statistic_quartile_ci(seq(2, 18, by = 2),
+                                                 rep(1000, 9), multiplier = 1000)
+  expect_equal(res$q2_ci_lower, 4)
+  expect_equal(res$q2_ci_upper, 16)
+})
+
+test_that(".order_statistic_quartile_ci drops NA pairs", {
+  # Thirteen departments enter and the ranks follow n = 13: Q1's lower limit
+  # rests on the lowest rank and stays open, its upper limit is x(7) because
+  # P(B <= 6) = 0.9757 already clears the 97.5% bound.
+  events <- c(1:13, NA, NA)
+  res_na <- neoipcr:::.order_statistic_quartile_ci(events, rep(1, 15))
+  expect_equal(res_na$entering_departments, 13L)
+  expect_true(res_na$q1_ci_lower_open)
+  expect_equal(res_na$q1_ci_upper, 7)
+})
+
+test_that(".order_statistic_quartile_ci validates its inputs", {
+  expect_error(neoipcr:::.order_statistic_quartile_ci(c(-1, 5), c(100, 100)))
+  expect_error(neoipcr:::.order_statistic_quartile_ci(c(5, 5), c(0, 100)))
+  expect_error(neoipcr:::.order_statistic_quartile_ci(c(5, 5), c(100)))
+})
+
+# --- .gamma_rate_ci() ---------------------------------------------------------
+
+test_that(".gamma_rate_ci equals the exact Poisson interval on whole counts", {
+  # Fay and Feuer's interval at a design effect of 1 is the exact (Garwood)
+  # Poisson interval, which stats::poisson.test() computes.
+  pt <- stats::poisson.test(47, T = 28904, conf.level = 0.95)
+  ci <- neoipcr:::.gamma_rate_ci(47, 28904, multiplier = 1000)
+  expect_equal(ci$rate, 47 / 28904 * 1000)
+  expect_equal(ci$lower, pt$conf.int[1] * 1000)
+  expect_equal(ci$upper, pt$conf.int[2] * 1000)
+})
+
+test_that(".gamma_rate_ci takes fractional effective counts", {
+  # The effective counts are the counts divided by a design effect and are
+  # almost never whole; poisson.test() refuses them, qgamma() does not.
+  expect_error(stats::poisson.test(2.5, T = 10))
+  ci <- neoipcr:::.gamma_rate_ci(47 / 2.5, 28904 / 2.5, multiplier = 1000)
+  expect_true(is.finite(ci$lower) && is.finite(ci$upper))
+  whole <- neoipcr:::.gamma_rate_ci(47, 28904, multiplier = 1000)
+  expect_equal(ci$rate, whole$rate)
+  expect_true(ci$lower < whole$lower && ci$upper > whole$upper)
+
+  ci_zero <- neoipcr:::.gamma_rate_ci(0.4, 500, multiplier = 100)
+  expect_true(ci_zero$lower >= 0 && ci_zero$upper > ci_zero$rate)
+})
+
+test_that(".gamma_rate_ci handles zero events", {
+  ci <- neoipcr:::.gamma_rate_ci(0, 5000, multiplier = 1000)
+  expect_equal(ci$rate, 0)
+  expect_equal(ci$lower, 0)
+  expect_equal(ci$upper, stats::qgamma(0.975, shape = 1) / 5000 * 1000)
+})
+
+test_that(".gamma_rate_ci validates its inputs", {
+  expect_error(neoipcr:::.gamma_rate_ci(-1, 100))
+  expect_error(neoipcr:::.gamma_rate_ci(5, 0))
+  expect_error(neoipcr:::.gamma_rate_ci(5, -10))
+})
+
+# --- .clopper_pearson_ci() -----------------------------------------------------
+
+test_that(".clopper_pearson_ci equals the exact binomial interval on whole counts", {
+  bt <- stats::binom.test(12, 40, conf.level = 0.95)$conf.int
+  ci <- neoipcr:::.clopper_pearson_ci(12, 40, scale = 100)
+  expect_equal(ci$proportion, 12 / 40 * 100)
+  expect_equal(ci$lower, bt[1] * 100)
+  expect_equal(ci$upper, bt[2] * 100)
+})
+
+test_that(".clopper_pearson_ci takes fractional effective counts", {
+  ci <- neoipcr:::.clopper_pearson_ci(12 / 2.5, 40 / 2.5, scale = 1)
+  expect_true(is.finite(ci$lower) && is.finite(ci$upper))
+  expect_true(ci$lower < 12 / 40 && ci$upper > 12 / 40)
+})
+
+test_that(".clopper_pearson_ci keeps a share inside its bounds", {
+  lo <- neoipcr:::.clopper_pearson_ci(0, 50, scale = 100)
+  expect_equal(lo$lower, 0)
+  expect_true(lo$upper > 0 && lo$upper <= 100)
+  hi <- neoipcr:::.clopper_pearson_ci(50, 50, scale = 100)
+  expect_equal(hi$upper, 100)
+  expect_true(hi$lower < 100)
+  # Where the exact Poisson rate interval on the same counts would pass the
+  # whole, the share's interval stops at it.
+  expect_gt(neoipcr:::.gamma_rate_ci(50, 50, multiplier = 100)$upper, 100)
+  expect_lte(hi$upper, 100)
+})
+
+test_that(".clopper_pearson_ci validates its inputs", {
+  expect_error(neoipcr:::.clopper_pearson_ci(30, 20))
+  expect_error(neoipcr:::.clopper_pearson_ci(-1, 10))
+  expect_error(neoipcr:::.clopper_pearson_ci(5, 0))
+})
+
+# --- .design_effect(): the seven steps ------------------------------------------
+
+# The matrix form of the API design's steps 3 to 5, written as the matrices
+# they describe, for the closed form to be checked against.
+matrix_design_effect <- function(y, w, family = c("poisson", "binomial")) {
+  family <- match.arg(family)
+  G <- length(y)
+  S <- sum(w)
+  Y <- sum(y)
+  R <- Y / S
+  b <- if (family == "poisson") R else R * (1 - R)
+  tau2 <- max(0, (sum(w * (y / w - R)^2) - (G - 1) * b) / (S - sum(w^2) / S))
+  phi <- b / w + tau2
+  H <- matrix(w / S, nrow = G, ncol = G, byrow = TRUE)
+  A <- diag(G) - H
+  M <- A %*% diag(phi, G) %*% t(A)
+  MiM <- diag(M)
+  v <- sum((y - R * w)^2 * (phi / MiM)) / S^2
+  cc <- (w^2 * phi) / (MiM * S^2)
+  P <- diag(sqrt(phi), G) %*% t(A) %*% diag(cc, G) %*% A %*% diag(sqrt(phi), G)
+  df <- sum(diag(P))^2 / sum(diag(P %*% P))
+  t975 <- stats::qt(0.975, df = df)
+  d <- if (family == "poisson") {
+    max(1, v * S^2 / Y) * (t975 / stats::qnorm(0.975))^2
+  } else {
+    max(1, v * S / (R * (1 - R))) * (t975 / stats::qnorm(0.975))^2
+  }
+  list(effect = d, df = df, variance = v, tau2 = tau2)
+}
+
+test_that(".design_effect matches the matrix form on Poisson clusters", {
+  y <- c(5, 0, 12, 3, 8, 20)
+  w <- c(1000, 800, 1200, 600, 900, 1500)
+  expected <- matrix_design_effect(y, w, "poisson")
+  got <- neoipcr:::.design_effect(y, w, family = "poisson")
+  expect_equal(got$status, "ok")
+  expect_equal(got$tau2, expected$tau2)
+  expect_equal(got$variance, expected$variance)
+  expect_equal(got$df, expected$df)
+  expect_equal(got$effect, expected$effect)
+})
+
+test_that(".design_effect matches the matrix form on binomial clusters", {
+  y <- c(15, 8, 22, 5, 18, 30)
+  w <- c(20, 10, 25, 8, 20, 35)
+  expected <- matrix_design_effect(y, w, "binomial")
+  got <- neoipcr:::.design_effect(y, w, family = "binomial")
+  expect_equal(got$status, "ok")
+  expect_equal(got$tau2, expected$tau2)
+  expect_equal(got$variance, expected$variance)
+  expect_equal(got$df, expected$df)
+  expect_equal(got$effect, expected$effect)
+})
+
+test_that(".design_effect is at least 1 and widens with the clustering", {
+  w <- rep(1000, 10)
+  unclustered <- neoipcr:::.design_effect(rep(10, 10), w, "poisson")
+  clustered <- neoipcr:::.design_effect(c(0, 50, 0, 50, 0, 50, 0, 50, 0, 50), w,
+                                        "poisson")
+  expect_gte(unclustered$effect, 1)
+  expect_gte(clustered$effect, 1)
+  expect_gt(clustered$effect, unclustered$effect)
+
+  # The design effect never below 1 leaves the gamma interval never narrower
+  # than the exact Poisson interval on the summed counts.
+  ci_exact <- neoipcr:::.gamma_rate_ci(100, 10000, multiplier = 1000)
+  ci_de <- neoipcr:::.gamma_rate_ci(100 / clustered$effect, 10000 / clustered$effect,
+                                    multiplier = 1000)
+  expect_lte(ci_exact$upper - ci_exact$lower, ci_de$upper - ci_de$lower)
+})
+
+test_that(".design_effect gives the degrees of freedom of equal denominators exactly", {
+  got <- neoipcr:::.design_effect(c(3, 5), c(100, 100), "poisson")
+  expect_equal(round(got$df, 6), 1)  # G - 1 in exact arithmetic
+})
+
+test_that(".design_effect reports the figures that leave no variance to estimate from", {
+  expect_equal(neoipcr:::.design_effect(c(0, 0, 0), c(100, 200, 150), "poisson")$status,
+               "zero_events")
+  expect_equal(neoipcr:::.design_effect(c(20, 20), c(20, 20), "binomial")$status,
+               "full_share")
+  expect_equal(neoipcr:::.design_effect(c(30, 25), c(20, 20), "binomial")$status,
+               "share_exceeded")
+  expect_equal(neoipcr:::.design_effect(7, 100, "poisson")$status, "few_clusters")
+  expect_equal(neoipcr:::.design_effect(c(0, 0), c(20, 20), "binomial")$status,
+               "zero_events")
+  expect_true(is.na(neoipcr:::.design_effect(c(0, 0), c(100, 200), "poisson")$effect))
+})
+
+# --- .design_effect_mean() -------------------------------------------------------
+
+test_that(".design_effect_mean rests on 1 when both variances are 0", {
+  # Every exposed patient the same days: the CR2 variance and the variance
+  # with the patients as clusters are both 0, and the design effect is 1.
+  clusters <- list(rep(7, 5), rep(7, 6), rep(7, 4))
+  got <- neoipcr:::.design_effect_mean(clusters)
+  expect_equal(got$effect, 1)
+})
+
+test_that(".design_effect_mean exceeds 1 when the departments' means differ", {
+  set.seed(1)
+  low <- stats::rgamma(10, shape = 2, rate = 0.5)
+  high <- stats::rgamma(10, shape = 2, rate = 0.15)
+  got <- neoipcr:::.design_effect_mean(list(low, high))
+  expect_gt(got$effect, 1)
+  # Two clusters give one degree of freedom in exact arithmetic.
+  expect_gt(got$df, 0.999)
+  expect_equal(neoipcr:::.design_effect_mean(list(low))$status, "few_clusters")
+})
+
+test_that(".design_effect_mean is unbounded when the days are equal within departments", {
+  # Two patients of two days each, equal within a department but differing
+  # between them: the variance with the patients as clusters is 0 while the
+  # CR2 variance is not, and no finite design effect bounds the widening.
+  got <- neoipcr:::.design_effect_mean(list(c(2, 2), c(5, 5)))
+  expect_true(is.infinite(got$effect))
+})
+
+test_that(".design_effect_mean validates its clusters", {
+  expect_error(neoipcr:::.design_effect_mean(list(c(1, NA), c(2, 3))))
+  expect_error(neoipcr:::.design_effect_mean(list(numeric(0), c(1, 2))))
+  expect_error(neoipcr:::.design_effect_mean(c(1, 2, 3)))
+})
+
+test_that("both engines read the all-zero state alike", {
+  # The same status vocabulary for the same degenerate input: no events, and
+  # nothing for the design effect to estimate.
+  expect_equal(
+    neoipcr:::.design_effect(c(0, 0, 0), c(3, 3, 3), "poisson")$status,
+    "zero_events")
+  expect_equal(
+    neoipcr:::.design_effect_mean(list(c(0, 0, 0), c(0, 0, 0)))$status,
+    "zero_events")
+})
+
+test_that("the engines refuse a result the traces leave without a value", {
+  # Denominators small enough for the working variance to overflow leave the
+  # traces NaN; that is not an estimated design effect.
+  got <- neoipcr:::.design_effect(c(1, 1), c(1e-200, 1e-200), "poisson")
+  expect_equal(got$status, "not_estimable")
+  expect_true(is.na(got$effect))
+  expect_true(is.na(got$df))
+})
+
+# --- .kish_effective_number() -----------------------------------------------------
+
+test_that(".kish_effective_number is the squared sum over the sum of squares", {
+  expect_equal(neoipcr:::.kish_effective_number(c(10, 20, 30)),
+               (10 + 20 + 30)^2 / (10^2 + 20^2 + 30^2))
+  # One infant is one effective infant however long its stay.
+  expect_equal(neoipcr:::.kish_effective_number(250), 1)
+  # Equal stays give the headcount.
+  expect_equal(neoipcr:::.kish_effective_number(rep(40, 12)), 12)
+  expect_error(neoipcr:::.kish_effective_number(c(10, -1)))
+  expect_error(neoipcr:::.kish_effective_number(c(0, 0)))
+})
+
+# --- the department figure's choice of design effect ------------------------------
+
+test_that(".department_design_effect keeps a design effect of 1 for a share of patients", {
+  got <- neoipcr:::.department_design_effect(
+    own = list(effect = 9, df = 4), network = 25, has_reference = TRUE,
+    counts_patients_once = TRUE)
+  expect_equal(got$effect, 1)
+  expect_equal(got$source, "patients_once")
+  expect_equal(got$df, NA_real_)
+})
+
+test_that(".department_design_effect keeps its own when the degrees of freedom carry", {
+  own <- list(effect = 7.5, df = 12.4)
+  got <- neoipcr:::.department_design_effect(
+    own = own, network = 25, has_reference = TRUE)
+  expect_equal(got$effect, 7.5)
+  expect_equal(got$source, "own")
+  # With a reference or without, 8 or more degrees of freedom keep their own.
+  got_no_ref <- neoipcr:::.department_design_effect(
+    own = own, network = NULL, has_reference = FALSE, counts_days = TRUE,
+    denominator = 1000, kish = 400)
+  expect_equal(got_no_ref$effect, 7.5)
+})
+
+test_that(".department_design_effect declines an own design effect it cannot read", {
+  # A degenerate engine result carries NA effect and degrees of freedom: it
+  # is not a design effect of its own, and the figure takes the network's.
+  got <- neoipcr:::.department_design_effect(
+    own = list(effect = NA_real_, df = NA_real_), network = 3,
+    has_reference = TRUE)
+  expect_equal(got$effect, 3)
+  expect_equal(got$source, "network")
+})
+
+test_that("the degrees-of-freedom flag tests the figure's own degrees of freedom", {
+  # The API design's §13.1.2: a department's figure whose own design effect
+  # rests below 8 degrees of freedom carries the flag even where the figure
+  # then takes the network's or the fallback design effect, so the ladder
+  # hands the own degrees of freedom along with its choice.
+  with_network <- neoipcr:::.department_design_effect(
+    own = list(effect = 42, df = 4), network = 25, has_reference = TRUE,
+    counts_days = TRUE, denominator = 1000, kish = 2.6)
+  expect_equal(with_network$source, "network")
+  expect_equal(with_network$own_df, 4)
+  expect_true(neoipcr:::.figure_flags(df = with_network$own_df)$df_low)
+
+  kept_own <- neoipcr:::.department_design_effect(
+    own = list(effect = 7.5, df = 12.4), network = 25, has_reference = TRUE)
+  expect_equal(kept_own$source, "own")
+  expect_equal(kept_own$own_df, 12.4)
+  expect_false(neoipcr:::.figure_flags(df = kept_own$own_df)$df_low)
+
+  # Where the figure has no design effect of its own there is nothing for
+  # the flag to test.
+  no_own <- neoipcr:::.department_design_effect(
+    own = NULL, network = 25, has_reference = TRUE)
+  expect_true(is.na(no_own$own_df))
+})
+
+test_that(".department_design_effect takes the network's where its own leaves too little", {
+  # A 0, a share of 100%, a figure from a single patient and a figure below 8
+  # degrees of freedom take the network's design effect where a reference
+  # stores one.
+  for (case in list(
+    list(own = NULL, is_zero = TRUE),
+    list(own = NULL, is_full_share = TRUE),
+    list(own = NULL, is_zero = FALSE, n_patients = 1),
+    list(own = list(effect = 42, df = 1), is_zero = FALSE))) {
+    got <- do.call(neoipcr:::.department_design_effect, c(
+      case, list(network = 25, has_reference = TRUE, counts_days = TRUE,
+                 denominator = 1000, kish = 2.6)))
+    expect_equal(got$effect, 25)
+    expect_equal(got$source, "network")
+  }
+})
+
+test_that(".department_design_effect falls back without a reference by the row's kind", {
+  # A 0 of a row that counts days takes Kish's effective number of the
+  # department's patients: S / kish.
+  kish <- (500 + 300 + 200)^2 / (500^2 + 300^2 + 200^2)
+  days <- neoipcr:::.department_design_effect(
+    own = NULL, network = NULL, has_reference = FALSE, counts_days = TRUE,
+    is_zero = TRUE, denominator = 1000, kish = kish)
+  expect_equal(days$effect, 1000 / kish)
+  expect_equal(days$source, "fallback")
+
+  # A 0 of a row that does not count days counts its events as independent.
+  other <- neoipcr:::.department_design_effect(
+    own = NULL, network = NULL, has_reference = FALSE, counts_days = FALSE,
+    is_zero = TRUE, denominator = 800, n_patients = 4)
+  expect_equal(other$effect, 1)
+  expect_equal(other$source, "fallback")
+
+  # The mean days per exposed patient and the operations per patient operated
+  # on take an effective count equal to their number of patients, 1 for one.
+  mean_days <- neoipcr:::.department_design_effect(
+    own = NULL, network = NULL, has_reference = FALSE,
+    effective_count_patients = TRUE, is_zero = FALSE,
+    numerator = 260, n_patients = 8)
+  expect_equal(mean_days$effect, 260 / 8)
+  single <- neoipcr:::.department_design_effect(
+    own = NULL, network = NULL, has_reference = FALSE,
+    effective_count_patients = TRUE, is_zero = FALSE,
+    numerator = 45, n_patients = 1)
+  expect_equal(single$effect, 45)
+})
+
+test_that(".department_design_effect takes the larger of fallback and own without a reference", {
+  # The API design's §13.1.4 item 4: without a reference, a figure of 2 or
+  # more patients with a design effect of its own takes the larger of that
+  # fallback and its own.
+  kish <- (500 + 300 + 200)^2 / (500^2 + 300^2 + 200^2)
+  fallback_larger <- neoipcr:::.department_design_effect(
+    own = list(effect = 50, df = 2.3), network = NULL, has_reference = FALSE,
+    counts_days = TRUE, denominator = 1000, kish = kish, n_patients = 3)
+  expect_equal(fallback_larger$effect, 1000 / kish)
+  expect_equal(fallback_larger$source, "fallback")
+
+  own_larger <- neoipcr:::.department_design_effect(
+    own = list(effect = 4000, df = 2.3), network = NULL, has_reference = FALSE,
+    counts_days = TRUE, denominator = 1000, kish = kish, n_patients = 3)
+  expect_equal(own_larger$effect, 4000)
+  expect_equal(own_larger$source, "own")
+})
+
+# --- the flags -------------------------------------------------------------------
+
+test_that(".figure_flags marks the effective value below 16, never at 16", {
+  expect_true(neoipcr:::.figure_flags(effective_value = 15.999)$sparse_data)
+  expect_false(neoipcr:::.figure_flags(effective_value = 16)$sparse_data)
+  expect_true(neoipcr:::.figure_flags(effective_value = 0)$sparse_data)
+  # The threshold is configurable; 16 is its default.
+  expect_false(neoipcr:::.figure_flags(effective_value = 15.999, threshold = 10)$sparse_data)
+})
+
+test_that(".figure_flags marks the degrees of freedom below 8 after rounding", {
+  expect_true(neoipcr:::.figure_flags(df = 7.9999991)$df_low)
+  # Equal denominators give G - 1 only in exact arithmetic: a 7.9999996
+  # rounds to 8 at six places and is not marked, while a 7.9999991 rounds
+  # to 7.999999 and is.
+  expect_false(neoipcr:::.figure_flags(df = 7.9999996)$df_low)
+  expect_false(neoipcr:::.figure_flags(df = 8)$df_low)
+  expect_false(neoipcr:::.figure_flags(df = NA_real_)$df_low)
+})
+
+test_that(".figure_flags marks a figure from fewer than 9 patients", {
+  expect_true(neoipcr:::.figure_flags(n_patients = 8)$few_patients)
+  expect_false(neoipcr:::.figure_flags(n_patients = 9)$few_patients)
+  # A share whose denominator counts the patients once carries the flag on
+  # its effective denominator alone.
+  expect_false(neoipcr:::.figure_flags(effective_value = 5, n_patients = 5,
+                                       counts_patients_once = TRUE)$few_patients)
+  expect_error(neoipcr:::.figure_flags(n_patients = NA_real_))
+})
+
+test_that(".figure_flags always marks a figure without an interval", {
+  # A pooled 0, a pooled share of 100%, a pooled figure from fewer than 2
+  # departments and a share whose days exceed its denominator.
+  expect_true(neoipcr:::.figure_flags(no_interval = TRUE)$sparse_data)
+  expect_true(neoipcr:::.figure_flags(no_interval = TRUE,
+                                      effective_value = 500)$sparse_data)
+})
+
+# --- the lower limit's cut ---------------------------------------------------------
+
+test_that(".cut_ci_lower never lets a lower limit below the measure's minimum", {
+  expect_equal(neoipcr:::.cut_ci_lower(c(0.4, 1.5, 0), 1), c(1, 1.5, 1))
+  expect_equal(neoipcr:::.cut_ci_lower(c(97.2, 100), 100), c(100, 100))
+  expect_equal(neoipcr:::.cut_ci_lower(c(0, 3), 0), c(0, 3))
+  expect_equal(neoipcr:::.cut_ci_lower(NA_real_, 1), NA_real_)
+})
+
+test_that(".measure_minimum knows the measures whose minimum is not 0", {
+  expect_equal(neoipcr:::.measure_minimum("rate"), 0)
+  expect_equal(neoipcr:::.measure_minimum("operations_per_patient"), 1)
+  expect_equal(neoipcr:::.measure_minimum("mean_days_exposed"), 1)
+  expect_equal(neoipcr:::.measure_minimum("agents_per_infection"), 100)
+  expect_error(neoipcr:::.measure_minimum("share"))
+})
+
+# --- determinism, speed, and the shared invariants ------------------------------------
+
+test_that("the interval machinery is deterministic and leaves the RNG alone", {
+  set.seed(999)
+  expected <- stats::runif(1)
+  set.seed(999)
+  args <- list(y = c(5, 0, 12, 3, 8, 20), w = c(1000, 800, 1200, 600, 900, 1500))
+  first <- do.call(neoipcr:::.design_effect, c(args, list(family = "poisson")))
+  second <- do.call(neoipcr:::.design_effect, c(args, list(family = "poisson")))
+  quartiles <- neoipcr:::.order_statistic_quartile_ci(args$y, args$w, multiplier = 1000)
+  expect_equal(first, second)
+  expect_equal(quartiles,
+               neoipcr:::.order_statistic_quartile_ci(args$y, args$w, multiplier = 1000))
+  actual <- stats::runif(1)
+  expect_equal(actual, expected)
+})
+
+test_that("the interval machinery never consumes the RNG", {
+  # The intervals are closed-form, and the API design's per-row budget
+  # follows from that: a regression into resampling would consume the RNG,
+  # which this catches on any machine at any load, unlike a timed bound.
+  set.seed(999)
+  expected <- stats::runif(3)
+  set.seed(999)
+  w30 <- rep(c(800, 950, 1100, 1300), length.out = 30)
+  y30 <- seq(2, 31)
+  neoipcr:::.gamma_rate_ci(37, 12345, multiplier = 1000)
+  neoipcr:::.clopper_pearson_ci(12, 40, scale = 100)
+  neoipcr:::.order_statistic_quartile_ci(y30, w30, multiplier = 1000)
+  neoipcr:::.design_effect(y30, w30, "poisson")
+  neoipcr:::.design_effect_mean(split(y30, rep(1:6, each = 5)))
+  neoipcr:::.kish_effective_number(y30)
+  expect_equal(stats::runif(3), expected)
+})
+
+test_that(".design_effect's closed form matches the matrix form at 30 clusters", {
+  w30 <- rep(c(800, 950, 1100, 1300), length.out = 30)
+  y30 <- seq(2, 31)
+  expected <- matrix_design_effect(y30, w30, "poisson")
+  got <- neoipcr:::.design_effect(y30, w30, family = "poisson")
+  expect_equal(got$tau2, expected$tau2)
+  expect_equal(got$variance, expected$variance)
+  expect_equal(got$df, expected$df)
+  expect_equal(got$effect, expected$effect)
+})
+
+test_that("an interval is never empty and a share stays inside its bounds", {
+  y <- c(5, 0, 12, 3, 8, 20)
+  w <- c(1000, 800, 1200, 600, 900, 1500)
+  de <- neoipcr:::.design_effect(y, w, "poisson")
+  ci <- neoipcr:::.gamma_rate_ci(sum(y) / de$effect, sum(w) / de$effect,
+                                 multiplier = 1000)
+  expect_lte(ci$lower, ci$rate)
+  expect_gte(ci$upper, ci$rate)
+
+  ys <- c(15, 8, 22, 5, 18, 30)
+  ws <- c(20, 10, 25, 8, 20, 35)
+  de_s <- neoipcr:::.design_effect(ys, ws, "binomial")
+  ci_s <- neoipcr:::.clopper_pearson_ci(sum(ys) / de_s$effect, sum(ws) / de_s$effect,
+                                        scale = 100)
+  expect_gte(ci_s$lower, 0)
+  expect_lte(ci_s$upper, 100)
+})
