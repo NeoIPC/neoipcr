@@ -655,12 +655,26 @@ test_that(".design_effect_mean exceeds 1 when the departments' means differ", {
   expect_equal(neoipcr:::.design_effect_mean(list(low))$status, "few_clusters")
 })
 
-test_that(".design_effect_mean is unbounded when the days are equal within departments", {
-  # Two patients of two days each, equal within a department but differing
-  # between them: the variance with the patients as clusters is 0 while the
-  # CR2 variance is not, and no finite design effect bounds the widening.
+test_that(".design_effect_mean divides the CR2 variance by the patients' variance when the days are equal within departments", {
+  # Two patients of two days each, two of five: the CR2 variance of the
+  # pooled mean is 2.25, the variance with the patients as clusters is the
+  # days' variance over their number, 3 / 4, and equal denominators leave
+  # one degree of freedom - the seven steps' closed form by hand.
   got <- neoipcr:::.design_effect_mean(list(c(2, 2), c(5, 5)))
-  expect_true(is.infinite(got$effect))
+  expect_equal(got$variance, 2.25)
+  expect_equal(got$df, 1)
+  expect_equal(got$effect, 3 * (stats::qt(0.975, df = 1) / stats::qnorm(0.975))^2)
+})
+
+test_that(".design_effect_mean's baseline is the whole days' variance, not the within-department one", {
+  # Days differing within each department too, of c(1, 3) and c(5, 7): the
+  # CR2 variance is 4 and the variance with the patients as clusters is
+  # (9 + 1 + 1 + 9) / 3 / 4, the whole variance of the days, while the
+  # within-department variance 2 only feeds the working model.
+  got <- neoipcr:::.design_effect_mean(list(c(1, 3), c(5, 7)))
+  expect_equal(got$variance, 4)
+  expect_equal(got$df, 1)
+  expect_equal(got$effect, 2.4 * (stats::qt(0.975, df = 1) / stats::qnorm(0.975))^2)
 })
 
 test_that(".design_effect_mean validates its clusters", {
@@ -711,6 +725,11 @@ test_that(".department_design_effect keeps a design effect of 1 for a share of p
   expect_equal(got$effect, 1)
   expect_equal(got$source, "patients_once")
   expect_equal(got$df, NA_real_)
+  # The share carries no degrees of freedom: §13.1.2 keeps its flag on the
+  # effective denominator alone, so the discarded design effect's own
+  # degrees of freedom must not reach the degrees-of-freedom flag.
+  expect_true(is.na(got$own_df))
+  expect_false(neoipcr:::.figure_flags(df = got$own_df)$df_low)
 })
 
 test_that(".department_design_effect keeps its own when the degrees of freedom carry", {

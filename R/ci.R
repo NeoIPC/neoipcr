@@ -583,32 +583,36 @@ bootstrap_quantile_ci <- function(events, exposure,
 #' The design effect from the CR2 core of one working variance
 #'
 #' The widening of step 6, shared by the count families and the mean: the
-#' CR2 variance over the working variance `b` of the pooled figure, at least
-#' 1 and times (t / 1.96)^2 on the Bell-McCaffrey degrees of freedom. Where
-#' both variances are 0, as when every value is equal, the effect is 1;
-#' where `b` is 0 but the CR2 variance is not, as when the values within
-#' every cluster are equal but the clusters' means differ, the effect is
-#' unbounded.
+#' CR2 variance over a baseline variance of the pooled figure, at least 1
+#' and times (t / 1.96)^2 on the Bell-McCaffrey degrees of freedom. The
+#' baseline is the Poisson or binomial variance `b / sum(w)` of a count
+#' family and, for the mean, the variance of the days over their number,
+#' which is what the CR2 variance itself gives with every patient a cluster
+#' of one value. Where both variances are 0, as when every value is equal,
+#' the effect is 1.
 #'
 #' @param y Numeric vector >= 0. Each cluster's events or totals.
 #' @param w Numeric vector > 0. Each cluster's denominator, same length.
 #' @param b Numeric scalar >= 0. The working variance parameter of the
 #'   pooled figure: cluster `i` carries `b / w[i]`.
+#' @param baseline Numeric scalar >= 0 or `NULL`. The baseline variance the
+#'   CR2 variance is taken over; `NULL` takes `b / sum(w)`.
 #' @param conf.level Numeric scalar. Default 0.95.
 #'
 #' @returns A named list: `effect`, `df`, `variance` and `tau2`.
 #'
 #' @noRd
-.cr2_effect <- function(y, w, b, conf.level = 0.95) {
+.cr2_effect <- function(y, w, b, baseline = NULL, conf.level = 0.95) {
   G <- length(y)
   S <- sum(w)
+  if (is.null(baseline)) baseline <- b / S
   core <- .cr2_core(y, w, b, S, G)
-  if (b == 0 && core$v == 0) {
+  if (baseline == 0 && core$v == 0) {
     return(list(effect = 1, df = NA_real_, variance = 0, tau2 = core$tau2))
   }
   t975 <- stats::qt(1 - (1 - conf.level) / 2, df = core$df)
   widened <- (t975 / stats::qnorm(1 - (1 - conf.level) / 2))^2
-  list(effect = max(1, core$v * S / b) * widened, df = core$df,
+  list(effect = max(1, core$v / baseline) * widened, df = core$df,
        variance = core$v, tau2 = core$tau2)
 }
 
@@ -672,11 +676,10 @@ bootstrap_quantile_ci <- function(events, exposure,
 #' variance of the pooled mean, with the departments as clusters, by its
 #' variance with the patients as clusters: the steps of [.design_effect()]
 #' with the working variance `b / n[i]` for `b` the pooled within-department
-#' variance of the days. Where both variances are 0, as when every exposed
-#' patient has the same days, the design effect is 1; where the values
-#' within every department are equal but the departments' means differ, the
-#' variance with the patients as clusters is 0 while the CR2 variance is
-#' not, and the design effect is unbounded.
+#' variance of the days, over the variance of the days over their number,
+#' which is what those steps give with each patient a cluster of one value.
+#' Where both variances are 0, as when every exposed patient has the same
+#' days, the design effect is 1.
 #'
 #' @param clusters List of numeric vectors, the values of one department
 #'   each.
@@ -704,7 +707,12 @@ bootstrap_quantile_ci <- function(events, exposure,
   M <- sum(totals) / N
   within_ss <- sum(vapply(clusters, function(x) sum((x - mean(x))^2), numeric(1)))
   b <- if (N > G) within_ss / (N - G) else 0
-  e <- .cr2_effect(totals, as.numeric(ns), b, conf.level = conf.level)
+  # With every patient a cluster of one value the CR2 variance of the days
+  # is their variance over their number, whatever the working variance:
+  # §13.1.2's variance with the patients as clusters.
+  baseline <- stats::var(unlist(clusters)) / N
+  e <- .cr2_effect(totals, as.numeric(ns), b, baseline = baseline,
+                   conf.level = conf.level)
   if (is.nan(e$effect) || is.nan(e$df) || is.nan(e$variance)) {
     return(.degenerate_effect("not_estimable"))
   }
@@ -793,8 +801,9 @@ bootstrap_quantile_ci <- function(events, exposure,
 #'   the degrees of freedom of that effect (a number only with `source`
 #'   `"own"`, `NA` otherwise); `own_df`, the degrees of freedom of the
 #'   figure's own design effect as given, which the flag of §13.1.2 tests
-#'   whatever effect the figure takes; and `source` (`"own"`, `"network"`,
-#'   `"fallback"` or `"patients_once"`).
+#'   whatever effect the figure takes save a share of patients, which keeps
+#'   the flag on its effective denominator alone and so carries `NA` here;
+#'   and `source` (`"own"`, `"network"`, `"fallback"` or `"patients_once"`).
 #'
 #' @noRd
 .department_design_effect <- function(own = NULL,
@@ -809,11 +818,15 @@ bootstrap_quantile_ci <- function(events, exposure,
                                       numerator = 0,
                                       n_patients = 0,
                                       kish = NULL) {
-  own_df <- if (!is.null(own)) own$df else NA_real_
   if (counts_patients_once) {
-    return(list(effect = 1, df = NA_real_, own_df = own_df,
+    # The share's patients are its clusters, each a 0 or a 1: it carries no
+    # degrees of freedom, and §13.1.2 keeps its flag on the effective
+    # denominator alone - no own degrees of freedom, had one come with it,
+    # reach the flag here.
+    return(list(effect = 1, df = NA_real_, own_df = NA_real_,
                 source = "patients_once"))
   }
+  own_df <- if (!is.null(own)) own$df else NA_real_
   own_ok <- !is.null(own) && !is_zero && !is_full_share &&
     !is.na(own$effect) && !is.na(own$df)
   if (own_ok && !.df_below8(own$df)) {
