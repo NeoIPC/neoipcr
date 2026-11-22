@@ -38,7 +38,7 @@ denominator; \code{pooled}, the rate per 100, \code{NA} without a denominator;
 \code{ci_lower} and \code{ci_upper}, its interval; with \code{include_quartiles}, the
 departments' quartiles \code{q1}, \code{q2}, and \code{q3}, their bootstrap intervals
 \code{q1_ci_lower} to \code{q3_ci_upper}, and \code{quartile_departments}, the number of
-departments that enter them; \code{n_outside_tree}, on the Total only; and, for
+departments that enter them; \code{n_total_only}, on the Total only; and, for
 each infection type (\code{bsi}, \code{hap}, \code{nec}, and \code{ssi}), \verb{n_<type>},
 \verb{total_<type>}, \verb{pooled_<type>}, \verb{ci_lower_<type>}, and \verb{ci_upper_<type>}.
 }
@@ -57,7 +57,7 @@ stands for, count as one infectious agent.
 The first row, the Total, gives the infectious agents per 100 confirmed
 infections, "Not listed", "Unidentifiable", and the codes the
 infectious-agent list lacks included, with an exact Poisson interval;
-\code{n_outside_tree} gives how many of them have no other row. Every other row
+\code{n_total_only} gives how many of them no row counts. Every other row
 gives the share of the confirmed infections with an infectious agent in the
 tree in which an infectious agent at or beneath the row's node was found,
 with a Wilson interval. An infection counts once in each row, so a parent's

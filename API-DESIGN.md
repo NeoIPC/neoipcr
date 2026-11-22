@@ -1545,7 +1545,10 @@ the mean surveillance time per admission, which replaces today's average surveil
 per-class report only where at least 3 departments contribute patient records and its division's joint rule lets it
 (§13.11.2); the overall Reference Report also prints the departments' quartiles of patient records and of patient-days,
 which no report prints today, and the number of patient records without a recorded birth weight. None of them has an
-interval or flag, and no report prints `pooled_mean`.
+interval or flag, and no report prints `pooled_mean`. A reference dataset's `n_patient_days` also gives
+`quartile_departments`, its departments with at least 50 patient-days, which enter at 0 a row of the density of
+infections with resistant infectious agents in which none of them has a detection, so that `get_benchmark_data()` gives
+such a row, which the reference lacks, the departments that enter its quartiles (§13.8.5).
 
 | Measure | Counted | Over | Scale | Interval | Flag | Quartiles |
 | --- | --- | --- | --- | --- | --- | --- |

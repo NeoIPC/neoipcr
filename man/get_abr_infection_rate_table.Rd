@@ -39,7 +39,7 @@ top-level row; \code{group}, the row's label; \code{n}, the infections counted;
 \code{include_quartiles}, the departments' quartiles \code{q1}, \code{q2}, and \code{q3},
 their bootstrap intervals \code{q1_ci_lower} to \code{q3_ci_upper}, and
 \code{quartile_departments}, the number of departments that enter them; and
-\code{n_outside_tree}, on a Total only.
+\code{n_total_only}, on a Total only.
 }
 \description{
 For each resistance category, third-generation cephalosporin resistance
@@ -56,19 +56,23 @@ it. A block has each such row that lies at or above an infectious agent
 found to which the list applies the category or that has a result for
 it, so that whether a row is there depends only on the infectious agents
 at or beneath it. An infection counts once in each row, so a parent's
-density need not be the sum of its children's. The patient-days are all
-those of the dataset, as the incidence densities count them.
+density need not be the sum of its children's. The patient-days are those
+of the departments a row describes (below), as the incidence densities
+count them.
 }
 \details{
 The infectious agents are those that
 \code{\link[=get_infectious_agent_detection_rate_per_agent_table]{get_infectious_agent_detection_rate_per_agent_table()}} counts, each once
 per infection and only in a slot the form asks for, and one is resistant
 where a slot naming it records it resistant. "Not listed",
-"Unidentifiable", and a code the list lacks count in a Total only, and
-\code{n_outside_tree} gives how many of them are recorded resistant. A value
+"Unidentifiable", and a code the list lacks count in a Total only. A value
 recorded for a category that the list does not apply to its infectious
 agent counts as any other, in the Total and in the block's rows at or
-above the infectious agent's node, which it gives the block.
+above the infectious agent's node, which it gives the block; on a fungus,
+beneath no row of a block whose category the list applies to bacteria
+alone, it counts in the Total only. \code{n_total_only} gives a Total's
+infections that no row of its block counts, so that it never exceeds the
+Total.
 
 Over the reporting groups (\code{rows = "groups"}), the rows of a block below
 its Total are a summary block of the bacteria by Gram reaction and by
@@ -87,11 +91,16 @@ or not the block has a row beneath the node. Each row's children follow
 it, siblings by their density, descending.
 
 A department enters a row's quartiles with at least 50 patient-days, at 0
-where it has none of the row's infections, unless the list applies the
-category to infectious agents it detected and none of them has a result
-for it, as \code{\link[=get_resistance_test_rate_table]{get_resistance_test_rate_table()}} counts them: its 0 would
-dilute the quartiles. A row shows its quartiles where at least 5
-departments enter and their median patient-days exceed the patient-days in
-which the pooled density gives 1 infection; the bootstrap of their
-intervals takes the same departments.
+where it has none of the row's infections, unless it detected infectious
+agents of the row's node to which the list applies the category and none
+of them has a result for it, the row's Tested share in
+\code{\link[=get_infectious_agent_resistance_rate_table]{get_infectious_agent_resistance_rate_table()}} being 0: its 0 would dilute
+the row, so it leaves the row's pooled density, interval, and count as
+well, and the pooled and quartile figures describe the same departments. A
+Total tests all of a department's detections to which the list applies its
+category, as \code{\link[=get_resistance_test_rate_table]{get_resistance_test_rate_table()}} counts them. A department
+without such detections stays in the row or Total. A row shows its
+quartiles where at least 5 departments enter and their median patient-days
+exceed the patient-days in which the pooled density gives 1 infection; the
+bootstrap of their intervals takes the same departments.
 }

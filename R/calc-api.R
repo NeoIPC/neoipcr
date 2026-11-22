@@ -194,7 +194,9 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
           as.integer(),
         q1 = pd_q[1],
         q2 = pd_q[2],
-        q3 = pd_q[3]),
+        q3 = pd_q[3],
+        quartile_departments = sum(
+          pd_dept >= quartile_minimum_denominator[["days"]])),
       n_surgical_departments = sr$n_departments,
       n_surgical_patients = tibble::tibble(
         total = sr$n_patients,
@@ -919,7 +921,7 @@ get_benchmark_data <- function(...) {
     if ("node_id" %in% names(output[[tbl_name]]))
       output[[tbl_name]] <- .complete_infectious_agent_table(
         output[[tbl_name]], tbl_name, agent_suffixes[[tbl_name]],
-        agent_order[[tbl_name]]$rows)
+        agent_order[[tbl_name]]$rows, denominators$n_patient_days)
   # A later join may have filled in a column left empty, such as a count
   # set to 0 where a row lacked it.
   for (tbl_name in names(left_empty))
@@ -1374,7 +1376,9 @@ rate_definition_columns <- c(
 # slot `slot` and joined from the datasets whose columns carry `suffixes`,
 # completed: its rows in the order `.benchmark_row_order()` gives them by
 # `reference`, and the measures of each dataset on a row it lacks set to 0
-# events over its own denominator of the row, with the interval of 0 events.
+# events over its own denominator of the row, with the interval of 0 events;
+# `patient_days` holds each dataset's patient-days, a column `total` per
+# suffix.
 # A dataset lacks a row only where it records no infectious agent at or
 # beneath the row's node (for a residual row, at its parent's node), and in a
 # resistance category's block none to which the list applies the category or
@@ -1385,16 +1389,20 @@ rate_definition_columns <- c(
 #   1. the infectious agents detected: its infections with an infectious agent
 #      in the tree, in total and of each type, the denominator of every row
 #      but the Total, which every row's quartile departments share too;
-#   2. the infections with resistant infectious agents: its patient-days, the
-#      denominator of every row, with the quartile departments of the
-#      category's Total;
+#   2. the infections with resistant infectious agents: all its patient-days,
+#      with its departments of at least 50 patient-days entering the
+#      quartiles, both of which `patient_days` gives, since each of its
+#      departments enters the row at 0, none having a detection there that
+#      could leave it untested, while a row it holds, a Total included, can
+#      leave departments out;
 #   3. the resistance rates: none, since no infection has a result for the
 #      category in an infectious agent of the row's node, nor one to which
 #      the category applies, so that the row has neither a rate nor a Tested
 #      share, and no department enters its quartiles.
 # The quartiles of a row a dataset lacks stay empty, its pooled rate being 0
 # or missing. The Totals are in every dataset.
-.complete_infectious_agent_table <- function(tbl, slot, suffixes, reference) {
+.complete_infectious_agent_table <- function(tbl, slot, suffixes, reference,
+                                             patient_days) {
   tbl <- tbl[.benchmark_row_order(tbl, reference), ]
   for (suffix in suffixes) {
     col <- function(name) paste0(name, suffix)
@@ -1419,15 +1427,18 @@ rate_definition_columns <- c(
       if (quartile_departments %in% names(tbl))
         tbl[[quartile_departments]][lacking] <- shared("quartile_departments")
     } else if (slot %in% abr_infection_rate_table_names) {
-      tbl <- .zero_event_measures(tbl, lacking, col,
-                                  shared("total", rows = held),
-                                  1000, "poisson")
+      tbl <- .zero_event_measures(
+        tbl, lacking, col, as.integer(patient_days[[col("total")]]), 1000,
+        "poisson")
       if (quartile_departments %in% names(tbl)) {
-        category <- as.character(tbl$abr)
-        for (block in unique(category[lacking]))
-          tbl[[quartile_departments]][lacking & category == block] <-
-            shared("quartile_departments",
-                   rows = held & is.na(tbl$node_id) & category == block)
+        # NEOIPC-PERMANENT(dataset-format): never remove the `NULL` branch. A
+        # reference dataset serialized before its patient-days counted the
+        # departments that enter their quartiles has no such count, and a
+        # file on disk outlives the code that wrote it; without the branch
+        # the assignment below fails on such a dataset.
+        departments <- patient_days[[quartile_departments]]
+        tbl[[quartile_departments]][lacking] <-
+          if (is.null(departments)) NA_integer_ else as.integer(departments)
       }
     } else {
       tbl <- .zero_event_measures(tbl, lacking, col, 0L, 100, "wilson")

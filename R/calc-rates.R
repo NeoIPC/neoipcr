@@ -231,8 +231,9 @@ infectious_agent_infection_types <- c("bsi", "hap", "nec", "ssi")
 #     infection, at 0 where none of them is the row's;
 #   * `layout`: the rows, in their order, as `.infectious_agent_layout()`
 #     gives them;
-#   * `n_outside_tree`: the infectious agents counted in the Total only:
-#     "Not listed", "Unidentifiable", and the codes the list lacks.
+#   * `n_total_only`: the infectious agents counted in the Total only, no row
+#     counting them: "Not listed", "Unidentifiable", and the codes the list
+#     lacks, each once per infection.
 get_infectious_agent_detection_rates <- function(
     x, rows = c("groups", "ontology"), use_cache = TRUE) {
   rows <- rlang::arg_match(rows)
@@ -254,7 +255,7 @@ get_infectious_agent_detection_rates <- function(
   infections <- agents |>
     dplyr::summarise(
       n = dplyr::n(),
-      n_outside_tree = sum(!.data$in_tree),
+      n_total_only = sum(!.data$in_tree),
       in_tree = any(.data$in_tree),
       .by = c("event_key", "event_type_key", "department_key"))
 
@@ -294,7 +295,7 @@ get_infectious_agent_detection_rates <- function(
         .by = c("department_key", "event_type_key")),
     rows = counts,
     layout = layout,
-    n_outside_tree = sum(infections$n_outside_tree)) |>
+    n_total_only = sum(infections$n_total_only)) |>
     cache(x, cache_key)
 }
 
@@ -485,12 +486,20 @@ get_infectious_agent_detections <- function(x, use_cache = TRUE) {
 #     detection that is neither adds to no count. `resistant` and `tested`
 #     count a detection to which the category does not apply as any other,
 #     since no filter of applicability drops a value recorded for it. A
-#     department has an entry for each row with such a detection;
+#     department has an entry for each row with such a detection, and
+#     `untested` where it has detections in the row to which the list applies
+#     the category and none of them has a result, the row's Tested share then
+#     being 0, which takes the department out of the row's figures in the
+#     density of infections with resistant infectious agents;
 #   * `total`: by `abr` and `department_key`, the infections with any
 #     detection recorded resistant in the category (`resistant`), those
-#     outside the tree included, and the detections outside the tree recorded
-#     resistant ("Not listed", "Unidentifiable", and the codes the list lacks;
-#     `n_outside_tree`).
+#     outside the tree included, and those of them that no row of the block
+#     counts in that density (`n_total_only`): an infection whose resistant
+#     detections in the category all lie outside the tree ("Not listed",
+#     "Unidentifiable", and the codes the list lacks), beneath no row of the
+#     block, such as a fungus recorded resistant in a category the list
+#     applies to bacteria alone, or only in rows its department is untested
+#     in.
 get_infectious_agent_resistance_rates <- function(
     x, rows = c("groups", "ontology"), use_cache = TRUE) {
   rows <- rlang::arg_match(rows)
@@ -502,11 +511,11 @@ get_infectious_agent_resistance_rates <- function(
   detections <- get_infectious_agent_detections(x, use_cache = use_cache)
   in_tree <- detections[detections$in_tree, ]
 
-  block_rows <- function(category) {
+  block <- function(category) {
     applies <- paste0("applies_", category)
     tested <- paste0("tested_", category)
     resistant <- paste0("resistant_", category)
-    in_tree[in_tree[[applies]] | in_tree[[tested]], ] |>
+    members <- in_tree[in_tree[[applies]] | in_tree[[tested]], ] |>
       .infectious_agent_memberships(
         rows, .infectious_agent_block_nodes(category, rows)) |>
       dplyr::summarise(
@@ -514,35 +523,43 @@ get_infectious_agent_resistance_rates <- function(
         tested = any(.data[[tested]]),
         applicable = any(.data[[applies]]),
         applicable_tested = any(.data[[applies]] & .data[[tested]]),
-        .by = c("node_id", "event_key", "department_key")) |>
+        .by = c("node_id", "event_key", "department_key"))
+    counts <- members |>
       dplyr::summarise(
         resistant = sum(.data$resistant),
         tested = sum(.data$tested),
         applicable = sum(.data$applicable),
         applicable_tested = sum(.data$applicable_tested),
         .by = c("node_id", "department_key")) |>
-      dplyr::mutate(abr = category, .before = 1)
+      dplyr::mutate(
+        untested = .data$applicable > 0L & .data$applicable_tested == 0L)
+    in_a_row <- members |>
+      dplyr::filter(.data$resistant) |>
+      dplyr::semi_join(
+        counts[!counts$untested, ],
+        dplyr::join_by("node_id", "department_key")) |>
+      dplyr::pull("event_key") |>
+      unique()
+
+    list(
+      rows = dplyr::mutate(counts, abr = category, .before = 1),
+      total = detections |>
+        dplyr::summarise(
+          resistant = any(.data[[resistant]]),
+          .by = c("event_key", "department_key")) |>
+        dplyr::mutate(
+          total_only = .data$resistant & !.data$event_key %in% in_a_row) |>
+        dplyr::summarise(
+          resistant = sum(.data$resistant),
+          n_total_only = sum(.data$total_only),
+          .by = "department_key") |>
+        dplyr::mutate(abr = category, .before = 1))
   }
 
-  block_total <- function(category) {
-    resistant <- paste0("resistant_", category)
-    detections |>
-      dplyr::summarise(
-        resistant = any(.data[[resistant]]),
-        n_outside_tree = sum(.data[[resistant]] & !.data$in_tree),
-        .by = c("event_key", "department_key")) |>
-      dplyr::summarise(
-        resistant = sum(.data$resistant),
-        n_outside_tree = sum(.data$n_outside_tree),
-        .by = "department_key") |>
-      dplyr::mutate(abr = category, .before = 1)
-  }
-
+  blocks <- purrr::map(infectious_agent_resistance_categories, block)
   list(
-    rows = purrr::map(infectious_agent_resistance_categories, block_rows) |>
-      purrr::list_rbind(),
-    total = purrr::map(infectious_agent_resistance_categories, block_total) |>
-      purrr::list_rbind()) |>
+    rows = purrr::list_rbind(purrr::map(blocks, "rows")),
+    total = purrr::list_rbind(purrr::map(blocks, "total"))) |>
     cache(x, cache_key)
 }
 
@@ -1003,16 +1020,20 @@ infectious_agent_residual_suffix <- "~n.o.s."
 # `pooled` (`n / total * scale`, `NA` without a denominator), and its interval
 # `ci_lower` and `ci_upper` (Wilson for a share, exact Poisson for a rate over
 # days or a ratio); with `include_quartiles`, the departments' quartiles of
-# `.department_quartiles()`, with `denominator` the kind of `total`, which the
-# departments in `outside_quartiles` do not enter, while they stay in the
-# pooled rate; and for each type, `n_<type>`, `total_<type>`, `pooled_<type>`,
-# `ci_lower_<type>`, and `ci_upper_<type>` over the type's counts.
+# `.department_quartiles()`, with `denominator` the kind of `total`; and for
+# each type, `n_<type>`, `total_<type>`, `pooled_<type>`, `ci_lower_<type>`,
+# and `ci_upper_<type>` over the type's counts. `outside` names, by the row
+# key and `department_key`, the departments that leave a row's quartiles and
+# its pooled figures alike, so that both describe one population.
 .infectious_agent_rate_columns <- function(
     counts, keys, by, scale, interval = c("wilson", "poisson"),
     denominator = c("count", "days"), include_quartiles = FALSE,
-    types = NULL, outside_quartiles = NULL) {
+    types = NULL, outside = NULL) {
   interval <- rlang::arg_match(interval)
   denominator <- rlang::arg_match(denominator)
+  if (!is.null(outside))
+    counts <- dplyr::anti_join(counts, outside,
+                               by = c(by, "department_key"))
 
   measures <- function(d) {
     r <- keys |>
@@ -1043,7 +1064,6 @@ infectious_agent_residual_suffix <- "~n.o.s."
       dplyr::left_join(
         .department_quartiles(
           counts |>
-            dplyr::filter(!.data$department_key %in% outside_quartiles) |>
             dplyr::summarise(
               events = sum(.data$n),
               denominator = sum(.data$total),
@@ -1065,13 +1085,17 @@ infectious_agent_residual_suffix <- "~n.o.s."
   r
 }
 
+# The least denominator with which a department enters a row's quartiles, by
+# the kind of denominator: 5 of a count, 50 of a day denominator.
+quartile_minimum_denominator <- c(count = 5L, days = 50L)
+
 # The departments' quartiles of each row of a table, with their bootstrap
 # intervals: `departments` holds one row per row key (the columns `by`) and
 # department, with the department's `events` and `denominator` of the row, in
 # the order the bootstrap takes them; `pooled` the rows, with their pooled
 # rate `pooled` on the scale `scale`. A department enters a row's quartiles
-# where its denominator of the row is positive and reaches the minimum, 5 of a
-# count denominator or 50 of a day denominator (`denominator`), at a rate of 0
+# where its denominator of the row is positive and reaches the minimum
+# `quartile_minimum_denominator` gives its kind (`denominator`), at a rate of 0
 # where it has none of the row's events. A row shows its quartiles where at
 # least 5 departments enter and their median denominator exceeds the
 # denominator in which the pooled rate gives 1 event, `scale / pooled`, so
@@ -1086,7 +1110,7 @@ infectious_agent_residual_suffix <- "~n.o.s."
                                   denominator = c("count", "days")) {
   type <- rlang::arg_match(type)
   denominator <- rlang::arg_match(denominator)
-  minimum <- switch(denominator, count = 5L, days = 50L)
+  minimum <- quartile_minimum_denominator[[denominator]]
 
   entering <- departments |>
     dplyr::filter(.data$denominator > 0, .data$denominator >= minimum) |>

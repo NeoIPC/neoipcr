@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-11-12 08:31+0100\n"
+"POT-Creation-Date: 2026-11-22 15:11+0100\n"
 "PO-Revision-Date: 2025-05-27 16:54+0200\n"
 "Last-Translator: Brar Piening <brar.piening@charite.de>\n"
 "Language-Team: NeoIPC-Support <NeoIPC-Support@charite.de>\n"
@@ -16,60 +16,60 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: R/calc-api.R:534
+#: R/calc-api.R:536
 msgid "No dataset to benchmark: pass at least one calculated dataset."
 msgstr ""
 
-#: R/calc-api.R:951 R/calc-procedure-categories.R:45
+#: R/calc-api.R:953 R/calc-procedure-categories.R:45
 msgid "Procedure category"
 msgstr "Prozedur-Kategorie"
 
-#: R/calc-api.R:951
+#: R/calc-api.R:953
 msgid "N"
 msgstr "N"
 
-#: R/calc-api.R:951
+#: R/calc-api.R:953
 #, fuzzy
 msgid "Pooled"
 msgstr "Gepoolt"
 
-#: R/calc-api.R:951
+#: R/calc-api.R:953
 msgid "Q1"
 msgstr "Q₁"
 
-#: R/calc-api.R:951
+#: R/calc-api.R:953
 msgid "Q2"
 msgstr "Q₂"
 
-#: R/calc-api.R:951
+#: R/calc-api.R:953
 msgid "Q3"
 msgstr "Q₃"
 
-#: R/calc-api.R:1210 R/infectious-agents.R:43
+#: R/calc-api.R:1212 R/infectious-agents.R:43
 msgid "Not in the list: %s."
 msgstr ""
 
-#: R/calc-api.R:1211
+#: R/calc-api.R:1213
 msgid ""
 "The infectious-agent tables count such a code in their Totals only, and no "
 "resistance category applies to it."
 msgstr ""
 
-#: R/calc-api.R:1344
+#: R/calc-api.R:1346
 msgid "the unnamed dataset"
 msgstr ""
 
-#: R/calc-api.R:1347
+#: R/calc-api.R:1349
 msgid "Left empty for %s: %s."
 msgstr ""
 
-#: R/calc-api.R:1355
+#: R/calc-api.R:1357
 msgid ""
 "%s was calculated before calculated datasets carried the versions of their "
 "rate definitions; calculate it again from its raw dataset to compare it."
 msgstr ""
 
-#: R/calc-api.R:1366
+#: R/calc-api.R:1368
 msgid ""
 "Each such table keeps the rows of the datasets joined into it; a figure "
 "takes no rows from a dataset for which it is left empty, and any other such "

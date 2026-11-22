@@ -1139,7 +1139,7 @@ get_infectious_agent_detection_rate_per_inf_type_table <- function(
 #' The first row, the Total, gives the infectious agents per 100 confirmed
 #' infections, "Not listed", "Unidentifiable", and the codes the
 #' infectious-agent list lacks included, with an exact Poisson interval;
-#' `n_outside_tree` gives how many of them have no other row. Every other row
+#' `n_total_only` gives how many of them no row counts. Every other row
 #' gives the share of the confirmed infections with an infectious agent in the
 #' tree in which an infectious agent at or beneath the row's node was found,
 #' with a Wilson interval. An infection counts once in each row, so a parent's
@@ -1193,7 +1193,7 @@ get_infectious_agent_detection_rate_per_inf_type_table <- function(
 #'  `ci_lower` and `ci_upper`, its interval; with `include_quartiles`, the
 #'  departments' quartiles `q1`, `q2`, and `q3`, their bootstrap intervals
 #'  `q1_ci_lower` to `q3_ci_upper`, and `quartile_departments`, the number of
-#'  departments that enter them; `n_outside_tree`, on the Total only; and, for
+#'  departments that enter them; `n_total_only`, on the Total only; and, for
 #'  each infection type (`bsi`, `hap`, `nec`, and `ssi`), `n_<type>`,
 #'  `total_<type>`, `pooled_<type>`, `ci_lower_<type>`, and `ci_upper_<type>`.
 #' @export
@@ -1234,11 +1234,11 @@ get_infectious_agent_detection_rate_per_agent_table <- function(
       node_id = NA_character_,
       parent_id = NA_character_,
       group = "Total",
-      n_outside_tree = d$n_outside_tree) |>
+      n_total_only = d$n_total_only) |>
       dplyr::bind_cols(dplyr::select(total, !".row")),
     d$layout |>
       dplyr::left_join(node_rows, dplyr::join_by("node_id"))) |>
-    dplyr::relocate("n_outside_tree", .before = "n_bsi") |>
+    dplyr::relocate("n_total_only", .before = "n_bsi") |>
     add_class("neoipcr_tbl_iadrpa")
   if (include_quartiles)
     r <- add_class(r, "neoipcr_tbl_iadrpa_ref")
@@ -1268,18 +1268,22 @@ infectious_agent_detection_table_names <- c(
 #' found to which the list applies the category or that has a result for
 #' it, so that whether a row is there depends only on the infectious agents
 #' at or beneath it. An infection counts once in each row, so a parent's
-#' density need not be the sum of its children's. The patient-days are all
-#' those of the dataset, as the incidence densities count them.
+#' density need not be the sum of its children's. The patient-days are those
+#' of the departments a row describes (below), as the incidence densities
+#' count them.
 #'
 #' The infectious agents are those that
 #' [get_infectious_agent_detection_rate_per_agent_table()] counts, each once
 #' per infection and only in a slot the form asks for, and one is resistant
 #' where a slot naming it records it resistant. "Not listed",
-#' "Unidentifiable", and a code the list lacks count in a Total only, and
-#' `n_outside_tree` gives how many of them are recorded resistant. A value
+#' "Unidentifiable", and a code the list lacks count in a Total only. A value
 #' recorded for a category that the list does not apply to its infectious
 #' agent counts as any other, in the Total and in the block's rows at or
-#' above the infectious agent's node, which it gives the block.
+#' above the infectious agent's node, which it gives the block; on a fungus,
+#' beneath no row of a block whose category the list applies to bacteria
+#' alone, it counts in the Total only. `n_total_only` gives a Total's
+#' infections that no row of its block counts, so that it never exceeds the
+#' Total.
 #'
 #' Over the reporting groups (`rows = "groups"`), the rows of a block below
 #' its Total are a summary block of the bacteria by Gram reaction and by
@@ -1298,13 +1302,18 @@ infectious_agent_detection_table_names <- c(
 #' it, siblings by their density, descending.
 #'
 #' A department enters a row's quartiles with at least 50 patient-days, at 0
-#' where it has none of the row's infections, unless the list applies the
-#' category to infectious agents it detected and none of them has a result
-#' for it, as [get_resistance_test_rate_table()] counts them: its 0 would
-#' dilute the quartiles. A row shows its quartiles where at least 5
-#' departments enter and their median patient-days exceed the patient-days in
-#' which the pooled density gives 1 infection; the bootstrap of their
-#' intervals takes the same departments.
+#' where it has none of the row's infections, unless it detected infectious
+#' agents of the row's node to which the list applies the category and none
+#' of them has a result for it, the row's Tested share in
+#' [get_infectious_agent_resistance_rate_table()] being 0: its 0 would dilute
+#' the row, so it leaves the row's pooled density, interval, and count as
+#' well, and the pooled and quartile figures describe the same departments. A
+#' Total tests all of a department's detections to which the list applies its
+#' category, as [get_resistance_test_rate_table()] counts them. A department
+#' without such detections stays in the row or Total. A row shows its
+#' quartiles where at least 5 departments enter and their median patient-days
+#' exceed the patient-days in which the pooled density gives 1 infection; the
+#' bootstrap of their intervals takes the same departments.
 #'
 #' @param x The data set which can be either a neoipcr_ds or a neoipcr_rep_ds
 #'  object. In case of a neoipcr_rep_ds it has to be a neoipcr_ref_ds if
@@ -1329,7 +1338,7 @@ infectious_agent_detection_table_names <- c(
 #'  `include_quartiles`, the departments' quartiles `q1`, `q2`, and `q3`,
 #'  their bootstrap intervals `q1_ci_lower` to `q3_ci_upper`, and
 #'  `quartile_departments`, the number of departments that enter them; and
-#'  `n_outside_tree`, on a Total only.
+#'  `n_total_only`, on a Total only.
 #' @export
 get_abr_infection_rate_table <- function(
     x, use_cache = TRUE, include_quartiles = TRUE,
@@ -1345,6 +1354,8 @@ get_abr_infection_rate_table <- function(
   patient_days <- get_risk_time(
     x, group_cols = "department_key", use_cache = use_cache) |>
     dplyr::select("department_key", "patient_days")
+  # A Total tests all of a department's detections to which the list applies
+  # its category, as the plain row of the testing's completeness counts them.
   untested <- get_resistance_test_counts(x, use_cache = use_cache) |>
     dplyr::filter(.data$cond == "routine", .data$total > 0L, .data$n == 0L)
 
@@ -1360,7 +1371,9 @@ get_abr_infection_rate_table <- function(
     dplyr::select(!"patient_days")
 
   block <- function(category) {
-    outside <- untested$department_key[untested$abr == category]
+    outside <- tibble::tibble(
+      .row = "total",
+      department_key = untested$department_key[untested$abr == category])
     totals <- d$total[d$total$abr == category, ]
     total_key <- tibble::tibble(.row = "total")
     total <- .infectious_agent_rate_columns(
@@ -1376,8 +1389,10 @@ get_abr_infection_rate_table <- function(
       interval = "poisson",
       denominator = "days",
       include_quartiles = include_quartiles,
-      outside_quartiles = outside)
+      outside = outside)
 
+    # A row tests a department's detections of its own infectious agents to
+    # which the list applies the category, its Tested share's.
     counts <- d$rows[d$rows$abr == category, ]
     keys <- tibble::tibble(node_id = unique(counts$node_id))
     node_rows <- .infectious_agent_rate_columns(
@@ -1393,7 +1408,7 @@ get_abr_infection_rate_table <- function(
       interval = "poisson",
       denominator = "days",
       include_quartiles = include_quartiles,
-      outside_quartiles = outside)
+      outside = counts[counts$untested, c("node_id", "department_key")])
     layout <- .infectious_agent_layout(
       tibble::tibble(node_id = node_rows$node_id, rate = node_rows$pooled),
       rows)
@@ -1407,7 +1422,9 @@ get_abr_infection_rate_table <- function(
         parent_id = NA_character_,
         group = "Total") |>
         dplyr::bind_cols(dplyr::select(total, !".row")) |>
-        dplyr::mutate(n_outside_tree = sum(totals$n_outside_tree)),
+        dplyr::mutate(n_total_only = sum(
+          totals$n_total_only[
+            !totals$department_key %in% outside$department_key])),
       layout |>
         dplyr::left_join(node_rows, dplyr::join_by("node_id")) |>
         dplyr::mutate(abr = category, .before = 1))

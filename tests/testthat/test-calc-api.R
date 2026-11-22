@@ -1050,7 +1050,7 @@ test_that("get_benchmark_data gives a department the reference's rows of each in
   expect_identical(cocci$pooled_bsi_own, 0)
   expect_identical(cocci$total_hap_own, 0L)
   expect_identical(cocci$pooled_hap_own, NA_real_)
-  expect_identical(cocci$n_outside_tree_own, NA_integer_)
+  expect_identical(cocci$n_total_only_own, NA_integer_)
   # The reference has 4 such infections and none with Candida.
   yeasts <- detected[detected$node_id %in% "yeasts", ]
   bacteria <- detected[detected$node_id %in% "bacteria", ]
@@ -1087,6 +1087,77 @@ test_that("get_benchmark_data gives a department the reference's rows of each in
   expect_true(all(mrsa$tested_n_own == 0L))
   expect_true(all(mrsa$tested_total_own == 0L))
   expect_true(all(is.na(mrsa$tested_pooled_own)))
+})
+
+test_that("get_benchmark_data gives a dataset all its patient-days on a density row it lacks, whatever departments its Totals leave out", {
+  # The reference: Escherichia coli (1807) with third-generation cephalosporin
+  # resistance (3GCR) and Staphylococcus aureus (934) as MRSA in department 1,
+  # and Klebsiella pneumoniae (390) without a 3GCR result in department 2,
+  # which takes department 2 out of the 3GCR Total, each a sepsis of its own
+  # over 100 patient-days per department; and a sepsis without an infectious
+  # agent in department 3, over 40 patient-days, too few to enter quartiles.
+  # The department: E. coli and the genus Kluyvera (9), neither with a 3GCR
+  # result, which takes it out of the 3GCR Total, over 50 patient-days. A
+  # dataset lacks a row only where none of its departments detected an
+  # infectious agent at or beneath it, so all of them enter the row at 0.
+  ref_ds <- with_antibiotic_entries(make_infection_calc_test_ds(
+    forms = tibble::tibble(event_type_key = "bsi",
+                           department_key = c(1L, 1L, 2L, 3L)),
+    findings = tibble::tibble(
+      form = 1:3,
+      pathogen_key = c(1807L, 934L, 390L),
+      `3gcr` = c("yes", NA, NA),
+      car = NA_character_,
+      cor = NA_character_,
+      mrsa = c(NA, "yes", NA),
+      vre = NA_character_),
+    patient_days = c(100L, 100L, 40L)))
+  own_ds <- with_antibiotic_entries(make_infection_calc_test_ds(
+    forms = tibble::tibble(event_type_key = "bsi",
+                           department_key = c(1L, 1L)),
+    findings = tibble::tibble(
+      form = 1:2,
+      pathogen_key = c(1807L, 9L),
+      `3gcr` = NA_character_,
+      car = NA_character_,
+      cor = NA_character_,
+      mrsa = NA_character_,
+      vre = NA_character_),
+    patient_days = 50L))
+  own <- calculate_department_data(own_ds, use_cache = FALSE)
+  ref <- calculate_reference_data(ref_ds, use_cache = FALSE)
+  benchmark <- get_benchmark_data(own = own, ref = ref)
+  density <- benchmark$abr_infection_rate_ontology_table
+  gcr <- density[density$abr == "3gcr", ]
+
+  # The department's 3GCR Total leaves it out, while the rows of
+  # K. pneumoniae, which it lacks, hold it at 0 over its 50 patient-days, as
+  # does every row of the MRSA block, all of which it lacks.
+  expect_equal(gcr$total_own[is.na(gcr$node_id)], 0L)
+  klebsiella <- gcr[gcr$node_id %in% c("LPSN|genus/klebsiella",
+                                       "LPSN|species/klebsiella-pneumoniae"), ]
+  expect_equal(nrow(klebsiella), 2L)
+  expect_true(all(klebsiella$n_own == 0L))
+  expect_true(all(klebsiella$total_own == 50L))
+  mrsa <- density[density$abr == "mrsa" & !is.na(density$node_id), ]
+  expect_gt(nrow(mrsa), 0L)
+  expect_true(all(mrsa$total_own == 50L))
+
+  # The reference's 3GCR Total leaves department 2 out, while the row of
+  # Kluyvera, which the reference lacks, holds all 3 departments at 0 over
+  # their 240 patient-days, the 2 with at least 50 of them in its quartiles.
+  expect_equal(gcr$total_ref[is.na(gcr$node_id)], 140L)
+  expect_equal(gcr$quartile_departments_ref[is.na(gcr$node_id)], 1L)
+  expect_equal(ref$n_patient_days$quartile_departments, 2L)
+  kluyvera <- gcr[gcr$node_id %in% "LPSN|genus/kluyvera", ]
+  expect_equal(nrow(kluyvera), 1L)
+  expect_equal(kluyvera$n_ref, 0L)
+  expect_equal(kluyvera$total_ref, 240L)
+  expect_equal(kluyvera$quartile_departments_ref, 2L)
+  expect_identical(kluyvera$pooled_ref, 0)
+  expect_equal(kluyvera$ci_upper_ref,
+               neoipcr::neoipc_poisson_ci(0L, 240L, multiplier = 1000)$upper)
+  expect_identical(kluyvera$q1_ref, NA_real_)
 })
 
 test_that("get_benchmark_data gives a department its own counts on a resistance block's rows, a value recorded for a category that cannot apply included", {

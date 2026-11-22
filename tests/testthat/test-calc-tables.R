@@ -1309,8 +1309,9 @@ test_that("the Total counts every infectious agent once per infection, those out
     expect_equal(total$pooled, 18 / 14 * 100)
     ci <- neoipc_poisson_ci(18, 14, multiplier = 100)
     expect_equal(c(total$ci_lower, total$ci_upper), c(ci$lower, ci$upper))
-    # "Not listed", "Unidentifiable", and the code the list lacks.
-    expect_equal(total$n_outside_tree, 3L)
+    # "Not listed", "Unidentifiable", and the code the list lacks, which no
+    # row counts.
+    expect_equal(total$n_total_only, 3L)
     # Per type, infectious agents per 100 confirmed infections of the type.
     expect_equal(
       unlist(total[c("n_bsi", "n_hap", "n_nec", "n_ssi")], use.names = FALSE),
@@ -1327,7 +1328,7 @@ test_that("the Total counts every infectious agent once per infection, those out
     # agent in the tree.
     expect_true(all(r$total[-1] == 12L))
     expect_true(all(r$total_bsi[-1] == 7L))
-    expect_true(all(is.na(r$n_outside_tree[-1])))
+    expect_true(all(is.na(r$n_total_only[-1])))
   }
 })
 
@@ -1747,7 +1748,7 @@ test_that("the density of infections with resistant infectious agents counts eac
   expect_equal(
     names(r),
     c("abr", "level", "rank", "node_id", "parent_id", "group", "n", "total",
-      "pooled", "ci_lower", "ci_upper", "n_outside_tree"))
+      "pooled", "ci_lower", "ci_upper", "n_total_only"))
   expected <- tibble::tribble(
     ~abr,   ~group,                                         ~level, ~n,
     "3gcr", "Total",                                            0L, 7L,
@@ -1807,8 +1808,11 @@ test_that("the density of infections with resistant infectious agents counts eac
   expect_equal(c(aerobic$ci_lower, aerobic$ci_upper), c(ci$lower, ci$upper))
   totals <- r[r$group == "Total", ]
   expect_true(all(is.na(c(totals$node_id, totals$parent_id, totals$rank))))
-  expect_equal(totals$n_outside_tree, c(2L, 1L, 1L, 1L, 0L))
-  expect_true(all(is.na(r$n_outside_tree[r$group != "Total"])))
+  # The infections each Total counts and no row of its block does: forms 10
+  # and 12 in the 3GCR block, form 10 in the carbapenem and colistin blocks,
+  # and form 11 in the MRSA block.
+  expect_equal(totals$n_total_only, c(2L, 1L, 1L, 1L, 0L))
+  expect_true(all(is.na(r$n_total_only[r$group != "Total"])))
   expect_equal(
     r$node_id[r$abr == "car"],
     c(NA, "gram_reaction|negative", "oxygen_requirement|aerobic",
@@ -1843,6 +1847,87 @@ test_that("the density of infections with resistant infectious agents counts eac
   expect_equal(vre$n, c(1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 0L, 0L))
   expect_false(any(grepl("^(gram_reaction|oxygen_requirement)\\|",
                          r$node_id)))
+})
+
+test_that("a resistance block's Total gives the infections it counts that no row of the block counts, never more than the Total", {
+  # By form, each a sepsis:
+  #   1. "Not listed" (0) and a code the list lacks (99999999), both 3GCR
+  #      resistant: the 3GCR Total counts the infection once, and no row
+  #      counts it. "Not listed", to which the list applies MRSA, has a
+  #      result for it, so that the department enters the MRSA Total;
+  #   2. Escherichia coli (1807) and "Not listed", both 3GCR resistant: the
+  #      Total and the rows on E. coli's path count it;
+  #   3. Candida albicans (2273), recorded MRSA resistant, a category the
+  #      list applies to no fungus: the MRSA Total counts it, and no row of
+  #      the MRSA block lies above a fungus.
+  ds <- make_sepsis_findings_test_ds(tibble::tribble(
+    ~form, ~pathogen_key, ~`3gcr`, ~mrsa,
+       1L,            0L,   "yes",  "no",
+       1L,     99999999L,   "yes",    NA,
+       2L,         1807L,   "yes",    NA,
+       2L,            0L,   "yes",    NA,
+       3L,         2273L,      NA, "yes"))
+
+  for (rows in c("groups", "ontology")) {
+    r <- get_abr_infection_rate_table(ds, use_cache = FALSE,
+                                      include_quartiles = FALSE, rows = rows)
+    totals <- r[r$group == "Total", ]
+    expect_equal(as.character(totals$abr),
+                 c("3gcr", "car", "cor", "mrsa", "vre"), info = rows)
+    expect_equal(totals$n, c(2L, 0L, 0L, 1L, 0L), info = rows)
+    expect_equal(totals$n_total_only, c(1L, 0L, 0L, 1L, 0L), info = rows)
+    expect_false(any(r$abr == "mrsa" & r$group != "Total"), info = rows)
+    expect_true(all(is.na(r$n_total_only[r$group != "Total"])), info = rows)
+  }
+})
+
+test_that("a resistance block's Total counts as its own an infection whose department leaves every row that holds it, and nothing of a department that leaves the Total", {
+  # Department 1: "Not listed" (0), not 3GCR resistant, which keeps the
+  # department in the 3GCR Total; Staphylococcus aureus (934), recorded 3GCR
+  # resistant, a category the list does not apply to it, which counts in the
+  # rows of the block above it; and Escherichia coli (1807) without a 3GCR
+  # result, which takes the department out of every row of the block, each
+  # holding E. coli. Department 2: E. coli, not 3GCR resistant. So the Total
+  # counts department 1's infection, which no row counts.
+  ds <- make_sepsis_findings_test_ds(tibble::tribble(
+    ~form, ~pathogen_key, ~`3gcr`,
+       1L,            0L,    "no",
+       2L,          934L,   "yes",
+       3L,         1807L,      NA,
+       4L,         1807L,    "no"),
+    department_key = c(1L, 1L, 1L, 2L))
+  for (rows in c("groups", "ontology")) {
+    r <- get_abr_infection_rate_table(ds, use_cache = FALSE, rows = rows)
+    gcr <- r[r$abr == "3gcr", ]
+    total <- gcr[gcr$group == "Total", ]
+    expect_equal(
+      c(total$n, total$total, total$quartile_departments, total$n_total_only),
+      c(1L, 200L, 2L, 1L), info = rows)
+    node_rows <- gcr[gcr$group != "Total", ]
+    expect_gt(nrow(node_rows), 0L)
+    expect_true(all(node_rows$n == 0L), info = rows)
+    expect_true(all(node_rows$total == 100L), info = rows)
+    expect_true(all(node_rows$quartile_departments == 1L), info = rows)
+  }
+
+  # Department 1: Candida albicans (2273), recorded MRSA resistant, which no
+  # row of the MRSA block counts, and S. aureus without an MRSA result, which
+  # takes the department out of the MRSA Total. Department 2: S. aureus, not
+  # MRSA resistant. The Total leaves department 1's infection out of its count
+  # of its own as well.
+  ds <- make_sepsis_findings_test_ds(tibble::tribble(
+    ~form, ~pathogen_key, ~mrsa,
+       1L,         2273L, "yes",
+       2L,          934L,    NA,
+       3L,          934L,  "no"),
+    department_key = c(1L, 1L, 2L))
+  for (rows in c("groups", "ontology")) {
+    r <- get_abr_infection_rate_table(ds, use_cache = FALSE, rows = rows)
+    total <- r[r$abr == "mrsa" & r$group == "Total", ]
+    expect_equal(
+      c(total$n, total$total, total$quartile_departments, total$n_total_only),
+      c(0L, 100L, 1L, 0L), info = rows)
+  }
 })
 
 test_that("the resistance rates per infectious agent count each infection once per row, with the Tested share over the infectious agents a category applies to", {
@@ -1980,16 +2065,17 @@ test_that("the completeness of antimicrobial susceptibility testing counts each 
   expect_s3_class(r, "neoipcr_tbl_rtr_ref")
 })
 
-test_that("a department leaves a category's density quartiles where none of its detections the category applies to has a result", {
+test_that("a department leaves a category's density quartiles and pooled figures where none of its detections the category applies to has a result", {
   ds <- make_resistance_quartile_test_ds()
   r <- get_abr_infection_rate_table(ds, use_cache = FALSE)
   row <- function(abr, group) r[r$abr == abr & r$group == group, ]
 
   # 3GCR: departments 1-5 and 8 enter, 1 and 8 at 0; 6 has fewer than 50
-  # patient-days, and 7 recorded no 3GCR result for its Escherichia coli.
+  # patient-days and stays in the pooled density, while 7, which recorded no
+  # 3GCR result for its Escherichia coli, leaves it with its 100 patient-days.
   total <- row("3gcr", "Total")
   expect_equal(total$n, 14L)
-  expect_equal(total$total, 740L)
+  expect_equal(total$total, 640L)
   expect_equal(total$quartile_departments, 6L)
   expect_equal(c(total$q1, total$q2, total$q3), c(2.5, 15, 27.5))
   expect_equal(
@@ -2000,15 +2086,63 @@ test_that("a department leaves a category's density quartiles where none of its 
     ignore_attr = TRUE)
   entero <- row("3gcr", "Enterobacterales")
   expect_equal(entero$quartile_departments, 6L)
+  expect_equal(entero$total, 640L)
   expect_equal(c(entero$q1, entero$q2, entero$q3), c(2.5, 15, 27.5))
   # Carbapenem resistance applies to every department's E. coli, whose
-  # results are blank; department 8, without such detections, alone enters.
+  # results are blank; department 8, without such detections, alone enters,
+  # its 100 patient-days alone counting in the pooled density.
   expect_equal(row("car", "Total")$quartile_departments, 1L)
+  expect_equal(row("car", "Total")$total, 100L)
   # MRSA: department 8's S. aureus has no result, and the departments without
   # such detections enter at 0, so that the pooled rate of 0 shows none.
   mrsa <- row("mrsa", "Total")
   expect_equal(mrsa$quartile_departments, 6L)
   expect_true(all(is.na(c(mrsa$q1, mrsa$q2, mrsa$q3, mrsa$q1_ci_lower))))
+})
+
+test_that("a department leaves a density row's quartiles and pooled figures by its testing of the row's own infectious agents, and enters at 0 without them", {
+  # 3 departments of 100 patient-days, each infection a sepsis:
+  #   1. Escherichia coli (1807), 3GCR resistant, and Klebsiella pneumoniae
+  #      (390), 3GCR blank;
+  #   2. E. coli, 3GCR not resistant;
+  #   3. "Not listed" (0), 3GCR blank, its only detection.
+  ds <- make_sepsis_findings_test_ds(
+    tibble::tribble(
+      ~form, ~pathogen_key, ~`3gcr`,
+         1L,         1807L,   "yes",
+         2L,          390L,      NA,
+         3L,         1807L,    "no",
+         4L,            0L,      NA),
+    department_key = c(1L, 1L, 2L, 3L))
+  r <- get_abr_infection_rate_table(ds, use_cache = FALSE, rows = "ontology")
+  row <- function(group) r[r$abr == "3gcr" & r$group == group, ]
+  figures <- function(row) c(row$n, row$total, row$quartile_departments)
+
+  # Department 1 tested its E. coli, so it enters E. coli's rows and their
+  # parents; department 3 has no E. coli and enters at 0.
+  expect_equal(figures(row("Escherichia coli")), c(1L, 300L, 3L))
+  expect_equal(figures(row("Enterobacterales")), c(1L, 300L, 3L))
+  # Department 1 tested none of its K. pneumoniae, so it leaves the rows of
+  # Klebsiella, quartiles and pooled density alike, which departments 2 and 3,
+  # without K. pneumoniae, enter at 0.
+  ci <- neoipc_poisson_ci(0, 200, multiplier = 1000)
+  for (group in c("Klebsiella", "Klebsiella pneumoniae")) {
+    k <- row(group)
+    expect_equal(figures(k), c(0L, 200L, 2L), info = group)
+    expect_equal(k$pooled, 0, info = group)
+    expect_equal(c(k$ci_lower, k$ci_upper), c(ci$lower, ci$upper),
+                 info = group)
+  }
+  # The Total tests all of a department's detections to which 3GCR applies:
+  # department 3's "Not listed" has no result, so it leaves the Total, and
+  # only the Total.
+  expect_equal(figures(row("Total")), c(1L, 200L, 2L))
+
+  r <- get_abr_infection_rate_table(ds, use_cache = FALSE, rows = "groups")
+  gcr <- r[r$abr == "3gcr", ]
+  expect_equal(figures(gcr[gcr$group == "Total", ]), c(1L, 200L, 2L))
+  expect_equal(figures(gcr[gcr$group == "Enterobacterales", ]),
+               c(1L, 300L, 3L))
 })
 
 test_that("the resistance rates per infectious agent and the testing's completeness take the departments with 5 infections or detections in a row's denominator", {
@@ -2106,14 +2240,15 @@ test_that("a resistance block has the rows on the paths of the infectious agents
 
 test_that("a residual row counts the infectious agents recorded at a node with nodes beneath it in the full ontology, whatever else the dataset holds", {
   # Sepsis with the genus Staphylococcus (481), recorded 3GCR resistant, a
-  # category the list applies to no staphylococcus; Escherichia coli (1807);
+  # category the list applies to no staphylococcus; Escherichia coli (1807),
+  # not 3GCR, so that the department enters the 3GCR block's rows above it;
   # and the genus Enterococcus (503), not VRE. No infectious agent of the
   # dataset is recorded beneath either genus, and E. coli, a species, has no
   # node beneath it.
   ds <- make_sepsis_findings_test_ds(tibble::tibble(
     form = 1:3,
     pathogen_key = c(481L, 1807L, 503L),
-    `3gcr` = c("yes", NA, NA),
+    `3gcr` = c("yes", "no", NA),
     vre = c(NA, NA, "no")))
   residual <- function(t) t[endsWith(dplyr::coalesce(t$node_id, ""), "~n.o.s."), ]
 

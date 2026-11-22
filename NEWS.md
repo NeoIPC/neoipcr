@@ -83,7 +83,7 @@ section above it for the next changes.
   share need not be the sum of its children's; an infectious agent counts once per infection, a
   synonym as its concept, and only in a slot the form asks for. The Total gives the infectious
   agents per 100 confirmed infections, "Not listed", "Unidentifiable", and the codes the list lacks
-  included, with an exact Poisson interval and their number as `n_outside_tree`. The columns are
+  included, with an exact Poisson interval and their number as `n_total_only`. The columns are
   `level`, `rank`, `node_id`, `parent_id`, `group`, `n`, `total`, `pooled`, `ci_lower`, and
   `ci_upper`, a column of each measure per infection type (`n_bsi`, `total_bsi`, `pooled_bsi`, and
   so on), and in a reference dataset the quartiles with `quartile_departments`, by the rule of the
@@ -110,10 +110,15 @@ section above it for the next changes.
 * `get_abr_infection_rate_table()` gives densities per 1000 patient-days, every infant being at risk,
   in place of shares of the infections with an infectious agent: per category a Total, the
   infections with any infectious agent recorded resistant, "Not listed", "Unidentifiable", and the
-  codes the list lacks included (their number as `n_outside_tree`), then its rows, with exact Poisson
-  intervals and the patient-days as `total`. A department enters a row's quartiles with at least 50
-  patient-days, at 0 without the row's infections, unless the list applies the category to
-  infectious agents it detected and none of them has a result for it.
+  codes the list lacks included, `n_total_only` giving those of them that no row of the block
+  counts, then its rows, with exact Poisson intervals and the patient-days as `total`. A department
+  enters a row's quartiles with at least 50 patient-days, at 0 without the row's infections, unless
+  it detected infectious agents of the row's node to which the list applies the category and none
+  of them has a result for it, in which case it leaves the row's pooled density, interval, and
+  count as well; a Total tests all of the department's detections to which the list applies the
+  category. `get_benchmark_data()` gives a dataset a row it lacks at 0 over all its patient-days,
+  all its departments entering the row, and a reference dataset's `n_patient_days` gives those with
+  at least 50 patient-days, which enter the row's quartiles, as `quartile_departments`.
 * `get_organism_resistance_rate_table()` is renamed `get_infectious_agent_resistance_rate_table()`,
   its class `neoipcr_tbl_iarr`, and its slot `infectious_agent_resistance_rate_table`. A row's rate is
   the share of the infections in which an infectious agent of the row's node has a result for the
