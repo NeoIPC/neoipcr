@@ -1268,9 +1268,10 @@ Report's interpretation texts call a department's rate above Q₃ (below Q₁) o
 #### §13.1.2. Sparse-Data Flag
 
 A count, a density, or a ratio is flagged where its effective count, the count divided by its design effect (§13.1.4),
-is below 16: below 16 independent events a count's relative standard error exceeds 25% (1/√16), the level from which
-the Washington State Department of Health marks an estimate as unstable (*Agency Standards for Reporting Data With
-Small Numbers*, 2018), and an effective count carries the clustering into that error. A share of patient-days, the days
+is below 16: below 16 independent events a count's relative standard error exceeds 25% (1/√16), and the Washington State
+Department of Health marks an estimate as unstable from a relative standard error of 25%, that is, counts of 16 or less
+(*Agency Standards for Reporting Data With Small Numbers*, 2018, pp. 3 and 14), while these reports flag only counts
+below 16; an effective count carries the clustering of the events into that error. A share of patient-days, the days
 with a device, a ventilatory support, an antibiotic, or a protective factor per 100 patient-days or a single
 substance's days of therapy per 1000 patient-days (§13.7), is flagged the same way, on its effective count of days, so
 that a rate resting on few days is flagged, a 0 included, and a substance's row and its ATC group's alike. Any other
@@ -2382,32 +2383,58 @@ is withheld. Each department sees its own counts, unsuppressed, in its Partner R
 #### §13.11.1. Distributions of Birth Weight and Gestational Age
 
 The internal `get_birthweight_figure_data()` and `get_gestational_age_figure_data()` fill the slots
-`birth_weight_figure` and `gestational_age_figure` of both datasets: the frequency per bin, a density curve, the
-quartiles and mean, and the axis range. Each figure shows a distribution, not a rate.
+`birth_weight_figure` and `gestational_age_figure` of both datasets: a density curve, the quartiles and mean, the axis
+range, and in a department's dataset the frequency per bin, which a reference dataset does not store. Each figure shows
+a distribution, not a rate.
 
 | Measure | Counted | Over | Scale | Interval | Flag | Quartiles |
 | --- | --- | --- | --- | --- | --- | --- |
-| Birth weight | patient records per 50 g bin | patient records with a recorded birth weight | count per bin, with a density curve from 10 patient records | none | none | none; the figure marks the patients' Q₁, median, Q₃, and mean from 10 patient records |
-| Gestational age | patient records per completed week | patient records with a recorded gestational age | count per bin, with a density curve from 10 patient records | none | none | none; the figure marks the patients' Q₁, median, Q₃, and mean from 10 patient records |
+| Birth weight | patient records per 50 g bin | patient records with a recorded birth weight | a department's count per bin; a density curve from 10 patient records | none | none | none; the figure marks the patients' Q₁, median, Q₃, and mean from 10 patient records |
+| Gestational age | patient records per completed week | patient records with a recorded gestational age | a department's count per bin; a density curve from 10 patient records | none | none | none; the figure marks the patients' Q₁, median, Q₃, and mean from 10 patient records |
 
 Each patient record with a stay whose surveillance ended in the period counts once, whatever its number of stays; in
 the reference, a patient registered by 2 departments counts twice.
 
-A 50 g bin is centred on a multiple of 50 g, so that the 1500 g bar holds 1475 to 1524 g: recorded birth weights heap at
+A 50 g bin is centred on a multiple of 50 g, so that the 1500 g bin holds 1475 to 1524 g: recorded birth weights heap at
 the class boundaries that reimbursement draws, an infant being recorded on the side of a boundary that pays more, and
 bins centred on the round values even that heaping out. Lines at 500, 1000, and 1500 g mark the classes' boundaries, a
-bar on a line holding infants of both classes, so that the first and last bars of a birth-weight class's report hold
-only its class's infants, which the legend says. A 1-week bin holds a completed week, the 26-week bar holding 26+0 to
-26+6, as the protocol counts gestational age and its eligibility (below 32 weeks, up to 31+6), so that the bars of a
-gestational-age range's report hold only its range's infants. The marks and the density curve print only where the
-figure counts at least 10 patient records, those with its variable recorded, a curve over few infants peaking at each
-one's value; from 10, a mark can still equal an unnamed infant's value, as the median of an odd number of records does,
-which the edition accepts, as it accepts a quartile equal to an unnamed department's count (§13.2). The binned bars,
-which give each value to within 50 g or 1 week, print in every report, a per-class report's only where at least 3
-departments contribute records to the figure, its division's joint rule lets them, and the report prints its overview's
-counts (§13.11.2).
+bar on a line holding infants of both classes, so that the first and last bars of a Partner Report over a birth-weight
+class hold only its class's infants, which the legend says. A 1-week bin holds a completed week, the 26-week bin holding
+26+0 to 26+6, as the protocol counts gestational age and its eligibility (below 32 weeks, up to 31+6), so that the bars
+of a Partner Report over a gestational-age range hold only its range's infants. The marks and the density curve print
+only where the figure counts at least 10 patient records, those with its variable recorded, a curve over few infants
+peaking at each one's value; from 10, a mark can still equal an unnamed infant's value, as the median of an odd number
+of records does, which the edition accepts, as it accepts a quartile equal to an unnamed department's count (§13.2), for
+a department's own marks, which only its Partner Report prints, and for a mark of the reference only where the bin it
+falls in holds infants of at least 3 departments, so that a department leaving out its own infants there still has those
+of 2 others left. Elsewhere a mark of the reference prints rounded to its bin, to the nearest 50 g or the completed
+week, since the curve gives back each bin's count and a mark in the bin of a lone infant would give its exact value.
+
+A department's bars, which give each value to within 50 g or 1 week, print in its Partner Report wherever its figure
+prints, beside the reference's curve and box plot; the reference prints no bars, and a reference dataset stores no
+counts per bin. The reference's density curve is computed from birth weights rounded to their 50 g bin and gestational
+ages in completed weeks, with a bandwidth of at least 1 bin, since a curve from exact values peaks at a lone infant's
+exact value. It is stored and drawn only between the 2 points nearest its ends beyond which each tail holds patient
+records of at least 3 departments, none more than half and those beyond the 2 largest together at least 10% of the
+largest one's part (§13.10.4), and not at all where no such span remains, since the curve serves to compare a
+department's patients with the reference's by eye, which individual extremes do not help. That rule concerns the tails
+alone: inside the drawn span, a run of bins can hold the infants of only 1 or 2 departments, and least squares gives
+back a curve's counts per bin there, a lone infant's count of 1 among them, which the edition accepts (§13.11.2). The
+reference's axis runs from the edges of its outermost bins, not from its exact extremes, which would place the lightest
+or the heaviest infant within half a bin, so that no figure singles out an infant closer than its bin. A per-class
+report prints each figure only where at least 3 departments contribute records to it, its division's joint rule lets it,
+and the report prints its overview's counts (§13.11.2).
 
 #### §13.11.2. Birth-Weight Classes and Gestational-Age Ranges
+
+The withholding of the reports of the birth-weight classes and gestational-age ranges protects this: no reader, a
+participating department included with its own figures subtracted, can work out from the edition's reports together, the
+overall report among them, a single department's events, days, or patients in a class or range, or attribute a row's
+events there to 1 department, except that where only 2 departments contribute to a span of birth weights or gestational
+ages, either can work out from the case-mix figures how many of the other's infants fall in each bin of it, and where 1
+alone contributes, anyone can work out how many of its infants do, though in neither case can a reader tell, from the
+reports alone, which department it is (§13.11.1). The overall report, which flags rather than withholds a small figure,
+the SSI rate's minimum cell aside (§13.10.4), protects only how its own rows divide among the classes and ranges.
 
 The dataset options `birth_weight_from` and `birth_weight_to` of `dhis2_dataset_options()` bound the birth weight
 inclusively, in grams, and `gestational_age_from` and `gestational_age_to` the gestational age inclusively, in completed
@@ -2435,18 +2462,23 @@ stating their number (§13.1.5). `calculate_reference_data()` takes any bounds, 
 table above withhold rows as below; no reference dataset or Reference Report over other bounds is published, and the
 reporting service shows such a dataset to its administrators alone, who may explore the reference over any bounds.
 
+No Reference Report is published from fewer than 5 actively participating departments, counted as those that contribute
+patient records with a stay ending in the period to what it covers: the whole reference for the overall report, and its
+class or range for a report of a class or range. Where a report is not published, its reference dataset is not uploaded,
+and the joint rules below count it among the parts that print nothing.
+
 A report of a class or a range, a per-class report below, is the same Reference Report, rendered with its range and a
 preset of its table parameters. It prints the overview, without the departments' quartiles of patient records and
 patient-days (§13.2), the case-mix figures (§13.11.1), and the tables of §13.3, §13.4, and §13.6, and leaves out those
 of §13.5, §13.7, §13.8 with its opening, §13.9, and §13.10, as NEO-KISS's reference data give the infectious agents and
 resistance over all classes; its header names its class or range. It prints its overview's counts (§13.2) only where at
-least 3 departments contribute patient records, and each of its case-mix figures only where at least 3 departments
-contribute records to the figure, those with its variable recorded (§13.11.1), since with 2 each could subtract its own
-counts and bars and read the other's patient records and patient-days and its infants' values of the other variable to
-within a bin; the overall report's bars, which print in every case, give back a class's birth weights or a range's
-gestational ages to within a bin, and a range's patient records as their sum, where few departments contribute to them,
-as any sparse span of its histogram does, such as its bars below 500 g, which the edition accepts as it accepts a
-quartile equal to an unnamed department's count (§13.2), and the methods texts say so. It compares a department with
+least 3 departments contribute patient records, which a published report always meets, so that only the joint rule below
+can withhold them, and each of its case-mix figures only where at least 3 departments contribute records to the figure,
+those with its variable recorded (§13.11.1), since with 2 each could subtract its own counts and figures and read the
+other's patient records and patient-days and, to within a bin, its infants' values of the other variable; the overall
+report's figures, which print in every case, give back the counts per bin of a class's birth weights or a range's
+gestational ages, and a range's patient records as their sum, where only 1 or 2 departments contribute to them, which
+the edition accepts, as the opening of this section says, and the methods texts say so. It compares a department with
 patients like its own at the price of statistical power: with fewer departments and patients, its intervals widen, more
 quartiles fail the display test, and more rows carry the flag or are withheld, which the methods texts say. It prints a
 pooled figure only where at least 3 departments contribute to the figure's denominator, none contributing more than half
@@ -2460,9 +2492,10 @@ an AWaRe category comes back as all substance-days, which the Access share gives
 further row is the other category with the fewest days, the withheld categories meeting the rule together and further
 ones following where they do not, and the Access share keeps printing, but a report that withholds the Access row itself
 while it prints its patient-days, by this rule or by the joint rule below, withholds the Access share too, whose count
-is that row's substance-days. A withheld row withholds every figure it prints, its counts, rate, interval, and quartiles
-with the note on their zeros, and its numbers in the contributors' statement (§13.1.6), and a text that quotes it
-follows it, as the opening of §13.3 does.
+is that row's substance-days, the other categories then printing without a further row, since without the Access share
+no total of substance-days gives a withheld category back. A withheld row withholds every figure it prints, its counts,
+rate, interval, and quartiles with the note on their zeros, and its numbers in the contributors' statement (§13.1.6),
+and a text that quotes it follows it, as the opening of §13.3 does.
 
 The birth-weight classes divide the overall report's patients into the 2 published classes and the rest, below 500 g, of
 1500 g or more, or without a recorded birth weight, and the gestational-age ranges into the 2 published ranges and the
@@ -2489,19 +2522,18 @@ print them, the rest always among them, and with an empty rest a withheld report
 least 3 departments contributing patient records, to a figure those with its variable recorded; where they do not, a
 further per-class report of the division withholds them, chosen as for a row, its patient records, or the figure's,
 standing for the denominator, so that the rest is protected in all that a per-class report prints. A per-class report
-that withholds its overview's counts, by its own test or by this rule, also withholds both case-mix figures and every
-row over patient-days or patients, those of §13.3, the exposure rates of §13.6.1 over patient-days, and all of §13.6.2,
-since its bars add up to its patient records with the variable recorded and a row's count and rate give back its
-denominator wherever events occurred, a mean days per exposed patient thus giving back the factor's exposed patients,
-who come close to all its patients where nearly every infant has the factor, as with peripheral catheters, while the
-joint rule chooses a row's further report by the row's own denominator; the device-associated rates (§13.4) and the
-Access share, over device-days and substance-days, give back no number of patients and keep their own tests, and the
-contributors' statement beneath each table it keeps gives its departments but not its patients (§13.1.6). The joint
-rules of the rows and the figures then count it among the parts that do not print them, and for a device or factor whose
-rows of §13.6 it withholds so, the joint rule chooses the further reports for those rows once, by its days, each
-withholding all of them, as for a device or factor withheld as a whole, since they give one another back. This changes
-something only where this rule withholds a report's counts, since one that fails its own test holds fewer than 3
-departments, whose rows and figures fail as well.
+that withholds its overview's counts, which a published report does only by this rule, also withholds both case-mix
+figures and every row over patient-days or patients, those of §13.3, the exposure rates of §13.6.1 over patient-days,
+and all of §13.6.2, since its figures' legends count its patient records with the variable recorded and a row's count
+and rate give back its denominator wherever events occurred, a mean days per exposed patient thus giving back the
+factor's exposed patients, who come close to all its patients where nearly every infant has the factor, as with
+peripheral catheters, while the joint rule chooses a row's further report by the row's own denominator; the
+device-associated rates (§13.4) and the Access share, over device-days and substance-days, give back no number of
+patients and keep their own tests, and the contributors' statement beneath each table it keeps gives its departments but
+not its patients (§13.1.6). The joint rules of the rows and the figures then count it among the parts that do not print
+them, and for a device or factor whose rows of §13.6 it withholds so, the joint rule chooses the further reports for
+those rows once, by its days, each withholding all of them, as for a device or factor withheld as a whole, since they
+give one another back.
 
 `calculate_reference_data()` over the whole range decides from its import, which holds each department's part of each
 row's denominator in every class and range, which rows each per-class report withholds, and whether it withholds its
@@ -2510,9 +2542,9 @@ the overall reference dataset, from which each per-class run takes it. Each per-
 withholds as withheld, and only the tables its report prints, with its own counts of §13.2, its case-mix figures
 (§13.11.1), and the numbers of patients of its contributors' statements (§13.1.6), stored as withheld where its report
 withholds them, and its `n_severe_infection_patients`, stored as withheld where its report withholds the
-severe-infection row, so that a report rendered from its dataset shows what its PDF shows, and its dataset is uploaded
-beside the overall one, so that a department whose patients differ systematically from the network's can compare with a
-reference over a range like its own. `get_benchmark_data()` keeps a reference row, count, or figure stored as withheld
-apart from one the reference lacks: the Partner Report prints the department's own beside a note that the reference
-withholds it, states the reference's contributors without their patients where it withholds their number (§13.1.6), and
-prints a table that the reference lacks without reference columns, with a note saying why.
+severe-infection row, so that a report rendered from its dataset shows what its PDF shows, and a published report's
+dataset is uploaded beside the overall one, so that a department whose patients differ systematically from the network's
+can compare with a reference over a range like its own. `get_benchmark_data()` keeps a reference row, count, or figure
+stored as withheld apart from one the reference lacks: the Partner Report prints the department's own beside a note that
+the reference withholds it, states the reference's contributors without their patients where it withholds their number
+(§13.1.6), and prints a table that the reference lacks without reference columns, with a note saying why.
