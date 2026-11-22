@@ -11,8 +11,10 @@ NULL
 #              `patient_columns`-selected attribute + its per-TEA
 #              companion columns (`_storedBy`, `_createdAt`,
 #              `_updatedAt` — no `_createdBy` / `_updatedBy` per
-#              DHIS2's `Attribute.java`, see
-#              `docs/dhis2-user-timestamp-semantics.md`), entity-level
+#              DHIS2's `Attribute.java`; no attribute value is
+#              attributed through its `_storedBy`, which holds what
+#              DHIS2 returns — see "Per-attribute companion columns"
+#              in `schema-cols-shared.R`), entity-level
 #              flags (`inactive`, `potentialDuplicate` — selected via
 #              `patient_columns`), entity-level `createdBy` /
 #              `updatedBy` (gated by `include_user`), entity-level
@@ -145,7 +147,9 @@ patients_cols <- with_entity_gate(
 
     # Entity-level user fields. `createdBy` / `updatedBy` are server-
     # authenticated User objects (fetched as `createdBy[username]`);
-    # `storedBy` is a client-asserted String. All three substituted to
+    # `storedBy` is a String holding what DHIS2 returns, of the two
+    # meanings "Per-attribute companion columns" in
+    # `schema-cols-shared.R` gives. All three substituted to
     # integer `user_key` via `metadata$.users_internal_map` in the
     # reader.
     list(schema_col(

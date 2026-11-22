@@ -26,12 +26,12 @@ NULL
 # with independent user/timestamp attribution — every user and
 # timestamp field is entity-level. So there is no
 # `enrollment_attribute_cols()` wrapper; atoms are declared directly.
-# DHIS2's Enrollment.java carries both `storedBy` (client-asserted
-# string) and `createdBy` / `updatedBy` (server-authenticated User
-# objects) at the entity level — see
-# `docs/dhis2-user-timestamp-semantics.md` for the source-backed
-# table. All user fields are gated by `include_user != "no"`; all
-# timestamps are gated by `isTRUE(include_timestamps)`.
+# DHIS2's Enrollment.java carries both `storedBy` (a string written with
+# the record, of the two meanings "Per-attribute companion columns" in
+# `schema-cols-shared.R` gives) and `createdBy` / `updatedBy`
+# (server-authenticated User objects) at the entity level. All user
+# fields are gated by `include_user != "no"`; all timestamps are gated
+# by `isTRUE(include_timestamps)`.
 #
 # Every non-PK atom predicate ANDs against `include_enrollment ==
 # "full"` so pseudo mode narrows strictly to `enrollment_key`. The

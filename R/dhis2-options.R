@@ -81,8 +81,28 @@
 #'  `department_key` stands for, so linking trials to pseudonymized
 #'  departments is the caller's explicit choice, as with
 #'  `include_custom_attributes`.
-#' @param include_user Include the user metadata into the dataset. Possible
-#'  values are "no", "pseudo" and "full"
+#' @param include_user Include the user metadata into the dataset:
+#'  `metadata$users`, and the user columns the other tibbles carry — the
+#'  entity-level `createdBy`, `updatedBy`, `completedBy`, and `storedBy` of
+#'  enrollments and events, the `createdBy`, `updatedBy`, and `storedBy` of
+#'  patients, the `storedBy` and `createdBy` of the notes, and the
+#'  `_storedBy`, `_createdBy`, and `_updatedBy` companion columns of a
+#'  selected attribute or data value — each held as a `user_key` into
+#'  `metadata$users` rather than a name. Possible values are "no", "pseudo"
+#'  and "full": under "pseudo" `metadata$users` carries `user_key` alone,
+#'  plus the DHIS2 user id where `"users"` is in `include_dhis2_ids`; under
+#'  "full" also `username`, `firstName`, `surname`, `email`,
+#'  `lastLogin`, and `created`. A `storedBy` column holds what DHIS2
+#'  returns, and its meaning depends on how the record was written: on
+#'  DHIS2 2.41.9, and on the later lines from 2.42.6 and 2.43.1, a record
+#'  written through the tracker API holds the authenticated user's name
+#'  there, while the legacy APIs that Tracker Capture writes through still
+#'  store the value the client sends, so one dataset can hold both meanings
+#'  and attribution of a record rests on `createdBy` and `updatedBy`, which
+#'  DHIS2 sets itself. A patient's attribute values carry `storedBy` and
+#'  neither `createdBy` nor `updatedBy`: no attribute value is attributed
+#'  through its `_storedBy`, and the patient's own `createdBy` and
+#'  `updatedBy` say who created and last updated the patient.
 #' @param include_patient Include the patient tibble into the dataset and
 #'  expose the `patient_key` link column on downstream tibbles. Possible values
 #'  are "no", "pseudo" and "full". Under "no" the patient tibble is an empty
