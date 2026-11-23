@@ -728,6 +728,21 @@ test_that(".design_effect_mean validates its clusters", {
   expect_error(neoipcr:::.design_effect_mean(c(1, 2, 3)))
 })
 
+test_that("the interval engines refuse a missing confidence level", {
+  # is.nan leaves an NA_real_ alone, so the widening's NaN guard passes an
+  # NA level through as a design effect of NA under status ok: the level's
+  # own guard is what refuses it.
+  expect_error(neoipcr:::.design_effect_mean(list(c(1, 3), c(5, 7)),
+                                             conf.level = NA_real_))
+  expect_error(neoipcr:::.design_effect(c(5, 0, 12), c(1000, 800, 1200),
+                                        "poisson", conf.level = NA_real_))
+  expect_error(neoipcr:::.gamma_rate_ci(5, 100, conf.level = NA_real_))
+  expect_error(neoipcr:::.clopper_pearson_ci(5, 20, conf.level = NA_real_))
+  expect_error(neoipcr:::.order_statistic_quartile_ci(
+    events = c(5, 12, 30, 8), exposure = c(100, 200, 300, 150),
+    conf.level = NA_real_))
+})
+
 test_that("both engines read the all-zero state alike", {
   # The same status vocabulary for the same degenerate input: no events, and
   # nothing for the design effect to estimate.

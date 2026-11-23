@@ -711,6 +711,7 @@ bootstrap_quantile_ci <- function(events, exposure,
 #'
 #' @noRd
 .design_effect_mean <- function(clusters, conf.level = 0.95) {
+  check_number_decimal(conf.level, min = .Machine$double.eps, max = 1 - .Machine$double.eps)
   if (!is.list(clusters) || !all(vapply(clusters, is.numeric, logical(1)))) {
     rlang::abort(gettextf("%s must be a list of numeric vectors.", "`clusters`"))
   }
