@@ -620,13 +620,12 @@ bootstrap_quantile_ci <- function(events, exposure,
 #'
 #' With the working variance of each cluster's own figure `b / w[i] + tau2`,
 #' the DerSimonian-Laird moment estimator for `tau2`, the leverage rows
-#' `1 - w / S` and the CR2 variance `sum(u^2 * phi / M) / S^2`. The trace
-#' terms of the Bell-McCaffrey degrees of freedom come from power sums over
-#' the clusters: with `B = diag(c) - c h^T - h c^T + C0 h h^T` for the
+#' `1 - w / S` and the CR2 variance `sum(u^2 * phi / M) / S^2`. With the
 #' leverage `h = w / S` and `c = h^2 phi / M`, the sandwich `P` equals
+#' `diag(c) - c h^T - h c^T + C0 h h^T` for `C0 = sum(c)`, sandwiched:
 #' `diag(sqrt(phi)) B diag(sqrt(phi))`, so `tr P = sum(c phi (1 - 2h)) +
 #' C0 sum(phi h^2)` and `tr P^2` is the squared Frobenius norm of `P`,
-#' written out below.
+#' summed below as squares alone.
 #'
 #' @param y Numeric vector >= 0. Each cluster's events or totals.
 #' @param w Numeric vector > 0. Each cluster's denominator, same length.
@@ -642,8 +641,12 @@ bootstrap_quantile_ci <- function(events, exposure,
 .cr2_core <- function(y, w, b, S, G) {
   R <- sum(y) / S
   u <- y - R * w
-  tau2 <- max(0, (sum(y^2 / w) - sum(y)^2 / S - (G - 1) * b) /
-                 (S - sum(w^2) / S))
+  # DerSimonian and Laird's tau2, with its numerator written as the squares
+  # sum(w (y/w - R)^2) - (G - 1) b and its denominator as sum(w (1 - w/S)) -
+  # the same values, but sums of squares and products that keep their digits
+  # where the differences of large sums lose them.
+  tau2 <- max(0, (sum(w * (y / w - R)^2) - (G - 1) * b) /
+                 sum(w * (1 - w / S)))
   phi <- b / w + tau2
   h <- w / S
   if (all(phi == 0)) {
@@ -652,20 +655,39 @@ bootstrap_quantile_ci <- function(events, exposure,
     # freedom, and the design effect stands at 1.
     return(list(v = 0, tau2 = tau2, df = NA_real_, trP = 0, trP2 = 0))
   }
-  Phi <- sum(h^2 * phi)
-  mii <- phi * (1 - 2 * h) + Phi
+  # M[i, i] = sum over k of (I(k == i) - h[k])^2 phi[k], every summand
+  # positive: the diagonal of the leverage sandwich, stable where a leverage
+  # stands near 1 and phi (1 - 2h) nearly cancels against a power sum.
+  mii <- numeric(G)
+  hp2phi <- h^2 * phi
+  om <- 1 - h
+  for (i in seq_len(G)) {
+    column <- hp2phi
+    column[i] <- om[i]^2 * phi[i]
+    mii[i] <- sum(column)
+  }
   v <- sum(u^2 * phi / mii) / S^2
   cc <- h^2 * phi / mii
-  C0 <- sum(cc)
-  trP <- sum(cc * phi * (1 - 2 * h)) + C0 * sum(phi * h^2)
-  # tr P^2: the diagonal of P^2 summed over every pair of clusters, the
-  # off-diagonal squares of B expanded into the power sums below.
-  gii <- -2 * cc * h + C0 * h^2
-  trP2 <- sum(phi^2 * (cc + gii)^2) +
-    2 * (sum(phi * cc^2) * sum(phi * h^2) - sum(phi^2 * cc^2 * h^2)) +
-    2 * (sum(phi * cc * h)^2 - sum(phi^2 * cc^2 * h^2)) -
-    4 * C0 * (sum(phi * cc * h) * sum(phi * h^2) - sum(phi^2 * cc * h^3)) +
-    C0^2 * (sum(phi * h^2)^2 - sum(phi^2 * h^4))
+  # P's diagonal phi[i] (cc[i] (1 - h[i])^2 + h[i]^2 sum(cc[-i])), the
+  # regrouped cc[i] (1 - 2 h[i]) + C0 h[i]^2 with all-positive summands,
+  # and tr P and tr P^2 the sums of P's elements over every pair of
+  # clusters, squares and products alone: an expansion into power sums
+  # would regroup these squares into products of sums whose leading digits
+  # cancel once the denominators grow strongly unequal, and can even turn
+  # the squared Frobenius norm of P negative in double precision.
+  Pii <- numeric(G)
+  scc <- numeric(G)
+  for (i in seq_len(G)) {
+    scc[i] <- sum(cc[-i])
+    Pii[i] <- phi[i] * (cc[i] * om[i]^2 + h[i]^2 * scc[i])
+  }
+  trP <- sum(Pii)
+  trP2 <- sum(Pii^2)
+  for (i in seq_len(G - 1L)) {
+    j <- (i + 1L):G
+    bij <- h[j] * (h[i] * scc[i] - cc[i] * om[i]) - h[i] * cc[j]
+    trP2 <- trP2 + 2 * phi[i] * sum(phi[j] * bij^2)
+  }
   df <- trP^2 / trP2
   list(v = v, tau2 = tau2, df = df, trP = trP, trP2 = trP2)
 }

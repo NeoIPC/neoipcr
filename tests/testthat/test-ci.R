@@ -599,6 +599,51 @@ test_that(".design_effect matches the matrix form on binomial clusters", {
   expect_equal(got$effect, expected$effect)
 })
 
+test_that(".design_effect matches the matrix form on strongly unequal denominators", {
+  # A denominator of a million beside one of fifty: the squared Frobenius
+  # norm of P is then a small sum among large products, and a closed form
+  # that regroups the squares into products of sums loses their leading
+  # digits - it has even turned the trace negative here.
+  y <- c(100000, 45)
+  w <- c(1000000, 50)
+  for (family in c("poisson", "binomial")) {
+    expected <- matrix_design_effect(y, w, family)
+    got <- neoipcr:::.design_effect(y, w, family = family)
+    expect_equal(got$status, "ok")
+    expect_equal(got$tau2, expected$tau2)
+    expect_equal(got$variance, expected$variance)
+    expect_equal(got$df, expected$df)
+    expect_equal(got$effect, expected$effect)
+  }
+})
+
+test_that("two clusters give one degree of freedom whatever their denominators", {
+  # With two clusters the leverage sandwich I - H has rank 1, so P does
+  # and tr P^2 = (tr P)^2: the degrees of freedom are 1 even where one
+  # denominator dwarfs the other.
+  got <- neoipcr:::.design_effect(c(100000, 45), c(1000000, 50), "binomial")
+  expect_equal(got$df, 1, tolerance = 1e-6)
+})
+
+test_that(".design_effect keeps its digits across a battery of unequal denominators", {
+  set.seed(7)
+  for (i in seq_len(8)) {
+    G <- sample(3:12, 1)
+    w <- round(10^runif(G, 1, 6))
+    family <- c("poisson", "binomial")[sample(2, 1)]
+    y <- if (family == "binomial") {
+      round(pmin(w, w * runif(1, 0.05, 0.5) * runif(G, 0.2, 1.6)))
+    } else {
+      round(w * runif(1, 0.005, 0.05) * runif(G, 0.3, 1.7))
+    }
+    if (sum(y) == 0) next
+    expected <- matrix_design_effect(y, w, family)
+    got <- neoipcr:::.design_effect(y, w, family = family)
+    expect_equal(got$df, expected$df, tolerance = 1e-6)
+    expect_equal(got$effect, expected$effect, tolerance = 1e-6)
+  }
+})
+
 test_that(".design_effect is at least 1 and widens with the clustering", {
   w <- rep(1000, 10)
   unclustered <- neoipcr:::.design_effect(rep(10, 10), w, "poisson")
