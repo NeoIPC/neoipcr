@@ -4,8 +4,11 @@
 # survive that exclusion and gives the grouping column the same name,
 # `enrollment_department_key`, that the events table carries.
 .enrollment_hierarchy_cols <- function(enrollments) {
+  # `recycle0` keeps the renaming empty when the selection is: `paste0`
+  # without it returns one name for zero columns, which `rename_with`
+  # rejects.
   dplyr::rename_with(
-    enrollments, ~ paste0("enrollment_", .x),
+    enrollments, ~ paste0("enrollment_", .x, recycle0 = TRUE),
     tidyselect::any_of(.hierarchy_key_names))
 }
 
