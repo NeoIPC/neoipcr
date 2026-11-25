@@ -394,17 +394,22 @@ get_infection_counts <- function(x, group_cols = NULL, use_cache = TRUE) {
   # it has infections: the recording units from the events, the stay
   # units from the enrolments under whichever name the group column
   # uses, and — for columns naming no side — the values the infections
-  # themselves show, both `with_pathogen` levels among them by the
-  # frame's own right.
+  # show, a factor's declared levels among them even where no infection
+  # shows one, both `with_pathogen` levels among them by the frame's own
+  # right. A frame naming no column of its own is one row: a dataset
+  # without infections must still count each department at zero, and a
+  # frame of no values would multiply the other frames away.
   stay_keys <- intersect(.hierarchy_key_names,
                          sub("^enrollment_", "", group_cols))
   stay_plain <- intersect(group_cols, stay_keys)
   stay_legs <- intersect(group_cols, paste0("enrollment_", stay_keys))
+  event_legs <- intersect(group_cols, paste0("event_", .hierarchy_key_names))
   frames <- list(
-    dplyr::distinct(
-      x$events |>
-        dplyr::select(tidyselect::any_of(
-          intersect(group_cols, paste0("event_", .hierarchy_key_names)))))
+    if(length(event_legs))
+      dplyr::distinct(
+        x$events |> dplyr::select(tidyselect::all_of(event_legs)))
+    else
+      tibble::tibble(.rows = 1L)
   )
   if(length(stay_plain) || length(stay_legs)) {
     stay_side <- x$enrollments |>
@@ -419,6 +424,13 @@ get_infection_counts <- function(x, group_cols = NULL, use_cache = TRUE) {
       group_cols,
       c(paste0("event_", .hierarchy_key_names), stay_keys,
         paste0("enrollment_", .hierarchy_key_names))))))
+  if(!nrow(inf_values))
+    inf_values <- if(ncol(inf_values))
+      tidyr::expand_grid(!!!lapply(inf_values, function(col)
+        if(is.factor(col)) factor(levels(col), levels = levels(col))
+        else unique(col)))
+    else
+      tibble::tibble(.rows = 1L)
   if("with_pathogen" %in% group_cols)
     inf_values <- dplyr::bind_rows(
       inf_values, tibble::tibble(with_pathogen = c(TRUE, FALSE)))

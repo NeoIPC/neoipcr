@@ -195,6 +195,40 @@ test_that("a department with stays but no infection counts at zero by the stay's
   expect_equal(plain$n, c(0L, 2L))
 })
 
+test_that("a dataset without infections counts zero for every stay's department", {
+  # Both stays hold their admission and surveillance-end forms, and the
+  # dataset records no infection at all: the frame must still hold both
+  # departments at zero, and every department-and-type pair at zero, so a
+  # benchmark's means and quartiles do not lose the departments over a
+  # dataset no infection entered.
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(event_type_key = "bsi", department_key = c(1L, 2L)))
+  inf <- ds$events$event_key[
+    ds$events$event_type_key %in% c("bsi", "nec", "hap", "ssi")]
+  ds$events <- ds$events[!ds$events$event_key %in% inf, ]
+
+  counts <- neoipcr:::get_infection_counts(
+    ds, group_cols = "enrollment_department_key", use_cache = FALSE)
+  expect_equal(counts$enrollment_department_key, c(1L, 2L))
+  expect_equal(counts$n, c(0L, 0L))
+
+  by_type <- neoipcr:::get_infection_counts(
+    ds, group_cols = c("enrollment_department_key", "event_type_key"),
+    use_cache = FALSE)
+  expect_equal(nrow(by_type), 8L)
+  expect_equal(unique(by_type$enrollment_department_key), c(1L, 2L))
+  expect_equal(as.character(unique(by_type$event_type_key)),
+               c("bsi", "nec", "hap", "ssi"))
+  expect_equal(unique(by_type$n), 0L)
+
+  # The recording side frames on the events it has: the admission and
+  # surveillance-end forms' units, each at zero infections.
+  recording <- neoipcr:::get_infection_counts(
+    ds, group_cols = "event_department_key", use_cache = FALSE)
+  expect_equal(recording$event_department_key, c(1L, 2L))
+  expect_equal(recording$n, c(0L, 0L))
+})
+
 test_that("grouping by the recording side counts and frames on what was recorded", {
   # Both sepsis episodes belong to stays of department 2, which also
   # holds their admissions; department 1 holds one stay, its admission
