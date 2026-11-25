@@ -104,10 +104,11 @@ test_that("event_notes_cols: hierarchy keys absent via inheritance under full ev
     include_test_data        = TRUE)
   schema <- neoipcr:::compile_schema(neoipcr:::event_notes_cols, opts)
   # Events carries these directly → children inherit (absent directly).
-  for (col in c("enrollment_key", "patient_key", "department_key",
-                "hospital_key", "country_key", "world_bank_class_key",
-                "isTest"))
+  # The hierarchy check runs on the pair the child would declare, not
+  # the plain names it never declares.
+  for (col in c("enrollment_key", "patient_key", "isTest"))
     expect_false(col %in% names(schema), info = col)
+  expect_false(any(neoipcr:::.hierarchy_leg_names() %in% names(schema)))
 })
 
 # ---- enrollment_notes_cols three-mode shape ------------------------------

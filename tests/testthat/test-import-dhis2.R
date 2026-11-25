@@ -143,6 +143,107 @@ test_that("import_dhis2 makes no real HTTP call for an unmocked endpoint", {
   expect_error(import_dhis2(conn, import_test_opts()), "unmocked DHIS2 request")
 })
 
+test_that("import_dhis2 materializes the links and hierarchy keys pseudonymized events hand to the forms", {
+  # Under the pseudonymized event tier the per-event-type tibbles carry
+  # the links and hierarchy keys of their events directly, since the
+  # events tibble holds only the `event_key` to join by. The schema
+  # declares them; the reader must materialize them with the values of
+  # the event each form row belongs to. Keys are per-import pseudonyms,
+  # renumbered at every import, so the pseudo import is checked against
+  # itself: the pair must hold the department of the enrolment each
+  # form reaches through this import's own `enrollment_key`.
+  m <- new_dhis2_mock(import_test_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  conn <- dhis2_connection_options(
+    session_id = "test", hostname = "dhis2.example.org")
+
+  pseudo <- import_dhis2(conn, import_test_opts(include_event = "pseudo"))
+
+  forms <- pseudo$admissionData
+  expect_identical(nrow(forms), 2L)
+  expect_false(anyNA(forms$enrollment_key))
+  expect_false(anyNA(forms$patient_key))
+  expect_false(anyNA(forms$event_department_key))
+  expect_false(anyNA(forms$enrollment_department_key))
+  keyed <- forms |>
+    dplyr::left_join(
+      pseudo$enrollments |>
+        dplyr::select("enrollment_key", "department_key"),
+      dplyr::join_by("enrollment_key"))
+  expect_identical(keyed$enrollment_department_key, keyed$department_key)
+})
+
+# Fixture set for the drift scenario: the patients sit in one
+# department, their stays in another, and one event was recorded under
+# a third unit again.
+import_drift_fixtures <- function(version = "2.40.12.0") {
+  list(
+    me                = read_fixture_text("me-nested.json"),
+    metadata          = build_metadata_response(version),
+    organisationUnits = read_fixture_text("orgunits-departments-drift.json"),
+    trackedEntities   = read_fixture_text("tracker-trackedEntities-drift.json"),
+    enrollments       = read_fixture_text("tracker-enrollments-drift.json"),
+    events            = read_fixture_text("tracker-events-drift.json"))
+}
+
+test_that("import_dhis2 gives a drifted event its recording department and its stay's", {
+  m <- new_dhis2_mock(import_drift_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  conn <- dhis2_connection_options(
+    session_id = "test", hostname = "dhis2.example.org")
+
+  ds <- import_dhis2(conn, import_test_opts())
+
+  # The unit an event was recorded under and the unit of its stay are two
+  # facts, so the events table keeps both: the stay's department is the
+  # department of the enrolment the event belongs to, whatever unit the
+  # event itself stands under.
+  pair <- ds$events |>
+    dplyr::left_join(
+      ds$enrollments |>
+        dplyr::select("enrollment_key", "department_key"),
+      dplyr::join_by("enrollment_key"))
+  expect_identical(pair$enrollment_department_key, pair$department_key)
+  # Both stays sit in one department; the events recorded under two.
+  expect_identical(length(unique(pair$enrollment_department_key)), 1L)
+  expect_identical(length(unique(pair$event_department_key)), 2L)
+})
+
+test_that("import_dhis2 materializes the department pair on pseudonymized forms", {
+  m <- new_dhis2_mock(import_drift_fixtures())
+  httr2::local_mocked_responses(m$mock)
+
+  conn <- dhis2_connection_options(
+    session_id = "test", hostname = "dhis2.example.org")
+
+  pseudo <- import_dhis2(conn, import_test_opts(include_event = "pseudo"))
+
+  # Keys are per-import pseudonyms, so this import is checked against
+  # itself, with the payload values as row anchors: the form of the
+  # drifted event (5 days) carries two different departments, the form
+  # of the recorded-at-home event (3 days) one and the same, and the
+  # stay's side always holds the department of the enrolment the form
+  # reaches through this import's own `enrollment_key`.
+  forms <- pseudo$admissionData
+  expect_false(anyNA(forms$event_department_key))
+  expect_false(anyNA(forms$enrollment_department_key))
+  keyed <- forms |>
+    dplyr::left_join(
+      pseudo$enrollments |>
+        dplyr::select("enrollment_key", "department_key"),
+      dplyr::join_by("enrollment_key"))
+  expect_identical(keyed$enrollment_department_key, keyed$department_key)
+  expect_identical(length(unique(keyed$enrollment_department_key)), 1L)
+  expect_identical(length(unique(keyed$event_department_key)), 2L)
+  stayed  <- keyed |> dplyr::filter(.data$dol == 3L)
+  drifted <- keyed |> dplyr::filter(.data$dol == 5L)
+  expect_identical(stayed$event_department_key, stayed$enrollment_department_key)
+  expect_false(identical(drifted$event_department_key,
+                         drifted$enrollment_department_key))
+})
+
 # The tracked-entity request an import issued, parsed.
 tracked_entity_request <- function(urls)
   httr2::url_parse(

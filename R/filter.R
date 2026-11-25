@@ -520,30 +520,32 @@ apply_postfilter <- function(x)
 
 # Collect the union of a hierarchy key's values across every data-
 # carrying tibble in `x` that carries the column, excluding the
-# metadata tibble being filtered (which is the target). The org-unit
-# attribute-value tables are leaves of departments / hospitals and are
-# deliberately not consulted: a value row alone must not keep its org
-# unit alive.
+# metadata tibble being filtered (which is the target). On the events
+# side of the fact chain a level travels as the pair named for the
+# entity that reads the org unit from — `event_<key>` and
+# `enrollment_<key>` — while patients and enrollments carry the plain
+# key; a level survives if any fact row names it under any of the
+# three. The org-unit attribute-value tables are leaves of departments
+# / hospitals and are deliberately not consulted: a value row alone
+# must not keep its org unit alive.
 #
 # Returns `NULL` when no tibble carries the key (caller should skip
 # filtering in that case — there's no source of truth).
 .surviving_hierarchy_keys <- function(x, hk, exclude_md_tbl)
 {
-  fact_tbls <- c(
-    "patients", "enrollments", "events",
-    "admissionData", "surveillanceEndData", "sepsisData", "necData",
-    "pneumoniaData", "surgeryData", "ssiData",
-    "infectiousAgentFindings", "substanceDays",
-    "eventNotes", "enrollment_notes")
+  fact_tbls <- .hierarchy_fact_tables
   md_tbls <- setdiff(
     c("worldBankClasses", "countries", "hospitals", "departments"),
     exclude_md_tbl)
 
+  fact_names <- c(hk, paste0("event_", hk), paste0("enrollment_", hk))
+
   vals <- list()
   for (t in fact_tbls) {
     tib <- x[[t]]
-    if (!is.null(tib) && hk %in% names(tib))
-      vals[[length(vals) + 1L]] <- tib[[hk]]
+    if (is.null(tib)) next
+    for (fn in intersect(fact_names, names(tib)))
+      vals[[length(vals) + 1L]] <- tib[[fn]]
   }
   for (t in md_tbls) {
     tib <- x$metadata[[t]]

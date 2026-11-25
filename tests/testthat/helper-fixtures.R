@@ -325,10 +325,6 @@ make_test_events <- function(
                                              "ssi", "hap", "end")),
     enrollment_key       = enrollment_keys[keys],
     patient_key          = patient_keys[keys],
-    department_key       = rep(1L, n),
-    hospital_key         = rep(1L, n),
-    country_key          = rep(1L, n),
-    world_bank_class_key = rep(1L, n),
     isTest               = rep(FALSE, n),
     # Entity-level user fields (phase-b-event-details).
     storedBy             = rep(1L, n),
@@ -345,13 +341,44 @@ make_test_events <- function(
     # Lifecycle flags.
     followup             = rep(FALSE, n),
     deleted              = rep(FALSE, n))
+  # The hierarchy pair, both legs at the first unit: an event recorded
+  # in its stay's unit. A fixture wants drift, it passes leg names.
+  for (leg in neoipcr:::.hierarchy_leg_names())
+    full[[leg]] <- rep(1L, n)
+  given <- names(list(...))
   full <- utils::modifyList(full, list(...))
+  # The hierarchy columns exist twice, as `event_*` and `enrollment_*`: the
+  # recording event's unit and the stay's. A plain name given as an override
+  # sets both legs to one value, a fixture without drift; a test that wants
+  # drift passes the leg names.
+  for (plain in neoipcr:::.hierarchy_key_names) {
+    if (plain %in% given) {
+      for (leg in c("event_", "enrollment_")) {
+        leg_col <- paste0(leg, plain)
+        if (!(leg_col %in% given)) full[[leg_col]] <- full[[plain]]
+      }
+      full[[plain]] <- NULL
+    }
+  }
   d <- tibble::as_tibble(full[names(schema)])
   for (col in names(schema)) {
     if (is.factor(schema[[col]]) && !is.factor(d[[col]]))
       d[[col]] <- factor(d[[col]], levels = levels(schema[[col]]))
   }
   structure(d, class = c("neoipcr_evt", class(d)))
+}
+
+# The hierarchy link columns exist twice, as `event_*` and `enrollment_*`.
+# An event-child fixture holds the same value on both legs, which is an
+# event recorded in its stay's unit; a schema that declares a leg gets it.
+.fill_hierarchy_legs <- function(full, schema, n) {
+  for (plain in neoipcr:::.hierarchy_key_names)
+    for (leg in c("event_", "enrollment_")) {
+      leg_col <- paste0(leg, plain)
+      if (leg_col %in% names(schema) && is.null(full[[leg_col]]))
+        full[[leg_col]] <- rep(1L, n)
+    }
+  full
 }
 
 # Internal helper: build a per-event-type data fixture from a schema.
@@ -365,6 +392,7 @@ make_test_events <- function(
     return(structure(schema, class = c(class_name, class(schema))))
 
   full <- c(list(event_key = event_keys), default_full(n))
+  full <- .fill_hierarchy_legs(full, schema, n)
 
   d <- tibble::as_tibble(full[names(schema)])
   for (col in names(schema)) {
@@ -609,6 +637,7 @@ make_test_substance_days <- function(event_keys = 1L,
     index          = seq_len(n),
     substance_code = rep("J01CA04", n),
     days           = rep(3L, n))
+  full <- .fill_hierarchy_legs(full, schema, n)
   d <- tibble::as_tibble(full[names(schema)])
   if (length(list(...)) > 0L) {
     overrides <- list(...)
@@ -641,6 +670,7 @@ make_test_iaf <- function(event_keys = 1L,
     cor    = factor(rep("no", n), levels = c("no", "yes", "not_tested")),
     mrsa   = factor(rep("no", n), levels = c("no", "yes", "not_tested")),
     vre    = factor(rep("no", n), levels = c("no", "yes", "not_tested")))
+  full <- .fill_hierarchy_legs(full, schema, n)
   d <- tibble::as_tibble(full[names(schema)])
   if (length(list(...)) > 0L) {
     overrides <- list(...)
@@ -663,6 +693,7 @@ make_test_unknown_pathogen_names <- function(agent_finding_keys = integer(0),
   full <- list(
     agent_finding_key = agent_finding_keys,
     name              = rep("Unknown pathogen", n))
+  full <- .fill_hierarchy_legs(full, schema, n)
   d <- tibble::as_tibble(full[names(schema)])
   if (length(list(...)) > 0L) {
     overrides <- list(...)
@@ -690,6 +721,7 @@ make_test_event_notes <- function(event_keys = 1L,
     event_key = event_keys,
     note      = paste0("NOTE_", event_keys),
     value     = rep("test note", n))
+  full <- .fill_hierarchy_legs(full, schema, n)
   d <- tibble::as_tibble(full[names(schema)])
   if (length(list(...)) > 0L) {
     overrides <- list(...)

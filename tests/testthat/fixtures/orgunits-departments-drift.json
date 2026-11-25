@@ -1,0 +1,7 @@
+{
+  "organisationUnits": [
+    { "id": "OU_DEPT_PATIENT" },
+    { "id": "OU_DEPT_ENROLLMENT" },
+    { "id": "OU_DEPT_EVENT" }
+  ]
+}

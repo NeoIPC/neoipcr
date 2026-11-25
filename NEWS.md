@@ -14,6 +14,20 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+* Events and the form-data tables carry their hierarchy keys as a symmetric pair over the organisation-unit chain:
+  the side the record's own organisation unit shows, `event_department_key` with its `event_hospital_key`,
+  `event_country_key`, and `event_world_bank_class_key`, beside the stay's side, `enrollment_department_key` and its
+  counterparts, replacing the plain `department_key` and its chain those tables held. The import resolves the pair
+  before the schema projects the tiers, so both hold their values at every tier, the pseudonymised one included,
+  where the inherited links and hierarchy keys the form-data tables declare are now materialised instead of left
+  `NA`. Patient records keep their own keys as they are: a patient holds no single stay.
+* Every rate table's department rows group by `enrollment_department_key`, and `get_infection_counts()` answers
+  every grouping column from the side its name names: an `event_` column counts and frames on the events, a plain
+  or `enrollment_` column counts each event's own stay side and frames on the enrolments, so a department with stays
+  but no infection shows a zero. `rate_definition_versions` moves 21 of its 24 slots to version 2, whose department
+  rows group by the unit of the stay, so `get_benchmark_data()` reports a join of datasets calculated under the two
+  versions as incomparable and stored datasets must be calculated again; `n_departments` and the two case-mix figure
+  tables keep version 1, grouping nothing by a department.
 * neoipcr classifies infectious-agent findings by tables built from a release of the NeoIPC
   infectious-agent list and its reporting classification in the Surveillance-Toolkit, the release
   that `neoipcr_supported_versions()` gives as the new element `infectious_agents`. The tables they

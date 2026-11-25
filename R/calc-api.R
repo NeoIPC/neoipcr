@@ -80,7 +80,7 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
   pd <- get_risk_time(x, use_cache = use_cache)$patient_days
   pd_dept <- get_risk_time(
     x,
-    group_cols = "department_key",
+    group_cols = "enrollment_department_key",
     use_cache = use_cache)$patient_days
   pd_q <- pd_dept |>
     stats::quantile(probs = quartile_probs) |>
@@ -89,7 +89,7 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
   rp <- x |>
     get_risk_population(use_cache = use_cache)
   rp_dept <- x |>
-    get_risk_population(group_cols = "department_key", use_cache = use_cache)
+    get_risk_population(group_cols = "enrollment_department_key", use_cache = use_cache)
   pat_q <- rp_dept$n_patients |>
     stats::quantile(probs = quartile_probs) |>
     as.integer()
@@ -102,13 +102,13 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
 
   sr_dept <- x |>
     get_surgery_risk(
-      group_cols = "department_key",
+      group_cols = "enrollment_department_key",
       use_cache = use_cache) |>
     dplyr::full_join(
       x$enrollments |>
-        dplyr::select("department_key") |>
+        dplyr::select(enrollment_department_key = "department_key") |>
         dplyr::distinct(),
-      dplyr::join_by("department_key")) |>
+      dplyr::join_by("enrollment_department_key")) |>
     dplyr::mutate(
       n_patients = tidyr::replace_na(.data$n_patients, 0L),
       n_procedures = tidyr::replace_na(.data$n_procedures, 0L))
@@ -130,7 +130,7 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
         get_infection_counts() |>
         dplyr::bind_cols(
           x |>
-            get_infection_counts(group_cols = "department_key") |>
+            get_infection_counts(group_cols = "enrollment_department_key") |>
             dplyr::summarise(
               pooled_mean = as.integer(round(mean(.data$n))),
               q = list(
@@ -142,7 +142,7 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
       dplyr::inner_join(
         x |>
           get_infection_counts(
-            group_cols = c("department_key", "event_type_key")) |>
+            group_cols = c("enrollment_department_key", "event_type_key")) |>
           dplyr::group_by(.data$event_type_key) |>
           dplyr::summarise(
             pooled_mean = as.integer(round(mean(.data$n))),
@@ -1078,31 +1078,38 @@ get_effective_analysis_period <- function(x) {
 # get_benchmark_data() joins the table only with one computed under the same
 # definitions. The two versions of a table whose rows are infectious agents
 # share its definitions.
+#
+# Version 2 of a table groups its department rows by the unit of the stay,
+# the enrolment's organisation unit; version 1 grouped them by what the
+# patient's or the event's own record showed, which collection metadata
+# keeps equal to the stay's today but the DHIS2 API does not enforce. The
+# department count reads the organisation-unit metadata and the two patient
+# figures group by the patient, not the unit; they carry version 1.
 rate_definition_versions <- c(
   n_departments = 1L,
-  n_surgical_departments = 1L,
-  n_patients = 1L,
-  n_enrollments = 1L,
-  n_patient_days = 1L,
-  n_surgical_patients = 1L,
-  n_surgical_procedures = 1L,
+  n_surgical_departments = 2L,
+  n_patients = 2L,
+  n_enrollments = 2L,
+  n_patient_days = 2L,
+  n_surgical_patients = 2L,
+  n_surgical_procedures = 2L,
   birth_weight_figure = 1L,
   gestational_age_figure = 1L,
-  usage_density_rate_table = 1L,
-  antibiotic_utilization_table = 1L,
-  surgery_rate_table = 1L,
-  incidence_density_rate_table = 1L,
-  dev_ass_incidence_density_rate_table = 1L,
-  n_infections = 1L,
-  infectious_agent_detection_rate_per_agent_table = 1L,
-  infectious_agent_detection_rate_per_agent_ontology_table = 1L,
-  abr_infection_rate_table = 1L,
-  abr_infection_rate_ontology_table = 1L,
-  infectious_agent_resistance_rate_table = 1L,
-  infectious_agent_resistance_rate_ontology_table = 1L,
-  secondary_bsi_rate_table = 1L,
-  infectious_agent_detection_rate_per_inf_type_table = 1L,
-  resistance_test_rate_table = 1L)
+  usage_density_rate_table = 2L,
+  antibiotic_utilization_table = 2L,
+  surgery_rate_table = 2L,
+  incidence_density_rate_table = 2L,
+  dev_ass_incidence_density_rate_table = 2L,
+  n_infections = 2L,
+  infectious_agent_detection_rate_per_agent_table = 2L,
+  infectious_agent_detection_rate_per_agent_ontology_table = 2L,
+  abr_infection_rate_table = 2L,
+  abr_infection_rate_ontology_table = 2L,
+  infectious_agent_resistance_rate_table = 2L,
+  infectious_agent_resistance_rate_ontology_table = 2L,
+  secondary_bsi_rate_table = 2L,
+  infectious_agent_detection_rate_per_inf_type_table = 2L,
+  resistance_test_rate_table = 2L)
 
 # The columns of `metadata$rate_definitions`: the table's slot, the version of
 # its rate definitions, and the stamps of what it reads from the bundled

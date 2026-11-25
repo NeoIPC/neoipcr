@@ -48,29 +48,34 @@ assert_data_protection <- function(x, dataset_options)
   # When the user opted out of a hierarchy level, the key must be absent
   # from every fact tibble and from adjacent metadata tibbles that carry
   # it as a pre-join. A reader regression that leaks the key surfaces
-  # here.
+  # here. Every fact tibble is watched: patients and enrollments carry
+  # the plain key, while the events table and its children carry the
+  # pair -- and the pseudonymized tier populates the pair on the
+  # children directly, so a child leak is a reader regression too.
+  fact_tables <- .hierarchy_fact_tables
+
   .assert_hierarchy_key_absent(x, dataset_options,
     opts_key         = "include_department",
     col_name         = "department_key",
-    fact_targets     = c("patients", "enrollments", "events"),
+    fact_targets     = fact_tables,
     metadata_targets = character())
 
   .assert_hierarchy_key_absent(x, dataset_options,
     opts_key         = "include_hospital",
     col_name         = "hospital_key",
-    fact_targets     = c("patients", "enrollments", "events"),
+    fact_targets     = fact_tables,
     metadata_targets = c("departments"))
 
   .assert_hierarchy_key_absent(x, dataset_options,
     opts_key         = "include_country",
     col_name         = "country_key",
-    fact_targets     = c("patients", "enrollments", "events"),
+    fact_targets     = fact_tables,
     metadata_targets = c("hospitals", "departments"))
 
   .assert_hierarchy_key_absent(x, dataset_options,
     opts_key         = "include_world_bank_class",
     col_name         = "world_bank_class_key",
-    fact_targets     = c("patients", "enrollments", "events"),
+    fact_targets     = fact_tables,
     metadata_targets = c("countries", "hospitals", "departments"))
 
   # (Former `eventDetails` scrub removed in phase-b-event-details --
@@ -230,8 +235,12 @@ assert_serializable_dataset_options <- function(opts, allow_department_filter)
 #' under `opts[[opts_key]] == "no"`.
 #'
 #' Belt-and-suspenders guardian that fires when a reader regression
-#' leaks the column the user opted out of. Reports all leak sites in
-#' one message so the caller sees the full picture.
+#' leaks the column the user opted out of. On the events side of the
+#' fact chain the level travels as a pair named for the entity that
+#' reads the org unit from — `event_<key>` and `enrollment_<key>` —
+#' so all three names are checked on the fact tibbles; the metadata
+#' tables carry the plain key only. Reports all leak sites in one
+#' message so the caller sees the full picture.
 #'
 #' @noRd
 .assert_hierarchy_key_absent <- function(x, opts, opts_key, col_name,
@@ -240,10 +249,17 @@ assert_serializable_dataset_options <- function(opts, allow_department_filter)
   if (opts[[opts_key]] != "no")
     return(invisible(NULL))
 
+  fact_cols <- c(col_name, paste0("event_", col_name),
+                 paste0("enrollment_", col_name))
+
   leaks <- character()
   for (t in fact_targets) {
-    if (!is.null(x[[t]]) && col_name %in% names(x[[t]]))
-      leaks <- c(leaks, paste0("x$", t))
+    if (!is.null(x[[t]])) {
+      leaked <- intersect(fact_cols, names(x[[t]]))
+      if (length(leaked) > 0L)
+        leaks <- c(leaks, sprintf("x$%s (`%s`)", t,
+                                  paste(leaked, collapse = "`, `")))
+    }
   }
   for (t in metadata_targets) {
     m <- x$metadata[[t]]
@@ -258,8 +274,8 @@ assert_serializable_dataset_options <- function(opts, allow_department_filter)
     sprintf("Data-protection violation: `%s` leaked under `%s = \"no\"`.",
             col_name, opts_key),
     "x" = paste(leaks, collapse = ", "),
-    "i" = paste0("Fix the reader that emits `", col_name,
-                 "` on the tibble(s) above -- this guardian asserts, it ",
+    "i" = paste0("Fix the reader that emits the opted-out hierarchy key ",
+                 "on the tibble(s) above -- this guardian asserts, it ",
                  "does not scrub.")
   ), .internal = TRUE)
 }

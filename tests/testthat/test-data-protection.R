@@ -34,11 +34,14 @@ guard_with <- function(ds = base_ds, ...) {
 
 # Helper: strip a hierarchy key from the fact and metadata targets
 # (simulating what a schema-compliant reader would produce under
-# `include_X = "no"`).
-strip_key <- function(ds, col, fact_targets = c("patients", "enrollments", "events"),
-                     metadata_targets = character()) {
+# `include_X = "no"`). The events and the event-child tables carry the
+# key as the `event_*` and `enrollment_*` legs, which are stripped with it.
+strip_key <- function(ds, col,
+                      fact_targets = neoipcr:::.hierarchy_fact_tables,
+                      metadata_targets = character()) {
+  cols <- c(col, paste0("event_", col), paste0("enrollment_", col))
   for (t in fact_targets)
-    ds[[t]] <- ds[[t]] |> dplyr::select(!tidyselect::any_of(col))
+    ds[[t]] <- ds[[t]] |> dplyr::select(!tidyselect::any_of(cols))
   for (t in metadata_targets) {
     if (!is.null(ds$metadata[[t]]))
       ds$metadata[[t]] <- ds$metadata[[t]] |>

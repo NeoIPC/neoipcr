@@ -77,19 +77,7 @@ event_notes_cols <- with_entity_gate(
                             events_cols)),
     list(col_inherited_from("patient_key",         "include_patient",
                             events_cols)),
-    list(col_inherited_from("department_key",      "include_department",
-                            events_cols)),
-    list(col_inherited_from("hospital_key",        "include_hospital",
-                            events_cols)),
-    list(col_inherited_from("country_key",         "include_country",
-                            events_cols)),
-    list(col_inherited_from("world_bank_class_key", "include_world_bank_class",
-                            events_cols)),
-    list(schema_col(
-      "isTest", logical(),
-      include_when = \(opts)
-        isTRUE(opts$include_test_data) &&
-        !("isTest" %in% names(compile_schema(events_cols, opts))))),
+    events_child_hierarchy_cols(),
     .notes_payload_cols(\(opts) opts$include_event == "full")
   ),
   gate = \(opts) opts$include_event != "no" &&

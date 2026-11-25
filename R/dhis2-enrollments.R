@@ -47,7 +47,8 @@ read_enrollments <- function(enrollments, patients, metadata, dataset_options)
         enrollment_key = integer(),
         enrollment     = character(),
         patient_key    = integer(),
-        enrolledAt     = as.Date(character())))
+        enrolledAt     = as.Date(character()),
+        orgUnit        = character()))
 
   if (opts$include_enrollment == "no")
     return(.empty_result())
@@ -114,14 +115,20 @@ read_enrollments <- function(enrollments, patients, metadata, dataset_options)
         metadata$.departments_internal_map, dplyr::join_by("orgUnit"))
 
   enrollments <- enrollments |>
-    dplyr::select(!tidyselect::any_of("orgUnit")) |>
     add_key_column("enrollment_key")
 
-  # The enrolment date rides along for the reconciliation of the day of life,
-  # which reads it whatever tier the public enrolments carry.
+  # The enrolment date and the unit ride along for downstream readers:
+  # the reconciliation of the day of life reads the date, and the events
+  # reader resolves the `enrollment_*` side of the hierarchy pair from
+  # the unit, which no public enrolment tier carries. The unit is read
+  # here, before the scratch drop below strips it from the working frame.
   internal_map <- enrollments |>
     dplyr::select("enrollment_key", "enrollment",
-                  tidyselect::any_of("patient_key"), "enrolledAt")
+                  tidyselect::any_of("patient_key"), "enrolledAt",
+                  tidyselect::any_of("orgUnit"))
+
+  enrollments <- enrollments |>
+    dplyr::select(!tidyselect::any_of("orgUnit"))
 
   # Narrow to the public schema + loud-assert.
   enrollments <- enrollments |>

@@ -46,10 +46,12 @@ test_that("pseudo events carries only event_key + payload (link/hierarchy absent
   # children should materialize them. Verify for admissionData.
   schema <- neoipcr:::compile_schema(neoipcr:::admissionData_cols, opts)
   expect_true("event_key" %in% names(schema))
-  # Under pseudo events (events has no enrollment_key/patient_key/etc.),
-  # the children materialize them directly per the inheritance rule.
+  # Under pseudo events (events has no enrollment_key/patient_key/
+  # hierarchy-pair/isTest), the children materialize them directly per
+  # the inheritance rule.
   expect_true("enrollment_key" %in% names(schema))
   expect_true("patient_key"    %in% names(schema))
+  expect_true(all(neoipcr:::.hierarchy_leg_names() %in% names(schema)))
 })
 
 test_that("full events keeps per-event-type lean (hierarchy / links reached via events)", {
@@ -64,15 +66,16 @@ test_that("full events keeps per-event-type lean (hierarchy / links reached via 
     include_test_data        = TRUE)
   for (type in names(.type_cols)) {
     schema <- neoipcr:::compile_schema(.type_cols[[type]], opts)
-    # Events already materializes all links + hierarchy + isTest;
-    # children inherit (absent direct) per the rule.
-    expect_false("enrollment_key"       %in% names(schema), info = type)
-    expect_false("patient_key"          %in% names(schema), info = type)
-    expect_false("department_key"       %in% names(schema), info = type)
-    expect_false("hospital_key"         %in% names(schema), info = type)
-    expect_false("country_key"          %in% names(schema), info = type)
-    expect_false("world_bank_class_key" %in% names(schema), info = type)
-    expect_false("isTest"               %in% names(schema), info = type)
+    # Events already materializes all links + the hierarchy pair +
+    # isTest; children inherit (absent direct) per the rule. The pair
+    # is what the child would declare, so it is what the rule is
+    # checked on; the plain key names are not declared on any child.
+    expect_false("enrollment_key" %in% names(schema), info = type)
+    expect_false("patient_key"    %in% names(schema), info = type)
+    expect_false(
+      any(neoipcr:::.hierarchy_leg_names() %in% names(schema)),
+      info = type)
+    expect_false("isTest"         %in% names(schema), info = type)
     # event_key always present
     expect_true("event_key" %in% names(schema), info = type)
   }
@@ -337,17 +340,17 @@ test_that("findings_cols full-mode: hierarchy keys absent via inheritance (event
     include_world_bank_class = "full",
     include_test_data        = TRUE)
   schema <- neoipcr:::compile_schema(neoipcr:::findings_cols, opts)
-  # Events already materializes these; children inherit (absent directly).
-  expect_false("enrollment_key"       %in% names(schema))
-  expect_false("patient_key"          %in% names(schema))
-  expect_false("department_key"       %in% names(schema))
-  expect_false("hospital_key"         %in% names(schema))
-  expect_false("country_key"          %in% names(schema))
-  expect_false("world_bank_class_key" %in% names(schema))
-  expect_false("isTest"               %in% names(schema))
+  # Events already materializes these; children inherit (absent
+  # directly). The hierarchy check runs on the pair the child would
+  # declare, not the plain names it never declares.
+  expect_false("enrollment_key" %in% names(schema))
+  expect_false("patient_key"    %in% names(schema))
+  expect_false(
+    any(neoipcr:::.hierarchy_leg_names() %in% names(schema)))
+  expect_false("isTest"         %in% names(schema))
   # Direct link + payload still present.
-  expect_true("event_key"             %in% names(schema))
-  expect_true("source"                %in% names(schema))
+  expect_true("event_key"      %in% names(schema))
+  expect_true("source"         %in% names(schema))
 })
 
 test_that("substanceDays_cols full-mode: index + substance_code + days declared", {

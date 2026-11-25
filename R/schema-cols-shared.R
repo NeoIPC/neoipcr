@@ -64,6 +64,59 @@ col_wb_class_key   <- schema_col(
   \(opts) opts$include_world_bank_class != "no"
 )
 
+# The hierarchy levels in chain order, as the departments' internal map
+# and the fact tables name their keys. Every hierarchy key is one of
+# these, so the pair prefixes, the readers' key sets, the schema helper
+# below, and the fixtures all build from here.
+.hierarchy_key_names <- c("department_key", "hospital_key", "country_key",
+                          "world_bank_class_key")
+
+# The option that gates each hierarchy key's existence, by the key's
+# name.
+.hierarchy_key_opts <- c(
+  department_key       = "include_department",
+  hospital_key         = "include_hospital",
+  country_key          = "include_country",
+  world_bank_class_key = "include_world_bank_class")
+
+# The names a hierarchy level takes on the events side of the fact
+# chain: `<side>_<key>` for each key and each side. The reader
+# materializes them, the schema declares them, and the tests derive
+# their expectations from them.
+.hierarchy_leg_names <- function(side = c("event_", "enrollment_"))
+  as.vector(outer(side, .hierarchy_key_names, paste0))
+
+# The fact tibbles that carry a hierarchy key: patients and enrollments
+# carry the plain key, the events table and its children the pair. The
+# data-protection guardian, the post-filter's key survival, and the
+# tests share this one list of names.
+.hierarchy_fact_tables <- c(
+  "patients", "enrollments", "events",
+  "admissionData", "surveillanceEndData", "sepsisData", "necData",
+  "pneumoniaData", "surgeryData", "ssiData",
+  "infectiousAgentFindings", "substanceDays",
+  "eventNotes", "enrollment_notes")
+
+# The hierarchy pair and `isTest` as a child of events declares them:
+# each leg lands directly on the child only where the events's compiled
+# schema does not already carry it under the given opts. Every child of
+# events — the per-event-type data tables, the findings, and the event
+# notes — declares the same columns, so they are declared once here.
+# `events_cols` must be defined by the time this is called, which the
+# child schema files' `@include` of `schema-events.R` establishes.
+events_child_hierarchy_cols <- function() {
+  legs <- purrr::map(.hierarchy_key_names, \(key)
+    purrr::map(c("event_", "enrollment_"), \(side)
+      col_inherited_from(paste0(side, key), .hierarchy_key_opts[[key]],
+                         events_cols)))
+  c(unlist(legs, recursive = FALSE),
+    list(schema_col(
+      "isTest", logical(),
+      include_when = \(opts)
+        isTRUE(opts$include_test_data) &&
+        !("isTest" %in% names(compile_schema(events_cols, opts))))))
+}
+
 # ---- User key -------------------------------------------------------------
 #
 # Users sit alongside the hierarchy-metadata entities. `user_key` is the

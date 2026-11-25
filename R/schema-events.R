@@ -13,10 +13,18 @@ NULL
 #              `enrollment_key` (link FK to enrollments, gated on
 #              `include_enrollment != "no"`), `patient_key` (secondary
 #              link FK to patients, gated on `include_patient != "no"`),
-#              and the hierarchy keys (`department_key`, `hospital_key`,
-#              `country_key`, `world_bank_class_key`) via direct
-#              materialization — see `event_hierarchy_col()` below for
-#              the fat-lookup rationale.
+#              and the hierarchy keys as a symmetric pair — the unit the
+#              event was recorded under (`event_department_key`,
+#              `event_hospital_key`, `event_country_key`,
+#              `event_world_bank_class_key`) and the unit of its stay
+#              (`enrollment_department_key`, `enrollment_hospital_key`,
+#              `enrollment_country_key`, `enrollment_world_bank_class_key`), resolved
+#              through the event's enrolment — see
+#              `event_hierarchy_col()` below for the fat-lookup
+#              rationale. The pair exists because DHIS2 accepts an event
+#              recorded under a unit outside its enrolment's: the two
+#              are separate facts, and the calculations group by the
+#              stay's side.
 #
 # Events carries its entity-level user / timestamp / deleted / followup
 # fields directly (DHIS2's Event.java puts them on the event itself —
@@ -50,10 +58,13 @@ NULL
 # hierarchy keys directly off events, such as
 # `get_incidence_density_rates()` and
 # `get_dev_ass_incidence_density_rates()` in calc-rates.R, which group
-# `x$events` by `group_cols` such as `department_key`. Strict
+# `x$events` by `group_cols` such as `enrollment_department_key`. Strict
 # inheritance from enrollments under the full-chain case would
 # silently remove these keys and break every such consumer. Same
-# pattern as enrollments, same rationale.
+# pattern as enrollments, same rationale. The events pair names each
+# side: `event_*` is the department of the event's own organisation
+# unit, `enrollment_*` that of the enrolment's — populated by two joins of
+# the departments fat-lookup in `read_events()`.
 event_hierarchy_col <- function(col_name, opts_key, type = integer())
 {
   schema_col(
@@ -125,12 +136,19 @@ events_cols <- with_entity_gate(
                              opts$include_patient != "no"
     ),
 
-    # Hierarchy keys via direct materialization (see
-    # `event_hierarchy_col()` above for the fat-lookup rationale).
-    event_hierarchy_col("department_key",       "include_department"),
-    event_hierarchy_col("hospital_key",         "include_hospital"),
-    event_hierarchy_col("country_key",          "include_country"),
-    event_hierarchy_col("world_bank_class_key",
+    # Hierarchy key pairs via direct materialization (see
+    # `event_hierarchy_col()` above for the fat-lookup rationale): the
+    # unit the event was recorded under and the unit of its stay, each
+    # level gated by its own include option.
+    event_hierarchy_col("event_department_key",       "include_department"),
+    event_hierarchy_col("enrollment_department_key",           "include_department"),
+    event_hierarchy_col("event_hospital_key",         "include_hospital"),
+    event_hierarchy_col("enrollment_hospital_key",             "include_hospital"),
+    event_hierarchy_col("event_country_key",          "include_country"),
+    event_hierarchy_col("enrollment_country_key",              "include_country"),
+    event_hierarchy_col("event_world_bank_class_key",
+                        "include_world_bank_class"),
+    event_hierarchy_col("enrollment_world_bank_class_key",
                         "include_world_bank_class"),
 
     # `isTest` — populated by the reader via the departments fat-lookup

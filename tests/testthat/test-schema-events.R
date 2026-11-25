@@ -111,10 +111,11 @@ test_that("events_cols: event_type_key is a fixed-levels factor", {
 
 # ---- Hierarchy-key direct materialization (fat-lookup deviation) ----------
 #
-# Events carries hierarchy keys directly under the option's own gate
-# (not via inheritance). Same rationale as enrollments and departments:
-# downstream consumers (calc-rates, reports) read hierarchy keys off
-# events directly (e.g. `names(x$events)` intersection with
+# Events carries each hierarchy key twice under the option's own gate (not
+# via inheritance): `event_*` from the recording event's unit,
+# `enrollment_*` from the stay's. Same rationale as enrollments and
+# departments: downstream consumers (calc-rates, reports) read hierarchy
+# keys off events directly (e.g. `names(x$events)` intersection with
 # `group_cols`). Strict inheritance would silently break these
 # consumers under the full-chain case.
 
@@ -128,10 +129,28 @@ test_that("direct materialization: hierarchy keys under every upstream option's 
     include_country          = "full",
     include_world_bank_class = "full")
   schema <- neoipcr:::compile_schema(neoipcr:::events_cols, opts_full)
-  expect_true("department_key"       %in% names(schema))
-  expect_true("hospital_key"         %in% names(schema))
-  expect_true("country_key"          %in% names(schema))
-  expect_true("world_bank_class_key" %in% names(schema))
+  for (leg in neoipcr:::.hierarchy_leg_names())
+    expect_true(leg %in% names(schema), info = leg)
+})
+
+test_that("the events pair is exactly the pair derived from the shared key names", {
+  # The events declarations are written by hand one per leg, so a name
+  # there can drift from the vocabulary the reader, the child schemas,
+  # and the fixtures derive. Found by name pattern, not enumeration:
+  # the event-type key is this pattern's lookalike and no hierarchy key.
+  opts_full <- dhis2_dataset_options(
+    include_event            = "full",
+    include_enrollment       = "full",
+    include_patient          = "full",
+    include_department       = "full",
+    include_hospital         = "full",
+    include_country          = "full",
+    include_world_bank_class = "full")
+  schema <- neoipcr:::compile_schema(neoipcr:::events_cols, opts_full)
+  leg_family <- setdiff(
+    grep("^(event|enrollment)_[a-z_]+_key$", names(schema), value = TRUE),
+    "event_type_key")
+  expect_setequal(leg_family, neoipcr:::.hierarchy_leg_names())
 })
 
 test_that("direct materialization: hierarchy keys present under include_enrollment = 'no'", {
@@ -144,10 +163,8 @@ test_that("direct materialization: hierarchy keys present under include_enrollme
     include_country          = "full",
     include_world_bank_class = "full")
   schema <- neoipcr:::compile_schema(neoipcr:::events_cols, opts_no_enr)
-  expect_true("department_key"       %in% names(schema))
-  expect_true("hospital_key"         %in% names(schema))
-  expect_true("country_key"          %in% names(schema))
-  expect_true("world_bank_class_key" %in% names(schema))
+  for (leg in neoipcr:::.hierarchy_leg_names())
+    expect_true(leg %in% names(schema), info = leg)
 })
 
 test_that("direct materialization: hierarchy absent when its own option is 'no'", {
@@ -157,7 +174,8 @@ test_that("direct materialization: hierarchy absent when its own option is 'no'"
     include_patient    = "full",
     include_hospital   = "no")
   schema <- neoipcr:::compile_schema(neoipcr:::events_cols, opts)
-  expect_false("hospital_key" %in% names(schema))
+  expect_false("event_hospital_key" %in% names(schema))
+  expect_false("enrollment_hospital_key" %in% names(schema))
 })
 
 # ---- isTest (direct materialization) ------------------------------------

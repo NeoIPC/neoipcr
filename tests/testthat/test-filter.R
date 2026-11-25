@@ -612,9 +612,10 @@ test_that("apply_postfilter: dynamic anchor handles pseudo-event (hierarchy keys
 
   # Strip hierarchy keys from events (simulate pseudo mode).
   ds$events <- ds$events |>
-    dplyr::select(!tidyselect::any_of(c(
-      "department_key", "hospital_key", "country_key",
-      "world_bank_class_key")))
+    dplyr::select(!tidyselect::any_of(as.vector(outer(
+      c("event_", "enrollment_"),
+      c("department_key", "hospital_key", "country_key",
+        "world_bank_class_key"), paste0))))
 
   # Strip hierarchy keys from enrollments too (simulate that the
   # anchor has shifted deeper than the legacy enrollments-only code

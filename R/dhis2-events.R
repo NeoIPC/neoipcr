@@ -55,6 +55,9 @@ get_events_request <- function(req_base, dataset_options, programId)
     httr2::req_url_query(fields = fields)
 }
 
+# The hierarchy key names the reader materializes are `.hierarchy_key_names`,
+# defined with the schema vocabulary in R/schema-cols-shared.R.
+
 read_events <- function(events, enrollments, metadata, dataset_options)
 {
   opts <- dataset_options
@@ -86,39 +89,60 @@ read_events <- function(events, enrollments, metadata, dataset_options)
   # `.enrollments_internal_map` carries enrollment_key + enrollment +
   # patient_key (patient_key derived from the enrollment→patient chain
   # inside read_enrollments, not from trackedEntity on the raw events),
-  # and the enrolment date, which the events schema does not declare, so
-  # the join takes only the link columns.
+  # the enrolment date, and the stay's organisation unit. The events
+  # schema declares neither the date nor the unit, so the join takes the
+  # links and the unit, renaming it to `enrollment_orgUnit` — the second
+  # fat-lookup key below, beside the event's own `orgUnit`.
+  # The raw data values and notes have no consumer on this frame:
+  # `read_event_data()` and `read_event_notes()` pivot them from the raw
+  # response the caller holds, and this reader takes their keys through
+  # the internal map below. Dropping them first keeps the raw payload
+  # out of every copy the joins below make.
   events <- events |>
+    dplyr::select(!tidyselect::any_of(c("dataValues", "notes"))) |>
     dplyr::inner_join(
       metadata$.eventTypes_internal_map,
       dplyr::join_by("programStage")) |>
     dplyr::inner_join(
       metadata$.enrollments_internal_map |>
-        dplyr::select("enrollment_key", "enrollment", "patient_key"),
+        dplyr::select("enrollment_key", "enrollment", "patient_key",
+                      enrollment_orgUnit = tidyselect::any_of("orgUnit")),
       dplyr::join_by("enrollment")) |>
     dplyr::mutate(
       occurredAt = readr::parse_date(
         stringr::str_sub(.data$occurredAt, end = 10)))
 
-  # Hierarchy keys and `isTest`: join each that `events_cols` declares under
-  # `opts` from the departments' internal map,
-  # `metadata$.departments_internal_map`, by `orgUnit`, as read_patients()
-  # and read_enrollments() do.
-  hierarchy_keys <- c("department_key", "hospital_key",
-                      "country_key", "world_bank_class_key")
-  expected <- names(compile_schema(events_cols, opts))
-  needed   <- intersect(hierarchy_keys, expected)
-
-  if (length(needed) > 0L || opts$include_test_data) {
-    hierarchy_cols <- intersect(
-      c("department_key", "hospital_key", "country_key",
-        "world_bank_class_key", "isTest"),
-      names(compile_schema(events_cols, opts)))
+  # Hierarchy key pairs and `isTest`: join the departments' internal
+  # map, `metadata$.departments_internal_map`, twice — by the event's
+  # own `orgUnit` for the `event_*` side, and by `enrollment_orgUnit`, the
+  # unit of the event's enrolment, for the `enrollment_*` side — as
+  # read_patients() and read_enrollments() do for their one join. The
+  # joins run on the map's own columns, not the schema's: DHIS2 accepts
+  # an event recorded outside its enrolment's unit, so the two sides are
+  # resolved before the schema projects the tiers, and the internal map
+  # below carries the pair to the form-data, findings, and notes readers
+  # whatever tier the public events show.
+  map_keys <- intersect(
+    .hierarchy_key_names, names(metadata$.departments_internal_map))
+  want_isTest <- isTRUE(opts$include_test_data) &&
+                   "isTest" %in% names(metadata$.departments_internal_map)
+  if (length(map_keys) > 0L || want_isTest) {
+    event_map <- metadata$.departments_internal_map |>
+      dplyr::select(tidyselect::all_of(c(
+        "orgUnit", map_keys, if (want_isTest) "isTest"))) |>
+      dplyr::rename_with(\(x) paste0("event_", x),
+                         tidyselect::all_of(map_keys))
     events <- events |>
-      dplyr::left_join(
-        metadata$.departments_internal_map |>
-          dplyr::select(tidyselect::all_of(c("orgUnit", hierarchy_cols))),
-        dplyr::join_by("orgUnit"))
+      dplyr::left_join(event_map, dplyr::join_by("orgUnit"))
+  }
+  if (length(map_keys) > 0L && "enrollment_orgUnit" %in% names(events)) {
+    enrollment_map <- metadata$.departments_internal_map |>
+      dplyr::select(tidyselect::all_of(c("orgUnit", map_keys))) |>
+      dplyr::rename_with(\(x) "enrollment_orgUnit", tidyselect::all_of("orgUnit")) |>
+      dplyr::rename_with(\(x) paste0("enrollment_", x),
+                         tidyselect::all_of(map_keys))
+    events <- events |>
+      dplyr::left_join(enrollment_map, dplyr::join_by("enrollment_orgUnit"))
   }
 
   if ("events" %in% opts$include_incomplete)
@@ -158,35 +182,65 @@ read_events <- function(events, enrollments, metadata, dataset_options)
     dplyr::mutate(dplyr::across(
       tidyselect::any_of(datetime_cols), readr::parse_datetime))
 
-  # `orgUnit`, `programStage`, `trackedEntity`, `enrollment` are
-  # reader-internal scratch — fetched for the joins / filter above and
-  # either substituted (programStage → event_type_key, trackedEntity
-  # → patient_key, enrollment → enrollment_key) or used only for the
-  # departments lookup (orgUnit). `isTest` is declared on events_cols
-  # and survives the finalize. `event` stays if the id opt-in is set;
-  # the schema gates it. `dataValues` / `notes` are raw DHIS2 payloads
-  # consumed downstream by `read_event_data()` / `read_event_notes()`
-  # (via the separate `processed_events` argument) — they live on the
-  # raw response but not on the public events tibble.
+  # `orgUnit`, `enrollment_orgUnit`, `programStage`, `trackedEntity`,
+  # `enrollment` are reader-internal scratch — fetched for the joins /
+  # filter above and either substituted (programStage → event_type_key,
+  # trackedEntity → patient_key, enrollment → enrollment_key) or used
+  # only for the departments lookups (the two org units). `isTest` is
+  # declared on events_cols and survives the finalize. `event` stays if
+  # the id opt-in is set; the schema gates it. `dataValues` / `notes`
+  # are dropped at the top of this reader, so they never reach here.
   events <- events |>
     add_key_column("event_key")
 
-  # The links and the date ride along for the reconciliations, which read
-  # them whatever tier the public events carry.
+  # The links, the date, and the hierarchy pairs ride along for the
+  # reconciliations and the child readers, which read them whatever
+  # tier the public events carry: the pseudonymized tier leaves the
+  # pairs and the links out of the public table, and the form-data,
+  # findings, and notes children materialize them from here.
   internal_map <- events |>
     dplyr::select("event_key", "event", "event_type_key", "enrollment_key",
-                  "patient_key", "occurredAt")
+                  "patient_key", "occurredAt",
+                  tidyselect::any_of(c(
+                    paste0("event_", .hierarchy_key_names),
+                    paste0("enrollment_", .hierarchy_key_names),
+                    "isTest")))
 
   events <- events |>
     finalize_to_schema(
       events_cols, opts,
       scratch = c(
-        "orgUnit", "programStage", "trackedEntity", "enrollment",
-        "dataValues", "notes"))
+        "orgUnit", "enrollment_orgUnit", "programStage", "trackedEntity",
+        "enrollment"))
 
   assert_schema(events, events_cols, opts)
 
   list(public = events, internal_map = internal_map)
+}
+
+# The links and hierarchy pairs `read_events()`' internal map carries,
+# joined onto a child of the pseudonymized tier. What a form-data,
+# findings, or notes child must take from that map is exactly what its
+# own compiled schema declares: `col_inherited_from()` has decided that
+# a key lands directly on the child only where the events table omits
+# it. The join runs after the pivot, so the keys ride along as row keys
+# rather than pivoting into per-DE payload, and before the
+# finalize, so the values are present where the schema expects them
+# instead of materializing as `NA`. Columns the child already carries
+# are left out, which makes the synthesized empty shapes no-ops.
+.event_child_keys_join <- function(child, processed_events, child_cols, opts)
+{
+  declared <- names(compile_schema(child_cols, opts))
+  take <- setdiff(
+    intersect(declared, setdiff(names(processed_events), "event")),
+    c("event_key", names(child)))
+  if (length(take) == 0L)
+    return(child)
+  child |>
+    dplyr::left_join(
+      processed_events |>
+        dplyr::select(tidyselect::all_of(c("event_key", take))),
+      dplyr::join_by("event_key"))
 }
 
 read_event_notes <- function(events, processed_events, metadata, dataset_options)
@@ -203,6 +257,7 @@ read_event_notes <- function(events, processed_events, metadata, dataset_options
     return(compile_schema(event_notes_cols, opts))
 
   events <- events |>
+    dplyr::select("event", "notes") |>
     dplyr::inner_join(
       processed_events |>
         dplyr::select("event_key", "event"),
@@ -245,6 +300,7 @@ read_event_notes <- function(events, processed_events, metadata, dataset_options
       dplyr::mutate(storedAt = readr::parse_datetime(.data$storedAt))
 
   public <- events |>
+    .event_child_keys_join(processed_events, event_notes_cols, opts) |>
     finalize_to_schema(event_notes_cols, opts)
   assert_schema(public, event_notes_cols, opts)
 
@@ -275,9 +331,9 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
   # contract this set is a pure function of opts.
   all_names  <- names(compile_schema(cols, opts))
   non_de     <- c(
-    "event_key", "enrollment_key", "patient_key",
-    "department_key", "hospital_key", "country_key",
-    "world_bank_class_key", "isTest", "vs_days")
+    "event_key", "enrollment_key", "patient_key", "isTest", "vs_days",
+    paste0("event_", .hierarchy_key_names),
+    paste0("enrollment_", .hierarchy_key_names))
   companion  <- grepl(
     "_(storedBy|createdBy|updatedBy|createdAt|updatedAt)$", all_names)
   de_codes   <- setdiff(all_names[!companion], non_de)
@@ -376,7 +432,8 @@ read_event_data <- function(events, processed_events, metadata, dataset_options,
   # column the schema does not declare, drops declared columns that
   # `opts` excludes, and materializes absent included ones as NA;
   # `assert_schema` verifies the final shape.
-  events <- finalize_to_schema(events, cols, opts)
+  events <- .event_child_keys_join(events, processed_events, cols, opts) |>
+    finalize_to_schema(cols, opts)
   assert_schema(events, cols, opts)
 
   events
@@ -499,6 +556,7 @@ read_infectious_agent_findings <- function(events_raw, processed_events, metadat
                   "pathogen_key")
 
   findings <- intermediate |>
+    .event_child_keys_join(processed_events, findings_cols, opts) |>
     finalize_to_schema(
       findings_cols, opts,
       scratch = c("event_type_key", "name", "pathogen"))
@@ -602,6 +660,7 @@ read_substance_days <- function(events_raw, processed_events, metadata, dataset_
       ~ stringr::str_extract(.x, "^(.+)_value$", 1),
       tidyselect::ends_with("_value")) |>
     dplyr::mutate(days = as.integer(.data$days)) |>
+    .event_child_keys_join(processed_events, substanceDays_cols, opts) |>
     finalize_to_schema(substanceDays_cols, opts, scratch = "event")
   assert_schema(public, substanceDays_cols, opts)
 

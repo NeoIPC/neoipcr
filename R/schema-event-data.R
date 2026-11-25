@@ -102,27 +102,17 @@ event_data_col <- function(name, type,
 # for `substanceDays`.
 # Link FKs and hierarchy keys inherit strictly from events_cols — they
 # materialize here only when events's compiled schema doesn't already
-# carry them under the current opts.
+# carry them under the current opts; the pair and isTest come from the
+# shared child declaration.
 .event_data_link_cols <- function() {
-  list(
-    col_event_key,
-    col_inherited_from("enrollment_key",      "include_enrollment",
-                       events_cols),
-    col_inherited_from("patient_key",         "include_patient",
-                       events_cols),
-    col_inherited_from("department_key",       "include_department",
-                       events_cols),
-    col_inherited_from("hospital_key",         "include_hospital",
-                       events_cols),
-    col_inherited_from("country_key",          "include_country",
-                       events_cols),
-    col_inherited_from("world_bank_class_key", "include_world_bank_class",
-                       events_cols),
-    schema_col(
-      "isTest", logical(),
-      include_when = \(opts)
-        isTRUE(opts$include_test_data) &&
-        !("isTest" %in% names(compile_schema(events_cols, opts))))
+  c(
+    list(
+      col_event_key,
+      col_inherited_from("enrollment_key",      "include_enrollment",
+                         events_cols),
+      col_inherited_from("patient_key",         "include_patient",
+                         events_cols)),
+    events_child_hierarchy_cols()
   )
 }
 
@@ -419,39 +409,30 @@ event_data_cols_for <- function(event_type_key)
 # events — same pattern as per-event-type data).
 
 findings_cols <- with_entity_gate(
-  list(
-    # PK — assigned by `add_key_column("agent_finding_key")` in the
-    # reader.
-    schema_col(
-      "agent_finding_key", integer(),
-      include_when = \(opts) opts$include_event != "no"),
+  c(
+    list(
+      # PK — assigned by `add_key_column("agent_finding_key")` in the
+      # reader.
+      schema_col(
+        "agent_finding_key", integer(),
+        include_when = \(opts) opts$include_event != "no"),
 
-    # Link FK to events.
-    col_event_key,
+      # Link FK to events.
+      col_event_key,
 
-    # Inherited link FKs + hierarchy + isTest from events_cols (same
-    # pattern as per-event-type data: under fat-events these are
-    # absent; under pseudo events they materialize directly).
-    col_inherited_from("enrollment_key",       "include_enrollment",
-                       events_cols),
-    col_inherited_from("patient_key",          "include_patient",
-                       events_cols),
-    col_inherited_from("department_key",       "include_department",
-                       events_cols),
-    col_inherited_from("hospital_key",         "include_hospital",
-                       events_cols),
-    col_inherited_from("country_key",          "include_country",
-                       events_cols),
-    col_inherited_from("world_bank_class_key", "include_world_bank_class",
-                       events_cols),
-    schema_col(
-      "isTest", logical(),
-      include_when = \(opts)
-        isTRUE(opts$include_test_data) &&
-        !("isTest" %in% names(compile_schema(events_cols, opts)))),
+      # Inherited link FKs from events_cols, the hierarchy pair and
+      # isTest from the shared child declaration (same pattern as
+      # per-event-type data: under fat-events these are absent; under
+      # pseudo events they materialize directly).
+      col_inherited_from("enrollment_key",       "include_enrollment",
+                         events_cols),
+      col_inherited_from("patient_key",          "include_patient",
+                         events_cols)),
+
+    events_child_hierarchy_cols(),
 
     # Finding-specific payload.
-    schema_col(
+    list(schema_col(
       "secondary_bsi", logical(),
       include_when = \(opts) opts$include_event == "full"),
     schema_col(
@@ -496,11 +477,11 @@ findings_cols <- with_entity_gate(
       factor_levels = c("no", "yes", "not_tested"),
       levels_source = "fixed",
       include_when = \(opts) opts$include_event == "full"),
-    schema_col(
-      "vre", factor(),
-      factor_levels = c("no", "yes", "not_tested"),
-      levels_source = "fixed",
-      include_when = \(opts) opts$include_event == "full")
+      schema_col(
+        "vre", factor(),
+        factor_levels = c("no", "yes", "not_tested"),
+        levels_source = "fixed",
+        include_when = \(opts) opts$include_event == "full"))
   ),
   gate = \(opts) opts$include_event != "no"
 )

@@ -1,3 +1,14 @@
+# The enrolments under the stay-leg names: a denominator joins enrolments
+# onto patients excluding the shared names, where the patient record's own
+# hierarchy would otherwise win. Renaming first lets the stay's chain
+# survive that exclusion and gives the grouping column the same name,
+# `enrollment_department_key`, that the events table carries.
+.enrollment_hierarchy_cols <- function(enrollments) {
+  dplyr::rename_with(
+    enrollments, ~ paste0("enrollment_", .x),
+    tidyselect::any_of(.hierarchy_key_names))
+}
+
 get_risk_population <- function(x, group_cols = NULL, use_cache = TRUE) {
   if(is.null(group_cols))
     cache_key <- "risk_population"
@@ -7,10 +18,11 @@ get_risk_population <- function(x, group_cols = NULL, use_cache = TRUE) {
   if(use_cache && !is.null(r <- get_cached(x, cache_key)))
     return(r)
 
+  enrollments <- .enrollment_hierarchy_cols(x$enrollments)
   x$patients |>
     dplyr::inner_join(
-      x$enrollments |>
-        dplyr::select(tidyselect::all_of(c("patient_key",setdiff(names(x$enrollments),names(x$patients))))),
+      enrollments |>
+        dplyr::select(tidyselect::all_of(c("patient_key",setdiff(names(enrollments),names(x$patients))))),
       dplyr::join_by("patient_key")) |>
     dplyr::group_by(dplyr::across(tidyselect::all_of(group_cols))) |>
     dplyr::summarise(
@@ -34,6 +46,7 @@ get_surgery_risk <- function(x, group_cols = NULL, use_cache = TRUE) {
     surgeryData <- surgeryData |>
       dplyr::mutate(main_procedure_code = character())
 
+  enrollments <- .enrollment_hierarchy_cols(x$enrollments)
   x$patients |>
     dplyr::mutate(
       bw50 = bw50(.data$birth_weight),
@@ -42,7 +55,7 @@ get_surgery_risk <- function(x, group_cols = NULL, use_cache = TRUE) {
       bw500 = bw500(.data$birth_weight),
       comp_gw = as.integer(.data$total_gestation_days / 7)) |>
     dplyr::inner_join(
-      x$enrollments |>
+      enrollments |>
         dplyr::select(
           c(
             "patient_key",
@@ -50,11 +63,7 @@ get_surgery_risk <- function(x, group_cols = NULL, use_cache = TRUE) {
         ) |>
         dplyr::inner_join(
           x$events |>
-            dplyr::select(
-              c(
-                "enrollment_key",
-                !tidyselect::any_of(c(names(x$patients),names(x$enrollments))))
-            ) |>
+            dplyr::select("enrollment_key", "event_key") |>
             dplyr::inner_join(
               x$surveillanceEndData |>
                 dplyr::inner_join(
@@ -85,7 +94,7 @@ get_surgery_risk <- function(x, group_cols = NULL, use_cache = TRUE) {
       dplyr::join_by("patient_key")) |>
     dplyr::group_by(dplyr::across(tidyselect::all_of(group_cols))) |>
     dplyr::summarise(
-      dplyr::across(tidyselect::any_of("department_key"), ~ dplyr::n_distinct(.x), .names = "n_departments"),
+      dplyr::across(tidyselect::any_of("enrollment_department_key"), ~ dplyr::n_distinct(.x), .names = "n_departments"),
       dplyr::across(tidyselect::any_of("patient_key"), ~ dplyr::n_distinct(.x), .names = "n_patients"),
       n_procedures = dplyr::n(),
       .groups = "drop") |>
@@ -101,6 +110,7 @@ get_risk_time <- function(x, group_cols = NULL, use_cache = TRUE) {
   if(use_cache && !is.null(r <- get_cached(x, cache_key)))
       return(r)
 
+  enrollments <- .enrollment_hierarchy_cols(x$enrollments)
   x$patients |>
     dplyr::mutate(
       bw50 = bw50(.data$birth_weight),
@@ -109,7 +119,7 @@ get_risk_time <- function(x, group_cols = NULL, use_cache = TRUE) {
       bw500 = bw500(.data$birth_weight),
       comp_gw = as.integer(.data$total_gestation_days / 7)) |>
     dplyr::inner_join(
-      x$enrollments |>
+      enrollments |>
         dplyr::select(
           c(
             "patient_key",
@@ -117,11 +127,7 @@ get_risk_time <- function(x, group_cols = NULL, use_cache = TRUE) {
         ) |>
         dplyr::inner_join(
           x$events |>
-            dplyr::select(
-              c(
-                "enrollment_key",
-                !tidyselect::any_of(c(names(x$patients),names(x$enrollments))))
-            ) |>
+            dplyr::select("enrollment_key", "event_key") |>
             dplyr::inner_join(
               x$surveillanceEndData |>
                 dplyr::inner_join(

@@ -244,7 +244,11 @@ get_infectious_agent_detection_rates <- function(
 
   agents <- x$events |>
     dplyr::filter(.data$event_type_key %in% infectious_agent_infection_types) |>
-    dplyr::select("event_key", "event_type_key", "department_key") |>
+    # An infection counts for its stay's department; the internal column
+    # keeps the plain name these tables and their joins carry.
+    dplyr::select(
+      "event_key", "event_type_key",
+      department_key = "enrollment_department_key") |>
     dplyr::mutate(event_type_key = as.character(.data$event_type_key)) |>
     dplyr::inner_join(
       .counted_infectious_agent_findings(x) |>
@@ -299,6 +303,20 @@ get_infectious_agent_detection_rates <- function(
     cache(x, cache_key)
 }
 
+# The infection counts, by `group_cols`, where each group column's name
+# says which record answers for it. An `event_` hierarchy leg counts and
+# frames on the recording side: its counts come from the events, and its
+# units are the ones the events show, so a department that records other
+# events but no infection counts at 0. A plain hierarchy key or an
+# `enrollment_` leg counts on the side of the stay — the value rides on
+# the event as its stay leg — and frames on the units the enrolments
+# show, so a department with stays but no infection counts at 0. A
+# column naming neither leg holds a value of the infection's own
+# records: event columns ride on the events, patient and enrolment
+# columns join through the event's foreign keys, and only the values the
+# infections show get a row. The infection-type filter narrows the
+# counts, never a frame; an `event_` leg is therefore a diagnostic
+# grouping, since the denominators take only the stay side.
 get_infection_counts <- function(x, group_cols = NULL, use_cache = TRUE) {
   if(is.null(group_cols))
     cache_key <- "infection_counts"
@@ -309,30 +327,11 @@ get_infection_counts <- function(x, group_cols = NULL, use_cache = TRUE) {
     return(r)
 
   inf_events <- c("bsi","nec","hap","ssi")
+  hierarchy_legs <- paste0(
+    rep(c("event_", "enrollment_"), each = length(.hierarchy_key_names)),
+    rep(.hierarchy_key_names, 2))
 
-  event_base <- x$patients |>
-    dplyr::mutate(
-      bw50 = bw50(.data$birth_weight),
-      bw125 = bw125(.data$birth_weight),
-      bw250 = bw250(.data$birth_weight),
-      bw500 = bw500(.data$birth_weight),
-      comp_gw = as.integer(.data$total_gestation_days / 7)) |>
-    dplyr::inner_join(
-      x$enrollments |>
-        dplyr::select(
-          c(
-            "patient_key",
-            !tidyselect::any_of(c(names(x$patients))))
-        ) |>
-        dplyr::inner_join(
-          x$events |>
-            dplyr::select(
-              c(
-                "enrollment_key",
-                !tidyselect::any_of(c(names(x$patients),names(x$enrollments))))
-            ),
-          dplyr::join_by("enrollment_key")),
-      dplyr::join_by("patient_key")) |>
+  inf <- x$events |>
     dplyr::filter(.data$event_type_key %in% inf_events) |>
     dplyr::mutate(
       event_type_key = factor(
@@ -342,7 +341,48 @@ get_infection_counts <- function(x, group_cols = NULL, use_cache = TRUE) {
       with_pathogen = .data$event_key %in%
         .findings_naming_infectious_agent(x$infectiousAgentFindings)$event_key)
 
-  counts <- event_base |>
+  # A plain key counts for the unit of the stay, whose value the event
+  # carries under the stay-leg name.
+  for(col in intersect(group_cols, .hierarchy_key_names))
+    inf <- dplyr::mutate(inf, !!col := .data[[paste0("enrollment_", col)]])
+
+  # A column naming neither leg names a value of one of the infection's
+  # records; the left joins keep the infection in its count whatever the
+  # joined record shows or whether it is there at all.
+  if(!is.null(group_cols)) {
+    no_leg <- setdiff(group_cols, c(.hierarchy_key_names, hierarchy_legs))
+    bins <- c("bw50", "bw125", "bw250", "bw500", "comp_gw")
+    pat_want <- intersect(no_leg, names(x$patients))
+    bin_want <- intersect(no_leg, bins)
+    if(length(pat_want) || length(bin_want)) {
+      patients_group <- x$patients
+      if(length(bin_want))
+        patients_group <- patients_group |>
+          dplyr::mutate(
+            bw50 = bw50(.data$birth_weight),
+            bw125 = bw125(.data$birth_weight),
+            bw250 = bw250(.data$birth_weight),
+            bw500 = bw500(.data$birth_weight),
+            comp_gw = as.integer(.data$total_gestation_days / 7))
+      inf <- dplyr::left_join(
+        inf,
+        dplyr::select(
+          patients_group, "patient_key",
+          tidyselect::all_of(setdiff(c(pat_want, bin_want), names(inf)))),
+        dplyr::join_by("patient_key"))
+    }
+    enr_want <- setdiff(
+      intersect(no_leg, names(x$enrollments)), names(inf))
+    if(length(enr_want))
+      inf <- dplyr::left_join(
+        inf,
+        dplyr::select(
+          x$enrollments, "enrollment_key",
+          tidyselect::all_of(enr_want)),
+        dplyr::join_by("enrollment_key"))
+  }
+
+  counts <- inf |>
     dplyr::group_by(dplyr::across(tidyselect::all_of(group_cols))) |>
     dplyr::summarise(n = dplyr::n(), .groups = "drop")
 
@@ -350,23 +390,43 @@ get_infection_counts <- function(x, group_cols = NULL, use_cache = TRUE) {
     return(counts |>
              cache(x, cache_key))
 
-  ee_intersect <- intersect(
-    intersect(names(event_base), group_cols),
-    names(x$enrollments))
+  # The frame holds every unit each side's records show, whether or not
+  # it has infections: the recording units from the events, the stay
+  # units from the enrolments under whichever name the group column
+  # uses, and — for columns naming no side — the values the infections
+  # themselves show, both `with_pathogen` levels among them by the
+  # frame's own right.
+  stay_keys <- intersect(.hierarchy_key_names,
+                         sub("^enrollment_", "", group_cols))
+  stay_plain <- intersect(group_cols, stay_keys)
+  stay_legs <- intersect(group_cols, paste0("enrollment_", stay_keys))
+  frames <- list(
+    dplyr::distinct(
+      x$events |>
+        dplyr::select(tidyselect::any_of(
+          intersect(group_cols, paste0("event_", .hierarchy_key_names)))))
+  )
+  if(length(stay_plain) || length(stay_legs)) {
+    stay_side <- x$enrollments |>
+      dplyr::select(tidyselect::all_of(stay_keys))
+    frames <- c(frames, list(dplyr::distinct(dplyr::bind_cols(
+      dplyr::select(stay_side, tidyselect::all_of(stay_plain)),
+      dplyr::select(.enrollment_hierarchy_cols(stay_side),
+                    tidyselect::all_of(stay_legs))))))
+  }
+  inf_values <- dplyr::distinct(
+    inf |> dplyr::select(tidyselect::all_of(setdiff(
+      group_cols,
+      c(paste0("event_", .hierarchy_key_names), stay_keys,
+        paste0("enrollment_", .hierarchy_key_names))))))
+  if("with_pathogen" %in% group_cols)
+    inf_values <- dplyr::bind_rows(
+      inf_values, tibble::tibble(with_pathogen = c(TRUE, FALSE)))
+  frames <- c(frames, list(inf_values))
 
-  expanded <- x$enrollments |>
-    dplyr::left_join(
-      event_base |>
-        dplyr::select(
-          tidyselect::all_of(
-            setdiff(c("enrollment_key","event_key",group_cols), ee_intersect))),
-      dplyr::join_by("enrollment_key")) |>
-    # Make sure both values for with_pathogen are expanded if necessary
-    dplyr::bind_rows(list(with_pathogen = c(TRUE,FALSE))) |>
+  Reduce(dplyr::cross_join, frames) |>
     tidyr::expand(!!! dplyr::syms(group_cols)) |>
-    tidyr::drop_na()
-
-  expanded |>
+    tidyr::drop_na() |>
     dplyr::left_join(counts, by = group_cols) |>
     dplyr::mutate(
       n = tidyr::replace_na(.data$n, 0)) |>
@@ -394,7 +454,9 @@ get_infectious_agent_detection_rates_per_inf_type <- function(
 
   x$events |>
     dplyr::filter(.data$event_type_key %in% testing_infection_types) |>
-    dplyr::select("event_key", "event_type_key", "department_key") |>
+    dplyr::select(
+      "event_key", "event_type_key",
+      department_key = "enrollment_department_key") |>
     dplyr::inner_join(.infectious_agent_recording(x), dplyr::join_by("event_key")) |>
     dplyr::mutate(event_type_key = as.character(.data$event_type_key)) |>
     dplyr::summarise(
@@ -452,7 +514,7 @@ get_infectious_agent_detections <- function(x, use_cache = TRUE) {
 
   x$events |>
     dplyr::filter(.data$event_type_key %in% infectious_agent_infection_types) |>
-    dplyr::select("event_key", "department_key") |>
+    dplyr::select("event_key", department_key = "enrollment_department_key") |>
     dplyr::inner_join(slots, dplyr::join_by("event_key")) |>
     dplyr::summarise(
       in_tree = dplyr::first(.data$in_tree),

@@ -73,8 +73,8 @@
   # Fully-missing DE columns should be all NA.
   all_names <- names(expected)
   non_de    <- c("event_key", "enrollment_key", "patient_key",
-                 "department_key", "hospital_key", "country_key",
-                 "world_bank_class_key", "isTest", "vs_days")
+                 neoipcr:::.hierarchy_leg_names(),
+                 "isTest", "vs_days")
   companion <- grepl(
     "_(storedBy|createdBy|updatedBy|createdAt|updatedAt)$", all_names)
   de_codes  <- setdiff(all_names[!companion], non_de)
@@ -465,10 +465,12 @@ test_that("gap 9: events always carry hierarchy keys (direct materialization)", 
     include_country          = "full",
     include_world_bank_class = "full")
   schema <- neoipcr:::compile_schema(neoipcr:::events_cols, opts)
-  expect_true("department_key" %in% names(schema))
-  expect_true("hospital_key" %in% names(schema))
-  expect_true("country_key" %in% names(schema))
-  expect_true("world_bank_class_key" %in% names(schema))
+  for (leg in c("event_", "enrollment_")) {
+    expect_true(paste0(leg, "department_key") %in% names(schema))
+    expect_true(paste0(leg, "hospital_key") %in% names(schema))
+    expect_true(paste0(leg, "country_key") %in% names(schema))
+    expect_true(paste0(leg, "world_bank_class_key") %in% names(schema))
+  }
 })
 
 test_that("gap 9: per-event-type data inherits from events", {
@@ -487,6 +489,8 @@ test_that("gap 9: per-event-type data inherits from events", {
   expect_true("event_key" %in% names(schema_full))
   expect_false("department_key" %in% names(schema_full))
   expect_false("hospital_key" %in% names(schema_full))
+  expect_false("event_department_key" %in% names(schema_full))
+  expect_false("enrollment_department_key" %in% names(schema_full))
 
   # Under pseudo events: per-event-type data materializes hierarchy
   # keys directly (events only has event_key).
@@ -501,10 +505,12 @@ test_that("gap 9: per-event-type data inherits from events", {
   schema_pseudo <- neoipcr:::compile_schema(
     neoipcr:::admissionData_cols, opts_pseudo)
   expect_true("event_key" %in% names(schema_pseudo))
-  expect_true("department_key" %in% names(schema_pseudo))
-  expect_true("hospital_key" %in% names(schema_pseudo))
-  expect_true("country_key" %in% names(schema_pseudo))
-  expect_true("world_bank_class_key" %in% names(schema_pseudo))
+  for (leg in c("event_", "enrollment_")) {
+    expect_true(paste0(leg, "department_key") %in% names(schema_pseudo))
+    expect_true(paste0(leg, "hospital_key") %in% names(schema_pseudo))
+    expect_true(paste0(leg, "country_key") %in% names(schema_pseudo))
+    expect_true(paste0(leg, "world_bank_class_key") %in% names(schema_pseudo))
+  }
 })
 
 

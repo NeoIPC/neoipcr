@@ -243,7 +243,7 @@ get_usage_density_rate_table <- function(
   if(include_quartiles) {
     dept_risk_time <- get_risk_time(
       x,
-      group_cols = "department_key",
+      group_cols = "enrollment_department_key",
       use_cache = use_cache)
 
     n_deps <- length(dept_risk_time$patient_days)
@@ -251,10 +251,10 @@ get_usage_density_rate_table <- function(
 
     # Pivot dept-level data to long format for bootstrap
     dept_rates <- dept_risk_time |>
-      dplyr::select("department_key", "patient_days",
+      dplyr::select("enrollment_department_key", "patient_days",
                      tidyselect::ends_with("_days") & !"patient_days") |>
       tidyr::pivot_longer(
-        cols = !c("department_key", "patient_days"),
+        cols = !c("enrollment_department_key", "patient_days"),
         names_to = "factor",
         values_to = "events") |>
       dplyr::mutate(
@@ -397,23 +397,24 @@ get_antibiotic_utilization_table <- function(
   if (include_quartiles) {
     # Department-level aggregation for quartiles
     dept_substance <- summarise_substance_days(
-      x, level = "substance", group_cols = "department_key",
+      x, level = "substance", group_cols = "enrollment_department_key",
       use_cache = use_cache) |>
       dplyr::rename(n = "days", row_id = "code") |>
       dplyr::mutate(row_type = "substance")
 
     dept_atc5 <- summarise_substance_days(
-      x, level = "atc5", group_cols = "department_key",
+      x, level = "atc5", group_cols = "enrollment_department_key",
       use_cache = use_cache) |>
       dplyr::rename(n = "days", row_id = "code") |>
       dplyr::mutate(row_type = "atc5")
 
     dept_patient_days <- get_risk_time(
-      x, group_cols = "department_key", use_cache = use_cache) |>
-      dplyr::select("department_key", "patient_days")
+      x, group_cols = "enrollment_department_key", use_cache = use_cache) |>
+      dplyr::select("enrollment_department_key", "patient_days")
 
     dept_rates <- dplyr::bind_rows(dept_substance, dept_atc5) |>
-      dplyr::inner_join(dept_patient_days, dplyr::join_by("department_key")) |>
+      dplyr::inner_join(dept_patient_days,
+                        dplyr::join_by("enrollment_department_key")) |>
       dplyr::mutate(rate = .data$n / .data$patient_days * 100)
 
     n_deps <- nrow(dept_patient_days)
@@ -535,9 +536,9 @@ get_ref_surgery_rate_table <- function(ref, use_cache = TRUE) {
 
   pats_per_dept <- ref |>
     get_risk_population(
-      group_cols = "department_key",
+      group_cols = "enrollment_department_key",
       use_cache = use_cache) |>
-    dplyr::select("department_key", "n_patients")
+    dplyr::select("enrollment_department_key", "n_patients")
 
   n_deps <- nrow(pats_per_dept)
   median_patients <- stats::median(dplyr::pull(pats_per_dept, "n_patients"))
@@ -554,16 +555,16 @@ get_ref_surgery_rate_table <- function(ref, use_cache = TRUE) {
   # Department-level procedure data: n procedures + n_patients per dept per category
   dept_rates <- get_procedures(
     ref,
-    group_cols = c("department_key", "pro_cat"),
+    group_cols = c("enrollment_department_key", "pro_cat"),
     use_cache = use_cache) |>
     dplyr::bind_rows(
       get_procedures(
         ref,
-        group_cols = "department_key",
+        group_cols = "enrollment_department_key",
         use_cache = use_cache)) |>
     dplyr::right_join(
       pats_per_dept,
-      dplyr::join_by("department_key")) |>
+      dplyr::join_by("enrollment_department_key")) |>
     dplyr::mutate(
       n = tidyr::replace_na(.data$n, 0),
       pro_cat = tidyr::replace_na(
@@ -577,7 +578,7 @@ get_ref_surgery_rate_table <- function(ref, use_cache = TRUE) {
       names_from = "pro_cat",
       values_from = "pooled",
       values_fill = 0) |>
-    dplyr::select(!"department_key") |>
+    dplyr::select(!"enrollment_department_key") |>
     dplyr::reframe(
       dplyr::across(
         tidyselect::everything(),
@@ -666,7 +667,9 @@ get_incidence_density_rate_table <- function(
   if(include_quartiles) {
     # Calculate quartiles only when needed
     pat_days <- x |>
-      get_risk_time(group_cols = "department_key", use_cache = use_cache) |>
+      get_risk_time(
+        group_cols = "enrollment_department_key",
+        use_cache = use_cache) |>
       dplyr::pull("patient_days")
 
     n_deps <- length(pat_days)
@@ -674,7 +677,7 @@ get_incidence_density_rate_table <- function(
 
     dept_rates <- x |>
       get_incidence_density_rates(
-        group_cols = "department_key",
+        group_cols = "enrollment_department_key",
         use_cache = use_cache) |>
       dplyr::mutate(
         rate = tidyr::replace_na(.data$rate, 0))
@@ -783,20 +786,23 @@ get_dev_ass_incidence_density_rate_table <- function(
 
   if(include_quartiles) {
     dev_days <- x |>
-      get_risk_time(group_cols = "department_key", use_cache = use_cache) |>
+      get_risk_time(
+        group_cols = "enrollment_department_key",
+        use_cache = use_cache) |>
       dplyr::select(
         tidyselect::any_of(
-          c("department_key","cvc"="cvc_days","pvc"="pvc_days","vs"="vs_days",
-            "inv"="inv_days","niv"="niv_days")))
+          c("enrollment_department_key","cvc"="cvc_days","pvc"="pvc_days",
+            "vs"="vs_days","inv"="inv_days","niv"="niv_days")))
 
     dep_stats <- dev_days |>
-      tidyr::pivot_longer(cols = !"department_key", names_to = "dev") |>
+      tidyr::pivot_longer(
+        cols = !"enrollment_department_key", names_to = "dev") |>
       dplyr::filter(.data$value > 0) |>
       dplyr::group_by(.data$dev) |>
       dplyr::summarise(n_deps = dplyr::n()) |>
       dplyr::inner_join(
         dev_days |>
-          dplyr::select(!"department_key") |>
+          dplyr::select(!"enrollment_department_key") |>
           dplyr::summarise(dplyr::across(tidyselect::everything(), stats::median)) |>
           tidyr::pivot_longer(
             cols = tidyselect::everything(),
@@ -807,7 +813,7 @@ get_dev_ass_incidence_density_rate_table <- function(
 
     dept_rates <- x |>
       get_dev_ass_incidence_density_rates(
-        group_cols = "department_key",
+        group_cols = "enrollment_department_key",
         use_cache = use_cache) |>
       dplyr::mutate(
         rate = tidyr::replace_na(.data$rate, 0))
@@ -1351,9 +1357,11 @@ get_abr_infection_rate_table <- function(
 
   d <- get_infectious_agent_resistance_rates(
     x, rows = rows, use_cache = use_cache)
+  # The stay leg, renamed to the plain name the resistance counts carry.
   patient_days <- get_risk_time(
-    x, group_cols = "department_key", use_cache = use_cache) |>
-    dplyr::select("department_key", "patient_days")
+    x, group_cols = "enrollment_department_key", use_cache = use_cache) |>
+    dplyr::select("department_key" = "enrollment_department_key",
+                  "patient_days")
   # A Total tests all of a department's detections to which the list applies
   # its category, as the plain row of the testing's completeness counts them.
   untested <- get_resistance_test_counts(x, use_cache = use_cache) |>
@@ -1720,7 +1728,7 @@ get_secondary_bsi_rate_table <- function(
   if(include_quartiles) {
     dept_all <- x |>
       get_secondary_bsi_rates(
-        group_cols = "department_key",
+        group_cols = "enrollment_department_key",
         use_cache = use_cache)
     # The rate's quartiles take the departments that followed up infections
     # of the type; the follow-up shares' take those with at least 5
@@ -1730,12 +1738,12 @@ get_secondary_bsi_rate_table <- function(
 
     # Check if we have enough departments
     n_deps <- dept_rates |>
-      dplyr::pull("department_key") |>
+      dplyr::pull("enrollment_department_key") |>
       dplyr::n_distinct()
 
     # Calculate median infections with sec BSI per department
     median_n <- dept_rates |>
-      dplyr::group_by(.data$department_key) |>
+      dplyr::group_by(.data$enrollment_department_key) |>
       dplyr::summarise(total_n = sum(.data$n), .groups = "drop") |>
       dplyr::pull("total_n") |>
       stats::median()
@@ -1748,10 +1756,10 @@ get_secondary_bsi_rate_table <- function(
       # Calculate quartiles for each infection type
       quartiles <- dept_rates |>
         tidyr::pivot_wider(
-          id_cols = "department_key",
+          id_cols = "enrollment_department_key",
           names_from = "event_type_key",
           values_from = "rate") |>
-        dplyr::select(!"department_key") |>
+        dplyr::select(!"enrollment_department_key") |>
         dplyr::reframe(
           dplyr::across(
             tidyselect::everything(),

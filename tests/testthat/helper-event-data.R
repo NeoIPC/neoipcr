@@ -245,8 +245,8 @@ build_reader_metadata <- function(event_type_key = c("adm", "end", "bsi",
     cols <- neoipcr:::event_data_cols_for(etk)
     all_names <- names(neoipcr:::compile_schema(cols, opts))
     non_de    <- c("event_key", "enrollment_key", "patient_key",
-                   "department_key", "hospital_key", "country_key",
-                   "world_bank_class_key", "isTest", "vs_days")
+                   neoipcr:::.hierarchy_leg_names(),
+                   "isTest", "vs_days")
     companion <- grepl(
       "_(storedBy|createdBy|updatedBy|createdAt|updatedAt)$", all_names)
     de_codes  <- setdiff(all_names[!companion], non_de)
