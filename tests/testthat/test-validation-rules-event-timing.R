@@ -153,6 +153,13 @@ for (entry in los_rules) {
 }
 
 # --- Early onset: rules 29 (bsi), 33 (hap), 37 (nec) ---
+# The day of life is derived from the dates and the admission form, not read
+# off the infection form: the admission's day of life — day 1 for admission
+# types 1 and 2, the recorded day for type 3 — advanced by the days from the
+# enrolment date to the event date. Admission types 1 and 2 hold day 1 as the
+# client assigns and stores it, so a stored value on such a form is one the
+# team never chose; a type-3 admission without the recorded day, whose form
+# rule 46 flags, gives no day to judge on.
 
 early_dol_rules <- list(
   list(rule = 29L, type = "bsi", fun = neoipcr:::validation_rule_29),
@@ -165,9 +172,15 @@ for (entry in early_dol_rules) {
     r <- entry$rule
     t <- entry$type
     f <- entry$fun
+    slot <- event_type_slots[[t]]$slot
 
-    test_that(paste0("rule ", r, " detects a ", t, " event within the first three days of life"), {
-      result <- f(timing_ds(t, form = list(dol = 2L)), NULL)
+    test_that(paste0("rule ", r, " flags a ", t, " on a derived day of life below 4, not the stored one"), {
+      # A readmission recorded as type 2, the infection on its second day:
+      # derived day of life 2, while the form stores a stale 9.
+      result <- f(
+        timing_ds(t, form = list(dol = 9L),
+                  admission = list(type = admission_type("2")), offset = 1L),
+        NULL)
       expect_equal(nrow(result), 1L)
       expect_declared_context(result)
       expect_equal(result$rule_id, r)
@@ -176,30 +189,106 @@ for (entry in early_dol_rules) {
       expect_equal(result$context[[1]]$dol, 2L)
     })
 
-    test_that(paste0("rule ", r, " returns no rows from the fourth day of life"), {
-      expect_equal(nrow(f(timing_ds(t, form = list(dol = 4L)), NULL)), 0L)
+    test_that(paste0("rule ", r, " leaves a ", t, " whose derived day of life reaches 4 a stored one below it"), {
+      # The same rule must not flag when the dates say the fourth day of
+      # life or later although the form stores a stale 2: the stored day is
+      # stale, not the onset early.
+      expect_equal(nrow(f(timing_ds(t, form = list(dol = 2L)), NULL)), 0L)
     })
 
-    test_that(paste0("rule ", r, " does not flag a ", t, " form without a day of life"), {
-      expect_equal(nrow(f(timing_ds(t, form = list(dol = NA_integer_)), NULL)), 0L)
+    test_that(paste0("rule ", r, " flags a ", t, " on the derived third day of life"), {
+      # The window's lower side is what decides an infection three days
+      # into life: type 1 gives the base day 1, the event two days after
+      # enrolment lands on day 3, which lies inside the window.
+      result <- f(timing_ds(t, form = list(dol = 2L), offset = 2L), NULL)
+      expect_equal(nrow(result), 1L)
+      expect_equal(result$context[[1]]$dol, 3L)
+    })
+
+    test_that(paste0("rule ", r, " flags a ", t, " on a derived day of life below 4 of a type-3 admission"), {
+      # Admitted on the second day of life, the infection on the day of
+      # admission falls on day 2; nothing is stored on the infection form.
+      result <- f(
+        timing_ds(t, form = list(dol = NA_integer_),
+                  admission = list(type = admission_type("3"), dol = 2L),
+                  offset = 0L),
+        NULL)
+      expect_equal(nrow(result), 1L)
+      expect_equal(result$context[[1]]$dol, 2L)
+    })
+
+    test_that(paste0("rule ", r, " returns no rows from the derived fourth day of life"), {
+      # Type 3 admitted on the second day of life, the infection four days
+      # later: derived day 6, and a derived day exactly 4.
+      expect_equal(nrow(f(
+        timing_ds(t, form = list(dol = NA_integer_),
+                  admission = list(type = admission_type("3"), dol = 2L),
+                  offset = 2L), NULL)), 0L)
+      expect_equal(nrow(f(timing_ds(t, offset = 3L), NULL)), 0L)
+    })
+
+    test_that(paste0("rule ", r, " leaves a type-3 admission without a recorded day of life unjudged"), {
+      # The day cannot be derived, so the event is left unjudged whatever it
+      # would fall on — day 1 included, which is where a wrong base would
+      # place it. Rule 46 flags that form, and the pass removes its patient.
+      expect_equal(nrow(f(
+        timing_ds(t, form = list(dol = 2L),
+                  admission = list(type = admission_type("3"), dol = NA_integer_)),
+        NULL)), 0L)
+      expect_equal(nrow(f(
+        timing_ds(t, form = list(dol = 2L),
+                  admission = list(type = admission_type("3"), dol = NA_integer_),
+                  offset = 0L), NULL)), 0L)
+      # An enrolment whose admission form is absent in the data derives no
+      # day either, so its event is left unjudged on the same footing.
+      ds <- timing_ds(t, form = list(dol = 2L), offset = 0L)
+      ds$admissionData <- ds$admissionData[0L, ]
+      expect_equal(nrow(f(ds, NULL)), 0L)
+    })
+
+    test_that(paste0("rule ", r, " treats an admission without a type as day 1 of life"), {
+      result <- f(
+        timing_ds(t, form = list(dol = 9L),
+                  admission = list(type = factor(NA_character_, levels = c("1", "2", "3"))),
+                  offset = 1L),
+        NULL)
+      expect_equal(nrow(result), 1L)
+      expect_equal(result$context[[1]]$dol, 2L)
     })
 
     test_that(paste0("rule ", r, " honours exceptions"), {
-      result <- f(timing_ds(t, form = list(dol = 2L)), make_test_exceptions(r, event_key = 2L))
-      expect_equal(nrow(result), 0L)
+      ds <- timing_ds(t, form = list(dol = 9L),
+                      admission = list(type = admission_type("2")), offset = 1L)
+      expect_equal(nrow(f(ds, NULL)), 1L)
+      expect_equal(nrow(f(ds, make_test_exceptions(r, event_key = 2L))), 0L)
     })
 
-    test_that(paste0("rule ", r, " skips without a warning when the day of life is absent"), {
-      ds <- timing_ds(t, form = list(dol = 2L))
-      ds[[event_type_slots[[t]]$slot]]$dol <- NULL
+    test_that(paste0("rule ", r, " skips without a warning when the admission form lacks its type or day of life"), {
+      ds <- timing_ds(t, form = list(dol = 9L), offset = 1L)
+      ds$admissionData$type <- NULL
       expect_no_warning(result <- f(ds, NULL))
       expect_null(result)
+      ds <- timing_ds(t, form = list(dol = 9L), offset = 1L)
+      ds$admissionData$dol <- NULL
+      expect_null(f(ds, NULL))
+    })
+
+    test_that(paste0("rule ", r, " runs without a day of life on the ", t, " form"), {
+      # The rule derives the day and never reads the form's stored one, so a
+      # dataset lacking that column still gives it everything it needs.
+      ds <- timing_ds(t, form = list(dol = 9L),
+                     admission = list(type = admission_type("2")), offset = 1L)
+      ds[[slot]]$dol <- NULL
+      expect_equal(nrow(f(ds, NULL)), 1L)
     })
   })
 }
 
-# --- Early after (re-)admission: rules 30 (bsi), 34 (hap), 38 (nec) ---
-# The day of hospitalization is the stored day of occurrence plus one.
+# --- Early after admission: rules 30 (bsi), 34 (hap), 38 (nec) ---
+# The day of the stay is derived from the dates — the days from the enrolment
+# date to the event date, plus one, the day of admission being day 1 — and
+# the rule applies to every admission type: an infection before its third day
+# is more likely acquired before this stay whatever the stay's beginning.
 
 early_dos_rules <- list(
   list(rule = 30L, type = "bsi", fun = neoipcr:::validation_rule_30),
@@ -212,43 +301,77 @@ for (entry in early_dos_rules) {
     r <- entry$rule
     t <- entry$type
     f <- entry$fun
-    readmitted <- list(type = admission_type("3"))
+    types <- list("1", "2", "3", NA_character_)
 
-    test_that(paste0("rule ", r, " detects a ", t, " event on the second day after a (re-)admission"), {
-      result <- f(timing_ds(t, form = list(los = 1L), admission = readmitted), NULL)
+    test_that(paste0("rule ", r, " flags a ", t, " on day 1 or 2 of the stay whatever the admission type"), {
+      for (ty in types) {
+        admission <- list(type = admission_type(ty), dol = 2L)
+        result <- f(
+          timing_ds(t, form = list(los = NA_integer_), admission = admission, offset = 0L),
+          NULL)
+        expect_equal(nrow(result), 1L, info = paste("admission type", ty, "day 1"))
+        expect_declared_context(result)
+        expect_equal(result$rule_id, r)
+        expect_equal(result$event_key, 2L)
+        expect_named(result$context[[1]], "dos")
+        expect_equal(result$context[[1]]$dos, 1L)
+        result <- f(
+          timing_ds(t, form = list(los = NA_integer_), admission = admission, offset = 1L),
+          NULL)
+        expect_equal(nrow(result), 1L, info = paste("admission type", ty, "day 2"))
+        expect_equal(result$context[[1]]$dos, 2L)
+      }
+    })
+
+    test_that(paste0("rule ", r, " returns no rows from the derived third day of the stay"), {
+      expect_equal(nrow(f(
+        timing_ds(t, form = list(los = NA_integer_),
+                  admission = list(type = admission_type("2"), dol = 2L),
+                  offset = 2L), NULL)), 0L)
+    })
+
+    test_that(paste0("rule ", r, " flags a ", t, " whose derived day of the stay is below 3 a stored one above it"), {
+      # The form stores a stale day of occurrence of 5; the dates say the
+      # infection falls on day 2 of the stay.
+      result <- f(
+        timing_ds(t, form = list(los = 5L),
+                  admission = list(type = admission_type("3"), dol = 2L),
+                  offset = 1L),
+        NULL)
       expect_equal(nrow(result), 1L)
-      expect_declared_context(result)
-      expect_equal(result$rule_id, r)
-      expect_equal(result$event_key, 2L)
-      expect_named(result$context[[1]], "dos")
       expect_equal(result$context[[1]]$dos, 2L)
     })
 
-    test_that(paste0("rule ", r, " returns no rows from the third day of hospitalization"), {
-      expect_equal(nrow(f(timing_ds(t, form = list(los = 2L), admission = readmitted), NULL)), 0L)
-    })
-
-    test_that(paste0("rule ", r, " returns no rows for an admission that is not a (re-)admission"), {
-      expect_equal(nrow(f(timing_ds(t, form = list(los = 1L)), NULL)), 0L)
-    })
-
-    test_that(paste0("rule ", r, " does not flag a ", t, " form without a day of occurrence"), {
-      expect_equal(nrow(f(
-        timing_ds(t, form = list(los = NA_integer_), admission = readmitted), NULL)), 0L)
+    test_that(paste0("rule ", r, " judges an event whose enrolment carries no admission form"), {
+      # The day of the stay needs only the dates, so the rule judges the
+      # event even when the admission form is absent: unlike the day of
+      # life, it has no base to read there.
+      ds <- timing_ds(t, form = list(los = NA_integer_), offset = 1L)
+      ds$admissionData <- ds$admissionData[0L, ]
+      result <- f(ds, NULL)
+      expect_equal(nrow(result), 1L)
+      expect_equal(result$context[[1]]$dos, 2L)
     })
 
     test_that(paste0("rule ", r, " honours exceptions"), {
-      result <- f(
-        timing_ds(t, form = list(los = 1L), admission = readmitted),
-        make_test_exceptions(r, event_key = 2L))
-      expect_equal(nrow(result), 0L)
+      ds <- timing_ds(t, form = list(los = NA_integer_),
+                      admission = list(type = admission_type("2"), dol = 2L),
+                      offset = 1L)
+      expect_equal(nrow(f(ds, NULL)), 1L)
+      expect_equal(nrow(f(ds, make_test_exceptions(r, event_key = 2L))), 0L)
     })
 
-    test_that(paste0("rule ", r, " skips without a warning when the admission type is absent"), {
-      ds <- timing_ds(t, form = list(los = 1L), admission = readmitted)
+    test_that(paste0("rule ", r, " runs whatever the admission data lack"), {
+      # The dates carry the whole derivation, so no missing admission column
+      # can leave the rule with nothing to run on.
+      ds <- timing_ds(t, form = list(los = NA_integer_), offset = 1L)
       ds$admissionData$type <- NULL
       expect_no_warning(result <- f(ds, NULL))
-      expect_null(result)
+      expect_equal(nrow(result), 1L)
+      ds <- timing_ds(t, form = list(los = NA_integer_), offset = 1L)
+      ds$admissionData$dol <- NULL
+      expect_no_warning(result <- f(ds, NULL))
+      expect_equal(nrow(result), 1L)
     })
   })
 }

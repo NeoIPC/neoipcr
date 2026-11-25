@@ -88,23 +88,49 @@
       .keep = "none")
 }
 
-# Rules 29, 33 and 37: an infection recorded within the first three days of
-# life, where an early-onset infection is not attributed to the hospital.
+# Rules 29, 33 and 37: an infection on a derived day of life below 4, within
+# the first three days of life, where an early-onset infection is not
+# attributed to the hospital. The rule derives the day instead of reading the
+# one the form stores, which can be stale or derived from a wrong or missing
+# admission value: the admission's day of life, day 1 for admission types 1
+# and 2 and for a form without a type — what the client assigns and stores,
+# so a stored value on such a form is one the team never chose — advanced by
+# the days from the enrolment date to the event date. A type-3 admission must
+# record the day of life at admission; without it the day cannot be derived
+# and the event is left unjudged: rule 46 flags that admission form, and the
+# import's validation pass removes its patient.
 .rule_early_dol <- function(x, exceptions, rule_id, event_type)
 {
   check_neoipcr_ds(x)
-  form <- x[[.event_data_slot[[event_type]]]]
-  if (!"dol" %in% names(form))
-    return(.rule_skipped(rule_id, "the day of life on the event form"))
+  if (!all(c("type", "dol") %in% names(x$admissionData)))
+    return(.rule_skipped(
+      rule_id, "the admission form's type and recorded day of life"))
   id <- rule_id
 
-  x$events |>
-    dplyr::filter(.data$event_type_key == event_type) |>
-    dplyr::select("patient_key", "enrollment_key", "event_key") |>
+  x$enrollments |>
+    dplyr::select("patient_key", "enrollment_key", "enrolledAt") |>
     dplyr::inner_join(
-      form |>
-        dplyr::select("event_key", "dol"),
-      dplyr::join_by("event_key")) |>
+      x$events |>
+        dplyr::filter(.data$event_type_key == "adm") |>
+        dplyr::select("enrollment_key", "adm_event_key" = "event_key"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::inner_join(
+      x$admissionData |>
+        dplyr::mutate(
+          # `%in%`, not `==`: an admission without a type takes day 1, and
+          # only a type-3 admission's missing recorded day gives no day.
+          adm_dol = dplyr::if_else(
+            as.character(.data$type) %in% "3",
+            as.integer(.data$dol), 1L)) |>
+        dplyr::select("event_key", "adm_dol"),
+      dplyr::join_by("adm_event_key" == "event_key")) |>
+    dplyr::inner_join(
+      x$events |>
+        dplyr::filter(.data$event_type_key == event_type) |>
+        dplyr::select("enrollment_key", "event_key", "occurredAt"),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::mutate(
+      dol = .data$adm_dol + as.integer(.data$occurredAt - .data$enrolledAt)) |>
     dplyr::filter(.data$dol < 4L) |>
     dplyr::anti_join(
       .rule_exceptions(exceptions, id),
@@ -119,41 +145,28 @@
       .keep = "none")
 }
 
-# Rules 30, 34 and 38: an infection recorded on the first or second day of
-# hospitalization of a referred or (re-)admitted patient (admission type 3),
-# where it is more likely to have been acquired before this stay. The day of
-# hospitalization counts from one, the stored day of occurrence from zero.
+# Rules 30, 34 and 38: an infection recorded before the third day of the
+# stay, where it is more likely to have been acquired before this stay. The
+# day of the stay is derived from the dates, counting from one with the day
+# of admission, not read off the stored day of occurrence, which can be stale
+# or missing; the dates give it for every admission type, so the rule judges
+# every admission type — an infection on the first or second day of any stay
+# is community-acquired whatever the stay's beginning. Rules 28, 32 and 36
+# keep checking the stored day of occurrence against the dates.
 .rule_early_dos <- function(x, exceptions, rule_id, event_type)
 {
   check_neoipcr_ds(x)
-  form <- x[[.event_data_slot[[event_type]]]]
-  if (!"los" %in% names(form) || !"type" %in% names(x$admissionData))
-    return(.rule_skipped(
-      rule_id, "the admission type and the day of occurrence on the event form"))
   id <- rule_id
 
   x$enrollments |>
-    dplyr::select("patient_key", "enrollment_key") |>
-    dplyr::inner_join(
-      x$events |>
-        dplyr::filter(.data$event_type_key == "adm") |>
-        dplyr::select("enrollment_key", "adm_event_key" = "event_key"),
-      dplyr::join_by("enrollment_key")) |>
-    dplyr::inner_join(
-      x$admissionData |>
-        dplyr::filter(as.character(.data$type) == "3") |>
-        dplyr::select("event_key"),
-      dplyr::join_by("adm_event_key" == "event_key")) |>
+    dplyr::select("patient_key", "enrollment_key", "enrolledAt") |>
     dplyr::inner_join(
       x$events |>
         dplyr::filter(.data$event_type_key == event_type) |>
-        dplyr::select("enrollment_key", "event_key"),
+        dplyr::select("enrollment_key", "event_key", "occurredAt"),
       dplyr::join_by("enrollment_key")) |>
-    dplyr::inner_join(
-      form |>
-        dplyr::select("event_key", "los"),
-      dplyr::join_by("event_key")) |>
-    dplyr::mutate(dos = .data$los + 1L) |>
+    dplyr::mutate(
+      dos = as.integer(.data$occurredAt - .data$enrolledAt) + 1L) |>
     dplyr::filter(.data$dos < 3L) |>
     dplyr::anti_join(
       .rule_exceptions(exceptions, id),
