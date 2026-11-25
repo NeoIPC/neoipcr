@@ -227,6 +227,31 @@ for (entry in early_dol_rules) {
       expect_equal(nrow(f(timing_ds(t, offset = 3L), NULL)), 0L)
     })
 
+    test_that(paste0("rule ", r, " takes day 1 from a type-1 or type-2 form whatever day of life it stores"), {
+      # The client assigns and stores day 1 on these forms, so a value
+      # beside a type 1 or 2 was never the team's and takes no part in the
+      # derivation: a stale 5 must not move the infection to day 6, and a
+      # missing one must not leave the day undeterminable.
+      for (ty in c("1", "2")) {
+        result <- f(
+          timing_ds(t, form = list(dol = 9L),
+                    admission = list(type = admission_type(ty), dol = 5L),
+                    offset = 1L),
+          NULL)
+        expect_equal(nrow(result), 1L, info = paste("admission type", ty))
+        expect_equal(result$event_key, 2L)
+        expect_equal(result$context[[1]]$dol, 2L)
+        result <- f(
+          timing_ds(t, form = list(dol = 9L),
+                    admission = list(type = admission_type(ty), dol = NA_integer_),
+                    offset = 1L),
+          NULL)
+        expect_equal(nrow(result), 1L,
+                     info = paste("admission type", ty, "without a stored day"))
+        expect_equal(result$context[[1]]$dol, 2L)
+      }
+    })
+
     test_that(paste0("rule ", r, " leaves a type-3 admission without a recorded day of life unjudged"), {
       # The day cannot be derived, so the event is left unjudged whatever it
       # would fall on — day 1 included, which is where a wrong base would
