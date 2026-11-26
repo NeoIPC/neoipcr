@@ -17,7 +17,7 @@ Every stage of the `import_dhis2()` pipeline sheds data it no longer needs:
 
 ### Redundant Foreign Keys
 
-Hierarchy keys (`department_key`, `hospital_key`, `country_key`, `world_bank_class_key`) appear *directly* in patients and enrollments; events and the form-data tables carry the same four chains twice, `event_*` for the record's own organisation unit and `enrollment_*` for the stay's, both at the `"pseudo"` and `"full"` tier alike, each chain only where its own `include_<level>` option imports it — never only via the relational chain. This allows breaking the chain without losing the ability to classify records by higher-level categories (an event can carry `event_world_bank_class_key` and `enrollment_world_bank_class_key` without exposing the country or patient).
+Hierarchy keys (`department_key`, `hospital_key`, `country_key`, `world_bank_class_key`) appear *directly* in patients and enrollments; the pair `event_*` for the record's own organisation unit and `enrollment_*` for the stay's, over the same four chains, is materialised once per chain break: on `events` itself under `include_event = "full"`, and directly on the form-data tables under the pseudonymised tier, whose inherited links and hierarchy columns carry values. Each chain travels only where its own `include_<level>` option imports it; at the full tier a form-data row reaches the pair by the one hop to its event, and no record is classified by a walk up the org-unit chain. This allows breaking the chain without losing the ability to classify records by higher-level categories (an event can carry `event_world_bank_class_key` and `enrollment_world_bank_class_key` without exposing the country or patient).
 
 ### `assert_data_protection()` as the Authoritative Guardian
 

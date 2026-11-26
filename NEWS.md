@@ -18,9 +18,10 @@ section above it for the next changes.
   the side the record's own organisation unit shows, `event_department_key` with its `event_hospital_key`,
   `event_country_key`, and `event_world_bank_class_key`, beside the stay's side, `enrollment_department_key` and its
   counterparts, replacing the plain `department_key` and its chain those tables held. The import resolves the pair
-  before the schema projects the tiers, so both hold their values at the pseudonymised tier as at the full, where
-  the inherited links and hierarchy keys the form-data tables declare are now materialised instead of left
-  `NA`. Patient records keep their own keys as they are: a patient holds no single stay.
+  before the schema projects the tiers, and the tiers place it where a chain breaks: on `events` at the full tier,
+  and directly on the form-data tables at the pseudonymised, where the inherited links and hierarchy keys they
+  declare are now materialised instead of left `NA`. Patient records keep their own keys as they are: a patient
+  holds no single stay.
 * Every rate table's department rows group by `enrollment_department_key`, and `get_infection_counts()` answers
   every grouping column from the side its name names: an `event_` column counts and frames on the events, a plain
   or `enrollment_` column counts each event's own stay side and frames on the enrolments, so a department with stays
