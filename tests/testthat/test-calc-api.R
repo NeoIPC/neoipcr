@@ -197,6 +197,20 @@ test_that("the calculation functions abort on a dataset without a validation sum
   expect_error(calculate_reference_data(ds), "validationSummary")
 })
 
+test_that("the calculation functions abort on a dataset stored before the hierarchy pair", {
+  # A dataset saved by an older neoipcr cannot be recalculated at all:
+  # its events hold the pre-pair keys, so the refusal names the
+  # re-import that replaces it.
+  ds <- make_stale_import_ds()
+  cnd <- expect_error(calculate_department_data(ds),
+                     class = "neoipcr_missing_hierarchy_pair")
+  expect_match(conditionMessage(cnd),
+               "Import the dataset again with this version of neoipcr",
+               fixed = TRUE)
+  expect_error(calculate_reference_data(ds),
+               class = "neoipcr_missing_hierarchy_pair")
+})
+
 
 # --- Validation summary and serializable options --------------------------
 

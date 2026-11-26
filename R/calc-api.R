@@ -67,6 +67,7 @@ calculate_reference_data <- function(x, use_cache = TRUE) {
   fn_name = "calculate_reference_data")
   assert_validation_summary(x, fn_name = "calculate_reference_data")
   assert_reconciliation_summary(x, fn_name = "calculate_reference_data")
+  assert_hierarchy_pair(x, fn_name = "calculate_reference_data")
   .warn_unknown_infectious_agent_codes(x)
 
   # `metadata$countries` is always a tibble under the three-mode schema
@@ -299,6 +300,7 @@ calculate_department_data <- function(x, use_cache = TRUE) {
   fn_name = "calculate_department_data")
   assert_validation_summary(x, fn_name = "calculate_department_data")
   assert_reconciliation_summary(x, fn_name = "calculate_department_data")
+  assert_hierarchy_pair(x, fn_name = "calculate_department_data")
   .warn_unknown_infectious_agent_codes(x)
 
   rt <- x |>

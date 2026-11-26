@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.0.0.9008\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-11-22 15:11+0100\n"
+"POT-Creation-Date: 2026-11-26 11:51+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,57 +16,57 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: R/calc-api.R:536
+#: R/calc-api.R:538
 msgid "No dataset to benchmark: pass at least one calculated dataset."
 msgstr ""
 
-#: R/calc-api.R:953
+#: R/calc-api.R:955
 #: R/calc-procedure-categories.R:45
 msgid "Procedure category"
 msgstr ""
 
-#: R/calc-api.R:953
+#: R/calc-api.R:955
 msgid "N"
 msgstr ""
 
-#: R/calc-api.R:953
+#: R/calc-api.R:955
 msgid "Pooled"
 msgstr ""
 
-#: R/calc-api.R:953
+#: R/calc-api.R:955
 msgid "Q1"
 msgstr ""
 
-#: R/calc-api.R:953
+#: R/calc-api.R:955
 msgid "Q2"
 msgstr ""
 
-#: R/calc-api.R:953
+#: R/calc-api.R:955
 msgid "Q3"
 msgstr ""
 
-#: R/calc-api.R:1212
+#: R/calc-api.R:1221
 #: R/infectious-agents.R:43
 msgid "Not in the list: %s."
 msgstr ""
 
-#: R/calc-api.R:1213
+#: R/calc-api.R:1222
 msgid "The infectious-agent tables count such a code in their Totals only, and no resistance category applies to it."
 msgstr ""
 
-#: R/calc-api.R:1346
+#: R/calc-api.R:1355
 msgid "the unnamed dataset"
 msgstr ""
 
-#: R/calc-api.R:1349
+#: R/calc-api.R:1358
 msgid "Left empty for %s: %s."
 msgstr ""
 
-#: R/calc-api.R:1357
+#: R/calc-api.R:1366
 msgid "%s was calculated before calculated datasets carried the versions of their rate definitions; calculate it again from its raw dataset to compare it."
 msgstr ""
 
-#: R/calc-api.R:1368
+#: R/calc-api.R:1377
 msgid "Each such table keeps the rows of the datasets joined into it; a figure takes no rows from a dataset for which it is left empty, and any other such table leaves that dataset's columns empty."
 msgstr ""
 
@@ -115,35 +115,35 @@ msgstr ""
 msgid "Not yet categorized"
 msgstr ""
 
-#: R/calc-tables.R:163
+#: R/calc-tables.R:165
 msgid "The calculated dataset has no table %s."
 msgstr ""
 
-#: R/calc-tables.R:165
+#: R/calc-tables.R:167
 msgid "It was calculated by a version of neoipcr that did not compute this table; calculate it again from its raw dataset."
 msgstr ""
 
-#: R/calc-tables.R:956
+#: R/calc-tables.R:972
 msgid "%s must be a data frame."
 msgstr ""
 
-#: R/calc-tables.R:961
+#: R/calc-tables.R:977
 msgid "%s lacks a required column:"
 msgstr ""
 
-#: R/calc-tables.R:963
+#: R/calc-tables.R:979
 msgid "%s lacks required columns:"
 msgstr ""
 
-#: R/calc-tables.R:967
+#: R/calc-tables.R:983
 msgid "%s and %s must be %s columns."
 msgstr ""
 
-#: R/calc-tables.R:970
+#: R/calc-tables.R:986
 msgid "Every window needs %s, with neither date missing."
 msgstr ""
 
-#: R/calc-tables.R:973
+#: R/calc-tables.R:989
 msgid "Every window must have a non-missing %s."
 msgstr ""
 
@@ -531,7 +531,7 @@ msgid "The dataset must have been imported via %s."
 msgstr ""
 
 #: R/types-check.R:130
-#: R/types-check.R:183
+#: R/types-check.R:215
 msgid "%s is %s."
 msgstr ""
 
@@ -551,31 +551,44 @@ msgstr ""
 msgid "The infectious-agent figures read each finding's %s, which the findings carry under %s only: a rare infectious agent can single out a patient in a pseudonymized dataset, so the %s tier leaves it out."
 msgstr ""
 
-#: R/types-check.R:182
-msgid "%s() needs a dataset that carries its validation summary."
+#: R/types-check.R:196
+msgid "%s() needs a dataset imported by this version of neoipcr."
 msgstr ""
 
-#: R/types-check.R:184
+#: R/types-check.R:198
+msgid "Its events table lacks %s."
+msgstr ""
+
+#: R/types-check.R:200
+msgid "The plain hierarchy keys of an older neoipcr cannot supply the pair."
+msgstr ""
+
+#: R/types-check.R:201
+#: R/types-check.R:216
 msgid "Import the dataset again with this version of neoipcr; see %s."
 msgstr ""
 
-#: R/types-check.R:205
+#: R/types-check.R:214
+msgid "%s() needs a dataset that carries its validation summary."
+msgstr ""
+
+#: R/types-check.R:237
 msgid "%s() needs a dataset whose reconciliation summary is the one an import writes."
 msgstr ""
 
-#: R/types-check.R:207
+#: R/types-check.R:239
 msgid "%s is not a data frame."
 msgstr ""
 
-#: R/types-check.R:209
+#: R/types-check.R:241
 msgid "%s has the column %s."
 msgstr ""
 
-#: R/types-check.R:211
+#: R/types-check.R:243
 msgid "%s has the columns %s."
 msgstr ""
 
-#: R/types-check.R:214
+#: R/types-check.R:246
 msgid "An import writes %s, or no column where it reconciled nothing; see %s."
 msgstr ""
 

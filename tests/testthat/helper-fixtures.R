@@ -1199,6 +1199,20 @@ make_calc_test_ds <- function() {
     substanceDays       = make_test_substance_days(c(2L, 5L, 8L)))
 }
 
+# A dataset as an older neoipcr would have stored it: its events table
+# holds the plain hierarchy keys of the pre-pair import — the values of
+# the event side stand for them, which no refusal depends on — and
+# lacks the `event_`/`enrollment_` pair its calculations group by.
+make_stale_import_ds <- function(ds = make_calc_test_ds()) {
+  for (key in c("department_key", "hospital_key", "country_key",
+                "world_bank_class_key")) {
+    ds$events[[key]] <- ds$events[[paste0("event_", key)]]
+    ds$events[[paste0("event_", key)]] <- NULL
+    ds$events[[paste0("enrollment_", key)]] <- NULL
+  }
+  ds
+}
+
 # Calc pipeline fixture of infection forms. `forms` holds one row per
 # infection form: its `event_type_key` ("bsi", "nec", "hap", "ssi"), its
 # `department_key` (1 where the column is left out), and any form item to set

@@ -138,7 +138,7 @@ check_ds_and_try_get_table <- function(
   # the calc pipeline. That pipeline needs the link-privacy gates
   # non-"no" — check them here so every get_*_table() caller gets the
   # same uniform precondition without repeating the assertion 11 times.
-  if (is_neoipcr_ds(x) && !is_neoipcr_rep_ds(x))
+  if (is_neoipcr_ds(x) && !is_neoipcr_rep_ds(x)) {
     assert_options_for(x, required = list(
       include_department = c("pseudo", "full"),
       include_patient    = c("pseudo", "full"),
@@ -147,6 +147,8 @@ check_ds_and_try_get_table <- function(
     ), reasons = if (identical(include_event, "full"))
       calculation_option_reasons() else list(),
     fn_name = table_name)
+    assert_hierarchy_pair(x, fn_name = table_name)
+  }
 
   # First try, if it's a report dataset because in that case it already contains
   # the table and we can just return it (potentially after removing the quartile
@@ -494,6 +496,11 @@ get_surgery_rate_table <- function(x, use_cache = TRUE) {
   if(use_cache && !is.null(r <- get_cached(x, "surgery_rate_table")))
     return(r)
 
+  # Placed after the cache lookup: a table computed for this dataset
+  # is served from it, and only the recomputation over the events of
+  # a dataset stored before the pair is refused.
+  assert_hierarchy_pair(x, fn_name = "get_surgery_rate_table")
+
   tibble::tibble(
     pro_cat = "overall",
     n = get_procedures(x, use_cache = use_cache) |>
@@ -533,6 +540,8 @@ get_ref_surgery_rate_table <- function(ref, use_cache = TRUE) {
 
   if(use_cache && !is.null(r <- get_cached(ref, "ref_surgery_rate_table")))
     return(r)
+
+  assert_hierarchy_pair(ref, fn_name = "get_ref_surgery_rate_table")
 
   pats_per_dept <- ref |>
     get_risk_population(
@@ -948,6 +957,7 @@ get_cumulative_incidence_table <- function(
     include_event      = "full",
     include_department = c("pseudo", "full")
   ), fn_name = "get_cumulative_incidence_table")
+  assert_hierarchy_pair(x, fn_name = "get_cumulative_incidence_table")
   require_cols(x$patients, "patient_key", "patients")
   require_cols(
     x$enrollments,

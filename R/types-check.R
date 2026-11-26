@@ -171,6 +171,38 @@ calculation_option_reasons <- function()
 .shown_option_values <- function(values)
   if (is.character(values)) paste0('"', values, '"') else paste0("`", values, "`")
 
+# Assert that a dataset was imported by this version of neoipcr, as the
+# hierarchy pair on its events table shows: every organisation-unit
+# level the import options kept must carry both its `event_` and its
+# `enrollment_` legs there. A dataset stored before the pair existed
+# otherwise dies deep in the calculations, or — for the tables that
+# happen not to read the legs on their path — builds as-is over the
+# pre-pair keys, so every calculation entry refuses it uniformly and
+# names the re-import that replaces it, as `assert_validation_summary()`
+# does for its slot. A stored file outlives the code that wrote it, so
+# the calculations cannot assume every dataset on disk carries the pair.
+assert_hierarchy_pair <- function(x, fn_name) {
+  opts <- x$metadata$dataset_options
+  absent <- character()
+  for (key in .hierarchy_key_names) {
+    level <- opts[[.hierarchy_key_opts[[key]]]]
+    if (is.null(level) || !any(level %in% c("pseudo", "full"))) next
+    legs <- paste0(c("event_", "enrollment_"), key)
+    absent <- c(absent, legs[!legs %in% names(x$events)])
+  }
+  if (length(absent) == 0L) return(invisible(x))
+  rlang::abort(
+    c(
+      gettextf("%s() needs a dataset imported by this version of neoipcr.",
+               fn_name),
+      "x" = gettextf("Its events table lacks %s.",
+                     paste0("`", absent, "`", collapse = ", ")),
+      "i" = gettextf("The plain hierarchy keys of an older neoipcr cannot supply the pair."),
+      "i" = gettextf("Import the dataset again with this version of neoipcr; see %s.",
+                     "`?import_dhis2`")),
+    class = "neoipcr_missing_hierarchy_pair")
+}
+
 # Assert that a dataset carries its validation summary. A calculated dataset
 # documents `validationSummary` as the summary of the dataset it was built
 # from; a dataset saved before the slot existed has none, and the
