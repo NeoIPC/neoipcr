@@ -356,6 +356,35 @@ test_that("a detection is an infectious agent once per infection, tested where a
   expect_equal(r$gram_reaction, c("negative", NA, NA))
 })
 
+test_that("resistance counts group by the stay's department, not the recording desk's", {
+  # Department 1's stay holds the sepsis; the recording desk moved its
+  # form to department 2's unit. The resistance counts, and the testing's
+  # completeness counts beside them, answer under the stay — the side the
+  # same tables' patient-day denominators stand on — and the recording
+  # desk holds no row.
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(event_type_key = "bsi", department_key = 1L),
+    findings = tibble::tibble(form = 1L, pathogen_key = 1807L,
+                              `3gcr` = "yes"))
+  inf <- ds$events$event_key[
+    ds$events$event_type_key %in% c("bsi", "nec", "hap", "ssi")]
+  ds$events$event_department_key[ds$events$event_key %in% inf] <- 2L
+
+  detections <- neoipcr:::get_infectious_agent_detections(
+    ds, use_cache = FALSE)
+  expect_equal(unique(detections$department_key), 1L)
+
+  rows <- neoipcr:::get_infectious_agent_resistance_rates(
+    ds, use_cache = FALSE)$rows
+  expect_equal(unique(rows$department_key), 1L)
+  expect_equal(sum(rows$resistant[rows$abr == "3gcr" &
+                                 rows$node_id == "bacteria"]), 1L)
+
+  tests <- neoipcr:::get_resistance_test_counts(ds, use_cache = FALSE)
+  expect_equal(unique(tests$department_key), 1L)
+  expect_equal(tests$total[tests$abr == "3gcr" & tests$cond == "routine"], 1L)
+})
+
 # --- Departments' quartiles -------------------------------------------------
 
 test_that("a department enters a row's quartiles with a positive denominator at the minimum, at 0 without the row's events", {
