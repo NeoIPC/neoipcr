@@ -171,36 +171,64 @@ calculation_option_reasons <- function()
 .shown_option_values <- function(values)
   if (is.character(values)) paste0('"', values, '"') else paste0("`", values, "`")
 
-# Assert that a dataset was imported by this version of neoipcr, as the
-# hierarchy pair on its events table shows: every organisation-unit
-# level the import options kept must carry both its `event_` and its
-# `enrollment_` legs there. A dataset stored before the pair existed
-# otherwise dies deep in the calculations, or — for the tables that
-# happen not to read the legs on their path — builds as-is over the
-# pre-pair keys, so every calculation entry refuses it uniformly and
-# names the re-import that replaces it, as `assert_validation_summary()`
-# does for its slot. A stored file outlives the code that wrote it, so
-# the calculations cannot assume every dataset on disk carries the pair.
+# Assert that a dataset's events table carries the hierarchy pair
+# wherever the current schema materializes it: `event_hierarchy_col()`
+# (R/schema-events.R) keeps the `event_` and the `enrollment_` leg of
+# an organisation-unit level only under `include_event = "full"` with
+# the level's own tier non-"no", so the dataset's tiers are read here
+# before the legs are demanded, and an options block that cannot be
+# read is refused rather than taken for consent. Below the full event
+# tier the legs' absence is the shape of a current import. A dataset
+# stored before the pair existed otherwise dies deep in the
+# calculations, or — for the tables that happen not to read the legs
+# on their path — builds as-is over the pre-pair keys, so every
+# calculation entry refuses it uniformly and names the re-import that
+# replaces it, as `assert_validation_summary()` does for its slot.
+#
+# NEOIPC-PERMANENT(dataset-format): never retire this refusal. A
+# stored file outlives the code that wrote it, so the calculations
+# cannot assume every dataset on disk carries the pair.
 assert_hierarchy_pair <- function(x, fn_name) {
   opts <- x$metadata$dataset_options
+  header <- gettextf("%s() needs a dataset imported by this version of neoipcr.",
+                     fn_name)
+  fix <- gettextf("Import the dataset again with this version of neoipcr; see %s.",
+                  "`?import_dhis2`")
+  refuse <- function(...)
+    rlang::abort(c(header, ..., "i" = fix),
+                 class = "neoipcr_missing_hierarchy_pair")
+
+  if (is.null(opts))
+    refuse("x" = gettextf("%s is %s; its import tiers cannot be read.",
+                          "`x$metadata$dataset_options`", "`NULL`"))
+
+  read_tier <- function(name) {
+    value <- opts[[name]]
+    tiers <- c("no", "pseudo", "full")
+    if (is.character(value) && length(value) == 1L && value %in% tiers)
+      return(value)
+    shown <- if (is.null(value)) "`NULL`" else
+      paste0("`", as.character(value), "`")
+    refuse("x" = gettextf("`%s` is %s; need one of %s.", name, shown,
+                          paste0("\"", tiers, "\"", collapse = ", ")))
+  }
+
+  # Below this tier the schema leaves the legs off the events table,
+  # so demanding them there would refuse a current import.
+  if (!identical(read_tier("include_event"), "full"))
+    return(invisible(x))
+
   absent <- character()
   for (key in .hierarchy_key_names) {
-    level <- opts[[.hierarchy_key_opts[[key]]]]
-    if (is.null(level) || !any(level %in% c("pseudo", "full"))) next
+    if (identical(read_tier(.hierarchy_key_opts[[key]]), "no")) next
     legs <- paste0(c("event_", "enrollment_"), key)
     absent <- c(absent, legs[!legs %in% names(x$events)])
   }
   if (length(absent) == 0L) return(invisible(x))
-  rlang::abort(
-    c(
-      gettextf("%s() needs a dataset imported by this version of neoipcr.",
-               fn_name),
-      "x" = gettextf("Its events table lacks %s.",
-                     paste0("`", absent, "`", collapse = ", ")),
-      "i" = gettextf("The plain hierarchy keys of an older neoipcr cannot supply the pair."),
-      "i" = gettextf("Import the dataset again with this version of neoipcr; see %s.",
-                     "`?import_dhis2`")),
-    class = "neoipcr_missing_hierarchy_pair")
+  refuse(
+    "x" = gettextf("Its events table lacks %s.",
+                   paste0("`", absent, "`", collapse = ", ")),
+    "i" = gettextf("The plain hierarchy keys of an older neoipcr cannot supply the pair."))
 }
 
 # Assert that a dataset carries its validation summary. A calculated dataset

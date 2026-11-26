@@ -138,7 +138,7 @@ check_ds_and_try_get_table <- function(
   # the calc pipeline. That pipeline needs the link-privacy gates
   # non-"no" — check them here so every get_*_table() caller gets the
   # same uniform precondition without repeating the assertion 11 times.
-  if (is_neoipcr_ds(x) && !is_neoipcr_rep_ds(x)) {
+  if (is_neoipcr_ds(x) && !is_neoipcr_rep_ds(x))
     assert_options_for(x, required = list(
       include_department = c("pseudo", "full"),
       include_patient    = c("pseudo", "full"),
@@ -147,8 +147,6 @@ check_ds_and_try_get_table <- function(
     ), reasons = if (identical(include_event, "full"))
       calculation_option_reasons() else list(),
     fn_name = table_name)
-    assert_hierarchy_pair(x, fn_name = table_name)
-  }
 
   # First try, if it's a report dataset because in that case it already contains
   # the table and we can just return it (potentially after removing the quartile
@@ -195,6 +193,12 @@ check_ds_and_try_get_table <- function(
       return(r)
     }
   }
+
+  # The hierarchy-pair refusal guards recomputation, not a stored
+  # result: every cache path above returns, so a table already
+  # computed for the dataset — even one stored before the pair —
+  # keeps being served.
+  assert_hierarchy_pair(x, fn_name = table_name)
 
   return(NULL)
 }
@@ -496,9 +500,10 @@ get_surgery_rate_table <- function(x, use_cache = TRUE) {
   if(use_cache && !is.null(r <- get_cached(x, "surgery_rate_table")))
     return(r)
 
-  # Placed after the cache lookup: a table computed for this dataset
-  # is served from it, and only the recomputation over the events of
-  # a dataset stored before the pair is refused.
+  # Behind the cache lookup, as the refusal in
+  # check_ds_and_try_get_table() is: the refusal guards
+  # recomputation, not a stored result, so a table already computed
+  # for the dataset is served even when its events lack the pair.
   assert_hierarchy_pair(x, fn_name = "get_surgery_rate_table")
 
   tibble::tibble(

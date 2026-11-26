@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-11-26 11:51+0100\n"
+"POT-Creation-Date: 2026-11-26 13:43+0100\n"
 "PO-Revision-Date: 2025-05-27 16:56+0200\n"
 "Last-Translator: Brar Piening <brar.piening@charite.de>\n"
 "Language-Team: NeoIPC-Support <NeoIPC-Support@charite.de>\n"
@@ -119,37 +119,37 @@ msgstr ""
 msgid "Not yet categorized"
 msgstr ""
 
-#: R/calc-tables.R:165
+#: R/calc-tables.R:163
 msgid "The calculated dataset has no table %s."
 msgstr ""
 
-#: R/calc-tables.R:167
+#: R/calc-tables.R:165
 msgid ""
 "It was calculated by a version of neoipcr that did not compute this table; "
 "calculate it again from its raw dataset."
 msgstr ""
 
-#: R/calc-tables.R:972
+#: R/calc-tables.R:977
 msgid "%s must be a data frame."
 msgstr ""
 
-#: R/calc-tables.R:977
+#: R/calc-tables.R:982
 msgid "%s lacks a required column:"
 msgstr ""
 
-#: R/calc-tables.R:979
+#: R/calc-tables.R:984
 msgid "%s lacks required columns:"
 msgstr ""
 
-#: R/calc-tables.R:983
+#: R/calc-tables.R:988
 msgid "%s and %s must be %s columns."
 msgstr ""
 
-#: R/calc-tables.R:986
+#: R/calc-tables.R:991
 msgid "Every window needs %s, with neither date missing."
 msgstr ""
 
-#: R/calc-tables.R:989
+#: R/calc-tables.R:994
 msgid "Every window must have a non-missing %s."
 msgstr ""
 
@@ -556,11 +556,11 @@ msgstr ""
 msgid "The dataset must have been imported via %s."
 msgstr ""
 
-#: R/types-check.R:130 R/types-check.R:215
+#: R/types-check.R:130 R/types-check.R:243
 msgid "%s is %s."
 msgstr ""
 
-#: R/types-check.R:143
+#: R/types-check.R:143 R/types-check.R:212
 msgid "`%s` is %s; need one of %s."
 msgstr ""
 
@@ -579,45 +579,49 @@ msgid ""
 "pseudonymized dataset, so the %s tier leaves it out."
 msgstr ""
 
-#: R/types-check.R:196
+#: R/types-check.R:193
 msgid "%s() needs a dataset imported by this version of neoipcr."
 msgstr ""
 
-#: R/types-check.R:198
-msgid "Its events table lacks %s."
-msgstr ""
-
-#: R/types-check.R:200
-msgid "The plain hierarchy keys of an older neoipcr cannot supply the pair."
-msgstr ""
-
-#: R/types-check.R:201 R/types-check.R:216
+#: R/types-check.R:195 R/types-check.R:244
 msgid "Import the dataset again with this version of neoipcr; see %s."
 msgstr ""
 
-#: R/types-check.R:214
+#: R/types-check.R:202
+msgid "%s is %s; its import tiers cannot be read."
+msgstr ""
+
+#: R/types-check.R:229
+msgid "Its events table lacks %s."
+msgstr ""
+
+#: R/types-check.R:231
+msgid "The plain hierarchy keys of an older neoipcr cannot supply the pair."
+msgstr ""
+
+#: R/types-check.R:242
 msgid "%s() needs a dataset that carries its validation summary."
 msgstr ""
 
-#: R/types-check.R:237
+#: R/types-check.R:265
 msgid ""
 "%s() needs a dataset whose reconciliation summary is the one an import "
 "writes."
 msgstr ""
 
-#: R/types-check.R:239
+#: R/types-check.R:267
 msgid "%s is not a data frame."
 msgstr ""
 
-#: R/types-check.R:241
+#: R/types-check.R:269
 msgid "%s has the column %s."
 msgstr ""
 
-#: R/types-check.R:243
+#: R/types-check.R:271
 msgid "%s has the columns %s."
 msgstr ""
 
-#: R/types-check.R:246
+#: R/types-check.R:274
 msgid "An import writes %s, or no column where it reconciled nothing; see %s."
 msgstr ""
 

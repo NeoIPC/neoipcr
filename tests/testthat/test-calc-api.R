@@ -205,10 +205,13 @@ test_that("the calculation functions abort on a dataset stored before the hierar
   cnd <- expect_error(calculate_department_data(ds),
                      class = "neoipcr_missing_hierarchy_pair")
   expect_match(conditionMessage(cnd),
-               "Import the dataset again with this version of neoipcr",
+               "calculate_department_data() needs a dataset imported by",
                fixed = TRUE)
-  expect_error(calculate_reference_data(ds),
-               class = "neoipcr_missing_hierarchy_pair")
+  cnd <- expect_error(calculate_reference_data(ds),
+                     class = "neoipcr_missing_hierarchy_pair")
+  expect_match(conditionMessage(cnd),
+               "calculate_reference_data() needs a dataset imported by",
+               fixed = TRUE)
 })
 
 

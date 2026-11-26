@@ -26,10 +26,11 @@ section above it for the next changes.
   or `enrollment_` column counts each event's own stay side and frames on the enrolments, so a department with stays
   but no infection shows a zero. `rate_definition_versions` moves 21 of its 24 slots to version 2, whose department
   rows group by the unit of the stay, so `get_benchmark_data()` reports a join of datasets calculated under the two
-  versions as incomparable. A dataset stored by an older neoipcr has no pair to calculate over: the calculations
-  refuse it and name the re-import that replaces it rather than recalculating on the old keys, so every dataset
-  behind a benchmark spanning the change must be imported again; `n_departments` and the two case-mix figure
-  tables keep version 1, grouping nothing by a department.
+  versions as incomparable. A dataset stored by an older neoipcr has no pair to calculate over where its import tiers
+  materialize the pair: the calculations refuse it and name the re-import that replaces it rather than recalculating on
+  the old keys, so it must be imported again when a benchmark spanning the change needs its tables recalculated; tables
+  already computed in a stored dataset keep being served; `n_departments` and the two case-mix figure tables keep version 1,
+  grouping nothing by a department.
 * neoipcr classifies infectious-agent findings by tables built from a release of the NeoIPC
   infectious-agent list and its reporting classification in the Surveillance-Toolkit, the release
   that `neoipcr_supported_versions()` gives as the new element `infectious_agents`. The tables they
