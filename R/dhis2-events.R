@@ -151,12 +151,12 @@ read_events <- function(events, enrollments, metadata, dataset_options)
             "ACTIVE", "COMPLETED", "VISITED", "SCHEDULE", "OVERDUE", "SKIPPED"))
       )
 
-  if (!opts$include_test_data ||
-      length(opts$country_filter) > 0 ||
-      length(opts$trial_filter) > 0)
-    events <- events |>
-      dplyr::semi_join(
-        metadata$.departments_internal_map, dplyr::join_by("orgUnit"))
+  # Test-data, country, and trial exclusion needs no filter of the events
+  # here: the inner join on `.enrollments_internal_map` above reaches only
+  # the stays that exclusion kept, which read_enrollments() applied to the
+  # map before building it. Filtering the events on their own `orgUnit`
+  # would instead drop an event of a kept stay recorded outside the
+  # imported departments, which this import owes to the stay's department.
 
   # Entity-level user fields, matched on the username: `storedBy` and
   # `completedBy` carry it directly, `createdBy` and `updatedBy` are

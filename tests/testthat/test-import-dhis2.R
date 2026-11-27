@@ -211,6 +211,39 @@ test_that("import_dhis2 gives a drifted event its recording department and its s
   expect_identical(length(unique(pair$event_department_key)), 2L)
 })
 
+test_that("import_dhis2 keeps an event recorded outside the imported departments of its stay", {
+  # The department list omits the unit the drifted event was recorded
+  # under, as an instance whose recording unit stands outside the
+  # departments serves it. The exclusion of test data, countries, and
+  # trials runs on the stays, so the event of a kept stay is kept and
+  # counts for the stay's department; only its own recording side falls
+  # empty, for its unit's chain is not imported.
+  fixtures <- import_drift_fixtures()
+  fixtures$organisationUnits <- paste0(
+    '{"organisationUnits": [{"id": "OU_DEPT_PATIENT"},',
+    ' {"id": "OU_DEPT_ENROLLMENT"}]}')
+  m <- new_dhis2_mock(fixtures)
+  httr2::local_mocked_responses(m$mock)
+
+  conn <- dhis2_connection_options(
+    session_id = "test", hostname = "dhis2.example.org")
+
+  ds <- import_dhis2(conn, import_test_opts())
+
+  expect_identical(nrow(ds$enrollments), 2L)
+  expect_identical(nrow(ds$events), 2L)
+  pair <- ds$events |>
+    dplyr::left_join(
+      ds$enrollments |>
+        dplyr::select("enrollment_key", "department_key"),
+      dplyr::join_by("enrollment_key"))
+  expect_false(anyNA(pair$enrollment_department_key))
+  expect_identical(pair$enrollment_department_key, pair$department_key)
+  drifted <- pair |> dplyr::filter(is.na(.data$event_department_key))
+  expect_identical(nrow(drifted), 1L)
+  expect_identical(nrow(drifted |> dplyr::filter(is.na(.data$department_key))), 0L)
+})
+
 test_that("import_dhis2 materializes the department pair on pseudonymized forms", {
   m <- new_dhis2_mock(import_drift_fixtures())
   httr2::local_mocked_responses(m$mock)
