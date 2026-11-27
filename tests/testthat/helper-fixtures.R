@@ -1199,6 +1199,55 @@ make_calc_test_ds <- function() {
     substanceDays       = make_test_substance_days(c(2L, 5L, 8L)))
 }
 
+# A calculation fixture of one stay with the hierarchy pair at its widest
+# spread: the patient record stands in department 1, the stay, its admission,
+# and its surveillance end in department 2, and the recording desk of its one
+# sepsis in department 3. The stay spans 100 patient-days, enough to enter a
+# reference quartile.
+make_split_department_calc_ds <- function() {
+  md <- read_test_metadata(
+    dataset_options = dhis2_dataset_options(
+      include_department = "full",
+      include_country    = "full"))
+  md$departments      <- make_test_metadata_departments(3)
+  md$hospitals        <- make_test_metadata_hospitals(3)
+  md$countries        <- make_test_metadata_countries(3)
+  md$worldBankClasses <- make_test_metadata_wb_classes(3)
+  md$eventTypes       <- make_test_metadata_event_types()
+  md$dataset_options  <- dhis2_dataset_options(
+    include_department = "full",
+    include_country    = "full",
+    include_patient    = "full",
+    include_enrollment = "full",
+    include_event      = "full")
+
+  events <- make_test_events(
+    n                         = 3L,
+    enrollment_keys           = c(1, 1, 1),
+    patient_keys              = c(1, 1, 1),
+    event_type_keys           = c("adm", "end", "bsi"),
+    occurredAt                = as.Date(c(
+      "2024-01-01", "2024-01-15", "2024-01-08")),
+    event_department_key      = c(2L, 2L, 3L),
+    enrollment_department_key = rep(2L, 3))
+
+  make_test_ds(
+    metadata                = md,
+    patients                = make_test_patients(
+      1L, department_key = 1L, birth_weight = 1200L, gest_age = "30+0",
+      total_gestation_days = 210L),
+    enrollments             = make_test_enrollments(
+      1L, patient_keys = 1L, department_key = 2L,
+      enrolledAt = as.Date("2024-01-01")),
+    events                  = events,
+    admissionData           = make_test_admission_data(1L),
+    surveillanceEndData     = make_test_surveillance_end_data(
+      2L, patient_days = 100L),
+    sepsisData              = make_test_sepsis_data(3L, dol = 8L, los = 7L),
+    infectiousAgentFindings = make_test_iaf(3L),
+    substanceDays           = make_test_substance_days(2L))
+}
+
 # A dataset as an older neoipcr would have stored it: its events table
 # holds the plain hierarchy keys of the pre-pair import — the values of
 # the event side stand for them, which no refusal depends on — and

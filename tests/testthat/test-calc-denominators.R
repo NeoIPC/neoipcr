@@ -20,7 +20,8 @@ test_that("a stay's days stay with its department when the patient record stands
     forms = tibble::tibble(
       event_type_key = c("bsi", "bsi"),
       department_key = c(1L, 2L)),
-    findings = tibble::tibble(form = 1:2, pathogen_key = c(934L, 1807L)))
+    findings = tibble::tibble(form = 1:2, pathogen_key = c(934L, 1807L)),
+    patient_days = c(45L, 70L))
   # The aware-days chain the risk-time denominators join through needs
   # substance days on the surveillance-end forms.
   end_key <- ds$events$event_key[ds$events$event_type_key == "end"]
@@ -35,4 +36,8 @@ test_that("a stay's days stay with its department when the patient record stands
   risk_time <- neoipcr:::get_risk_time(
     ds, group_cols = "enrollment_department_key", use_cache = FALSE)
   expect_equal(risk_time$enrollment_department_key, c(1L, 2L))
+  # The day values, not just the rows: department 1's stay keeps its own 45
+  # days though its patient record stands in department 2, and does not
+  # join department 2's 70.
+  expect_equal(risk_time$patient_days, c(45L, 70L))
 })
