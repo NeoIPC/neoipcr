@@ -673,6 +673,16 @@ test_that(".design_effect reports the figures that leave no variance to estimate
                "full_share")
   expect_equal(neoipcr:::.design_effect(c(30, 25), c(20, 20), "binomial")$status,
                "share_exceeded")
+  # A single cluster's events over its own denominator beside a pooled
+  # share below 100 %: §13.1.2's no-interval case is the figure's days
+  # exceeding their denominator - the pooled Y against the pooled S - and
+  # a cluster above its own denominator leaves the figure an interval.
+  y <- c(3, 1, 1)
+  w <- c(2, 10, 10)
+  one_over <- neoipcr:::.design_effect(y, w, "binomial")
+  expect_equal(one_over$status, "ok")
+  expect_gte(one_over$effect, 1)
+  expect_equal(one_over$effect, matrix_design_effect(y, w, "binomial")$effect)
   expect_equal(neoipcr:::.design_effect(7, 100, "poisson")$status, "few_clusters")
   expect_equal(neoipcr:::.design_effect(c(0, 0), c(20, 20), "binomial")$status,
                "zero_events")
@@ -741,6 +751,15 @@ test_that("the interval engines refuse a missing confidence level", {
   expect_error(neoipcr:::.order_statistic_quartile_ci(
     events = c(5, 12, 30, 8), exposure = c(100, 200, 300, 150),
     conf.level = NA_real_))
+})
+
+test_that("the interval engines refuse infinite inputs", {
+  # An infinite count or denominator is a caller bug, not a degenerate
+  # figure: the interval it would leave has no rate in it.
+  expect_error(neoipcr:::.clopper_pearson_ci(Inf, Inf))
+  expect_error(neoipcr:::.clopper_pearson_ci(10, Inf))
+  expect_error(neoipcr:::.gamma_rate_ci(5, Inf))
+  expect_error(neoipcr:::.gamma_rate_ci(Inf, 100))
 })
 
 test_that("both engines read the all-zero state alike", {
@@ -906,6 +925,49 @@ test_that(".department_design_effect takes the larger of fallback and own withou
   expect_equal(own_larger$source, "own")
 })
 
+test_that(".department_design_effect reads a reference storing no number as none", {
+  # network = NA is a reference that stores no number for the row: the
+  # figure falls as a row without a reference does, rather than carrying an
+  # NA effect into the effective value its flag would have to test.
+  got <- neoipcr:::.department_design_effect(
+    own = NULL, network = NA_real_, has_reference = TRUE, is_zero = TRUE)
+  expect_equal(got$source, "fallback")
+  expect_equal(got$effect, 1)
+  # Were the NA let through, the effective value it leaves would carry no
+  # proof of a count up to the threshold; the flag refuses to read it as
+  # enough.
+  expect_true(neoipcr:::.figure_flags(effective_value = NA_real_)$sparse_data)
+})
+
+test_that(".department_design_effect asks its callers for the values a branch needs", {
+  # Zero defaults once let a caller forget these and take 1 as the design
+  # effect of a row counting days of nothing, or 9 on nothing: each branch
+  # now refuses where it needs what the call left out.
+  expect_error(neoipcr:::.department_design_effect(
+    own = NULL, network = NULL, has_reference = FALSE, counts_days = TRUE,
+    is_zero = TRUE, denominator = 1000))                      # no kish
+  expect_error(neoipcr:::.department_design_effect(
+    own = NULL, network = NULL, has_reference = FALSE, counts_days = TRUE,
+    is_zero = TRUE, kish = 400))                             # no denominator
+  expect_error(neoipcr:::.department_design_effect(
+    own = NULL, network = NULL, has_reference = FALSE,
+    effective_count_patients = TRUE, is_zero = FALSE, numerator = 260))
+  expect_error(neoipcr:::.department_design_effect(
+    own = NULL, network = NULL, has_reference = FALSE,
+    effective_count_patients = TRUE, is_zero = FALSE, n_patients = 8))
+  # The own-versus-fallback comparison needs the patient count too.
+  expect_error(neoipcr:::.department_design_effect(
+    own = list(effect = 42, df = 4), network = NULL, has_reference = FALSE,
+    counts_days = TRUE, denominator = 1000, kish = 400))
+  # No effect a figure takes sits below 1: a reference storing one, or a
+  # row whose fallback comes below it, contradicts its own row.
+  expect_error(neoipcr:::.department_design_effect(
+    own = NULL, network = 0.5, has_reference = TRUE))
+  expect_error(neoipcr:::.department_design_effect(
+    own = NULL, network = NULL, has_reference = FALSE, counts_days = TRUE,
+    is_zero = TRUE, denominator = 100, kish = 400))
+})
+
 # --- the flags -------------------------------------------------------------------
 
 test_that(".figure_flags marks the effective value below 16, never at 16", {
@@ -914,6 +976,10 @@ test_that(".figure_flags marks the effective value below 16, never at 16", {
   expect_true(neoipcr:::.figure_flags(effective_value = 0)$sparse_data)
   # The threshold is configurable; 16 is its default.
   expect_false(neoipcr:::.figure_flags(effective_value = 15.999, threshold = 10)$sparse_data)
+  # A value given but missing proves nothing; one not given leaves nothing
+  # for the flag to test.
+  expect_true(neoipcr:::.figure_flags(effective_value = NA_real_)$sparse_data)
+  expect_false(neoipcr:::.figure_flags()$sparse_data)
 })
 
 test_that(".figure_flags marks the degrees of freedom below 8 after rounding", {
@@ -1005,6 +1071,29 @@ test_that(".design_effect's closed form matches the matrix form at 30 clusters",
   expect_equal(got$variance, expected$variance)
   expect_equal(got$df, expected$df)
   expect_equal(got$effect, expected$effect)
+})
+
+test_that(".design_effect's closed form matches the matrix form at patient size", {
+  # A department's patient clusters, denominators small counts of days: the
+  # closed form sums its pair terms over the distinct denominators weighted
+  # by their multiplicities, the matrix form knows only the clusters.
+  set.seed(11)
+  for (G in c(200L, 500L)) {
+    w <- sample(1:20, G, replace = TRUE)
+    y <- sample(0:3, G, replace = TRUE)
+    if (sum(y) == 0) y[1] <- 1
+    expected <- matrix_design_effect(y, w, "poisson")
+    got <- neoipcr:::.design_effect(y, w, family = "poisson")
+    expect_equal(got$df, expected$df, tolerance = 1e-6)
+    expect_equal(got$effect, expected$effect, tolerance = 1e-6)
+  }
+  # One denominator value, many clusters: the within-value pair term with a
+  # multiplicity the tests' small cases never reach.
+  y <- sample(0:5, 300, replace = TRUE)
+  expected <- matrix_design_effect(y, rep(1000, 300), "poisson")
+  got <- neoipcr:::.design_effect(y, rep(1000, 300), family = "poisson")
+  expect_equal(got$df, expected$df, tolerance = 1e-6)
+  expect_equal(got$effect, expected$effect, tolerance = 1e-6)
 })
 
 test_that("an interval is never empty and a share stays inside its bounds", {

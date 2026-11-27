@@ -1399,10 +1399,11 @@ same steps with patients as the clusters, those with a positive denominator of t
    estimators, is v = Σuᵢ²(φᵢ/Mᵢᵢ)/S².
 5. Its Bell-McCaffrey degrees of freedom are ν = (tr P)²/tr(P²), tr being the trace, with
    P = diag(√φᵢ)(I − H)ᵀ diag[wᵢ²φᵢ/(MᵢᵢS²)](I − H) diag(√φᵢ).
-6. The design effect is d = max{1, vS²/Y}(t/1.96)² for a rate or ratio and d = max{1, vS/[R(1 − R)]}(t/1.96)² for a
-   share, t being the 97.5th percentile of the t distribution on ν degrees of freedom, so that the effective counts
-   shrink for the degrees of freedom as Korn and Graubard's effective sample size does, with the normal quantile 1.96 in
-   place of their t quantile on n − 1 degrees of freedom, and for rates and ratios as for shares.
+6. The design effect is d = max{1, vS²/Y}(t/z)² for a rate or ratio and d = max{1, vS/[R(1 − R)]}(t/z)² for a share,
+   t being the 97.5th percentile of the t distribution on ν degrees of freedom and z the normal quantile 1 − (1 −
+   level)/2 of the interval's level, the 1.96 rounded at 95 %, so that the effective counts shrink for the degrees of
+   freedom as Korn and Graubard's effective sample size does, with z in place of their t quantile on n − 1 degrees of
+   freedom, and for rates and ratios as for shares.
 7. The interval is the row's interval on the effective counts Y/d and S/d: for a rate or ratio, the gamma interval of
    Fay and Feuer, [F⁻¹(0.025; Y/d), F⁻¹(0.975; Y/d + 1)]/(S/d), F⁻¹(p; a) being the p quantile of the gamma distribution
    with shape a and scale 1 (`stats::qgamma()`); for a share, the Clopper-Pearson interval on Y/d of S/d
