@@ -1081,37 +1081,34 @@ get_effective_analysis_period <- function(x) {
 # definitions. The two versions of a table whose rows are infectious agents
 # share its definitions.
 #
-# Version 2 of a table groups its department rows by the unit of the stay,
-# the enrolment's organisation unit; version 1 grouped them by what the
-# patient's or the event's own record showed, which collection metadata
-# keeps equal to the stay's today but the DHIS2 API does not enforce. The
-# department count reads the organisation-unit metadata and the two patient
-# figures group by the patient, not the unit; they carry version 1.
+# The department regrouping this package's development carries lands
+# unnumbered: no released dataset has carried a rate-definition stamp, so
+# every slot stands at the first version of the definitions released.
 rate_definition_versions <- c(
   n_departments = 1L,
-  n_surgical_departments = 2L,
-  n_patients = 2L,
-  n_enrollments = 2L,
-  n_patient_days = 2L,
-  n_surgical_patients = 2L,
-  n_surgical_procedures = 2L,
+  n_surgical_departments = 1L,
+  n_patients = 1L,
+  n_enrollments = 1L,
+  n_patient_days = 1L,
+  n_surgical_patients = 1L,
+  n_surgical_procedures = 1L,
   birth_weight_figure = 1L,
   gestational_age_figure = 1L,
-  usage_density_rate_table = 2L,
-  antibiotic_utilization_table = 2L,
-  surgery_rate_table = 2L,
-  incidence_density_rate_table = 2L,
-  dev_ass_incidence_density_rate_table = 2L,
-  n_infections = 2L,
-  infectious_agent_detection_rate_per_agent_table = 2L,
-  infectious_agent_detection_rate_per_agent_ontology_table = 2L,
-  abr_infection_rate_table = 2L,
-  abr_infection_rate_ontology_table = 2L,
-  infectious_agent_resistance_rate_table = 2L,
-  infectious_agent_resistance_rate_ontology_table = 2L,
-  secondary_bsi_rate_table = 2L,
-  infectious_agent_detection_rate_per_inf_type_table = 2L,
-  resistance_test_rate_table = 2L)
+  usage_density_rate_table = 1L,
+  antibiotic_utilization_table = 1L,
+  surgery_rate_table = 1L,
+  incidence_density_rate_table = 1L,
+  dev_ass_incidence_density_rate_table = 1L,
+  n_infections = 1L,
+  infectious_agent_detection_rate_per_agent_table = 1L,
+  infectious_agent_detection_rate_per_agent_ontology_table = 1L,
+  abr_infection_rate_table = 1L,
+  abr_infection_rate_ontology_table = 1L,
+  infectious_agent_resistance_rate_table = 1L,
+  infectious_agent_resistance_rate_ontology_table = 1L,
+  secondary_bsi_rate_table = 1L,
+  infectious_agent_detection_rate_per_inf_type_table = 1L,
+  resistance_test_rate_table = 1L)
 
 # The columns of `metadata$rate_definitions`: the table's slot, the version of
 # its rate definitions, and the stamps of what it reads from the bundled

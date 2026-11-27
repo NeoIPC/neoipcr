@@ -19,19 +19,18 @@ section above it for the next changes.
   `event_country_key`, and `event_world_bank_class_key`, beside the stay's side, `enrollment_department_key` and its
   counterparts, replacing the plain `department_key` and its chain those tables held. The import resolves the pair
   before the schema projects the tiers, and the tiers place it where a chain breaks: on `events` at the full tier,
-  and directly on the form-data tables at the pseudonymised, where the inherited links and hierarchy keys they
-  declare are now materialised instead of left `NA`. Patient records keep their own keys as they are: a patient
-  holds no single stay.
+  and directly on the form-data tables at the pseudonymized, where the inherited links and hierarchy keys they
+  declare are now materialized instead of left `NA`. Patient records keep their own keys as they are: a patient
+  holds no single stay. This is a breaking change for dataset readers: a reader of a stored dataset that joined
+  the events or a form-data table on the plain `department_key` finds that column gone, and the pre-alpha package
+  offers no migration.
 * Every rate table's department rows group by `enrollment_department_key`, and `get_infection_counts()` answers
   every grouping column from the side its name names: an `event_` column counts and frames on the events, a plain
   or `enrollment_` column counts each event's own stay side and frames on the enrolments, so a department with stays
-  but no infection shows a zero. `rate_definition_versions` moves 21 of its 24 slots to version 2, whose department
-  rows group by the unit of the stay, so `get_benchmark_data()` reports a join of datasets calculated under the two
-  versions as incomparable. A dataset stored by an older neoipcr has no pair to calculate over where its import tiers
-  materialize the pair: the calculations refuse it and name the re-import that replaces it rather than recalculating on
-  the old keys, so it must be imported again when a benchmark spanning the change needs its tables recalculated; tables
-  already computed in a stored dataset keep being served; `n_departments` and the two case-mix figure tables keep version 1,
-  grouping nothing by a department.
+  but no infection shows a zero. A dataset stored by an older neoipcr has no pair to calculate over where its import
+  tiers materialize the pair: the calculations refuse it and name the re-import that replaces it rather than
+  recalculating on the old keys, so it must be imported again when a benchmark spanning the change needs its tables
+  recalculated; tables already computed in a stored dataset keep being served.
 * neoipcr classifies infectious-agent findings by tables built from a release of the NeoIPC
   infectious-agent list and its reporting classification in the Surveillance-Toolkit, the release
   that `neoipcr_supported_versions()` gives as the new element `infectious_agents`. The tables they
