@@ -228,7 +228,7 @@ assert_hierarchy_pair <- function(x, fn_name) {
   refuse(
     "x" = gettextf("Its events table lacks %s.",
                    paste0("`", absent, "`", collapse = ", ")),
-    "i" = gettextf("The plain hierarchy keys of an older neoipcr cannot supply the pair."))
+    "i" = gettext("The plain hierarchy keys of an older neoipcr cannot supply the pair."))
 }
 
 # Assert that a dataset carries its validation summary. A calculated dataset

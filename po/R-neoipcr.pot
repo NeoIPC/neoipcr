@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.0.0.9008\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-11-26 13:43+0100\n"
+"POT-Creation-Date: 2026-11-28 00:01+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -45,28 +45,28 @@ msgstr ""
 msgid "Q3"
 msgstr ""
 
-#: R/calc-api.R:1221
+#: R/calc-api.R:1218
 #: R/infectious-agents.R:43
 msgid "Not in the list: %s."
 msgstr ""
 
-#: R/calc-api.R:1222
+#: R/calc-api.R:1219
 msgid "The infectious-agent tables count such a code in their Totals only, and no resistance category applies to it."
 msgstr ""
 
-#: R/calc-api.R:1355
+#: R/calc-api.R:1352
 msgid "the unnamed dataset"
 msgstr ""
 
-#: R/calc-api.R:1358
+#: R/calc-api.R:1355
 msgid "Left empty for %s: %s."
 msgstr ""
 
-#: R/calc-api.R:1366
+#: R/calc-api.R:1363
 msgid "%s was calculated before calculated datasets carried the versions of their rate definitions; calculate it again from its raw dataset to compare it."
 msgstr ""
 
-#: R/calc-api.R:1377
+#: R/calc-api.R:1374
 msgid "Each such table keeps the rows of the datasets joined into it; a figure takes no rows from a dataset for which it is left empty, and any other such table leaves that dataset's columns empty."
 msgstr ""
 

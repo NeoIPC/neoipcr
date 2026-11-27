@@ -55,9 +55,6 @@ get_events_request <- function(req_base, dataset_options, programId)
     httr2::req_url_query(fields = fields)
 }
 
-# The hierarchy key names the reader materializes are `.hierarchy_key_names`,
-# defined with the schema vocabulary in R/schema-cols-shared.R.
-
 read_events <- function(events, enrollments, metadata, dataset_options)
 {
   opts <- dataset_options
