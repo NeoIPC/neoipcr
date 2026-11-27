@@ -186,8 +186,8 @@ test_that("tea_attribute_cols emits base + 3 companions (no createdBy/updatedBy)
       "birth_weight_storedBy",
       "birth_weight_createdAt",
       "birth_weight_updatedAt"))
-  # Note absence of _createdBy / _updatedBy — per the DHIS2 Attribute.java
-  # finding (docs/dhis2-user-timestamp-semantics.md).
+  # Note the absence of `_createdBy` / `_updatedBy`: DHIS2's tracker
+  # `Attribute` carries `storedBy` but no such per-attribute user objects.
 })
 
 test_that("tea_attribute_cols companions respect include_user / include_timestamps", {

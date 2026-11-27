@@ -18,12 +18,14 @@ section above it for the next changes.
   `NEOIPC_DHIS2_TOKEN` environment variable, now accepts a DHIS2 personal access token of either
   version by its shape: version 1 (`d2pat_`, 48 characters), which only DHIS2 2.40 and earlier
   issued, and version 2 (`d2p_`, 54 characters), the only version DHIS2 2.41 and later issue. Every
-  other string is still refused with the same error. The token's checksum stays checked by DHIS2,
+  other string is still refused with the same error, and the shape check also refuses strings the
+  prefix-and-length check it replaces used to accept, such as a 48-character `d2pat_` string with a
+  `-`, `_`, or a letter among its last 10 characters. The token's checksum stays checked by DHIS2,
   which does so when the token is used, and not by neoipcr.
-* The documentation now says what the `storedBy` columns hold: a record written through the tracker
-  API on DHIS2 2.41.9, and on the later lines from 2.42.6 and 2.43.1, holds the authenticated user's
-  name there, while the legacy APIs that Tracker Capture writes through still store the value the
-  client sent, so attribution rests on the `createdBy` and `updatedBy` columns that `include_user`
+* The documentation now says what the `storedBy` columns hold: from DHIS2 2.41.9, and on the later
+  lines from 2.42.6 and 2.43.1, a record written through the tracker API holds the authenticated
+  user's name there, while the legacy APIs that Tracker Capture writes through still store the value
+  the client sent, so attribution rests on the `createdBy` and `updatedBy` columns that `include_user`
   adds, of which a patient's attribute values have none.
 * neoipcr classifies infectious-agent findings by tables built from a release of the NeoIPC
   infectious-agent list and its reporting classification in the Surveillance-Toolkit, the release

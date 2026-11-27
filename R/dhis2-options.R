@@ -93,7 +93,7 @@
 #'  plus the DHIS2 user id where `"users"` is in `include_dhis2_ids`; under
 #'  "full" also `username`, `firstName`, `surname`, `email`,
 #'  `lastLogin`, and `created`. A `storedBy` column holds what DHIS2
-#'  returns, and its meaning depends on how the record was written: on
+#'  returns, and its meaning depends on how the record was written: from
 #'  DHIS2 2.41.9, and on the later lines from 2.42.6 and 2.43.1, a record
 #'  written through the tracker API holds the authenticated user's name
 #'  there, while the legacy APIs that Tracker Capture writes through still
