@@ -474,20 +474,34 @@ for (v in c(matrix_supported_versions, matrix_unsupported_versions)) {
   })
 }
 
+# Serve an events fixture as DHIS2 answers a request scoped by enrolment:
+# only the events whose enrolment the request's `enrollments` parameter names.
+serve_events_by_enrolment <- function(events_json) {
+  # force(): the callers rebind fx$events to the returned function, and R
+  # would otherwise force this promise when the function runs — after the
+  # rebinding — handing it itself instead of the fixture text.
+  force(events_json)
+  function(req) {
+    requested <- query_values(httr2::url_build(httr2::url_parse(req$url)),
+                              "enrollments")
+    if (length(requested) == 0L) return(events_json)
+    body <- jsonlite::fromJSON(events_json, simplifyVector = FALSE)
+    body$events <- Filter(
+      \(event) event$enrollment %in% as.character(requested), body$events)
+    as.character(jsonlite::toJSON(body, auto_unbox = TRUE, null = "null"))
+  }
+}
+
 # Fixtures for the two-department `department_filter` path — the only path that
-# populates multi-UID org-unit values, so the only one that reveals the
-# separator difference. Events fan out per department, so serve each
-# department's events by the request's (decoded) org-unit id.
+# populates multi-UID org-unit values on the patient and stay requests, so the
+# only one that reveals the separator difference. The path requests its events
+# by enrolment, so each request is served the events of the enrolments it
+# names.
 dept_filter_fixtures <- function(version) {
   fx <- import_test_fixtures(version, me_fixture_for(version))
   fx$organisationUnits <- read_fixture_text("orgunits-departments-2.json")
-  # Events fan out one org unit per request, using the SINGULAR `orgUnit`
-  # parameter on every line — serve each department's events by that id.
-  fx$events <- function(req) {
-    ou <- httr2::url_parse(req$url)$query$orgUnit
-    if (identical(ou, "OU_DEPT_1")) read_fixture_text("tracker-events.json")
-    else '{"events":[]}'
-  }
+  fx$events <- serve_events_by_enrolment(
+    read_fixture_text("tracker-events.json"))
   fx
 }
 
@@ -499,6 +513,20 @@ raw_query_param <- function(url, name) {
   parts <- strsplit(qs, "&", fixed = TRUE)[[1]]
   hit <- parts[startsWith(parts, paste0(name, "="))]
   sub(paste0("^", name, "="), "", hit)
+}
+
+# Every value of a query parameter, decoded, in URL order. url_parse keeps a
+# repeated parameter as duplicate list entries and `$` hands out only the
+# first, so a repeated `enrollments` must be read from the URL itself. The
+# split goes on the encoded URL so a percent-encoded `&` inside a value
+# cannot fake a separator; each value is decoded after.
+query_values <- function(url, name) {
+  qs <- sub("^[^?]*\\?", "", url)
+  parts <- strsplit(qs, "&", fixed = TRUE)[[1]]
+  hit <- startsWith(parts, paste0(name, "="))
+  vapply(parts[hit],
+         function(p) utils::URLdecode(sub(paste0("^", name, "="), "", p)),
+         character(1), USE.NAMES = FALSE)
 }
 
 # Run the department-filtered import and return the trackedEntities and (first)
@@ -537,11 +565,27 @@ test_that("2.40 tracker requests use ouMode/orgUnit with %3B-joined ids", {
   expect_false(grepl(",", raw, fixed = TRUE))
   expect_false(grepl("%2C", raw, fixed = TRUE))
 
-  # /tracker/events uses the SINGULAR orgUnit (never orgUnits) with the
-  # version's mode key.
-  expect_true("ouMode" %in% names(r$ev))
-  expect_true("orgUnit" %in% names(r$ev))
+  # The department-filtered import asks the events endpoint by enrolment, the
+  # one parameter it parses for that on every line; no org-unit parameter of
+  # either generation rides an enrolment-scoped event request.
+  expect_setequal(query_values(r$ev_url, "enrollments"), c("ENR_1", "ENR_2"))
+  expect_false("ouMode" %in% names(r$ev))
+  expect_false("orgUnit" %in% names(r$ev))
+  expect_false("orgUnitMode" %in% names(r$ev))
   expect_false("orgUnits" %in% names(r$ev))
+  # The enrolments travel as repeats of their own parameter, one UID each —
+  # never the 2.40 org-unit id's semicolon form.
+  expect_identical(
+    length(strsplit(r$ev_url, "enrollments=", fixed = TRUE)[[1]]) - 1L, 2L)
+  expect_false(grepl("%3B", r$ev_url, fixed = TRUE))
+})
+
+test_that("event enrolment requests are chunked to the request-line budget", {
+  chunks <- neoipcr:::.enrolment_chunks(paste0("E", 1:401))
+  expect_length(chunks, 3L)
+  expect_length(chunks[[1]], 200L)
+  expect_identical(unname(chunks)[[3]], "E401")
+  expect_length(neoipcr:::.enrolment_chunks(character()), 0L)
 })
 
 test_that("2.41+ tracker requests use orgUnitMode/orgUnits with comma-joined ids", {
@@ -566,10 +610,13 @@ test_that("2.41+ tracker requests use orgUnitMode/orgUnits with comma-joined ids
     expect_false(grepl("%3B", raw, fixed = TRUE), info = v)
     expect_false(grepl(";", raw, fixed = TRUE), info = v)
 
-    # /tracker/events keeps the SINGULAR orgUnit even on 2.41+ (it never gained
-    # orgUnits); sending orgUnits there would 400 on a real server.
-    expect_true("orgUnitMode" %in% names(r$ev), info = v)
-    expect_true("orgUnit" %in% names(r$ev), info = v)
+    # The enrolment-scoped event requests carry no org-unit parameter on any
+    # line: `EventRequestParams.enrollments` scopes them.
+    expect_true(
+      setequal(query_values(r$ev_url, "enrollments"), c("ENR_1", "ENR_2")),
+      info = v)
+    expect_false("orgUnitMode" %in% names(r$ev), info = v)
+    expect_false("orgUnit" %in% names(r$ev), info = v)
     expect_false("orgUnits" %in% names(r$ev), info = v)
   }
 })
@@ -2011,16 +2058,9 @@ trials_fixtures <- function(move_second_patient = TRUE) {
     fx$events <- to_second_department(
       fx$events, "events", "enrollment", "ENR_2")
   }
-  # The events are requested once per selected department, so each request
-  # gets only the events of the org unit it names, as DHIS2 answers it.
-  events <- fx$events
-  fx$events <- function(req) {
-    org_unit <- httr2::url_parse(req$url)$query$orgUnit
-    if (is.null(org_unit)) return(events)
-    body <- jsonlite::fromJSON(events, simplifyVector = FALSE)
-    body$events <- Filter(\(event) identical(event$orgUnit, org_unit), body$events)
-    as.character(jsonlite::toJSON(body, auto_unbox = TRUE, null = "null"))
-  }
+  # The events follow the stays: each request gets only the events of the
+  # enrolments it names, as DHIS2 answers an enrolment-scoped request.
+  fx$events <- serve_events_by_enrolment(fx$events)
   fx
 }
 

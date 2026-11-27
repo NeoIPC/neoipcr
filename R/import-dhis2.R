@@ -156,12 +156,24 @@ import_dhis2 <- function(
   # metadata processing (assemble_metadata), so we can use them directly.
   #
   # trackedEntities and enrollments accept a multi-UID org-unit parameter; the
-  # /tracker/events endpoint accepts only a single org unit, so event requests
-  # are fanned out one org unit per request. All requests run in parallel.
+  # /tracker/events endpoint takes only a single org unit, so a country- or
+  # access-scoped import fans its event requests out one org unit per request.
+  # A department or trial filter does not scope the events by org unit at all:
+  # it scopes the stays, and an event of a scoped stay may be recorded under a
+  # unit the scoping does not name, where an org-unit request would never see
+  # it — while the import counts that event for the stay's department. The
+  # events follow the enrolments instead: the import reads the scoped
+  # enrolments first and then requests their events through repeated
+  # `enrollments` parameters, chunked per `.event_enrolment_chunk_size`. The
+  # endpoint parses that parameter on every supported line, as
+  # `TrackerEventCriteria.enrollments` on 2.40 and
+  # `EventRequestParams.enrollments` on 2.41 onward.
   #
-  # The org-unit query differs across DHIS2 lines AND between endpoints, so it
-  # is built from `dhis2_ou_dialect()`:
-  #   * `mode_key` (ouMode -> orgUnitMode in 2.41) applies to every endpoint.
+  # All requests of one phase run in parallel. The org-unit query differs
+  # across DHIS2 lines AND between endpoints, so it is built from
+  # `dhis2_ou_dialect()`:
+  #   * `mode_key` (ouMode -> orgUnitMode in 2.41) applies to every request
+  #     scoped by org unit.
   #   * `ou_key` (orgUnit -> orgUnits in 2.41) + the multi-UID separator apply
   #     ONLY to trackedEntities/enrollments. The events endpoint keeps the
   #     SINGULAR `orgUnit` parameter on every line — it never gained `orgUnits`
@@ -180,8 +192,13 @@ import_dhis2 <- function(
 
   multi_uid <- dialect$multi_uid
 
-  if (length(dataset_options$department_filter) > 0 ||
-      length(dataset_options$trial_filter) > 0) {
+  # A department or trial filter scopes stays, so its events follow the stay's
+  # enrolments; a country filter and the access scope name org-unit subtrees
+  # that the events endpoint serves per unit.
+  by_enrolments <- length(dataset_options$department_filter) > 0 ||
+                   length(dataset_options$trial_filter) > 0
+
+  if (by_enrolments) {
     dept_ids <- metadata$.departments_internal_map |>
       dplyr::pull(.data$orgUnit)
 
@@ -220,9 +237,6 @@ import_dhis2 <- function(
     te_enrl_req <- tracker_req |>
       httr2::req_url_query(!!!ou_query("SELECTED", multi_uid(dept_ids)))
 
-    event_reqs <- lapply(dept_ids, \(id) tracker_req |>
-      httr2::req_url_query(!!!event_ou_query("SELECTED", id)))
-
   } else if (length(dataset_options$country_filter) > 0) {
     # The raw DHIS2 `country` id lives on the orchestrator-internal
     # countries map (not on `metadata$countries`, which is the
@@ -242,49 +256,40 @@ import_dhis2 <- function(
     event_reqs <- list(te_enrl_req)
   }
 
-  reqs <- c(
-    list(
-      get_trackedEntities_request(
-        te_enrl_req,
-        dataset_options,
-        metadata$programId,
-        metadata$trackedEntityTypeId),
-      get_enrollments_request(
-        te_enrl_req, dataset_options, metadata$programId)),
-    lapply(event_reqs, \(req)
-      get_events_request(req, dataset_options, metadata$programId)))
+  te_enrl_reqs <- list(
+    trackedEntities = get_trackedEntities_request(
+      te_enrl_req,
+      dataset_options,
+      metadata$programId,
+      metadata$trackedEntityTypeId),
+    enrollments = get_enrollments_request(
+      te_enrl_req, dataset_options, metadata$programId))
 
-  logger::log_debug(
-    "DHIS2 tracker: issuing {length(reqs)} requests ({length(event_reqs)} event org-unit splits)",
-    namespace = "neoipcr")
-
-  resps <- reqs |>
-    httr2::req_perform_parallel(progress = FALSE, on_error = "continue")
-
-  endpoints <- c("trackedEntities", "enrollments",
-    rep("events", length(event_reqs)))
-
-  # Trace each response (URL + status only) before the error check, so a
-  # failed sibling request is still logged.
-  for (i in seq_along(resps)) log_dhis2_request(resps[[i]], endpoints[[i]])
-
-  # Check for HTTP errors and surface the response body.
-  # With on_error="continue", failed requests are stored as error objects
-  # (class httr2_error), not response objects.
-  for (i in seq_along(resps)) {
-    if (rlang::is_error(resps[[i]])) {
-      err <- resps[[i]]
-      resp <- err$resp
-      body <- tryCatch(
-        httr2::resp_body_string(resp),
-        error = \(e) conditionMessage(err))
-      status <- tryCatch(
-        httr2::resp_status(resp),
-        error = \(e) gettext("unknown"))
-      rlang::abort(gettextf(
-        "DHIS2 %s returned HTTP %s.\nResponse body:\n%s",
-        paste0("tracker/", endpoints[i]), status, body))
+  # Issue one parallel batch, trace each response (URL + status only) before
+  # the error check so a failed sibling request is still logged, and abort on
+  # any HTTP error with the response body. With on_error = "continue", failed
+  # requests come back as error objects (class httr2_error), not responses.
+  perform_batch <- function(reqs, endpoints) {
+    if (length(reqs) == 0L) return(list())
+    resps <- reqs |>
+      httr2::req_perform_parallel(progress = FALSE, on_error = "continue")
+    for (i in seq_along(resps)) log_dhis2_request(resps[[i]], endpoints[[i]])
+    for (i in seq_along(resps)) {
+      if (rlang::is_error(resps[[i]])) {
+        err <- resps[[i]]
+        resp <- err$resp
+        body <- tryCatch(
+          httr2::resp_body_string(resp),
+          error = \(e) conditionMessage(err))
+        status <- tryCatch(
+          httr2::resp_status(resp),
+          error = \(e) gettext("unknown"))
+        rlang::abort(gettextf(
+          "DHIS2 %s returned HTTP %s.\nResponse body:\n%s",
+          paste0("tracker/", endpoints[i]), status, body))
+      }
     }
+    resps
   }
 
   parse_resp <- \(resp) {
@@ -296,11 +301,44 @@ import_dhis2 <- function(
     tidyr::unnest_wider(tbl, 1)
   }
 
-  trackedEntities_raw <- parse_resp(resps[[1]])
-  enrollments_raw <- parse_resp(resps[[2]])
-  events_raw <- resps[-(1:2)] |>
-    purrr::map(parse_resp) |>
-    purrr::list_rbind()
+  if (by_enrolments) {
+    # The events cannot be asked for beside the patients and stays: they ride
+    # on the enrolments this first batch reads.
+    resps <- perform_batch(te_enrl_reqs, names(te_enrl_reqs))
+    trackedEntities_raw <- parse_resp(resps[[1]])
+    enrollments_raw <- parse_resp(resps[[2]])
+
+    enrollment_uids <- unique(enrollments_raw$enrollment)
+    chunks <- .enrolment_chunks(enrollment_uids)
+    logger::log_debug(
+      "DHIS2 tracker: issuing {length(chunks)} event requests over {length(enrollment_uids)} enrolment(s)",
+      namespace = "neoipcr")
+    event_reqs <- lapply(chunks, \(uids) get_events_request(
+      tracker_req |>
+        httr2::req_url_query(enrollments = uids, .multi = "explode"),
+      dataset_options, metadata$programId))
+    events_raw <- perform_batch(
+      event_reqs, rep("events", length(event_reqs))) |>
+      purrr::map(parse_resp) |>
+      purrr::list_rbind()
+  } else {
+    reqs <- c(
+      te_enrl_reqs,
+      lapply(event_reqs, \(req)
+        get_events_request(req, dataset_options, metadata$programId)))
+    logger::log_debug(
+      "DHIS2 tracker: issuing {length(reqs)} requests ({length(reqs) - 2L} event org-unit splits)",
+      namespace = "neoipcr")
+    resps <- perform_batch(
+      reqs,
+      c("trackedEntities", "enrollments",
+        rep("events", length(reqs) - 2L)))
+    trackedEntities_raw <- parse_resp(resps[[1]])
+    enrollments_raw <- parse_resp(resps[[2]])
+    events_raw <- resps[-(1:2)] |>
+      purrr::map(parse_resp) |>
+      purrr::list_rbind()
+  }
 
   logger::log_info(
     "DHIS2 imported: trackedEntities={nrow(trackedEntities_raw)} enrollments={nrow(enrollments_raw)} events={nrow(events_raw)}",
@@ -671,6 +709,18 @@ dhis2_ou_dialect <- function(version)
       if (v41) function(ids) paste0(ids, collapse = ",")
       else     function(ids) I(paste0(ids, collapse = "%3B")))
 }
+
+# Enrolment UIDs carried per event request, as repeated `enrollments`
+# parameters. The request URL has to stay inside the request-line budget of
+# the most constrained servlet DHIS2 runs behind: Tomcat's default HTTP
+# header size is 8 KiB, and the fixed program and fields parameters of the
+# event request already fill part of it. One UID adds its eleven characters
+# and the repeated parameter name.
+.event_enrolment_chunk_size <- 200L
+
+# The enrolment UIDs grouped into request-sized chunks, in import order.
+.enrolment_chunks <- function(uids)
+  split(uids, ceiling(seq_along(uids) / .event_enrolment_chunk_size))
 
 dhis2_request <- function(connection_options)
 {
