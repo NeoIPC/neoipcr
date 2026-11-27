@@ -876,8 +876,8 @@ validation_summary <- function(findings)
 #' | 25, 26 | `enrollment_key` | none |
 #' | 27, 31, 35, 39, 41 | `event_key` | `dol`, `dol_calc` |
 #' | 28, 32, 36, 40, 42 | `event_key` | `los`, `los_calc` |
-#' | 29, 33, 37 | `event_key` | `dol` |
-#' | 30, 34, 38 | `event_key` | `dos` |
+#' | 29, 33, 37 | `event_key` | `dol`, the day of life derived from the dates and the admission form, counted from 1; the stored `dol` beside `dol_calc` is rules 27, 31, 35, 39 and 41's |
+#' | 30, 34, 38 | `event_key` | `dos`, the day of the stay derived from the dates, counted from 1; the stored `los` beside `los_calc` is rules 28, 32, 36, 40 and 42's |
 #' | 43 | `enrollment_key` | `enrolledAt`, `days_open` |
 #' | 44 | `enrollment_key` | `enrolledAt`, `days_open`, `status` |
 #' | 45, 46 | `enrollment_key` | `dol` |

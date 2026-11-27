@@ -189,7 +189,7 @@ for (entry in early_dol_rules) {
       expect_equal(result$context[[1]]$dol, 2L)
     })
 
-    test_that(paste0("rule ", r, " leaves a ", t, " whose derived day of life reaches 4 a stored one below it"), {
+    test_that(paste0("rule ", r, " leaves a ", t, " whose derived day of life reaches 4 although its stored one is below it"), {
       # The same rule must not flag when the dates say the fourth day of
       # life or later although the form stores a stale 2: the stored day is
       # stale, not the onset early.
@@ -281,6 +281,28 @@ for (entry in early_dol_rules) {
       expect_equal(result$context[[1]]$dol, 2L)
     })
 
+    test_that(paste0("rule ", r, " leaves a ", t, " dated before the stay's first day to rules 12 to 14"), {
+      # An infection dated the day before the enrolment's first day derives
+      # a day of life of 1 from the admission's day 2, which is below 4 and
+      # would flag without the lower bound; the earlier date is rules 12 to
+      # 14's to report as outside the enrolment window, not an early onset.
+      expect_equal(nrow(f(
+        timing_ds(t, form = list(dol = 9L),
+                  admission = list(type = admission_type("3"), dol = 2L),
+                  offset = -1L), NULL)), 0L)
+    })
+
+    test_that(paste0("rule ", r, " leaves the infections of a stay without an admission event unjudged"), {
+      # Before the derivation this rule judged the infection from the day its
+      # own form stored; now the stay's admission is the rule's only base, so
+      # the completed enrolment lacking the admission event is left to rule
+      # 26, which reports it, its stored day notwithstanding.
+      ds <- timing_ds(t, form = list(dol = 2L), offset = 1L)
+      ds$events <- ds$events[ds$events$event_type_key != "adm", ]
+      ds$admissionData <- ds$admissionData[0L, ]
+      expect_equal(nrow(f(ds, NULL)), 0L)
+    })
+
     test_that(paste0("rule ", r, " honours exceptions"), {
       ds <- timing_ds(t, form = list(dol = 9L),
                       admission = list(type = admission_type("2")), offset = 1L)
@@ -355,7 +377,7 @@ for (entry in early_dos_rules) {
                   offset = 2L), NULL)), 0L)
     })
 
-    test_that(paste0("rule ", r, " flags a ", t, " whose derived day of the stay is below 3 a stored one above it"), {
+    test_that(paste0("rule ", r, " flags a ", t, " whose derived day of the stay is below 3 although its stored one is above it"), {
       # The form stores a stale day of occurrence of 5; the dates say the
       # infection falls on day 2 of the stay.
       result <- f(
@@ -376,6 +398,14 @@ for (entry in early_dos_rules) {
       result <- f(ds, NULL)
       expect_equal(nrow(result), 1L)
       expect_equal(result$context[[1]]$dos, 2L)
+    })
+
+    test_that(paste0("rule ", r, " leaves a ", t, " dated before the stay's first day to rules 12 to 14"), {
+      # The day before the stay's first day derives day 0 of the stay, below
+      # the cut-off of 3; the earlier date is rules 12 to 14's to report as
+      # outside the enrolment window, not an infection early in the stay.
+      expect_equal(nrow(f(
+        timing_ds(t, form = list(los = 5L), offset = -1L), NULL)), 0L)
     })
 
     test_that(paste0("rule ", r, " honours exceptions"), {

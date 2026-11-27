@@ -224,6 +224,17 @@ section above it for the next changes.
   stored department dataset that is to be benchmarked: its infectious-agent tables count otherwise
   than the rules above, its tables lack the ontology versions and the renamed slot, and, without the
   stamps, `get_benchmark_data()` joins none of its tables with those of a dataset calculated now.
+* Rules 29, 33 and 37 and rules 30, 34 and 38 now derive the day they judge instead of reading the
+  day of life or day of occurrence stored on the infection form, which can be stale or missing. The
+  day of life is the admission's day of life, day 1 for admission types 1 and 2 and for a form
+  without a type and the recorded day for type 3, advanced by the days from the enrolment date to
+  the event date; the day of the stay counts the day of admission as day 1 and is derived from the
+  dates for every admission, so a wrong recorded admission type can no longer hide an early onset.
+  The context fields `dol` and `dos` hold the derived days. An infection dated before the stay's
+  first day is left to rules 12 to 14, and an enrolment without its admission form or admission
+  event leaves its infections unjudged, which rules 46 and 26 report. An exception that keeps an
+  early-onset infection of an inborn infant on day of life 1 or 2 now needs a record for a rule 30,
+  34 or 38 as well as for its rule 29, 33 or 37, since both families now fire.
 
 # neoipcr 0.0.0.9008
 

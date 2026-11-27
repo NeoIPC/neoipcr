@@ -98,7 +98,12 @@
 # the days from the enrolment date to the event date. A type-3 admission must
 # record the day of life at admission; without it the day cannot be derived
 # and the event is left unjudged: rule 46 flags that admission form, and the
-# import's validation pass removes its patient.
+# import's validation pass removes its patient. So too an enrolment without
+# an admission event gives no base and leaves its infections unjudged, which
+# rule 26 reports for a completed enrolment. An infection dated before the
+# stay's first day, which would derive a day of life below the admission's,
+# is left to rules 12, 13 and 14, which report the event's date outside the
+# enrolment window.
 .rule_early_dol <- function(x, exceptions, rule_id, event_type)
 {
   check_neoipcr_ds(x)
@@ -131,6 +136,10 @@
       dplyr::join_by("enrollment_key")) |>
     dplyr::mutate(
       dol = .data$adm_dol + as.integer(.data$occurredAt - .data$enrolledAt)) |>
+    # Judge only infections dated on or after the stay's first day; a date
+    # before it derives a day below the admission's and belongs to rules 12
+    # to 14, which report the event's date outside the enrolment window.
+    dplyr::filter(.data$occurredAt >= .data$enrolledAt) |>
     dplyr::filter(.data$dol < 4L) |>
     dplyr::anti_join(
       .rule_exceptions(exceptions, id),
@@ -150,9 +159,9 @@
 # day of the stay is derived from the dates, counting from one with the day
 # of admission, not read off the stored day of occurrence, which can be stale
 # or missing; the dates give it for every admission type, so the rule judges
-# every admission type — an infection on the first or second day of any stay
-# is community-acquired whatever the stay's beginning. Rules 28, 32 and 36
-# keep checking the stored day of occurrence against the dates.
+# every admission type: an infection before its third day is more likely
+# acquired before this stay, whatever its beginning. Rules 28, 32 and 36 keep
+# checking the stored day of occurrence against the dates.
 .rule_early_dos <- function(x, exceptions, rule_id, event_type)
 {
   check_neoipcr_ds(x)
@@ -167,6 +176,10 @@
       dplyr::join_by("enrollment_key")) |>
     dplyr::mutate(
       dos = as.integer(.data$occurredAt - .data$enrolledAt) + 1L) |>
+    # Judge only infections dated on or after the stay's first day, which
+    # derive day 1 or more; an earlier date belongs to rules 12 to 14, which
+    # report the event's date outside the enrolment window.
+    dplyr::filter(.data$dos >= 1L) |>
     dplyr::filter(.data$dos < 3L) |>
     dplyr::anti_join(
       .rule_exceptions(exceptions, id),
@@ -182,7 +195,7 @@
 }
 
 # Sepsis: day-of-life mismatch, day-of-occurrence mismatch, early onset,
-# early after (re-)admission.
+# early in the stay.
 validation_rule_27 <- function(x, exceptions)
   .rule_dol_mismatch(x, exceptions, 27L, "bsi")
 validation_rule_28 <- function(x, exceptions)
