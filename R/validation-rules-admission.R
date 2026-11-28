@@ -56,8 +56,8 @@ validation_rule_45 <- function(x, exceptions)
 # below 2. Such an infant is at least one day old when admitted, and this is
 # the one admission type whose day of life the team enters itself, the
 # client assigning day 1 to the other two. A missing value also leaves rules
-# 27, 31, 35, 39 and 41 without the base they compute an event's expected
-# day of life from, and rules 29, 33 and 37 without the base they derive an
+# 27, 31, 35, 39, and 41 without the base they compute an event's expected
+# day of life from, and rules 29, 33, and 37 without the base they derive an
 # event's day of life from, so every event of the enrolment escapes them.
 validation_rule_46 <- function(x, exceptions)
 {

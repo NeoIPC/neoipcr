@@ -88,22 +88,24 @@
       .keep = "none")
 }
 
-# Rules 29, 33 and 37: an infection on a derived day of life below 4, within
+# Rules 29, 33, and 37: an infection on a derived day of life below 4, within
 # the first three days of life, where an early-onset infection is not
 # attributed to the hospital. The rule derives the day instead of reading the
 # one the form stores, which can be stale or derived from a wrong or missing
 # admission value: the admission's day of life, day 1 for admission types 1
 # and 2 and for a form without a type — what the client assigns and stores,
 # so a stored value on such a form is one the team never chose — advanced by
-# the days from the enrolment date to the event date. A type-3 admission must
-# record the day of life at admission; without it the day cannot be derived
-# and the event is left unjudged: rule 46 flags that admission form, and the
-# import's validation pass removes its patient. So too an enrolment without
-# an admission event gives no base and leaves its infections unjudged, which
-# rule 26 reports for a completed enrolment. An infection dated before the
-# stay's first day, which would derive a day of life below the admission's,
-# is left to rules 12, 13, and 14, which report the event's date outside the
-# enrolment window.
+# the days from the enrolment date to the event date. An enrolment holds one
+# admission event, dated on the enrolment date, so the event's form gives a
+# single base row per stay and the enrolment date is the stay's first day. A
+# type-3 admission must record the day of life at admission; without it the
+# day cannot be derived and the event is left unjudged: rule 46 flags that
+# admission form, and the import's validation pass removes its patient. So
+# too an enrolment without an admission event gives no base and leaves its
+# infections unjudged, which rule 26 reports for a completed enrolment. An
+# infection dated before the stay's first day, which would derive a day of
+# life below the admission's, is left to rules 12, 13, and 14, which report
+# the event's date outside the enrolment window.
 .rule_early_dol <- function(x, exceptions, rule_id, event_type)
 {
   check_neoipcr_ds(x)
@@ -154,14 +156,15 @@
       .keep = "none")
 }
 
-# Rules 30, 34 and 38: an infection recorded before the third day of the
+# Rules 30, 34, and 38: an infection recorded before the third day of the
 # stay, where it is more likely to have been acquired before this stay. The
 # day of the stay is derived from the dates, counting from one with the day
-# of admission, not read off the stored day of occurrence, which can be stale
-# or missing; the dates give it for every admission type, so the rule judges
-# every admission type: an infection before its third day is more likely
-# acquired before this stay, whatever its beginning. Rules 28, 32 and 36 keep
-# checking the stored day of occurrence against the dates.
+# of admission, which is the day of enrolment, not read off the stored day of
+# occurrence, which can be stale or missing; the dates give it for every
+# admission type, so the rule judges every admission type: an infection
+# before its third day is more likely acquired before this stay, whatever its
+# beginning. Rules 28, 32, and 36 keep checking the stored day of occurrence
+# against the dates.
 .rule_early_dos <- function(x, exceptions, rule_id, event_type)
 {
   check_neoipcr_ds(x)
