@@ -466,9 +466,14 @@ test_that(".order_statistic_quartile_ci drops NA pairs", {
 })
 
 test_that(".order_statistic_quartile_ci validates its inputs", {
-  expect_error(neoipcr:::.order_statistic_quartile_ci(c(-1, 5), c(100, 100)))
-  expect_error(neoipcr:::.order_statistic_quartile_ci(c(5, 5), c(0, 100)))
-  expect_error(neoipcr:::.order_statistic_quartile_ci(c(5, 5), c(100)))
+  expect_error(neoipcr:::.order_statistic_quartile_ci(c(-1, 5), c(100, 100)),
+               "non-negative")
+  expect_error(neoipcr:::.order_statistic_quartile_ci(c(5, 5), c(0, 100)),
+               "strictly positive")
+  expect_error(neoipcr:::.order_statistic_quartile_ci(c(5, 5), c(100)),
+               "same length")
+  expect_error(neoipcr:::.order_statistic_quartile_ci(c(5, NA), c(100, "x")),
+               "numeric vector")
 })
 
 # --- .gamma_rate_ci() ---------------------------------------------------------
@@ -505,9 +510,9 @@ test_that(".gamma_rate_ci handles zero events", {
 })
 
 test_that(".gamma_rate_ci validates its inputs", {
-  expect_error(neoipcr:::.gamma_rate_ci(-1, 100))
-  expect_error(neoipcr:::.gamma_rate_ci(5, 0))
-  expect_error(neoipcr:::.gamma_rate_ci(5, -10))
+  expect_error(neoipcr:::.gamma_rate_ci(-1, 100), "larger than or equal to 0")
+  expect_error(neoipcr:::.gamma_rate_ci(5, 0), "not the number 0")
+  expect_error(neoipcr:::.gamma_rate_ci(5, -10), "not the number -10")
 })
 
 # --- .clopper_pearson_ci() -----------------------------------------------------
@@ -540,9 +545,9 @@ test_that(".clopper_pearson_ci keeps a share inside its bounds", {
 })
 
 test_that(".clopper_pearson_ci validates its inputs", {
-  expect_error(neoipcr:::.clopper_pearson_ci(30, 20))
-  expect_error(neoipcr:::.clopper_pearson_ci(-1, 10))
-  expect_error(neoipcr:::.clopper_pearson_ci(5, 0))
+  expect_error(neoipcr:::.clopper_pearson_ci(30, 20), "must be <=")
+  expect_error(neoipcr:::.clopper_pearson_ci(-1, 10), "larger than or equal to 0")
+  expect_error(neoipcr:::.clopper_pearson_ci(5, 0), "not the number 0")
 })
 
 # --- .design_effect(): the seven steps ------------------------------------------
@@ -732,34 +737,69 @@ test_that(".design_effect_mean's baseline is the whole days' variance, not the w
   expect_equal(got$effect, 2.4 * (stats::qt(0.975, df = 1) / stats::qnorm(0.975))^2)
 })
 
+test_that("the widening pins its t quantile at 0.975 and follows the level with z", {
+  # §13.1.4 step 6 gives t as the 97.5th percentile of the t distribution
+  # on the degrees of freedom and z as the normal quantile of the level: at
+  # 90% the quantile z moves to its 95th percentile while t stays. The
+  # hand-computed case of the two-department rows above, one degree of
+  # freedom.
+  got <- neoipcr:::.design_effect_mean(list(c(2, 2), c(5, 5)),
+                                       conf.level = 0.90)
+  expect_equal(got$effect,
+               3 * (stats::qt(0.975, df = 1) / stats::qnorm(0.95))^2)
+})
+
 test_that(".design_effect_mean validates its clusters", {
-  expect_error(neoipcr:::.design_effect_mean(list(c(1, NA), c(2, 3))))
-  expect_error(neoipcr:::.design_effect_mean(list(numeric(0), c(1, 2))))
-  expect_error(neoipcr:::.design_effect_mean(c(1, 2, 3)))
+  expect_error(neoipcr:::.design_effect_mean(list(c(1, NA), c(2, 3))),
+               "hold only finite values")
+  expect_error(neoipcr:::.design_effect_mean(list(numeric(0), c(1, 2))),
+               "at least one value")
+  expect_error(neoipcr:::.design_effect_mean(c(1, 2, 3)),
+               "list of numeric vectors")
 })
 
 test_that("the interval engines refuse a missing confidence level", {
-  # is.nan leaves an NA_real_ alone, so the widening's NaN guard passes an
-  # NA level through as a design effect of NA under status ok: the level's
-  # own guard is what refuses it.
+  # A missing level is a value no interval rests on: every engine refuses
+  # it at its entry, before any estimate is reported with it.
   expect_error(neoipcr:::.design_effect_mean(list(c(1, 3), c(5, 7)),
-                                             conf.level = NA_real_))
+                                             conf.level = NA_real_),
+               "not a numeric")
   expect_error(neoipcr:::.design_effect(c(5, 0, 12), c(1000, 800, 1200),
-                                        "poisson", conf.level = NA_real_))
-  expect_error(neoipcr:::.gamma_rate_ci(5, 100, conf.level = NA_real_))
-  expect_error(neoipcr:::.clopper_pearson_ci(5, 20, conf.level = NA_real_))
+                                        "poisson", conf.level = NA_real_),
+               "not a numeric")
+  expect_error(neoipcr:::.gamma_rate_ci(5, 100, conf.level = NA_real_),
+               "not a numeric")
+  expect_error(neoipcr:::.clopper_pearson_ci(5, 20, conf.level = NA_real_),
+               "not a numeric")
   expect_error(neoipcr:::.order_statistic_quartile_ci(
     events = c(5, 12, 30, 8), exposure = c(100, 200, 300, 150),
-    conf.level = NA_real_))
+    conf.level = NA_real_), "not a numeric")
 })
 
 test_that("the interval engines refuse infinite inputs", {
   # An infinite count or denominator is a caller bug, not a degenerate
-  # figure: the interval it would leave has no rate in it.
-  expect_error(neoipcr:::.clopper_pearson_ci(Inf, Inf))
-  expect_error(neoipcr:::.clopper_pearson_ci(10, Inf))
-  expect_error(neoipcr:::.gamma_rate_ci(5, Inf))
-  expect_error(neoipcr:::.gamma_rate_ci(Inf, 100))
+  # figure: the interval it would leave has no rate in it. A NaN is a
+  # corrupt value too, not the structurally absent NA the quartile engine
+  # admits.
+  expect_error(neoipcr:::.clopper_pearson_ci(Inf, Inf), "not `Inf`")
+  expect_error(neoipcr:::.clopper_pearson_ci(10, Inf), "not `Inf`")
+  expect_error(neoipcr:::.gamma_rate_ci(5, Inf), "not `Inf`")
+  expect_error(neoipcr:::.gamma_rate_ci(Inf, 100), "not `Inf`")
+  expect_error(neoipcr:::.design_effect(c(1, 2), c(Inf, 100), "poisson"),
+               "must be finite")
+  expect_error(neoipcr:::.design_effect(c(1, Inf), c(100, 100), "poisson"),
+               "must be finite")
+  expect_error(neoipcr:::.design_effect_mean(list(c(1, Inf), c(2, 3))),
+               "hold only finite values")
+  expect_error(neoipcr:::.order_statistic_quartile_ci(c(1, Inf), c(100, 100)),
+               "hold finite values")
+  expect_error(neoipcr:::.order_statistic_quartile_ci(c(1, 2), c(100, Inf)),
+               "hold finite values")
+  expect_error(neoipcr:::.order_statistic_quartile_ci(c(1, NaN), c(100, 100)),
+               "hold finite values")
+  expect_error(neoipcr:::.order_statistic_quartile_ci(c(1, 2), c(100, 100),
+                                                      multiplier = Inf),
+               "not `Inf`")
 })
 
 test_that("both engines read the all-zero state alike", {
@@ -780,6 +820,29 @@ test_that("the engines refuse a result the traces leave without a value", {
   expect_equal(got$status, "not_estimable")
   expect_true(is.na(got$effect))
   expect_true(is.na(got$df))
+  # The same class wherever an intermediate overflows: a pooled rate whose
+  # own division overflows, and a within-department sum of squares that does.
+  expect_equal(neoipcr:::.design_effect(c(2, 3), c(1e-320, 1e-320),
+                                        "poisson")$status, "not_estimable")
+  expect_equal(neoipcr:::.design_effect_mean(list(c(1e155, 1), c(1, 1)))$status,
+               "not_estimable")
+  # And its mirror: inputs that fit in doubles while their pooled sums do
+  # not, leaving no pooled figure to estimate - where the sums stay finite,
+  # as for every figure of ordinary size, the estimable zero keeps its own
+  # status.
+  expect_equal(neoipcr:::.design_effect(c(1, 2), c(1e308, 1e308),
+                                        "poisson")$status, "not_estimable")
+  expect_equal(neoipcr:::.design_effect(c(1, 2), c(9e307, 9e307),
+                                        "binomial")$status, "not_estimable")
+  expect_equal(
+    neoipcr:::.design_effect_mean(list(c(1e308, 1e308), c(1, 1)))$status,
+    "not_estimable")
+  # And the shape of it where the products overflow to infinity without a
+  # missing value anywhere: every sum and the design effect's intermediates
+  # stay finite while the CR2 variance itself overflows, which an infinite
+  # design effect would divide the counts away in the interval.
+  expect_equal(neoipcr:::.design_effect(c(2e154, 0, 0), rep(1e150, 3),
+                                        "poisson")$status, "not_estimable")
 })
 
 # --- .kish_effective_number() -----------------------------------------------------
@@ -791,181 +854,9 @@ test_that(".kish_effective_number is the squared sum over the sum of squares", {
   expect_equal(neoipcr:::.kish_effective_number(250), 1)
   # Equal stays give the headcount.
   expect_equal(neoipcr:::.kish_effective_number(rep(40, 12)), 12)
-  expect_error(neoipcr:::.kish_effective_number(c(10, -1)))
-  expect_error(neoipcr:::.kish_effective_number(c(0, 0)))
-})
-
-# --- the department figure's choice of design effect ------------------------------
-
-test_that(".department_design_effect keeps a design effect of 1 for a share of patients", {
-  got <- neoipcr:::.department_design_effect(
-    own = list(effect = 9, df = 4), network = 25, has_reference = TRUE,
-    counts_patients_once = TRUE)
-  expect_equal(got$effect, 1)
-  expect_equal(got$source, "patients_once")
-  expect_equal(got$df, NA_real_)
-  # The share carries no degrees of freedom: §13.1.2 keeps its flag on the
-  # effective denominator alone, so the discarded design effect's own
-  # degrees of freedom must not reach the degrees-of-freedom flag.
-  expect_true(is.na(got$own_df))
-  expect_false(neoipcr:::.figure_flags(df = got$own_df)$df_low)
-})
-
-test_that(".department_design_effect keeps its own when the degrees of freedom carry", {
-  own <- list(effect = 7.5, df = 12.4)
-  got <- neoipcr:::.department_design_effect(
-    own = own, network = 25, has_reference = TRUE)
-  expect_equal(got$effect, 7.5)
-  expect_equal(got$source, "own")
-  # With a reference or without, 8 or more degrees of freedom keep their own.
-  got_no_ref <- neoipcr:::.department_design_effect(
-    own = own, network = NULL, has_reference = FALSE, counts_days = TRUE,
-    denominator = 1000, kish = 400)
-  expect_equal(got_no_ref$effect, 7.5)
-})
-
-test_that(".department_design_effect declines an own design effect it cannot read", {
-  # A degenerate engine result carries NA effect and degrees of freedom: it
-  # is not a design effect of its own, and the figure takes the network's.
-  got <- neoipcr:::.department_design_effect(
-    own = list(effect = NA_real_, df = NA_real_), network = 3,
-    has_reference = TRUE)
-  expect_equal(got$effect, 3)
-  expect_equal(got$source, "network")
-})
-
-test_that("the degrees-of-freedom flag tests the figure's own degrees of freedom", {
-  # The API design's §13.1.2: a department's figure whose own design effect
-  # rests below 8 degrees of freedom carries the flag even where the figure
-  # then takes the network's or the fallback design effect, so the ladder
-  # hands the own degrees of freedom along with its choice.
-  with_network <- neoipcr:::.department_design_effect(
-    own = list(effect = 42, df = 4), network = 25, has_reference = TRUE,
-    counts_days = TRUE, denominator = 1000, kish = 2.6)
-  expect_equal(with_network$source, "network")
-  expect_equal(with_network$own_df, 4)
-  expect_true(neoipcr:::.figure_flags(df = with_network$own_df)$df_low)
-
-  kept_own <- neoipcr:::.department_design_effect(
-    own = list(effect = 7.5, df = 12.4), network = 25, has_reference = TRUE)
-  expect_equal(kept_own$source, "own")
-  expect_equal(kept_own$own_df, 12.4)
-  expect_false(neoipcr:::.figure_flags(df = kept_own$own_df)$df_low)
-
-  # Where the figure has no design effect of its own there is nothing for
-  # the flag to test.
-  no_own <- neoipcr:::.department_design_effect(
-    own = NULL, network = 25, has_reference = TRUE)
-  expect_true(is.na(no_own$own_df))
-})
-
-test_that(".department_design_effect takes the network's where its own leaves too little", {
-  # A 0, a share of 100%, a figure from a single patient and a figure below 8
-  # degrees of freedom take the network's design effect where a reference
-  # stores one.
-  for (case in list(
-    list(own = NULL, is_zero = TRUE),
-    list(own = NULL, is_full_share = TRUE),
-    list(own = NULL, is_zero = FALSE, n_patients = 1),
-    list(own = list(effect = 42, df = 1), is_zero = FALSE))) {
-    got <- do.call(neoipcr:::.department_design_effect, c(
-      case, list(network = 25, has_reference = TRUE, counts_days = TRUE,
-                 denominator = 1000, kish = 2.6)))
-    expect_equal(got$effect, 25)
-    expect_equal(got$source, "network")
-  }
-})
-
-test_that(".department_design_effect falls back without a reference by the row's kind", {
-  # A 0 of a row that counts days takes Kish's effective number of the
-  # department's patients: S / kish.
-  kish <- (500 + 300 + 200)^2 / (500^2 + 300^2 + 200^2)
-  days <- neoipcr:::.department_design_effect(
-    own = NULL, network = NULL, has_reference = FALSE, counts_days = TRUE,
-    is_zero = TRUE, denominator = 1000, kish = kish)
-  expect_equal(days$effect, 1000 / kish)
-  expect_equal(days$source, "fallback")
-
-  # A 0 of a row that does not count days counts its events as independent.
-  other <- neoipcr:::.department_design_effect(
-    own = NULL, network = NULL, has_reference = FALSE, counts_days = FALSE,
-    is_zero = TRUE, denominator = 800, n_patients = 4)
-  expect_equal(other$effect, 1)
-  expect_equal(other$source, "fallback")
-
-  # The mean days per exposed patient and the operations per patient operated
-  # on take an effective count equal to their number of patients, 1 for one.
-  mean_days <- neoipcr:::.department_design_effect(
-    own = NULL, network = NULL, has_reference = FALSE,
-    effective_count_patients = TRUE, is_zero = FALSE,
-    numerator = 260, n_patients = 8)
-  expect_equal(mean_days$effect, 260 / 8)
-  single <- neoipcr:::.department_design_effect(
-    own = NULL, network = NULL, has_reference = FALSE,
-    effective_count_patients = TRUE, is_zero = FALSE,
-    numerator = 45, n_patients = 1)
-  expect_equal(single$effect, 45)
-})
-
-test_that(".department_design_effect takes the larger of fallback and own without a reference", {
-  # The API design's §13.1.4 item 4: without a reference, a figure of 2 or
-  # more patients with a design effect of its own takes the larger of that
-  # fallback and its own.
-  kish <- (500 + 300 + 200)^2 / (500^2 + 300^2 + 200^2)
-  fallback_larger <- neoipcr:::.department_design_effect(
-    own = list(effect = 50, df = 2.3), network = NULL, has_reference = FALSE,
-    counts_days = TRUE, denominator = 1000, kish = kish, n_patients = 3)
-  expect_equal(fallback_larger$effect, 1000 / kish)
-  expect_equal(fallback_larger$source, "fallback")
-
-  own_larger <- neoipcr:::.department_design_effect(
-    own = list(effect = 4000, df = 2.3), network = NULL, has_reference = FALSE,
-    counts_days = TRUE, denominator = 1000, kish = kish, n_patients = 3)
-  expect_equal(own_larger$effect, 4000)
-  expect_equal(own_larger$source, "own")
-})
-
-test_that(".department_design_effect reads a reference storing no number as none", {
-  # network = NA is a reference that stores no number for the row: the
-  # figure falls as a row without a reference does, rather than carrying an
-  # NA effect into the effective value its flag would have to test.
-  got <- neoipcr:::.department_design_effect(
-    own = NULL, network = NA_real_, has_reference = TRUE, is_zero = TRUE)
-  expect_equal(got$source, "fallback")
-  expect_equal(got$effect, 1)
-  # Were the NA let through, the effective value it leaves would carry no
-  # proof of a count up to the threshold; the flag refuses to read it as
-  # enough.
-  expect_true(neoipcr:::.figure_flags(effective_value = NA_real_)$sparse_data)
-})
-
-test_that(".department_design_effect asks its callers for the values a branch needs", {
-  # Zero defaults once let a caller forget these and take 1 as the design
-  # effect of a row counting days of nothing, or 9 on nothing: each branch
-  # now refuses where it needs what the call left out.
-  expect_error(neoipcr:::.department_design_effect(
-    own = NULL, network = NULL, has_reference = FALSE, counts_days = TRUE,
-    is_zero = TRUE, denominator = 1000))                      # no kish
-  expect_error(neoipcr:::.department_design_effect(
-    own = NULL, network = NULL, has_reference = FALSE, counts_days = TRUE,
-    is_zero = TRUE, kish = 400))                             # no denominator
-  expect_error(neoipcr:::.department_design_effect(
-    own = NULL, network = NULL, has_reference = FALSE,
-    effective_count_patients = TRUE, is_zero = FALSE, numerator = 260))
-  expect_error(neoipcr:::.department_design_effect(
-    own = NULL, network = NULL, has_reference = FALSE,
-    effective_count_patients = TRUE, is_zero = FALSE, n_patients = 8))
-  # The own-versus-fallback comparison needs the patient count too.
-  expect_error(neoipcr:::.department_design_effect(
-    own = list(effect = 42, df = 4), network = NULL, has_reference = FALSE,
-    counts_days = TRUE, denominator = 1000, kish = 400))
-  # No effect a figure takes sits below 1: a reference storing one, or a
-  # row whose fallback comes below it, contradicts its own row.
-  expect_error(neoipcr:::.department_design_effect(
-    own = NULL, network = 0.5, has_reference = TRUE))
-  expect_error(neoipcr:::.department_design_effect(
-    own = NULL, network = NULL, has_reference = FALSE, counts_days = TRUE,
-    is_zero = TRUE, denominator = 100, kish = 400))
+  expect_error(neoipcr:::.kish_effective_number(c(10, -1)), "non-negative")
+  expect_error(neoipcr:::.kish_effective_number(c(0, 0)),
+               "at least one positive")
 })
 
 # --- the flags -------------------------------------------------------------------
@@ -999,7 +890,7 @@ test_that(".figure_flags marks a figure from fewer than 9 patients", {
   # its effective denominator alone.
   expect_false(neoipcr:::.figure_flags(effective_value = 5, n_patients = 5,
                                        counts_patients_once = TRUE)$few_patients)
-  expect_error(neoipcr:::.figure_flags(n_patients = NA_real_))
+  expect_error(neoipcr:::.figure_flags(n_patients = NA_real_), "whole number")
 })
 
 test_that(".figure_flags always marks a figure without an interval", {
@@ -1024,10 +915,10 @@ test_that(".measure_minimum knows the measures whose minimum is not 0", {
   expect_equal(neoipcr:::.measure_minimum("operations_per_patient"), 1)
   expect_equal(neoipcr:::.measure_minimum("mean_days_exposed"), 1)
   expect_equal(neoipcr:::.measure_minimum("agents_per_infection"), 100)
-  expect_error(neoipcr:::.measure_minimum("share"))
+  expect_error(neoipcr:::.measure_minimum("share"), "must be one of")
 })
 
-# --- determinism, speed, and the shared invariants ------------------------------------
+# --- determinism, the untouched RNG, and the shared invariants -----------------------
 
 test_that("the interval machinery is deterministic and leaves the RNG alone", {
   set.seed(999)
@@ -1094,6 +985,19 @@ test_that(".design_effect's closed form matches the matrix form at patient size"
   got <- neoipcr:::.design_effect(y, rep(1000, 300), family = "poisson")
   expect_equal(got$df, expected$df, tolerance = 1e-6)
   expect_equal(got$effect, expected$effect, tolerance = 1e-6)
+})
+
+test_that("a denominator shared by 46,342 clusters keeps the multiplicity in doubles", {
+  # The within-value pair term multiplies mult (mult - 1) for a denominator
+  # shared by mult clusters: taken in tabulate's integers the product
+  # overflows to NA from 46,342 clusters, a size a network's share over
+  # patients each exposed a day reaches.
+  y <- rep(c(0, 1, 2, 3), length.out = 46342)
+  got <- neoipcr:::.design_effect(y, rep(10, 46342), "poisson")
+  expect_equal(got$status, "ok")
+  expect_equal(round(got$df, 6), 46341)  # G - 1 in exact arithmetic
+  expect_gte(got$effect, 1)
+  expect_true(is.finite(got$variance))
 })
 
 test_that("an interval is never empty and a share stays inside its bounds", {

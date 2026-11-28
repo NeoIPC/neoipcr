@@ -266,10 +266,9 @@ section above it for the next changes.
   Clopper-Pearson intervals on the effective counts and denominators a design effect leaves; the
   bias-reduced cluster-robust (CR2) design effect with its Bell-McCaffrey degrees of freedom, for
   the clustering of episodes within patients and within departments, on counts, on a share, and on
-  a mean; Kish's effective number of a department's patients; the choice a department figure makes
-  between its own design effect, the reference's, and the fallback for a department without one;
-  and the sparse-data, low-degrees-of-freedom, and few-patients flags beside the measure minima
-  that cut a lower limit. None of it is exported, and the quartile figures take the bootstrap
+  a mean; Kish's effective number of a department's patients; and the sparse-data,
+  low-degrees-of-freedom, and few-patients flags beside the measure minima that cut a
+  lower limit. None of it is exported, and the quartile figures take the bootstrap
   interval.
 
 # neoipcr 0.0.0.9008

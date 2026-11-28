@@ -349,20 +349,30 @@ bootstrap_quantile_ci <- function(events, exposure,
 .order_statistic_quartile_ci <- function(events, exposure,
                                          multiplier = 1,
                                          conf.level = 0.95) {
-  check_number_decimal(multiplier, min = .Machine$double.eps)
+  check_number_decimal(multiplier, min = .Machine$double.eps,
+                       allow_infinite = FALSE)
   check_number_decimal(conf.level, min = .Machine$double.eps, max = 1 - .Machine$double.eps)
 
   if (length(events) != length(exposure)) {
-    rlang::abort(gettextf("%s and %s must have the same length.",
-                          "`events`", "`exposure`"))
+    rlang::abort("`events` and `exposure` must have the same length.",
+                 .internal = TRUE)
   }
   if (!is.numeric(events)) {
-    rlang::abort(gettextf("%s must be a numeric vector (%s allowed).",
-                          "`events`", "`NA`"))
+    rlang::abort("`events` must be a numeric vector (`NA` allowed).",
+                 .internal = TRUE)
   }
   if (!is.numeric(exposure)) {
-    rlang::abort(gettextf("%s must be a numeric vector (%s allowed).",
-                          "`exposure`", "`NA`"))
+    rlang::abort("`exposure` must be a numeric vector (`NA` allowed).",
+                 .internal = TRUE)
+  }
+  # NA is a department structurally absent; NaN or Inf is a corrupt value
+  # that would enter the quartiles at rate 0 or Inf, or vanish as if absent,
+  # and the other internal engines refuse it at their entry.
+  if (any(is.nan(events)) || any(is.infinite(events))) {
+    rlang::abort("`events` must hold finite values or `NA`.", .internal = TRUE)
+  }
+  if (any(is.nan(exposure)) || any(is.infinite(exposure))) {
+    rlang::abort("`exposure` must hold finite values or `NA`.", .internal = TRUE)
   }
 
   valid <- !is.na(events) & !is.na(exposure)
@@ -370,10 +380,10 @@ bootstrap_quantile_ci <- function(events, exposure,
   exposure <- exposure[valid]
 
   if (any(events < 0)) {
-    rlang::abort(gettextf("%s must be non-negative.", "`events`"))
+    rlang::abort("`events` must be non-negative.", .internal = TRUE)
   }
   if (any(exposure <= 0)) {
-    rlang::abort(gettextf("%s must be strictly positive.", "`exposure`"))
+    rlang::abort("`exposure` must be strictly positive.", .internal = TRUE)
   }
 
   n <- length(events)
@@ -505,8 +515,9 @@ bootstrap_quantile_ci <- function(events, exposure,
 #' variance between the clusters, the working variance of each cluster's own
 #' figure, the ratio estimator's leverage, the CR2 variance in
 #' Pustejovsky and Tipton's weighted form, and the design effect times
-#' (t / z)^2 on those degrees of freedom, z the normal quantile of the level
-#' (1.96 rounded at 95 %). Closed form: every step from
+#' (t / z)^2 on those degrees of freedom, t the 97.5th percentile of the t
+#' distribution and z the normal quantile of the level (1.96 rounded at 95%).
+#' Closed form: every step from
 #' sums over the clusters, no matrix built. With clusters as the departments
 #' it gives the network's design effect of a pooled figure; with a
 #' department's patients as the clusters, the department's own.
@@ -515,8 +526,9 @@ bootstrap_quantile_ci <- function(events, exposure,
 #'   allowed).
 #' @param w Numeric vector > 0. Each cluster's denominator, same length.
 #' @param family `"poisson"` for rates and ratios, `"binomial"` for shares.
-#' @param conf.level Numeric scalar. The t quantile and the normal quantile
-#'   the widening compares follow it. Default 0.95.
+#' @param conf.level Numeric scalar. The normal quantile the widening
+#'   compares follows it; the t quantile stays the 97.5th percentile, as
+#'   §13.1.4 step 6 gives it. Default 0.95.
 #'
 #' @returns A named list: `status` (`"ok"`, `"few_clusters"`,
 #'   `"zero_events"`, `"full_share"`, `"share_exceeded"` or
@@ -547,6 +559,11 @@ bootstrap_quantile_ci <- function(events, exposure,
   G <- length(y)
   S <- sum(w)
   Y <- sum(y)
+  if (!is.finite(S) || !is.finite(Y)) {
+    # The inputs fit in doubles and their sums do not: no pooled denominator
+    # or count is left to estimate a figure from.
+    return(.degenerate_effect("not_estimable"))
+  }
   R <- Y / S
   if (G < 2L) return(.degenerate_effect("few_clusters"))
   if (Y == 0) return(.degenerate_effect("zero_events"))
@@ -560,9 +577,11 @@ bootstrap_quantile_ci <- function(events, exposure,
 
   b <- if (family == "poisson") R else R * (1 - R)
   e <- .cr2_effect(y, w, b, conf.level = conf.level)
-  if (is.nan(e$effect) || is.nan(e$df) || is.nan(e$variance)) {
-    # Denominators small enough for the working variance b / w[i] to overflow
-    # leave the traces without a value; the seven steps estimate nothing here.
+  if (!is.finite(e$effect) || !is.finite(e$df) || !is.finite(e$variance)) {
+    # Denominators small enough, or large enough, for the working variance
+    # or a later product to overflow - leaving no value, or one without
+    # bound - leave the seven steps nothing to estimate; an interval widened
+    # by an infinite design effect would divide the counts away.
     return(.degenerate_effect("not_estimable"))
   }
   list(status = "ok", effect = e$effect, df = e$df,
@@ -587,8 +606,9 @@ bootstrap_quantile_ci <- function(events, exposure,
 #'
 #' The widening of step 6, shared by the count families and the mean: the
 #' CR2 variance over a baseline variance of the pooled figure, at least 1
-#' and times (t / z)^2 on the Bell-McCaffrey degrees of freedom, z the
-#' normal quantile of the level (1.96 rounded at 95 %). The
+#' and times (t / z)^2 on the Bell-McCaffrey degrees of freedom, t the
+#' 97.5th percentile of the t distribution and z the normal quantile of the
+#' level (1.96 rounded at 95%). The
 #' baseline is the Poisson or binomial variance `b / sum(w)` of a count
 #' family and, for the mean, the variance of the days over their number,
 #' which is what the CR2 variance itself gives with every patient a cluster
@@ -611,11 +631,15 @@ bootstrap_quantile_ci <- function(events, exposure,
   S <- sum(w)
   if (is.null(baseline)) baseline <- b / S
   core <- .cr2_core(y, w, b, S, G)
+  if (!is.finite(core$v)) {
+    return(list(effect = NA_real_, df = NA_real_, variance = NA_real_,
+                tau2 = core$tau2))
+  }
   if (baseline == 0 && core$v == 0) {
     return(list(effect = 1, df = NA_real_, variance = 0, tau2 = core$tau2))
   }
-  t975 <- stats::qt(1 - (1 - conf.level) / 2, df = core$df)
-  widened <- (t975 / stats::qnorm(1 - (1 - conf.level) / 2))^2
+  widened <- (stats::qt(0.975, df = core$df) /
+               stats::qnorm(1 - (1 - conf.level) / 2))^2
   list(effect = max(1, core$v / baseline) * widened, df = core$df,
        variance = core$v, tau2 = core$tau2)
 }
@@ -652,6 +676,13 @@ bootstrap_quantile_ci <- function(events, exposure,
   tau2 <- max(0, (sum(w * (y / w - R)^2) - (G - 1) * b) /
                  sum(w * (1 - w / S)))
   phi <- b / w + tau2
+  if (any(!is.finite(phi))) {
+    # A working variance that overflowed - to no value at all or to
+    # infinity - leaves the traces without one too; the caller reads it as
+    # nothing estimable.
+    return(list(v = NA_real_, tau2 = tau2, df = NA_real_, trP = NA_real_,
+                trP2 = NA_real_))
+  }
   h <- w / S
   if (all(phi == 0)) {
     # No working variance and no variance between the clusters: every value
@@ -695,7 +726,9 @@ bootstrap_quantile_ci <- function(events, exposure,
   trP2 <- sum(Pii^2)
   uv <- unique(w)
   keep <- match(uv, w)
-  mult <- tabulate(match(w, uv))
+  # Doubles, not tabulate's integers: one denominator shared by past
+  # 46,341 clusters overflows the integer product mult (mult - 1) to NA.
+  mult <- as.numeric(tabulate(match(w, uv)))
   pg <- phi[keep]
   hg <- h[keep]
   cg <- cc[keep]
@@ -745,6 +778,10 @@ bootstrap_quantile_ci <- function(events, exposure,
     rlang::abort("`clusters` must hold at least one value per cluster.", .internal = TRUE)
   }
   totals <- vapply(clusters, sum, numeric(1))
+  if (any(!is.finite(totals)) || !is.finite(sum(totals))) {
+    # A cluster total that overflows leaves no pooled mean to estimate.
+    return(.degenerate_effect("not_estimable"))
+  }
   if (sum(totals) == 0) return(.degenerate_effect("zero_events"))
   N <- sum(ns)
   M <- sum(totals) / N
@@ -756,7 +793,12 @@ bootstrap_quantile_ci <- function(events, exposure,
   baseline <- stats::var(unlist(clusters)) / N
   e <- .cr2_effect(totals, as.numeric(ns), b, baseline = baseline,
                    conf.level = conf.level)
-  if (is.nan(e$effect) || is.nan(e$df) || is.nan(e$variance)) {
+  # A design effect of 1 on no variance at all - every patient the same
+  # days - legitimately carries no degrees of freedom, so the degrees of
+  # freedom are refused only at infinity here; the effect and the variance
+  # must be finite numbers.
+  if (!is.finite(e$effect) || is.nan(e$df) || is.infinite(e$df) ||
+      !is.finite(e$variance)) {
     return(.degenerate_effect("not_estimable"))
   }
   list(status = "ok", effect = e$effect, df = e$df,
@@ -802,129 +844,6 @@ bootstrap_quantile_ci <- function(events, exposure,
   !is.na(df) && round(df, 6) < 8
 }
 
-#' The design effect a department's figure takes
-#'
-#' The choice of §13.1.4 item 4: a share whose denominator counts the
-#' department's patients once takes 1, since its patients are its clusters
-#' and leave no clustering to correct for. A figure of 0, a share of 100%, a
-#' figure from a single patient and one whose own design effect rests below 8
-#' degrees of freedom take the network's where a reference stores it, and
-#' otherwise the fallback for rows without a reference: Kish's effective
-#' number of the patients for a row that counts days, an effective count
-#' equal to the number of patients for the mean days per exposed patient and
-#' the operations per patient operated on, and 1 otherwise. A figure of 2 or
-#' more patients with a design effect of its own, without a reference, takes
-#' the larger of that fallback and its own, so that no interval falls below
-#' the figure's own estimate.
-#'
-#' @param own Named list `list(effect, df)` or `NULL` where the figure has
-#'   no design effect of its own.
-#' @param network Numeric scalar or `NULL`. The reference's design effect
-#'   for the row and the department dataset's birth-weight class, already
-#'   fallen back to the reference's whole range where it stores none for the
-#'   class.
-#' @param has_reference Logical. Whether a reference dataset feeds this
-#'   figure.
-#' @param counts_days Logical. Whether the row counts days over
-#'   patient-days (a share of days, an AWaRe or ATC group's use rate).
-#' @param effective_count_patients Logical. Whether the measure takes an
-#'   effective count equal to its number of patients (mean days per exposed
-#'   patient, operations per patient operated on).
-#' @param counts_patients_once Logical. Whether the denominator counts each
-#'   patient once.
-#' @param is_zero,is_full_share Logical. Whether the figure is a 0 or a
-#'   share of 100%.
-#' @param denominator,numerator Numeric scalars or `NULL`. The figure's raw
-#'   totals, `denominator` required on the fallback of a row that counts
-#'   days and `numerator` on that of a measure whose effective count is its
-#'   number of patients.
-#' @param n_patients Integer or `NULL`. The department's patients with a
-#'   positive denominator of the row, required wherever a fallback or the
-#'   figure's own effect decides.
-#' @param kish Numeric scalar or `NULL`. The department's Kish effective
-#'   number of its patients, required when `counts_days` is `TRUE`.
-#'
-#' @returns A named list: `effect`, the design effect the figure takes; `df`,
-#'   the degrees of freedom of that effect (a number only with `source`
-#'   `"own"`, `NA` otherwise); `own_df`, the degrees of freedom of the
-#'   figure's own design effect as given, which the flag of §13.1.2 tests
-#'   whatever effect the figure takes save a share of patients, which keeps
-#'   the flag on its effective denominator alone and so carries `NA` here;
-#'   and `source` (`"own"`, `"network"`, `"fallback"` or `"patients_once"`).
-#'
-#' @noRd
-.department_design_effect <- function(own = NULL,
-                                      network = NULL,
-                                      has_reference = TRUE,
-                                      counts_days = FALSE,
-                                      effective_count_patients = FALSE,
-                                      counts_patients_once = FALSE,
-                                      is_zero = FALSE,
-                                      is_full_share = FALSE,
-                                      denominator = NULL,
-                                      numerator = NULL,
-                                      n_patients = NULL,
-                                      kish = NULL) {
-  # The effect a figure takes is never below 1: Kish's effective number
-  # never exceeds the denominator, the patients never exceed the numerator
-  # of the measures that count them, and the engines never return less.
-  # What comes back below 1 is a caller handing in what its own row
-  # contradicts.
-  take <- function(effect, df, own_df, source) {
-    if (is.na(effect) || effect < 1) {
-      rlang::abort("The design effect a figure takes must be at least 1.",
-                   .internal = TRUE)
-    }
-    list(effect = effect, df = df, own_df = own_df, source = source)
-  }
-  if (counts_patients_once) {
-    # The share's patients are its clusters, each a 0 or a 1: it carries no
-    # degrees of freedom, and §13.1.2 keeps its flag on the effective
-    # denominator alone - no own degrees of freedom, had one come with it,
-    # reach the flag here.
-    return(take(1, NA_real_, NA_real_, "patients_once"))
-  }
-  own_df <- if (!is.null(own)) own$df else NA_real_
-  own_ok <- !is.null(own) && !is_zero && !is_full_share &&
-    !is.na(own$effect) && !is.na(own$df)
-  if (own_ok && !.df_below8(own$df)) {
-    return(take(own$effect, own$df, own_df, "own"))
-  }
-  # A reference storing no number for the row is a row without a reference:
-  # an NA design effect widens nothing, and the effective value it leaves
-  # the figure with is no value to flag on.
-  if (has_reference && !is.null(network) && !is.na(network)) {
-    return(take(network, NA_real_, own_df, "network"))
-  }
-  fallback <- if (counts_days) {
-    if (is.null(kish)) {
-      rlang::abort("`kish` is required for a row that counts days.", .internal = TRUE)
-    }
-    if (is.null(denominator)) {
-      rlang::abort("`denominator` is required for a row that counts days.",
-                   .internal = TRUE)
-    }
-    denominator / kish
-  } else if (effective_count_patients) {
-    if (is.null(numerator) || is.null(n_patients)) {
-      rlang::abort("`numerator` and `n_patients` are required for the measures whose effective count is their number of patients.", .internal = TRUE)
-    }
-    numerator / max(n_patients, 1L)
-  } else {
-    1
-  }
-  if (own_ok) {
-    if (is.null(n_patients)) {
-      rlang::abort("`n_patients` is required beside a figure's own design effect.",
-                   .internal = TRUE)
-    }
-    if (n_patients >= 2 && own$effect > fallback) {
-      return(take(own$effect, own$df, own_df, "own"))
-    }
-  }
-  take(fallback, NA_real_, own_df, "fallback")
-}
-
 #' The flags that tell how much an interval carries
 #'
 #' The sparse-data flag marks a figure whose effective count, effective
@@ -945,13 +864,13 @@ bootstrap_quantile_ci <- function(events, exposure,
 #'   an `NA` given marks the figure sparse, as nothing then shows the count
 #'   up to the threshold.
 #' @param df Numeric scalar or `NULL`. The degrees of freedom the flag
-#'   tests: a department figure's own ones, `own_df` of
-#'   [.department_design_effect()], or, for a pooled figure, the pooled
-#'   interval's.
+#'   tests: a department figure's own design effect's, or, for a pooled
+#'   figure, the pooled interval's.
 #' @param n_patients Integer or `NULL`. The department's patients
 #'   contributing a positive denominator of the row.
-#' @param counts_patients_once Logical. As in
-#'   [.department_design_effect()].
+#' @param counts_patients_once Logical. Whether the figure's denominator
+#'   counts each patient once, in which case its few-patients flag rests on
+#'   the effective denominator alone.
 #' @param no_interval Logical. Whether the figure has no interval.
 #' @param threshold Numeric scalar. The sparse-data threshold, configurable,
 #'   16 by default.
