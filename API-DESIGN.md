@@ -1401,7 +1401,8 @@ same steps with patients as the clusters, those with a positive denominator of t
    P = diag(√φᵢ)(I − H)ᵀ diag[wᵢ²φᵢ/(MᵢᵢS²)](I − H) diag(√φᵢ).
 6. The design effect is d = max{1, vS²/Y}(t/z)² for a rate or ratio and d = max{1, vS/[R(1 − R)]}(t/z)² for a share,
    t and z being the quantile 1 − (1 − level)/2 of the interval's level, of the t distribution on ν degrees of freedom
-   and of the normal, the 1.96 rounded at 95%, so that the effective counts shrink for the degrees of freedom as Korn
+   and of the normal, z being 1.96 rounded at 95%, so that the effective counts shrink for the degrees of freedom as
+   Korn
    and Graubard's effective sample size does, with z in place of their t quantile on n − 1 degrees of freedom, and for
    rates and ratios as for shares.
 7. The interval is the row's interval on the effective counts Y/d and S/d: for a rate or ratio, the gamma interval of

@@ -516,8 +516,8 @@ bootstrap_quantile_ci <- function(events, exposure,
 #' figure, the ratio estimator's leverage, the CR2 variance in
 #' Pustejovsky and Tipton's weighted form, and the design effect times
 #' (t / z)^2 on those degrees of freedom, t and z the quantile
-#' `1 - (1 - conf.level) / 2` of the t distribution and of the normal, the
-#' 1.96 rounded at 95%.
+#' `1 - (1 - conf.level) / 2` of the t distribution and of the normal, z
+#' being 1.96 rounded at 95%.
 #' Closed form: every step from
 #' sums over the clusters, no matrix built. With clusters as the departments
 #' it gives the network's design effect of a pooled figure; with a
@@ -608,7 +608,7 @@ bootstrap_quantile_ci <- function(events, exposure,
 #' CR2 variance over a baseline variance of the pooled figure, at least 1
 #' and times (t / z)^2 on the Bell-McCaffrey degrees of freedom, t and z
 #' the quantile `1 - (1 - conf.level) / 2` of the t distribution on those
-#' degrees of freedom and of the normal, the 1.96 rounded at 95%. The
+#' degrees of freedom and of the normal, z being 1.96 rounded at 95%. The
 #' baseline is the Poisson or binomial variance `b / sum(w)` of a count
 #' family and, for the mean, the variance of the days over their number,
 #' which is what the CR2 variance itself gives with every patient a cluster
@@ -753,7 +753,7 @@ bootstrap_quantile_ci <- function(events, exposure,
 #' design effect is 1; unequal days whose variance underflows to nothing
 #' estimate nothing.
 #'
-#' @param clusters List of numeric vectors, the values of one department
+#' @param clusters List of numeric vectors >= 0, the values of one department
 #'   each.
 #' @param conf.level Numeric scalar. Default 0.95.
 #'
@@ -767,6 +767,9 @@ bootstrap_quantile_ci <- function(events, exposure,
   }
   if (any(vapply(clusters, function(x) !all(is.finite(x)), logical(1)))) {
     rlang::abort("`clusters` must hold only finite values.", .internal = TRUE)
+  }
+  if (any(vapply(clusters, function(x) any(x < 0), logical(1)))) {
+    rlang::abort("`clusters` must hold only non-negative values.", .internal = TRUE)
   }
   G <- length(clusters)
   if (G < 2L) return(.degenerate_effect("few_clusters"))

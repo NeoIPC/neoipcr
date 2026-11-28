@@ -774,9 +774,27 @@ test_that("the widening takes both quantiles at the level", {
                3 * (stats::qt(0.95, df = 1) / stats::qnorm(0.95))^2)
 })
 
+test_that("the count engine takes its widening at the level too", {
+  # Two clusters of one shared denominator leave tau2 at 0, since the
+  # weighted squared deviations 100 * 0.01^2 + 100 * 0.01^2 = 0.02 equal
+  # (G - 1) * b = 0.02, and the equal denominators leave one degree of
+  # freedom. The CR2 variance is 2 * 100^-2 over the baseline 0.02 / 200:
+  # the base ratio is 0.5, so the effect is the widening alone, (t / z)^2
+  # at the level's quantile.
+  got <- neoipcr:::.design_effect(c(3, 1), c(100, 100), "poisson",
+                                  conf.level = 0.90)
+  expect_equal(got$status, "ok")
+  expect_equal(got$df, 1)
+  expect_equal(got$effect, (stats::qt(0.95, df = 1) / stats::qnorm(0.95))^2)
+})
+
 test_that(".design_effect_mean validates its clusters", {
   expect_error(neoipcr:::.design_effect_mean(list(c(1, NA), c(2, 3))),
                "hold only finite values")
+  expect_error(neoipcr:::.design_effect_mean(list(c(-1, -1), c(-1, -1))),
+               "non-negative")
+  expect_error(neoipcr:::.design_effect_mean(list(c(-1, 2), c(3, 4))),
+               "non-negative")
   expect_error(neoipcr:::.design_effect_mean(list(numeric(0), c(1, 2))),
                "at least one value")
   expect_error(neoipcr:::.design_effect_mean(c(1, 2, 3)),
