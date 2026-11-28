@@ -298,8 +298,8 @@ being a compulsory value of the form, which no rule checks.\tabular{lll}{
    25, 26 \tab \code{enrollment_key} \tab none \cr
    27, 31, 35, 39, 41 \tab \code{event_key} \tab \code{dol}, \code{dol_calc} \cr
    28, 32, 36, 40, 42 \tab \code{event_key} \tab \code{los}, \code{los_calc} \cr
-   29, 33, 37 \tab \code{event_key} \tab \code{dol}, the day of life derived from the dates and the admission form, counted from 1; the stored \code{dol} beside \code{dol_calc} is rules 27, 31, 35, 39 and 41's \cr
-   30, 34, 38 \tab \code{event_key} \tab \code{dos}, the day of the stay derived from the dates, counted from 1; the stored \code{los} beside \code{los_calc} is rules 28, 32, 36, 40 and 42's \cr
+   29, 33, 37 \tab \code{event_key} \tab \code{dol}, the day of life derived from the dates and the admission form, counted from 1; the stored \code{dol} beside \code{dol_calc} is rules 27, 31, 35, 39, and 41's \cr
+   30, 34, 38 \tab \code{event_key} \tab \code{dos}, the day of the stay derived from the dates, counted from 1; the stored \code{los} beside \code{los_calc} is rules 28, 32, 36, 40, and 42's \cr
    43 \tab \code{enrollment_key} \tab \code{enrolledAt}, \code{days_open} \cr
    44 \tab \code{enrollment_key} \tab \code{enrolledAt}, \code{days_open}, \code{status} \cr
    45, 46 \tab \code{enrollment_key} \tab \code{dol} \cr

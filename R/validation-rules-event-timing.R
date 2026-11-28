@@ -102,7 +102,7 @@
 # an admission event gives no base and leaves its infections unjudged, which
 # rule 26 reports for a completed enrolment. An infection dated before the
 # stay's first day, which would derive a day of life below the admission's,
-# is left to rules 12, 13 and 14, which report the event's date outside the
+# is left to rules 12, 13, and 14, which report the event's date outside the
 # enrolment window.
 .rule_early_dol <- function(x, exceptions, rule_id, event_type)
 {
