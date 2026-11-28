@@ -1288,8 +1288,8 @@ patients instead: a department's count of exposed patients, who are its clusters
 figure that count divided by a design effect for the clustering of the patients within departments: the bias-reduced
 cluster-robust (CR2) variance of the pooled mean, with the departments as clusters (§13.1.4, item 2), over its variance
 with the patients as clusters, at least 1 and widened for the Bell-McCaffrey degrees of freedom of the CR2 variance, as
-item 2's design effect is, and 1 where both variances are 0, as when every exposed patient has the same days. The
-threshold is configurable, 16 being its default. A pooled figure, or a department's, whose own design effect rests on
+item 2's design effect is, and 1 where every exposed patient has the same days. The threshold is configurable, 16
+being its default. A pooled figure, or a department's, whose own design effect rests on
 fewer than 8 degrees of freedom carries a flag of its own (§13.1.4), and so does a department's figure to which fewer
 than 9 of its patients contribute a positive denominator of the row, whatever design effect it takes (§13.1.4, item 4),
 since 8 or fewer leave fewer than 8 degrees of freedom: a 0, a share of 100%, and a figure to which a single patient
@@ -1400,14 +1400,14 @@ same steps with patients as the clusters, those with a positive denominator of t
 5. Its Bell-McCaffrey degrees of freedom are ν = (tr P)²/tr(P²), tr being the trace, with
    P = diag(√φᵢ)(I − H)ᵀ diag[wᵢ²φᵢ/(MᵢᵢS²)](I − H) diag(√φᵢ).
 6. The design effect is d = max{1, vS²/Y}(t/z)² for a rate or ratio and d = max{1, vS/[R(1 − R)]}(t/z)² for a share,
-   t being the 97.5th percentile of the t distribution on ν degrees of freedom and z the normal quantile 1 − (1 −
-   level)/2 of the interval's level, the 1.96 rounded at 95%, so that the effective counts shrink for the degrees of
-   freedom as Korn and Graubard's effective sample size does, with z in place of their t quantile on n − 1 degrees of
-   freedom, and for rates and ratios as for shares.
+   t and z being the quantile 1 − (1 − level)/2 of the interval's level, of the t distribution on ν degrees of freedom
+   and of the normal, the 1.96 rounded at 95%, so that the effective counts shrink for the degrees of freedom as Korn
+   and Graubard's effective sample size does, with z in place of their t quantile on n − 1 degrees of freedom, and for
+   rates and ratios as for shares.
 7. The interval is the row's interval on the effective counts Y/d and S/d: for a rate or ratio, the gamma interval of
-   Fay and Feuer, [F⁻¹(0.025; Y/d), F⁻¹(0.975; Y/d + 1)]/(S/d), F⁻¹(p; a) being the p quantile of the gamma distribution
-   with shape a and scale 1 (`stats::qgamma()`); for a share, the Clopper-Pearson interval on Y/d of S/d
-   (`stats::qbeta()`), as Korn and Graubard propose for survey proportions.
+   Fay and Feuer, [F⁻¹(α/2; Y/d), F⁻¹(1 − α/2; Y/d + 1)]/(S/d) with α = 1 − the interval's level, F⁻¹(p; a) being the
+   p quantile of the gamma distribution with shape a and scale 1 (`stats::qgamma()`); for a share, the
+   Clopper-Pearson interval on Y/d of S/d (`stats::qbeta()`), as Korn and Graubard propose for survey proportions.
 
 The degrees of freedom are ν: the reference stores those of each pooled interval, and a department's dataset those of
 each figure's own design effect, which decide whether the figure takes the network's (item 4); the flag below 8 tests

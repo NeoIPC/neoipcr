@@ -696,12 +696,37 @@ test_that(".design_effect reports the figures that leave no variance to estimate
 
 # --- .design_effect_mean() -------------------------------------------------------
 
-test_that(".design_effect_mean rests on 1 when both variances are 0", {
-  # Every exposed patient the same days: the CR2 variance and the variance
-  # with the patients as clusters are both 0, and the design effect is 1.
+test_that(".design_effect_mean rests on 1 when every patient has the same days", {
+  # Every exposed patient the same days: no variance anywhere, and the
+  # design effect is 1, read from the values themselves.
   clusters <- list(rep(7, 5), rep(7, 6), rep(7, 4))
   got <- neoipcr:::.design_effect_mean(clusters)
+  expect_equal(got$status, "ok")
   expect_equal(got$effect, 1)
+  expect_equal(got$df, NA_real_)
+  expect_equal(got$variance, 0)
+})
+
+test_that(".design_effect_mean reads the equal days from the values, not the variances", {
+  # Equal fractional days: the cluster totals round apart where the values
+  # do not, leaving a tiny between-cluster variance over a baseline of no
+  # variance at all - the design effect still stands at 1.
+  got <- neoipcr:::.design_effect_mean(list(rep(0.1, 3), rep(0.1, 2),
+                                            rep(0.1, 7)))
+  expect_equal(got$status, "ok")
+  expect_equal(got$effect, 1)
+  expect_equal(got$df, NA_real_)
+  expect_equal(got$variance, 0)
+})
+
+test_that(".design_effect_mean refuses unequal days whose variance underflows to nothing", {
+  # Unequal days scaled past the range where a squared deviation stays a
+  # number: the variance with the patients as clusters underflows to 0, as
+  # the equal days leave theirs, and no baseline is left to estimate
+  # against - the values themselves say these days are not equal.
+  clusters <- list(c(2, 9, 4), c(5, 5, 30), c(1, 2), c(8, 7, 6, 5))
+  got <- neoipcr:::.design_effect_mean(lapply(clusters, function(x) x * 1e-170))
+  expect_equal(got$status, "not_estimable")
 })
 
 test_that(".design_effect_mean exceeds 1 when the departments' means differ", {
@@ -737,16 +762,16 @@ test_that(".design_effect_mean's baseline is the whole days' variance, not the w
   expect_equal(got$effect, 2.4 * (stats::qt(0.975, df = 1) / stats::qnorm(0.975))^2)
 })
 
-test_that("the widening pins its t quantile at 0.975 and follows the level with z", {
-  # §13.1.4 step 6 gives t as the 97.5th percentile of the t distribution
-  # on the degrees of freedom and z as the normal quantile of the level: at
-  # 90% the quantile z moves to its 95th percentile while t stays. The
-  # hand-computed case of the two-department rows above, one degree of
-  # freedom.
+test_that("the widening takes both quantiles at the level", {
+  # §13.1.4 step 6 gives t and z one probability, 1 - (1 - level)/2, of the
+  # t distribution on the degrees of freedom and of the normal: at 90% both
+  # move to the 95th percentile of their distribution, and the factor tends
+  # to 1 as the degrees of freedom grow. The hand-computed case of the
+  # two-department rows above, one degree of freedom.
   got <- neoipcr:::.design_effect_mean(list(c(2, 2), c(5, 5)),
                                        conf.level = 0.90)
   expect_equal(got$effect,
-               3 * (stats::qt(0.975, df = 1) / stats::qnorm(0.95))^2)
+               3 * (stats::qt(0.95, df = 1) / stats::qnorm(0.95))^2)
 })
 
 test_that(".design_effect_mean validates its clusters", {

@@ -515,8 +515,9 @@ bootstrap_quantile_ci <- function(events, exposure,
 #' variance between the clusters, the working variance of each cluster's own
 #' figure, the ratio estimator's leverage, the CR2 variance in
 #' Pustejovsky and Tipton's weighted form, and the design effect times
-#' (t / z)^2 on those degrees of freedom, t the 97.5th percentile of the t
-#' distribution and z the normal quantile of the level (1.96 rounded at 95%).
+#' (t / z)^2 on those degrees of freedom, t and z the quantile
+#' `1 - (1 - conf.level) / 2` of the t distribution and of the normal, the
+#' 1.96 rounded at 95%.
 #' Closed form: every step from
 #' sums over the clusters, no matrix built. With clusters as the departments
 #' it gives the network's design effect of a pooled figure; with a
@@ -526,9 +527,8 @@ bootstrap_quantile_ci <- function(events, exposure,
 #'   allowed).
 #' @param w Numeric vector > 0. Each cluster's denominator, same length.
 #' @param family `"poisson"` for rates and ratios, `"binomial"` for shares.
-#' @param conf.level Numeric scalar. The normal quantile the widening
-#'   compares follows it; the t quantile stays the 97.5th percentile, as
-#'   §13.1.4 step 6 gives it. Default 0.95.
+#' @param conf.level Numeric scalar. Both quantiles of the widening follow
+#'   it, as §13.1.4 step 6 gives them. Default 0.95.
 #'
 #' @returns A named list: `status` (`"ok"`, `"few_clusters"`,
 #'   `"zero_events"`, `"full_share"`, `"share_exceeded"` or
@@ -606,14 +606,13 @@ bootstrap_quantile_ci <- function(events, exposure,
 #'
 #' The widening of step 6, shared by the count families and the mean: the
 #' CR2 variance over a baseline variance of the pooled figure, at least 1
-#' and times (t / z)^2 on the Bell-McCaffrey degrees of freedom, t the
-#' 97.5th percentile of the t distribution and z the normal quantile of the
-#' level (1.96 rounded at 95%). The
+#' and times (t / z)^2 on the Bell-McCaffrey degrees of freedom, t and z
+#' the quantile `1 - (1 - conf.level) / 2` of the t distribution on those
+#' degrees of freedom and of the normal, the 1.96 rounded at 95%. The
 #' baseline is the Poisson or binomial variance `b / sum(w)` of a count
 #' family and, for the mean, the variance of the days over their number,
 #' which is what the CR2 variance itself gives with every patient a cluster
-#' of one value. Where both variances are 0, as when every value is equal,
-#' the effect is 1.
+#' of one value.
 #'
 #' @param y Numeric vector >= 0. Each cluster's events or totals.
 #' @param w Numeric vector > 0. Each cluster's denominator, same length.
@@ -635,11 +634,8 @@ bootstrap_quantile_ci <- function(events, exposure,
     return(list(effect = NA_real_, df = NA_real_, variance = NA_real_,
                 tau2 = core$tau2))
   }
-  if (baseline == 0 && core$v == 0) {
-    return(list(effect = 1, df = NA_real_, variance = 0, tau2 = core$tau2))
-  }
-  widened <- (stats::qt(0.975, df = core$df) /
-               stats::qnorm(1 - (1 - conf.level) / 2))^2
+  widened <- (stats::qt(1 - (1 - conf.level) / 2, df = core$df) /
+                stats::qnorm(1 - (1 - conf.level) / 2))^2
   list(effect = max(1, core$v / baseline) * widened, df = core$df,
        variance = core$v, tau2 = core$tau2)
 }
@@ -685,9 +681,9 @@ bootstrap_quantile_ci <- function(events, exposure,
   }
   h <- w / S
   if (all(phi == 0)) {
-    # No working variance and no variance between the clusters: every value
-    # equal, the variance of the pooled figure is 0 with no degrees of
-    # freedom, and the design effect stands at 1.
+    # No working variance and no variance between the clusters: the traces
+    # have nothing to sum, and the caller reads the missing degrees of
+    # freedom as nothing estimable.
     return(list(v = 0, tau2 = tau2, df = NA_real_, trP = 0, trP2 = 0))
   }
   # M[i, i] = sum over k of (I(k == i) - h[k])^2 phi[k], every summand
@@ -753,8 +749,9 @@ bootstrap_quantile_ci <- function(events, exposure,
 #' with the working variance `b / n[i]` for `b` the pooled within-department
 #' variance of the days, over the variance of the days over their number,
 #' which is what those steps give with each patient a cluster of one value.
-#' Where both variances are 0, as when every exposed patient has the same
-#' days, the design effect is 1.
+#' Where every exposed patient has the same days, read from the values, the
+#' design effect is 1; unequal days whose variance underflows to nothing
+#' estimate nothing.
 #'
 #' @param clusters List of numeric vectors, the values of one department
 #'   each.
@@ -785,20 +782,32 @@ bootstrap_quantile_ci <- function(events, exposure,
   if (sum(totals) == 0) return(.degenerate_effect("zero_events"))
   N <- sum(ns)
   M <- sum(totals) / N
+  first <- clusters[[1]][1]
+  if (all(vapply(clusters, function(x) all(x == first), logical(1)))) {
+    # Every patient the same days: the design effect is 1 on no variance
+    # and no degrees of freedom. Decided from the values - a zero variance
+    # is no mark of equality, underflowing away for tiny unequal days and
+    # rounding away for equal fractional ones.
+    return(list(status = "ok", effect = 1, df = NA_real_, variance = 0,
+                tau2 = 0, pooled = M))
+  }
   within_ss <- sum(vapply(clusters, function(x) sum((x - mean(x))^2), numeric(1)))
   b <- if (N > G) within_ss / (N - G) else 0
   # With every patient a cluster of one value the CR2 variance of the days
   # is their variance over their number, whatever the working variance:
   # §13.1.2's variance with the patients as clusters.
   baseline <- stats::var(unlist(clusters)) / N
+  if (baseline == 0) {
+    # Unequal days whose squared deviations all underflow to nothing: no
+    # baseline is left for the CR2 variance to be taken over.
+    return(.degenerate_effect("not_estimable"))
+  }
   e <- .cr2_effect(totals, as.numeric(ns), b, baseline = baseline,
                    conf.level = conf.level)
-  # A design effect of 1 on no variance at all - every patient the same
-  # days - legitimately carries no degrees of freedom, so the degrees of
-  # freedom are refused only at infinity here; the effect and the variance
-  # must be finite numbers.
-  if (!is.finite(e$effect) || is.nan(e$df) || is.infinite(e$df) ||
-      !is.finite(e$variance)) {
+  # The equal-days state returned above, so every state reaching here
+  # carries its degrees of freedom: an effect, variance or leverage left
+  # without a value or without bound by an overflow estimates nothing.
+  if (!is.finite(e$effect) || !is.finite(e$df) || !is.finite(e$variance)) {
     return(.degenerate_effect("not_estimable"))
   }
   list(status = "ok", effect = e$effect, df = e$df,
