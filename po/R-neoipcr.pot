@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.0.0.9008\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-11-28 06:51+0100\n"
+"POT-Creation-Date: 2026-11-28 07:48+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -45,28 +45,28 @@ msgstr ""
 msgid "Q3"
 msgstr ""
 
-#: R/calc-api.R:1218
+#: R/calc-api.R:1214
 #: R/infectious-agents.R:43
 msgid "Not in the list: %s."
 msgstr ""
 
-#: R/calc-api.R:1219
+#: R/calc-api.R:1215
 msgid "The infectious-agent tables count such a code in their Totals only, and no resistance category applies to it."
 msgstr ""
 
-#: R/calc-api.R:1352
+#: R/calc-api.R:1348
 msgid "the unnamed dataset"
 msgstr ""
 
-#: R/calc-api.R:1355
+#: R/calc-api.R:1351
 msgid "Left empty for %s: %s."
 msgstr ""
 
-#: R/calc-api.R:1363
+#: R/calc-api.R:1359
 msgid "%s was calculated before calculated datasets carried the versions of their rate definitions; calculate it again from its raw dataset to compare it."
 msgstr ""
 
-#: R/calc-api.R:1374
+#: R/calc-api.R:1370
 msgid "Each such table keeps the rows of the datasets joined into it; a figure takes no rows from a dataset for which it is left empty, and any other such table leaves that dataset's columns empty."
 msgstr ""
 
@@ -314,7 +314,7 @@ msgid "DHIS2 %s (the %s test-unit lookup) could not be performed: %s"
 msgstr ""
 
 #: R/dhis2-metadata.R:69
-#: R/import-dhis2.R:286
+#: R/import-dhis2.R:291
 msgid "unknown"
 msgstr ""
 
@@ -437,35 +437,35 @@ msgstr ""
 msgid "Add the column, or narrow the import to one department with %s."
 msgstr ""
 
-#: R/import-dhis2.R:221
+#: R/import-dhis2.R:226
 msgid "%s and %s matched no accessible %s org unit after metadata filtering; a tracker query with no org unit would be rejected by DHIS2."
 msgstr ""
 
-#: R/import-dhis2.R:225
+#: R/import-dhis2.R:230
 msgid "%s matched no accessible %s org unit after metadata filtering; a tracker query with no org unit would be rejected by DHIS2."
 msgstr ""
 
-#: R/import-dhis2.R:230
+#: R/import-dhis2.R:235
 msgid "If a test department was selected, set %s (it is %s)."
 msgstr ""
 
-#: R/import-dhis2.R:233
+#: R/import-dhis2.R:238
 msgid "A trial's member departments may lie outside the org units the account can see."
 msgstr ""
 
-#: R/import-dhis2.R:288
+#: R/import-dhis2.R:293
 msgid "DHIS2 %s returned HTTP %s.\nResponse body:\n%s"
 msgstr ""
 
-#: R/import-dhis2.R:669
+#: R/import-dhis2.R:674
 msgid "DHIS2 version %s is outside neoipcr's supported range."
 msgstr ""
 
-#: R/import-dhis2.R:671
+#: R/import-dhis2.R:676
 msgid "Supported DHIS2 lines: %s."
 msgstr ""
 
-#: R/import-dhis2.R:674
+#: R/import-dhis2.R:679
 msgid "Reading an unsupported server is unverified: it may fail outright, or return incomplete data without reporting an error."
 msgstr ""
 

@@ -167,7 +167,12 @@ import_dhis2 <- function(
   # `enrollments` parameters, chunked per `.event_enrolment_chunk_size`. The
   # endpoint parses that parameter on every supported line, as
   # `TrackerEventCriteria.enrollments` on 2.40 and
-  # `EventRequestParams.enrollments` on 2.41 onward.
+  # `EventRequestParams.enrollments` on 2.41 onward. These requests carry
+  # no org-unit parameter, and with neither org unit nor ou mode DHIS2
+  # defaults to ACCESSIBLE, searching the importing user's accessible units
+  # (`TrackerEventCriteriaMapperUtils.getOrgUnitMode` at 2.40.12,
+  # `RequestParamsValidator.validateOrgUnitMode` at 2.41.9.1); an event
+  # recorded beyond that reach stays out.
   #
   # All requests of one phase run in parallel. The org-unit query differs
   # across DHIS2 lines AND between endpoints, so it is built from

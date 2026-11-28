@@ -24,6 +24,12 @@ section above it for the next changes.
   holds no single stay. This is a breaking change for dataset readers: a reader of a stored dataset that joined
   the events or a form-data table on the plain `department_key` finds that column gone, and the pre-alpha package
   offers no migration.
+* A department- or trial-scoped import fetches its events through the stays it kept: it reads the scoped enrolments
+  first and then asks the events endpoint for their events by enrolment UID, which DHIS2 searches over the importing
+  user's accessible units. A form of the department's stay recorded under another organisation unit therefore reaches
+  the department's own dataset and counts for the stay's department, where the per-unit event requests had dropped
+  it silently; an event recorded beyond the importing user's reach stays out. Country- and access-scoped imports keep
+  their per-unit event requests.
 * Every rate table's department rows group by `enrollment_department_key`, and `get_infection_counts()` answers
   every grouping column from the side its name names: an `event_` column counts and frames on the events, a plain
   or `enrollment_` column counts each event's own stay side and frames on the enrolments, so a department with stays

@@ -1080,10 +1080,6 @@ get_effective_analysis_period <- function(x) {
 # get_benchmark_data() joins the table only with one computed under the same
 # definitions. The two versions of a table whose rows are infectious agents
 # share its definitions.
-#
-# The department regrouping this package's development carries lands
-# unnumbered: no released dataset has carried a rate-definition stamp, so
-# every slot stands at the first version of the definitions released.
 rate_definition_versions <- c(
   n_departments = 1L,
   n_surgical_departments = 1L,
