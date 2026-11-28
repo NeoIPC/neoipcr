@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-11-27 23:00+0100\n"
+"POT-Creation-Date: 2026-11-28 09:09+0100\n"
 "PO-Revision-Date: 2025-05-27 16:54+0200\n"
 "Last-Translator: Brar Piening <brar.piening@charite.de>\n"
 "Language-Team: NeoIPC-Support <NeoIPC-Support@charite.de>\n"
@@ -16,60 +16,60 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: R/calc-api.R:536
+#: R/calc-api.R:538
 msgid "No dataset to benchmark: pass at least one calculated dataset."
 msgstr ""
 
-#: R/calc-api.R:953 R/calc-procedure-categories.R:45
+#: R/calc-api.R:955 R/calc-procedure-categories.R:45
 msgid "Procedure category"
 msgstr "Prozedur-Kategorie"
 
-#: R/calc-api.R:953
+#: R/calc-api.R:955
 msgid "N"
 msgstr "N"
 
-#: R/calc-api.R:953
+#: R/calc-api.R:955
 #, fuzzy
 msgid "Pooled"
 msgstr "Gepoolt"
 
-#: R/calc-api.R:953
+#: R/calc-api.R:955
 msgid "Q1"
 msgstr "Q₁"
 
-#: R/calc-api.R:953
+#: R/calc-api.R:955
 msgid "Q2"
 msgstr "Q₂"
 
-#: R/calc-api.R:953
+#: R/calc-api.R:955
 msgid "Q3"
 msgstr "Q₃"
 
-#: R/calc-api.R:1212 R/infectious-agents.R:43
+#: R/calc-api.R:1214 R/infectious-agents.R:43
 msgid "Not in the list: %s."
 msgstr ""
 
-#: R/calc-api.R:1213
+#: R/calc-api.R:1215
 msgid ""
 "The infectious-agent tables count such a code in their Totals only, and no "
 "resistance category applies to it."
 msgstr ""
 
-#: R/calc-api.R:1346
+#: R/calc-api.R:1348
 msgid "the unnamed dataset"
 msgstr ""
 
-#: R/calc-api.R:1349
+#: R/calc-api.R:1351
 msgid "Left empty for %s: %s."
 msgstr ""
 
-#: R/calc-api.R:1357
+#: R/calc-api.R:1359
 msgid ""
 "%s was calculated before calculated datasets carried the versions of their "
 "rate definitions; calculate it again from its raw dataset to compare it."
 msgstr ""
 
-#: R/calc-api.R:1368
+#: R/calc-api.R:1370
 msgid ""
 "Each such table keeps the rows of the datasets joined into it; a figure "
 "takes no rows from a dataset for which it is left empty, and any other such "
@@ -131,27 +131,27 @@ msgid ""
 "calculate it again from its raw dataset."
 msgstr ""
 
-#: R/calc-tables.R:956
+#: R/calc-tables.R:977
 msgid "%s must be a data frame."
 msgstr ""
 
-#: R/calc-tables.R:961
+#: R/calc-tables.R:982
 msgid "%s lacks a required column:"
 msgstr ""
 
-#: R/calc-tables.R:963
+#: R/calc-tables.R:984
 msgid "%s lacks required columns:"
 msgstr ""
 
-#: R/calc-tables.R:967
+#: R/calc-tables.R:988
 msgid "%s and %s must be %s columns."
 msgstr ""
 
-#: R/calc-tables.R:970
+#: R/calc-tables.R:991
 msgid "Every window needs %s, with neither date missing."
 msgstr ""
 
-#: R/calc-tables.R:973
+#: R/calc-tables.R:994
 msgid "Every window must have a non-missing %s."
 msgstr ""
 
@@ -159,7 +159,7 @@ msgstr ""
 msgid "%s must be <= %s."
 msgstr ""
 
-#: R/ci.R:226 R/ci.R:356
+#: R/ci.R:226
 msgid "%s and %s must have the same length."
 msgstr ""
 
@@ -167,15 +167,15 @@ msgstr ""
 msgid "%s must be a vector of whole numbers (%s allowed)."
 msgstr ""
 
-#: R/ci.R:234 R/ci.R:360 R/ci.R:364
+#: R/ci.R:234
 msgid "%s must be a numeric vector (%s allowed)."
 msgstr ""
 
-#: R/ci.R:245 R/ci.R:373
+#: R/ci.R:245
 msgid "%s must be non-negative."
 msgstr ""
 
-#: R/ci.R:248 R/ci.R:376
+#: R/ci.R:248
 msgid "%s must be strictly positive."
 msgstr ""
 
@@ -217,42 +217,42 @@ msgstr ""
 msgid "Username: %s"
 msgstr ""
 
-#: R/dhis2-connect.R:90
+#: R/dhis2-connect.R:114
 msgid "Invalid DHIS2 personal access token."
 msgstr "Ungültiges persönliches Zugriffstoken für DHIS2."
 
-#: R/dhis2-connect.R:102
+#: R/dhis2-connect.R:126
 #, fuzzy
 msgid "No password found"
 msgstr "Kein Passwort angegeben"
 
-#: R/dhis2-connect.R:104
+#: R/dhis2-connect.R:128
 msgid "%s is set but %s is not."
 msgstr ""
 
-#: R/dhis2-connect.R:106
+#: R/dhis2-connect.R:130
 msgid "A username was given, but %s is not set."
 msgstr ""
 
-#: R/dhis2-connect.R:108
+#: R/dhis2-connect.R:132
 msgid ""
 "Set the %s environment variable, or use a personal access token (%s) instead."
 msgstr ""
 
-#: R/dhis2-connect.R:110
+#: R/dhis2-connect.R:134
 msgid ""
 "Interactive password prompting is only available in interactive R sessions."
 msgstr ""
 
-#: R/dhis2-connect.R:113
+#: R/dhis2-connect.R:137
 msgid "Please enter your password for %s:"
 msgstr "Bitte geben Sie Ihr Passwort für %s ein:"
 
-#: R/dhis2-connect.R:116
+#: R/dhis2-connect.R:140
 msgid "No password provided"
 msgstr "Kein Passwort angegeben"
 
-#: R/dhis2-connect.R:117 R/dhis2-connect.R:149
+#: R/dhis2-connect.R:141 R/dhis2-connect.R:173
 #, fuzzy
 msgid ""
 "Please provide username and password, a personal access token, or a session "
@@ -261,25 +261,25 @@ msgstr ""
 "Bitte übergeben Sie einen Benutzernamen und ein Passwort, ein persönliches "
 "Zugriffstoken oder eine Sitzungs-Id für DHIS2"
 
-#: R/dhis2-connect.R:137
+#: R/dhis2-connect.R:161
 msgid "No authentication credentials found"
 msgstr ""
 
-#: R/dhis2-connect.R:139
+#: R/dhis2-connect.R:163
 msgid "Set the %s, %s, or %s environment variable."
 msgstr ""
 
-#: R/dhis2-connect.R:141
+#: R/dhis2-connect.R:165
 msgid ""
 "Interactive username/password prompting is only available in interactive R "
 "sessions."
 msgstr ""
 
-#: R/dhis2-connect.R:145
+#: R/dhis2-connect.R:169
 msgid "Please enter your username for %s:"
 msgstr "Bitte geben Sie Ihren Benutzernamen für %s ein:"
 
-#: R/dhis2-connect.R:148
+#: R/dhis2-connect.R:172
 msgid "No username provided"
 msgstr "Kein Benutzername angegeben"
 
@@ -332,7 +332,7 @@ msgstr ""
 msgid "DHIS2 %s (the %s test-unit lookup) could not be performed: %s"
 msgstr ""
 
-#: R/dhis2-metadata.R:69 R/import-dhis2.R:283
+#: R/dhis2-metadata.R:69 R/import-dhis2.R:291
 msgid "unknown"
 msgstr ""
 
@@ -456,44 +456,44 @@ msgstr ""
 msgid "Add the column, or narrow the import to one department with %s."
 msgstr ""
 
-#: R/import-dhis2.R:204
+#: R/import-dhis2.R:226
 msgid ""
 "%s and %s matched no accessible %s org unit after metadata filtering; a "
 "tracker query with no org unit would be rejected by DHIS2."
 msgstr ""
 
-#: R/import-dhis2.R:208
+#: R/import-dhis2.R:230
 msgid ""
 "%s matched no accessible %s org unit after metadata filtering; a tracker "
 "query with no org unit would be rejected by DHIS2."
 msgstr ""
 
-#: R/import-dhis2.R:213
+#: R/import-dhis2.R:235
 msgid "If a test department was selected, set %s (it is %s)."
 msgstr ""
 
-#: R/import-dhis2.R:216
+#: R/import-dhis2.R:238
 msgid ""
 "A trial's member departments may lie outside the org units the account can "
 "see."
 msgstr ""
 
-#: R/import-dhis2.R:285
+#: R/import-dhis2.R:293
 msgid ""
 "DHIS2 %s returned HTTP %s.\n"
 "Response body:\n"
 "%s"
 msgstr ""
 
-#: R/import-dhis2.R:631
+#: R/import-dhis2.R:674
 msgid "DHIS2 version %s is outside neoipcr's supported range."
 msgstr ""
 
-#: R/import-dhis2.R:633
+#: R/import-dhis2.R:676
 msgid "Supported DHIS2 lines: %s."
 msgstr ""
 
-#: R/import-dhis2.R:636
+#: R/import-dhis2.R:679
 msgid ""
 "Reading an unsupported server is unverified: it may fail outright, or return "
 "incomplete data without reporting an error."
@@ -563,11 +563,11 @@ msgstr ""
 msgid "The dataset must have been imported via %s."
 msgstr ""
 
-#: R/types-check.R:130 R/types-check.R:183
+#: R/types-check.R:130 R/types-check.R:243
 msgid "%s is %s."
 msgstr ""
 
-#: R/types-check.R:143
+#: R/types-check.R:143 R/types-check.R:212
 msgid "`%s` is %s; need one of %s."
 msgstr ""
 
@@ -586,33 +586,49 @@ msgid ""
 "pseudonymized dataset, so the %s tier leaves it out."
 msgstr ""
 
-#: R/types-check.R:182
-msgid "%s() needs a dataset that carries its validation summary."
+#: R/types-check.R:193
+msgid "%s() needs a dataset imported by this version of neoipcr."
 msgstr ""
 
-#: R/types-check.R:184
+#: R/types-check.R:195 R/types-check.R:244
 msgid "Import the dataset again with this version of neoipcr; see %s."
 msgstr ""
 
-#: R/types-check.R:205
+#: R/types-check.R:202
+msgid "%s is %s; its import tiers cannot be read."
+msgstr ""
+
+#: R/types-check.R:229
+msgid "Its events table lacks %s."
+msgstr ""
+
+#: R/types-check.R:231
+msgid "The plain hierarchy keys of an older neoipcr cannot supply the pair."
+msgstr ""
+
+#: R/types-check.R:242
+msgid "%s() needs a dataset that carries its validation summary."
+msgstr ""
+
+#: R/types-check.R:265
 msgid ""
 "%s() needs a dataset whose reconciliation summary is the one an import "
 "writes."
 msgstr ""
 
-#: R/types-check.R:207
+#: R/types-check.R:267
 msgid "%s is not a data frame."
 msgstr ""
 
-#: R/types-check.R:209
+#: R/types-check.R:269
 msgid "%s has the column %s."
 msgstr ""
 
-#: R/types-check.R:211
+#: R/types-check.R:271
 msgid "%s has the columns %s."
 msgstr ""
 
-#: R/types-check.R:214
+#: R/types-check.R:274
 msgid "An import writes %s, or no column where it reconciled nothing; see %s."
 msgstr ""
 
