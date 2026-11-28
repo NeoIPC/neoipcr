@@ -226,7 +226,7 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 **Invariants** (in addition to §4.2):
 
 - Computed via `calculate_reference_data()`. Requires `country_key` to be present in metadata (warns otherwise).
-- Quartiles are set to `NA` when `n_departments < 5`, or when `round(100 / pooled) >= median_patient_days` (small-cell-exposure protection). The five infectious-agent tables take instead, row by row, the departments and the display test of §13.1.1, and give the number of departments that enter a row's quartiles as `quartile_departments`.
+- Every table's quartiles, their intervals, and their display test take, row by row, the departments and the test of §13.1.1 — a department enters with a positive denominator of the row at or above the minimum (50 days, 5 counts), at 0 without the row's events, and the quartiles are shown where at least 5 departments enter and their median denominator exceeds `scale / pooled` — and give the number of departments that enter a row's quartiles as `quartile_departments`. The surgery table excepted, which the rework by procedure group takes over.
 - Inheritance contract: any generic that dispatches on `neoipcr_rep_ds` also applies to `neoipcr_ref_ds`. Only quartile-specific code paths need `inherits(x, "neoipcr_ref_ds")` checks.
 
 **Predicates**: `is_neoipcr_ref_ds()`, `check_neoipcr_ref_ds()`, `check_neoipcr_ds_or_ref_ds()` — in [R/types-check.R](R/types-check.R).
@@ -252,8 +252,8 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 
 **Invariants**:
 
-- Fixed category vocabulary: rows correspond to `c("cvc", "pvc", "vs", "inv", "niv", "ab", "a", "w", "r", "human_milk", "probiotic", "kangaroo_care")` plus `"overall"`. Missing categories are added as rows with `n = 0`, `pooled = NA`.
-- Quartiles dropped to `NA` when `n_departments < 5` OR when `round(100 / pooled) >= median_patient_days` (protective gate).
+- Fixed category vocabulary: rows correspond to `c("cvc", "pvc", "vs", "inv", "niv", "ab", "a", "w", "r", "human_milk", "probiotic", "kangaroo_care")` plus `"overall"`, and `"nc"` beside `"a"`, `"w"`, `"r"` when the risk time holds days of an unclassified substance. Missing categories are added as rows with `n = 0`, `pooled = NA`.
+- Quartiles follow §13.1.1's rule and its display test, as in the other reference tables; the rework by procedure group narrows them to the departments that operate.
 - **No schema file** — column contract is fixed by `get_ref_surgery_rate_table()` directly (anomaly relative to `neoipcr_ds` members).
 
 **Predicates**: no dedicated `is_*` or `check_*`; callers use `inherits(x, "neoipcr_tbl_sr_ref")` directly. **This is a gap**: `pretty_names.neoipcr_tbl_sr_ref` dispatches on the class but the package does not assert it — callers constructing the class by hand bypass the schema.

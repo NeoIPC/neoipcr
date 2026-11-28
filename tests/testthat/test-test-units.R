@@ -123,7 +123,7 @@ test_that("get_usage_density_rate_table works with NA hierarchy keys", {
   result <- get_usage_density_rate_table(ds, use_cache = FALSE,
     include_quartiles = FALSE)
   expect_s3_class(result, "tbl_df")
-  expect_equal(nrow(result), 12L)
+  expect_equal(nrow(result), 13L)
 })
 
 test_that("get_incidence_density_rate_table works with NA hierarchy keys", {

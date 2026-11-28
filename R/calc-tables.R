@@ -237,94 +237,53 @@ get_usage_density_rate_table <- function(
           factor = stringr::str_remove(.data$factor, "_rate$")),
       dplyr::join_by("factor"))
   r <- r |>
-    dplyr::bind_cols(poisson_ci_cols(r$n, risk_time$patient_days, multiplier = 100)) |>
+    dplyr::bind_cols(poisson_ci_cols(r$n, risk_time$patient_days, multiplier = 100))
+
+  # The departments' quartiles over patient-days: a department enters a
+  # factor's quartiles with the minimum of its patient-days, at 0 where it
+  # holds none of the factor's days.
+  counts <- get_risk_time(
+    x, group_cols = "department_key", use_cache = use_cache) |>
+    dplyr::select("department_key", "patient_days",
+                  tidyselect::ends_with("_days") & !"patient_days") |>
+    tidyr::pivot_longer(
+      cols = !c("department_key", "patient_days"),
+      names_to = "factor",
+      values_to = "n") |>
+    dplyr::transmute(
+      factor = stringr::str_remove(.data$factor, "_days$"),
+      department_key = .data$department_key,
+      n = .data$n,
+      total = .data$patient_days)
+
+  r <- r |>
+    dplyr::left_join(
+      .infectious_agent_rate_columns(
+        counts,
+        keys = r["factor"],
+        by = "factor",
+        scale = 100,
+        interval = "poisson",
+        denominator = "days",
+        include_quartiles = include_quartiles) |>
+        dplyr::select(-c("n", "total", "pooled", "ci_lower", "ci_upper")),
+      by = "factor") |>
     add_class("neoipcr_tbl_udr")
+  if(include_quartiles)
+    r <- add_class(r, "neoipcr_tbl_udr_ref")
 
-  if(include_quartiles) {
-    dept_risk_time <- get_risk_time(
-      x,
-      group_cols = "department_key",
-      use_cache = use_cache)
-
-    n_deps <- length(dept_risk_time$patient_days)
-    median_patient_days <- stats::median(dept_risk_time$patient_days)
-
-    # Pivot dept-level data to long format for bootstrap
-    dept_rates <- dept_risk_time |>
-      dplyr::select("department_key", "patient_days",
-                     tidyselect::ends_with("_days") & !"patient_days") |>
-      tidyr::pivot_longer(
-        cols = !c("department_key", "patient_days"),
-        names_to = "factor",
-        values_to = "events") |>
-      dplyr::mutate(
-        factor = stringr::str_remove(.data$factor, "_days$"))
-
-    r <- r |>
-      dplyr::inner_join(
-        dept_risk_time |>
-          dplyr::select(tidyselect::ends_with("_rate")) |>
-          dplyr::reframe(
-            dplyr::across(
-              tidyselect::everything(),
-              ~list(stats::quantile(.x, probs = quartile_probs, names = FALSE)))) |>
-          tidyr::pivot_longer(
-            cols = tidyselect::ends_with("_rate"),
-            names_to = "factor",
-            values_to = "q") |>
-          tidyr::unnest_wider(q, names_sep = "") |>
-          dplyr::mutate(factor = stringr::str_remove(.data$factor, "_rate$")),
-        dplyr::join_by("factor")) |>
-      ensure_quartile_cols() |>
-      dplyr::mutate(
-        drop_quartiles = tidyr::replace_na(
-          n_deps < 5 | round(100 / .data$pooled) >= median_patient_days,
-          TRUE),
-        q1 = dplyr::if_else(
-          .data$drop_quartiles,
-          NA,
-          .data$q1),
-        q2 = dplyr::if_else(
-          .data$drop_quartiles,
-          NA,
-          .data$q2),
-        q3 = dplyr::if_else(
-          .data$drop_quartiles,
-          NA,
-          .data$q3))
-
-    # Bootstrap CIs for quartiles where gate passes
-    # .y carries the group key through bind_rows for key-based join
-    boot_cis <- r |>
-      dplyr::group_by(.data$factor) |>
-      dplyr::group_map(~ {
-        ci <- if (.x$drop_quartiles[1]) {
-          tibble::tibble(q1_ci_lower = NA_real_, q1_ci_upper = NA_real_,
-                         q2_ci_lower = NA_real_, q2_ci_upper = NA_real_,
-                         q3_ci_lower = NA_real_, q3_ci_upper = NA_real_)
-        } else {
-          d <- dept_rates |> dplyr::filter(.data$factor == .y$factor)
-          bootstrap_quantile_ci(d$events, d$patient_days,
-                                type = "poisson", multiplier = 100)
-        }
-        dplyr::bind_cols(.y, ci)
-      }) |>
-      dplyr::bind_rows()
-
-    r <- r |>
-      dplyr::left_join(boot_cis, by = "factor") |>
-      dplyr::select(!"drop_quartiles") |>
-      add_class("neoipcr_tbl_udr_ref")
-  }
-
+  # The factors the table holds: `ab` names the antibiotics' days, and `nc`,
+  # when the risk time has them, those of an entry whose substance the
+  # list does not classify. A factor the risk time lacks gets a row at 0,
+  # as in the editions without it.
   expected_levels <- c(
     "cvc","pvc",
     "vs","inv","niv",
     "ab","a","w","r",
+    if ("nc" %in% r$factor) "nc",
     "human_milk","probiotic","kangaroo_care")
-
   missing <- setdiff(expected_levels, r$factor)
-  if(length(missing) > 0)
+  if (length(missing) > 0L)
     r <- r |>
     dplyr::bind_rows(
       tibble::tibble(
@@ -335,6 +294,7 @@ get_usage_density_rate_table <- function(
         ci_upper = NA_real_))
 
   r |>
+    dplyr::filter(.data$factor %in% expected_levels) |>
     dplyr::mutate(factor = factor(.data$factor, levels = expected_levels)) |>
     dplyr::arrange(.data$factor) |>
     cache(x, cache_key)
@@ -395,72 +355,57 @@ get_antibiotic_utilization_table <- function(
     (\(d) dplyr::bind_cols(d, poisson_ci_cols(d$n, patient_days, multiplier = 100)))()
 
   if (include_quartiles) {
-    # Department-level aggregation for quartiles
-    dept_substance <- summarise_substance_days(
-      x, level = "substance", group_cols = "department_key",
-      use_cache = use_cache) |>
-      dplyr::rename(n = "days", row_id = "code") |>
-      dplyr::mutate(row_type = "substance")
+    # The departments' quartiles over patient-days: every department with the
+    # minimum of them enters every row's quartiles, at 0 where it used none
+    # of the substance or group.
+    dept_totals <- dplyr::bind_rows(
+      summarise_substance_days(
+        x, level = "substance", group_cols = "department_key",
+        use_cache = use_cache) |>
+        dplyr::transmute(
+          row_id = .data$code,
+          department_key = .data$department_key,
+          n = .data$days),
+      summarise_substance_days(
+        x, level = "atc5", group_cols = "department_key",
+        use_cache = use_cache) |>
+        dplyr::transmute(
+          row_id = .data$code,
+          department_key = .data$department_key,
+          n = .data$days))
 
-    dept_atc5 <- summarise_substance_days(
-      x, level = "atc5", group_cols = "department_key",
-      use_cache = use_cache) |>
-      dplyr::rename(n = "days", row_id = "code") |>
-      dplyr::mutate(row_type = "atc5")
-
-    dept_patient_days <- get_risk_time(
-      x, group_cols = "department_key", use_cache = use_cache) |>
-      dplyr::select("department_key", "patient_days")
-
-    dept_rates <- dplyr::bind_rows(dept_substance, dept_atc5) |>
-      dplyr::inner_join(dept_patient_days, dplyr::join_by("department_key")) |>
-      dplyr::mutate(rate = .data$n / .data$patient_days * 100)
-
-    n_deps <- nrow(dept_patient_days)
-    median_patient_days <- stats::median(dept_patient_days$patient_days)
-
-    # Compute quartiles per row_id
-    quartiles <- dept_rates |>
-      dplyr::group_by(.data$row_id) |>
-      dplyr::reframe(
-        q = list(stats::quantile(.data$rate, probs = quartile_probs,
-                                 names = FALSE))) |>
-      tidyr::unnest_wider("q", names_sep = "") |>
-      ensure_quartile_cols()
+    # The departments of the risk time, not only those that recorded days:
+    # one that used none enters at 0. NA row_id (a substance without an ATC5
+    # code) is excluded, as it has no row in the main table.
+    counts <- tidyr::expand_grid(
+      row_id = unique(dept_totals$row_id[!is.na(dept_totals$row_id)]),
+      department_key = get_risk_time(
+        x, group_cols = "department_key", use_cache = use_cache)$department_key) |>
+      dplyr::left_join(dept_totals, by = c("row_id", "department_key")) |>
+      dplyr::mutate(n = dplyr::coalesce(.data$n, 0L)) |>
+      dplyr::left_join(
+        get_risk_time(
+          x, group_cols = "department_key", use_cache = use_cache) |>
+          dplyr::select("department_key", "patient_days"),
+        by = "department_key") |>
+      dplyr::transmute(
+        row_id = .data$row_id,
+        department_key = .data$department_key,
+        n = .data$n,
+        total = .data$patient_days)
 
     r <- r |>
-      dplyr::left_join(quartiles, dplyr::join_by("row_id")) |>
-      dplyr::mutate(
-        drop_quartiles = tidyr::replace_na(
-          n_deps < 5 | round(100 / .data$pooled) >= median_patient_days,
-          TRUE),
-        q1 = dplyr::if_else(.data$drop_quartiles, NA, .data$q1),
-        q2 = dplyr::if_else(.data$drop_quartiles, NA, .data$q2),
-        q3 = dplyr::if_else(.data$drop_quartiles, NA, .data$q3))
-
-    # Bootstrap CIs for quartiles where gate passes
-    if (nrow(r) > 0L) {
-      boot_cis <- r |>
-        dplyr::group_by(.data$row_id) |>
-        dplyr::group_map(~ {
-          ci <- if (.x$drop_quartiles[1]) {
-            tibble::tibble(q1_ci_lower = NA_real_, q1_ci_upper = NA_real_,
-                           q2_ci_lower = NA_real_, q2_ci_upper = NA_real_,
-                           q3_ci_lower = NA_real_, q3_ci_upper = NA_real_)
-          } else {
-            d <- dept_rates |> dplyr::filter(.data$row_id == .y$row_id)
-            bootstrap_quantile_ci(d$n, d$patient_days,
-                                  type = "poisson", multiplier = 100)
-          }
-          dplyr::bind_cols(.y, ci)
-        }) |>
-        dplyr::bind_rows()
-
-      r <- r |>
-        dplyr::left_join(boot_cis, by = "row_id")
-    }
-
-    r <- r |> dplyr::select(!"drop_quartiles")
+      dplyr::left_join(
+        .infectious_agent_rate_columns(
+          counts,
+          keys = r["row_id"],
+          by = "row_id",
+          scale = 100,
+          interval = "poisson",
+          denominator = "days",
+          include_quartiles = TRUE) |>
+          dplyr::select(-c("n", "total", "pooled", "ci_lower", "ci_upper")),
+        by = "row_id")
   }
 
   # Sort: by ATC5 group, then ATC5 header before substances, then by code
@@ -468,7 +413,7 @@ get_antibiotic_utilization_table <- function(
     dplyr::arrange(.data$atc5_group, .data$row_type, .data$row_id) |>
     dplyr::select("row_id", "atc5_group", "row_type", "display_name", "aware",
                   "n", "pooled", "ci_lower", "ci_upper",
-                  tidyselect::any_of(c("q1", "q2", "q3",
+                  tidyselect::any_of(c("q1", "q2", "q3", "quartile_departments",
                     "q1_ci_lower", "q1_ci_upper",
                     "q2_ci_lower", "q2_ci_upper",
                     "q3_ci_lower", "q3_ci_upper"))) |>
@@ -655,101 +600,35 @@ get_incidence_density_rate_table <- function(
     cache_key, use_cache, include_quartiles)))
     return(r)
 
-  r <- x |>
-    get_incidence_density_rates(use_cache = use_cache) |>
+  # The pooled rates and the departments' quartiles over patient-days:
+  # every department with the minimum of them enters every type's quartiles,
+  # at 0 where it holds none of the type's infections.
+  pooled_rates <- get_incidence_density_rates(
+    x, use_cache = use_cache) |>
     dplyr::rename("pooled" = "rate")
-  r <- r |>
-    dplyr::bind_cols(poisson_ci_cols(r$n, r$patient_days, multiplier = 1000)) |>
-    dplyr::select(!"patient_days") |>
+  counts <- get_incidence_density_rates(
+    x, group_cols = "department_key", use_cache = use_cache) |>
+    dplyr::transmute(
+      inf = .data$inf,
+      department_key = .data$department_key,
+      n = .data$n,
+      total = .data$patient_days)
+
+  r <- .infectious_agent_rate_columns(
+    counts,
+    keys = pooled_rates["inf"],
+    by = "inf",
+    scale = 1000,
+    interval = "poisson",
+    denominator = "days",
+    include_quartiles = include_quartiles) |>
     add_class("neoipcr_tbl_idr")
-
-  if(include_quartiles) {
-    # Calculate quartiles only when needed
-    pat_days <- x |>
-      get_risk_time(group_cols = "department_key", use_cache = use_cache) |>
-      dplyr::pull("patient_days")
-
-    n_deps <- length(pat_days)
-    median_patient_days <- stats::median(pat_days)
-
-    dept_rates <- x |>
-      get_incidence_density_rates(
-        group_cols = "department_key",
-        use_cache = use_cache) |>
-      dplyr::mutate(
-        rate = tidyr::replace_na(.data$rate, 0))
-
-    r <- r |>
-      dplyr::full_join(
-        dept_rates |>
-          dplyr::group_by(.data$inf) |>
-          dplyr::summarise(
-            q = list(
-              stats::quantile(
-                .data$rate,
-                probs = quartile_probs,
-                names = FALSE))) |>
-          tidyr::unnest_wider("q", names_sep = ""),
-        dplyr::join_by("inf")) |>
-      ensure_quartile_cols() |>
-      dplyr::mutate(
-        drop_quartiles = tidyr::replace_na(
-          n_deps < 5 | round(1000 / .data$pooled) >= median_patient_days,
-          TRUE),
-        q1 = dplyr::if_else(
-          .data$drop_quartiles,
-          NA,
-          .data$q1),
-        q2 = dplyr::if_else(
-          .data$drop_quartiles,
-          NA,
-          .data$q2),
-        q3 = dplyr::if_else(
-          .data$drop_quartiles,
-          NA,
-          .data$q3))
-
-    # Bootstrap CIs for quartiles where gate passes
-    if (nrow(r) > 0L) {
-      boot_cis <- r |>
-        dplyr::group_by(.data$inf) |>
-        dplyr::group_map(~ {
-          if (.x$drop_quartiles[1]) {
-            ci <- tibble::tibble(q1_ci_lower = NA_real_, q1_ci_upper = NA_real_,
-                           q2_ci_lower = NA_real_, q2_ci_upper = NA_real_,
-                           q3_ci_lower = NA_real_, q3_ci_upper = NA_real_)
-          } else {
-            d <- dept_rates |> dplyr::filter(.data$inf == .y$inf)
-            ci <- bootstrap_quantile_ci(d$n, d$patient_days,
-                                  type = "poisson", multiplier = 1000)
-          }
-          dplyr::bind_cols(.y, ci)
-        }) |>
-        dplyr::bind_rows()
-
-      r <- r |> dplyr::left_join(boot_cis, by = "inf")
-    }
-
-    r <- r |>
-      dplyr::select(!"drop_quartiles") |>
-      add_class("neoipcr_tbl_idr_ref")
-  }
-
-  expected_levels <- c("si","bsi","hap","nec")
-  missing <- setdiff(expected_levels, r$inf)
-  if(length(missing) > 0)
-    r <- r |>
-    dplyr::bind_rows(
-      tibble::tibble(
-        inf = missing,
-        n = 0L,
-        pooled = NA_real_,
-        ci_lower = NA_real_,
-        ci_upper = NA_real_))
+  if(include_quartiles)
+    r <- add_class(r, "neoipcr_tbl_idr_ref")
 
   r |>
     dplyr::mutate(
-      inf = factor(.data$inf, levels = expected_levels)) |>
+      inf = factor(.data$inf, levels = c("si", "bsi", "hap", "nec"))) |>
     dplyr::arrange(.data$inf) |>
     cache(x, cache_key)
 }
@@ -774,114 +653,44 @@ get_dev_ass_incidence_density_rate_table <- function(
     cache_key, use_cache, include_quartiles)))
     return(r)
 
-  r <- x |>
+  rates <- x |>
     get_dev_ass_incidence_density_rates(use_cache = use_cache)
+  r <- rates |>
+    dplyr::rename("pooled" = "rate") |>
+    dplyr::bind_cols(poisson_ci_cols(rates$n, rates$days, multiplier = 1000)) |>
+    dplyr::select(!"days")
+
+  # The departments' quartiles over each device's days: a department enters
+  # a device's quartiles with the minimum of that device's own days, and
+  # leaves without any, at 0 where it had none of the device's infections.
+  counts <- x |>
+    get_dev_ass_incidence_density_rates(
+      group_cols = "department_key",
+      use_cache = use_cache) |>
+    dplyr::transmute(
+      dev = .data$dev,
+      department_key = .data$department_key,
+      n = .data$n,
+      total = .data$days)
+
   r <- r |>
-    dplyr::bind_cols(poisson_ci_cols(r$n, r$days, multiplier = 1000)) |>
-    dplyr::select(!"days") |>
+    dplyr::left_join(
+      .infectious_agent_rate_columns(
+        counts,
+        keys = r["dev"],
+        by = "dev",
+        scale = 1000,
+        interval = "poisson",
+        denominator = "days",
+        include_quartiles = include_quartiles) |>
+        dplyr::select(-c("n", "total", "pooled", "ci_lower", "ci_upper")),
+      by = "dev") |>
     add_class("neoipcr_tbl_daidr")
-
-  if(include_quartiles) {
-    dev_days <- x |>
-      get_risk_time(group_cols = "department_key", use_cache = use_cache) |>
-      dplyr::select(
-        tidyselect::any_of(
-          c("department_key","cvc"="cvc_days","pvc"="pvc_days","vs"="vs_days",
-            "inv"="inv_days","niv"="niv_days")))
-
-    dep_stats <- dev_days |>
-      tidyr::pivot_longer(cols = !"department_key", names_to = "dev") |>
-      dplyr::filter(.data$value > 0) |>
-      dplyr::group_by(.data$dev) |>
-      dplyr::summarise(n_deps = dplyr::n()) |>
-      dplyr::inner_join(
-        dev_days |>
-          dplyr::select(!"department_key") |>
-          dplyr::summarise(dplyr::across(tidyselect::everything(), stats::median)) |>
-          tidyr::pivot_longer(
-            cols = tidyselect::everything(),
-            names_to = "dev",
-            values_to = "median"),
-        dplyr::join_by("dev")
-      )
-
-    dept_rates <- x |>
-      get_dev_ass_incidence_density_rates(
-        group_cols = "department_key",
-        use_cache = use_cache) |>
-      dplyr::mutate(
-        rate = tidyr::replace_na(.data$rate, 0))
-
-    r <- r |>
-      dplyr::full_join(
-        dept_rates |>
-          dplyr::group_by(.data$dev) |>
-          dplyr::summarise(
-            q = list(
-              stats::quantile(
-                .data$rate,
-                probs = quartile_probs,
-                names = FALSE))) |>
-          tidyr::unnest_wider("q", names_sep = ""),
-        dplyr::join_by("dev")) |>
-      dplyr::full_join(dep_stats, dplyr::join_by("dev")) |>
-      ensure_quartile_cols() |>
-      dplyr::mutate(
-        drop_quartiles = tidyr::replace_na(
-          .data$n_deps < 5 | round(1000 / .data$rate) >= .data$median,
-          TRUE),
-        q1 = dplyr::if_else(
-          .data$drop_quartiles,
-          NA,
-          .data$q1),
-        q2 = dplyr::if_else(
-          .data$drop_quartiles,
-          NA,
-          .data$q2),
-        q3 = dplyr::if_else(
-          .data$drop_quartiles,
-          NA,
-          .data$q3))
-
-    # Bootstrap CIs for quartiles where gate passes
-    boot_cis <- r |>
-      dplyr::group_by(.data$dev) |>
-      dplyr::group_map(~ {
-        if (.x$drop_quartiles[1]) {
-          ci <- tibble::tibble(q1_ci_lower = NA_real_, q1_ci_upper = NA_real_,
-                         q2_ci_lower = NA_real_, q2_ci_upper = NA_real_,
-                         q3_ci_lower = NA_real_, q3_ci_upper = NA_real_)
-        } else {
-          d <- dept_rates |> dplyr::filter(.data$dev == .y$dev,
-                                                    .data$days > 0)
-          ci <- bootstrap_quantile_ci(d$n, d$days,
-                                type = "poisson", multiplier = 1000)
-        }
-        dplyr::bind_cols(.y, ci)
-      }) |>
-      dplyr::bind_rows()
-
-    r <- r |>
-      dplyr::left_join(boot_cis, by = "dev") |>
-      dplyr::select(!c("drop_quartiles","n_deps","median")) |>
-      add_class("neoipcr_tbl_daidr_ref")
-  }
-
-  expected_levels <- c("cvc","pvc","vs","inv","niv")
-  missing <- setdiff(expected_levels, r$dev)
-  if(length(missing) > 0)
-    r <- r |>
-    dplyr::bind_rows(
-      tibble::tibble(
-        dev = missing,
-        n = 0L,
-        pooled = NA_real_,
-        ci_lower = NA_real_,
-        ci_upper = NA_real_))
+  if(include_quartiles)
+    r <- add_class(r, "neoipcr_tbl_daidr_ref")
 
   r |>
-    dplyr::rename("pooled" = "rate") |>
-    dplyr::mutate(dev = factor(.data$dev, expected_levels)) |>
+    dplyr::mutate(dev = factor(.data$dev, c("cvc", "pvc", "vs", "inv", "niv"))) |>
     dplyr::arrange(.data$dev) |>
     cache(x, cache_key)
 }
@@ -1691,8 +1500,11 @@ get_resistance_test_rate_table <- function(
 #'  (`event_type_key`): `n`, the infections with a secondary BSI; `pooled`,
 #'  their share of the infections followed up, in percent; `ci_lower` and
 #'  `ci_upper`, its Wilson interval; with `include_quartiles` the
-#'  departments' quartiles of the rate (`q1`, `q2`, `q3`) and their bootstrap
-#'  intervals; `followup_n`, the infections followed up; `total_n`, all
+#'  departments' quartiles of the rate (`q1`, `q2`, `q3`), their bootstrap
+#'  intervals, and `quartile_departments`, the number of departments that
+#'  enter them, those with at least 5 of the type's infections followed up,
+#'  `NA` for the quartiles where fewer than 5 enter or the gate fails;
+#'  `followup_n`, the infections followed up; `total_n`, all
 #'  infections of the type; `followup_pooled`, the share followed up, in
 #'  percent; and with `include_quartiles` the quartiles of the departments'
 #'  follow-up shares (`followup_q1`, `followup_q2`, `followup_q3`) over the
@@ -1716,88 +1528,34 @@ get_secondary_bsi_rate_table <- function(
     dplyr::select("event_type_key", "n", "pooled", "ci_lower", "ci_upper") |>
     add_class("neoipcr_tbl_sec_bsi")
 
-  # Calculate quartiles if needed
-  if(include_quartiles) {
+  # The departments' quartiles over each type's followed-up infections: a
+  # department enters a type's quartiles, their count, and the gate with at
+  # least 5 of the type's infections followed up, at 0 where none of them
+  # held a secondary BSI; a department with none followed up leaves.
+  if (include_quartiles) {
     dept_all <- x |>
       get_secondary_bsi_rates(
         group_cols = "department_key",
         use_cache = use_cache)
-    # The rate's quartiles take the departments that followed up infections
-    # of the type; the follow-up shares' take those with at least 5
-    # infections of the type, below.
-    dept_rates <- dept_all |>
-      dplyr::filter(.data$followup_n > 0L)
-
-    # Check if we have enough departments
-    n_deps <- dept_rates |>
-      dplyr::pull("department_key") |>
-      dplyr::n_distinct()
-
-    # Calculate median infections with sec BSI per department
-    median_n <- dept_rates |>
-      dplyr::group_by(.data$department_key) |>
-      dplyr::summarise(total_n = sum(.data$n), .groups = "drop") |>
-      dplyr::pull("total_n") |>
-      stats::median()
-
-    if (nrow(dept_rates) < 1) {
-      r <- r |>
-        dplyr::mutate(q1 = NA_real_, q2 = NA_real_, q3 = NA_real_) |>
-        add_class("neoipcr_tbl_sec_bsi_ref")
-    } else {
-      # Calculate quartiles for each infection type
-      quartiles <- dept_rates |>
-        tidyr::pivot_wider(
-          id_cols = "department_key",
-          names_from = "event_type_key",
-          values_from = "rate") |>
-        dplyr::select(!"department_key") |>
-        dplyr::reframe(
-          dplyr::across(
-            tidyselect::everything(),
-            ~stats::quantile(.x, prob = c(.25, .5, .75), na.rm = TRUE))) |>
-        dplyr::bind_cols(tibble::tibble(Q = c("q1", "q2", "q3"))) |>
-        tidyr::pivot_longer(!"Q", names_to = "event_type_key") |>
-        tidyr::pivot_wider(names_from = "Q", values_from = "value")
-
-      # Determine if quartiles should be dropped
-      r <- r |>
-        dplyr::mutate(
-          drop_quartiles = tidyr::replace_na(
-            n_deps < 5 | round(100 / .data$pooled) >= median_n,
-            TRUE)) |>
-        dplyr::left_join(quartiles, dplyr::join_by("event_type_key")) |>
-        dplyr::mutate(
-          dplyr::across(
-            c("q1", "q2", "q3"),
-            ~dplyr::if_else(.data$drop_quartiles, NA_real_, .x)))
-
-      # Bootstrap CIs for quartiles where gate passes
-      if (nrow(r) > 0L) {
-        boot_cis <- r |>
-          dplyr::group_by(.data$event_type_key) |>
-          dplyr::group_map(~ {
-            if (.x$drop_quartiles[1]) {
-              ci <- tibble::tibble(q1_ci_lower = NA_real_, q1_ci_upper = NA_real_,
-                             q2_ci_lower = NA_real_, q2_ci_upper = NA_real_,
-                             q3_ci_lower = NA_real_, q3_ci_upper = NA_real_)
-            } else {
-              d <- dept_rates |>
-                dplyr::filter(.data$event_type_key == .y$event_type_key)
-              ci <- bootstrap_quantile_ci(d$n, d$followup_n,
-                                    type = "binomial", multiplier = 100)
-            }
-            dplyr::bind_cols(.y, ci)
-          }) |>
-          dplyr::bind_rows()
-
-        r <- r |> dplyr::left_join(boot_cis, by = "event_type_key")
-      }
-
-      r <- r |>
-        dplyr::select(!"drop_quartiles") |>
-        add_class("neoipcr_tbl_sec_bsi_ref")
-    }
+    counts <- dept_all |>
+      dplyr::transmute(
+        event_type_key = as.character(.data$event_type_key),
+        department_key = .data$department_key,
+        n = .data$n,
+        total = .data$followup_n)
+    r <- r |>
+      dplyr::left_join(
+        .infectious_agent_rate_columns(
+          counts,
+          keys = r["event_type_key"],
+          by = "event_type_key",
+          scale = 100,
+          interval = "wilson",
+          denominator = "count",
+          include_quartiles = TRUE) |>
+          dplyr::select(-c("n", "total", "pooled", "ci_lower", "ci_upper")),
+        by = "event_type_key")
+    r <- add_class(r, "neoipcr_tbl_sec_bsi_ref")
   }
 
   # The share of each type's infections followed up for a secondary BSI,
@@ -1816,27 +1574,10 @@ get_secondary_bsi_rate_table <- function(
       followup_share_quartiles(dept_all, r$event_type_key),
       dplyr::join_by("event_type_key"))
 
-  # Ensure all expected infection types are present
-  expected_types <- c("nec", "hap", "ssi")
-  missing <- setdiff(expected_types, r$event_type_key)
-  if(length(missing) > 0) {
-    missing_rows <- tibble::tibble(
-      event_type_key = missing,
-      n = 0L,
-      pooled = NA_real_,
-      ci_lower = NA_real_,
-      ci_upper = NA_real_)
-    if(include_quartiles) {
-      missing_rows <- missing_rows |>
-        dplyr::mutate(q1 = NA_real_, q2 = NA_real_, q3 = NA_real_)
-    }
-    r <- r |> dplyr::bind_rows(missing_rows)
-  }
-
-  # Convert to factor and sort
   r |>
     dplyr::mutate(
-      event_type_key = factor(.data$event_type_key, levels = expected_types)) |>
+      event_type_key = factor(
+        .data$event_type_key, levels = c("nec", "hap", "ssi"))) |>
     dplyr::arrange(.data$event_type_key) |>
     cache(x, cache_key)
 }

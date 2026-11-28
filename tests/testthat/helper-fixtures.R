@@ -1181,13 +1181,17 @@ make_calc_test_ds <- function() {
 # with one patient and one enrolment, its admission and surveillance-end
 # forms, and the department's infections; `patient_days` gives each
 # department's stay its patient-days, one value per department, the
-# surveillance-end form's default where left out.
+# surveillance-end form's default where left out. `n_departments` extends the
+# departments past the highest in the forms, for departments that exist
+# without an infection.
 make_infection_calc_test_ds <- function(forms, findings = NULL,
-                                        patient_days = NULL) {
+                                        patient_days = NULL,
+                                        n_departments = NULL) {
   if (!"department_key" %in% names(forms))
     forms$department_key <- 1L
   forms$department_key <- as.integer(forms$department_key)
-  n_dep    <- max(forms$department_key)
+  n_dep    <- max(max(forms$department_key),
+                  if (is.null(n_departments)) 0L else n_departments)
   dep_keys <- seq_len(n_dep)
   n_inf    <- nrow(forms)
   inf_keys <- 2L * n_dep + seq_len(n_inf)
@@ -1243,7 +1247,8 @@ make_infection_calc_test_ds <- function(forms, findings = NULL,
     make_test_surveillance_end_data(n_dep + dep_keys)
   else
     make_test_surveillance_end_data(
-      n_dep + dep_keys, patient_days = as.integer(patient_days))
+      n_dep + dep_keys,
+      patient_days = rep_len(as.integer(patient_days), n_dep))
 
   make_test_ds(
     metadata                = md,
@@ -1384,34 +1389,70 @@ make_resistance_calc_test_ds <- function() {
       16L, TRUE,                   1807L, "yes",        NA,    NA,           NA,    NA,
       17L, FALSE,                   390L, "not_tested", NA,    NA,           NA,    NA,
       18L, FALSE,                   503L, NA,           NA,    NA,           NA,    "no")
-  with_antibiotic_entries(
-    make_infection_calc_test_ds(forms, findings, patient_days = 200L))
+  make_infection_calc_test_ds(forms, findings, patient_days = 200L)
 }
 
 # A sepsis per form of `findings` (columns `form`, numbered from 1,
 # `pathogen_key`, and any of the resistance categories), of the department
 # `department_key` gives it, by form, with a stay of `patient_days` per
-# department, departments 1 to the highest key, and an antibiotic entry on
-# it. A resistance category `findings` does not name is blank, where
-# make_test_iaf() records every category as not resistant.
+# department, departments 1 to the highest key. A resistance category
+# `findings` does not name is blank, where make_test_iaf() records every
+# category as not resistant.
 make_sepsis_findings_test_ds <- function(findings, department_key = 1L,
                                          patient_days = 100L) {
   for (category in c("3gcr", "car", "cor", "mrsa", "vre"))
     if (!category %in% names(findings))
       findings[[category]] <- NA_character_
   department_key <- rep_len(as.integer(department_key), max(findings$form))
-  with_antibiotic_entries(make_infection_calc_test_ds(
+  make_infection_calc_test_ds(
     forms = tibble::tibble(event_type_key = "bsi",
                            department_key = department_key),
     findings = findings,
-    patient_days = rep_len(as.integer(patient_days), max(department_key))))
+    patient_days = rep_len(as.integer(patient_days), max(department_key)))
 }
 
-# `ds` with an antibiotic entry on each surveillance-end form, since
-# `get_risk_time()` leaves a stay without one out of the patient-days.
-with_antibiotic_entries <- function(ds) {
-  ds$substanceDays <- make_test_substance_days(
-    ds$events$event_key[ds$events$event_type_key == "end"])
+# Departments' risk time: departments 1 to `n_dep`, each with one patient,
+# one enrolment, and its admission and surveillance-end forms, its stay of
+# `patient_days` patient-days, an antibiotic entry of `entry_days`
+# substance-days of the fixture substance on the surveillance-end form of
+# each department in `entry_departments`, and the fixture's default sepsis
+# infection on the stay of department `n_dep`. `extra_forms` names the
+# infection event types to place on a department's stay in addition to the
+# default sepsis, `extra_departments` the department of each (department 1
+# where left out). `entry_rows` replaces the entry rows, one per row with its
+# `event_key`, its `days` (NA where the entry records none), and its
+# `substance_code` (the fixture substance where the column is absent), for
+# an entry that records no days or a substance of a caller's choice.
+make_risk_time_test_ds <- function(n_dep = 2L, patient_days = NULL,
+                                   entry_departments = integer(0),
+                                   entry_days = 3L,
+                                   extra_forms = character(),
+                                   extra_departments = NULL,
+                                   entry_rows = NULL) {
+  n_dep <- as.integer(n_dep)
+  if (is.null(extra_departments))
+    extra_departments <- rep(1L, length(extra_forms))
+  forms <- tibble::tibble(
+    event_type_key = c("bsi", extra_forms),
+    department_key = c(n_dep, extra_departments))
+  ds <- make_infection_calc_test_ds(
+    forms = forms,
+    patient_days = rep_len(patient_days, n_dep))
+  end_keys <- ds$events$event_key[ds$events$event_type_key == "end"]
+  if (is.null(entry_rows))
+    entry_rows <- tibble::tibble(
+      event_key = end_keys[entry_departments],
+      days = as.integer(entry_days))
+  if (!"substance_code" %in% names(entry_rows))
+    entry_rows$substance_code <- "J01CA04"
+  ds$substanceDays <- if (nrow(entry_rows) == 0L)
+    make_test_substance_days(integer(0))
+  else
+    make_test_substance_days(
+      entry_rows$event_key,
+      index = seq_len(nrow(entry_rows)),
+      substance_code = as.character(entry_rows$substance_code),
+      days = as.integer(entry_rows$days))
   ds
 }
 
@@ -1428,7 +1469,7 @@ with_antibiotic_entries <- function(ds) {
 make_resistance_quartile_test_ds <- function() {
   departments <- c(rep(1:5, each = 5), rep(6L, 4), rep(7L, 5), 8L)
   resistant <- unlist(lapply(1:5, \(k) c(rep("yes", k - 1L), rep("no", 6L - k))))
-  with_antibiotic_entries(make_infection_calc_test_ds(
+  make_infection_calc_test_ds(
     forms = tibble::tibble(
       event_type_key = "bsi",
       department_key = departments),
@@ -1440,7 +1481,7 @@ make_resistance_quartile_test_ds <- function() {
       cor = NA_character_,
       mrsa = NA_character_,
       vre = NA_character_),
-    patient_days = c(rep(100L, 5), 40L, 100L, 100L)))
+    patient_days = c(rep(100L, 5), 40L, 100L, 100L))
 }
 
 

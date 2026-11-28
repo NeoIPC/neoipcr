@@ -116,10 +116,10 @@ test_that("usage_density_rate_table CVC days match fixture", {
   expect_equal(cvc_row$n, 9L)
 })
 
-test_that("usage_density_rate_table has 12 factor rows", {
+test_that("usage_density_rate_table has 13 factor rows", {
   result <- get_usage_density_rate_table(calc_ds, use_cache = FALSE,
     include_quartiles = FALSE)
-  expect_equal(nrow(result), 12L)
+  expect_equal(nrow(result), 13L)
 })
 
 # --- Numerical spot-checks per table ---
@@ -1500,7 +1500,7 @@ test_that("an SSI's own slots count where a culture at any depth is positive, wh
   # S. aureus (MRSA), in its own slot; its follow-up for a secondary BSI is
   # answered No follow-up, No, or Yes.
   tables <- function(sec_bsi)
-    counted_infectious_agent_tables(with_antibiotic_entries(
+    counted_infectious_agent_tables(
       make_infection_calc_test_ds(
         forms = tibble::tibble(
           event_type_key   = "ssi",
@@ -1513,7 +1513,7 @@ test_that("an SSI's own slots count where a culture at any depth is positive, wh
           secondary_bsi = FALSE,
           pathogen_key  = 934L,
           mrsa          = "yes"),
-        patient_days = 100L)))
+        patient_days = 100L))
   not_followed_up <- tables("-1")
 
   # The slot counts: S. aureus is the Total's infectious agent, and the
@@ -1541,7 +1541,7 @@ test_that("a secondary-BSI slot counts only where the follow-up is answered Yes,
   # No, names Staphylococcus aureus (934) in its own slot and Escherichia coli
   # (1807), recorded with third-generation cephalosporin resistance (3GCR), in
   # a secondary-BSI slot.
-  pneumonia <- counted_infectious_agent_tables(with_antibiotic_entries(
+  pneumonia <- counted_infectious_agent_tables(
     make_infection_calc_test_ds(
       forms = tibble::tibble(
         event_type_key              = "hap",
@@ -1552,7 +1552,7 @@ test_that("a secondary-BSI slot counts only where the follow-up is answered Yes,
         secondary_bsi = c(FALSE, TRUE),
         pathogen_key  = c(934L, 1807L),
         `3gcr`        = c(NA, "yes")),
-      patient_days = 100L)))
+      patient_days = 100L))
   nodes <- neoipcr:::internal_infectious_agent_nodes
   for (rows in c("groups", "ontology")) {
     e_coli <- nodes_of_only(rows, 1807L, 934L)
@@ -1584,7 +1584,7 @@ test_that("a secondary-BSI slot counts only where the follow-up is answered Yes,
   # culture at any depth, names S. aureus, recorded MRSA, in its own slot and
   # E. coli, recorded 3GCR resistant, in a secondary-BSI slot. Only E. coli
   # counts.
-  ssi <- counted_infectious_agent_tables(with_antibiotic_entries(
+  ssi <- counted_infectious_agent_tables(
     make_infection_calc_test_ds(
       forms = tibble::tibble(
         event_type_key   = "ssi",
@@ -1599,7 +1599,7 @@ test_that("a secondary-BSI slot counts only where the follow-up is answered Yes,
         pathogen_key  = c(934L, 1807L),
         `3gcr`        = c(NA, "yes"),
         mrsa          = c("yes", NA)),
-      patient_days = 100L)))
+      patient_days = 100L))
   for (rows in c("groups", "ontology")) {
     s_aureus <- nodes_of_only(rows, 934L, 1807L)
     e_coli <- nodes_of_only(rows, 1807L, 934L)
@@ -2398,4 +2398,171 @@ test_that("the secondary-BSI rate's quartiles take only the departments that fol
   expect_equal(nec$n, 8L)
   expect_equal(nec$pooled, 100)
   expect_true(all(is.na(c(nec$q1, nec$q2, nec$q3))))
+})
+
+# --- The quartile rule and its minimum, over every table's denominator ---
+
+test_that("the incidence densities hold a row of every type for every department, at 0 without the type's infections", {
+  # Six departments: department 1 has one sepsis and one NEC in 100
+  # patient-days, department 2 a sepsis in 100, department 3 a sepsis in 200,
+  # departments 4-5 nothing in 100 each, department 6 nothing in 40.
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key = c("bsi", "nec", "hap", "bsi", "bsi"),
+      department_key = c(1L, 1L, 1L, 2L, 3L)),
+    patient_days = c(100L, 100L, 200L, 100L, 100L, 40L),
+    n_departments = 6L)
+
+  r <- neoipcr:::get_incidence_density_rates(
+    ds, group_cols = "department_key", use_cache = FALSE)
+  expect_false(any(is.na(r$inf)))
+  expect_equal(nrow(r), 6L * 4L)
+  row5 <- r[r$department_key == 5L, ]
+  expect_equal(as.character(row5$inf), c("bsi", "hap", "nec", "si"))
+  expect_equal(row5$n, c(0L, 0L, 0L, 0L))
+
+  t <- get_incidence_density_rate_table(ds, use_cache = FALSE)
+  expect_equal(as.character(t$inf), c("si", "bsi", "hap", "nec"))
+  # Every department with 50 patient-days enters every type's quartiles, the
+  # departments without infections at 0. Their counts here leave the gate
+  # unmet - the median denominator, 100 patient-days, does not exceed the
+  # denominator in which the pooled rate gives one event - so the quartiles
+  # stay NA although the five departments enter.
+  bsi <- t[t$inf == "bsi", ]
+  expect_equal(bsi$quartile_departments, 5L)
+  expect_true(all(is.na(c(bsi$q1, bsi$q2, bsi$q3))))
+  # Department 6 stays in the pooled rate, below the minimum for the
+  # quartiles.
+  expect_equal(bsi$pooled, 3 / 640 * 1000)
+
+  # Ten sepses pass the gate: the median of the departments' patient-days,
+  # 100, exceeds the 60 patient-days in which the pooled rate gives one
+  # event; the sepsis rates 20, 20, 20, 20, 0 give the quartiles 20, 20, 20,
+  # and the fixture's sepsis on department 6 enters the pooled rate only,
+  # below the minimum of 50 patient-days.
+  ds <- make_risk_time_test_ds(
+    n_dep = 6L,
+    patient_days = c(100L, 100L, 100L, 100L, 100L, 40L),
+    extra_forms = rep("bsi", 8),
+    extra_departments = rep(1:4, each = 2))
+  t <- get_incidence_density_rate_table(ds, use_cache = FALSE)
+  bsi <- t[t$inf == "bsi", ]
+  expect_equal(bsi$quartile_departments, 5L)
+  expect_equal(bsi$q1, 20)
+  expect_equal(bsi$q2, 20)
+  expect_equal(bsi$q3, 20)
+  expect_false(is.na(bsi$q3_ci_lower))
+})
+
+test_that("a department without days of a device leaves that device's quartiles, count, and gate", {
+  # Six departments with a stay each, one sepsis on a CVC day: departments
+  # 1-5 have CVC days (150, 100, 50, 50, 20), department 6 none. The
+  # quartiles take departments 1-4 at 6.67, 10, 20, 20; department 5 leaves
+  # with 20 CVC days, below the minimum of 50, department 6 without CVC days;
+  # both stay in the pooled rate.
+  ds <- make_risk_time_test_ds(
+    n_dep = 6L,
+    patient_days = c(100L, 100L, 100L, 100L, 20L, 100L),
+    extra_forms = "bsi")
+  # The fixture's sepsis on department 6 names no device; only the extra
+  # sepsis on department 1 is on a CVC.
+  ds$sepsisData$dev_ass <- factor(
+    c("0", "1"), levels = c("0", "1", "2"))
+  ds$surveillanceEndData <- ds$surveillanceEndData |>
+    dplyr::mutate(
+      cvc_days = c(150L, 100L, 50L, 50L, 20L, 0L))
+
+  t <- get_dev_ass_incidence_density_rate_table(ds, use_cache = FALSE)
+  cvc <- t[t$dev == "cvc", ]
+  expect_equal(cvc$n, 1L)
+  # The pooled denominator is every department's CVC days, department 5's 20
+  # and department 6's none included.
+  expect_equal(cvc$pooled, 1000 / 370)
+  # Four departments enter with at least 50 CVC days - department 5 leaves
+  # below the minimum, department 6 without CVC days - and the quartiles
+  # stay NA although they would be 6.67, 0, 0, 0, since the gate's median
+  # denominator, 75, does not exceed the 370 device-days in which the
+  # pooled rate gives one event.
+  expect_equal(cvc$quartile_departments, 4L)
+  expect_true(all(is.na(c(cvc$q1, cvc$q2, cvc$q3))))
+  expect_true(is.na(cvc$q1_ci_lower))
+  # A device whose days no department reaches the minimum with shows only
+  # its pooled rate.
+  pvc <- t[t$dev == "pvc", ]
+  expect_equal(pvc$quartile_departments, 0L)
+  expect_true(all(is.na(c(pvc$q1, pvc$q2, pvc$q3))))
+})
+
+test_that("the utilization table's quartiles take the departments that used none of a substance, at 0", {
+  # Five departments of 100 patient-days, entries of 2 to 5 substance-days in
+  # departments 1-4: department 5 used none and enters at 0.
+  ds <- make_risk_time_test_ds(
+    n_dep = 5L, patient_days = rep(100L, 5L),
+    entry_departments = 1:4, entry_days = 3L)
+  ds$substanceDays <- ds$substanceDays |>
+    dplyr::mutate(days = c(2L, 3L, 4L, 5L))
+
+  t <- get_antibiotic_utilization_table(ds, use_cache = FALSE)
+  row <- t[t$row_type == "substance" & t$row_id == "J01CA04", ]
+  expect_equal(row$n, 14L)
+  expect_equal(row$pooled, 2.8)
+  expect_equal(row$quartile_departments, 5L)
+  expect_equal(row$q1, 2)
+  expect_equal(row$q2, 3)
+  expect_equal(row$q3, 4)
+})
+
+test_that("the secondary-BSI quartiles take each row's followed-up infections as denominator and count", {
+  # Five departments of 7 followed-up SSIs each, 2 with a secondary BSI;
+  # department 3 has 8; department 6 has 2, none followed up. The
+  # followed-up denominator, not the infections, is what the rate and the
+  # minimum of 5 count: departments 1-5 enter, department 6 leaves, and the
+  # quartiles are those of the shares 2/7 and 2/8.
+  sec <- c(rep("0", 5), rep("1", 2),
+           rep("0", 5), rep("1", 2),
+           rep("0", 6), rep("1", 2),
+           rep("0", 5), rep("1", 2),
+           rep("0", 5), rep("1", 2),
+           rep("-1", 2))
+  dept <- c(rep(1L, 7), rep(2L, 7), rep(3L, 8), rep(4L, 7), rep(5L, 7),
+            rep(6L, 2))
+  ds <- make_infection_calc_test_ds(
+    forms = tibble::tibble(
+      event_type_key = rep("ssi", length(dept)),
+      department_key = dept,
+      sec_bsi = sec),
+    findings = tibble::tibble(
+      # The findings' rows become the fixture's infections, in the forms'
+      # order, after its admission and surveillance-end events.
+      form = which(sec == "1"),
+      secondary_bsi = TRUE,
+      pathogen_key = rep(1L, sum(sec == "1"))))
+
+  r <- get_secondary_bsi_rate_table(ds, use_cache = FALSE)
+  ssi <- r[r$event_type_key == "ssi", ]
+  # 10 secondary BSIs of the 36 followed-up infections, department 6's
+  # unfollowed-up ones excluded from both sides of the rate.
+  expect_equal(ssi$n, 10L)
+  expect_equal(ssi$followup_n, 36L)
+  expect_equal(ssi$pooled, 10 / 36 * 100)
+  expect_equal(ssi$quartile_departments, 5L)
+  expect_equal(ssi$q1, 2 / 7 * 100)
+  expect_equal(ssi$q2, 2 / 7 * 100)
+  expect_equal(ssi$q3, 2 / 7 * 100)
+  expect_false(is.na(ssi$q1_ci_lower))
+})
+
+test_that("the risk-density table gives the not-classified category its own row", {
+  ds <- make_risk_time_test_ds(
+    n_dep = 2L, patient_days = c(100L, 100L),
+    entry_rows = tibble::tibble(
+      event_key = c(3L, 4L),
+      substance_code = c("J01MA17", "J01CA04"),
+      days = c(2L, 3L)))
+  t <- get_usage_density_rate_table(ds, use_cache = FALSE,
+                                    include_quartiles = FALSE)
+  expect_true("nc" %in% as.character(t$factor))
+  nc <- t[t$factor == "nc", ]
+  expect_equal(nc$n, 2L)
+  expect_equal(nc$pooled, 1)
 })

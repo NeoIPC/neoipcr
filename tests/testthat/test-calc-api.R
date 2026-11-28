@@ -107,8 +107,8 @@ test_that("calculate_department_data usage_density_rate_table has expected struc
   expect_true("days" %in% names(udr))
   expect_true("rate" %in% names(udr))
   # Should have rows for: cvc, pvc, vs, inv, niv, human_milk,
-  # probiotic, kangaroo_care, ab, a, w, r
-  expect_equal(nrow(udr), 12L)
+  # probiotic, kangaroo_care, ab, a, w, r, nc
+  expect_equal(nrow(udr), 13L)
 })
 
 test_that("calculate_department_data incidence_density_rate_table has structure", {
@@ -981,7 +981,7 @@ test_that("get_benchmark_data gives a department the reference's rows of each in
   # resistant and E. coli not in department 2, each a sepsis of its own. The
   # department: E. coli 3GCR resistant and Candida albicans (2273), which the
   # reference lacks, each a sepsis of its own, over 50 patient-days.
-  ref_ds <- with_antibiotic_entries(make_infection_calc_test_ds(
+  ref_ds <- make_infection_calc_test_ds(
     forms = tibble::tibble(event_type_key = "bsi",
                            department_key = c(1L, 1L, 2L, 2L)),
     findings = tibble::tibble(
@@ -992,8 +992,8 @@ test_that("get_benchmark_data gives a department the reference's rows of each in
       cor = NA_character_,
       mrsa = c(NA, "yes", NA, NA),
       vre = NA_character_),
-    patient_days = c(100L, 100L)))
-  own_ds <- with_antibiotic_entries(make_infection_calc_test_ds(
+    patient_days = c(100L, 100L))
+  own_ds <- make_infection_calc_test_ds(
     forms = tibble::tibble(event_type_key = "bsi",
                            department_key = c(1L, 1L)),
     findings = tibble::tibble(
@@ -1004,7 +1004,7 @@ test_that("get_benchmark_data gives a department the reference's rows of each in
       cor = NA_character_,
       mrsa = NA_character_,
       vre = NA_character_),
-    patient_days = 50L))
+    patient_days = 50L)
   own <- calculate_department_data(own_ds, use_cache = FALSE)
   ref <- calculate_reference_data(ref_ds, use_cache = FALSE)
   benchmark <- get_benchmark_data(own = own, ref = ref)
@@ -1100,7 +1100,7 @@ test_that("get_benchmark_data gives a dataset all its patient-days on a density 
   # result, which takes it out of the 3GCR Total, over 50 patient-days. A
   # dataset lacks a row only where none of its departments detected an
   # infectious agent at or beneath it, so all of them enter the row at 0.
-  ref_ds <- with_antibiotic_entries(make_infection_calc_test_ds(
+  ref_ds <- make_infection_calc_test_ds(
     forms = tibble::tibble(event_type_key = "bsi",
                            department_key = c(1L, 1L, 2L, 3L)),
     findings = tibble::tibble(
@@ -1111,8 +1111,8 @@ test_that("get_benchmark_data gives a dataset all its patient-days on a density 
       cor = NA_character_,
       mrsa = c(NA, "yes", NA),
       vre = NA_character_),
-    patient_days = c(100L, 100L, 40L)))
-  own_ds <- with_antibiotic_entries(make_infection_calc_test_ds(
+    patient_days = c(100L, 100L, 40L))
+  own_ds <- make_infection_calc_test_ds(
     forms = tibble::tibble(event_type_key = "bsi",
                            department_key = c(1L, 1L)),
     findings = tibble::tibble(
@@ -1123,7 +1123,7 @@ test_that("get_benchmark_data gives a dataset all its patient-days on a density 
       cor = NA_character_,
       mrsa = NA_character_,
       vre = NA_character_),
-    patient_days = 50L))
+    patient_days = 50L)
   own <- calculate_department_data(own_ds, use_cache = FALSE)
   ref <- calculate_reference_data(ref_ds, use_cache = FALSE)
   benchmark <- get_benchmark_data(own = own, ref = ref)

@@ -21,8 +21,11 @@ A table containing secondary BSI rates, a row per infection type
 (\code{event_type_key}): \code{n}, the infections with a secondary BSI; \code{pooled},
 their share of the infections followed up, in percent; \code{ci_lower} and
 \code{ci_upper}, its Wilson interval; with \code{include_quartiles} the
-departments' quartiles of the rate (\code{q1}, \code{q2}, \code{q3}) and their bootstrap
-intervals; \code{followup_n}, the infections followed up; \code{total_n}, all
+departments' quartiles of the rate (\code{q1}, \code{q2}, \code{q3}), their bootstrap
+intervals, and \code{quartile_departments}, the number of departments that
+enter them, those with at least 5 of the type's infections followed up,
+\code{NA} for the quartiles where fewer than 5 enter or the gate fails;
+\code{followup_n}, the infections followed up; \code{total_n}, all
 infections of the type; \code{followup_pooled}, the share followed up, in
 percent; and with \code{include_quartiles} the quartiles of the departments'
 follow-up shares (\code{followup_q1}, \code{followup_q2}, \code{followup_q3}) over the
