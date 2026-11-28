@@ -85,7 +85,12 @@ get_incidence_density_rates <- function(
   if(use_cache && !is.null(r <- get_cached(x, cache_key)))
     return(r)
 
-  r <- x$events |>
+  # The grid of the groups' risk time and every infection type, so that a
+  # group without infections of a type holds that type's row with a count
+  # of 0, and no row lacks an infection type.
+  incidence_density_types <- c("bsi", "hap", "nec", "si")
+  risk_time <- get_risk_time(x, group_cols, use_cache)
+  counts <- x$events |>
     dplyr::filter(.data$event_type_key %in% c("bsi","nec","hap")) |>
     dplyr::group_by(dplyr::across(tidyselect::all_of(
       c("event_type_key",group_cols)))) |>
@@ -98,18 +103,24 @@ get_incidence_density_rates <- function(
     dplyr::mutate(si = sum(dplyr::c_across(tidyselect::any_of(c("bsi","hap"))))) |>
     dplyr::ungroup() |>
     tidyr::pivot_longer(!tidyselect::all_of(group_cols), names_to = "inf", values_to = "n")
-
-  if(is.null(group_cols))
-    r <- r |>
-    dplyr::bind_cols(
-      get_risk_time(x, use_cache = use_cache) |>
-        dplyr::select("patient_days"))
+  r <- if (is.null(group_cols)) {
+    tibble::tibble(inf = incidence_density_types) |>
+      dplyr::left_join(counts, by = "inf")
+  } else {
+    tidyr::expand_grid(
+      department_key = risk_time$department_key,
+      inf = incidence_density_types) |>
+      dplyr::left_join(counts, by = c("department_key", "inf"))
+  }
+  r <- r |>
+    dplyr::mutate(n = dplyr::coalesce(.data$n, 0L))
+  risk_days <- risk_time |>
+    dplyr::select(
+      tidyselect::all_of(c(group_cols, "patient_days")))
+  r <- if (is.null(group_cols))
+    dplyr::bind_cols(r, risk_days)
   else
-    r <- r |>
-    dplyr::right_join(
-      get_risk_time(x, group_cols, use_cache) |>
-        dplyr::select(tidyselect::all_of(c(group_cols,"patient_days"))),
-      by = group_cols)
+    dplyr::left_join(r, risk_days, by = group_cols)
 
   r |>
     dplyr::mutate(
@@ -1139,7 +1150,7 @@ quartile_minimum_denominator <- c(count = 5L, days = 50L)
     function(shown, events, exposure) {
       if (!shown)
         return(hidden)
-      q <- stats::quantile(events / exposure * scale, quartile_probs,
+      q <- stats::quantile(events / exposure * scale, probs = quartile_probs,
                            names = FALSE)
       dplyr::bind_cols(
         tibble::tibble(q1 = q[1], q2 = q[2], q3 = q[3]),

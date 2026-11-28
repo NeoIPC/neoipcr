@@ -139,6 +139,35 @@ section above it for the next changes.
   share (`tested_n`, `tested_total`, `tested_pooled`, `tested_ci_lower`, `tested_ci_upper`) over the
   infections with an infectious agent of the node to which the list applies the category. A
   department enters a row's quartiles with at least 5 infections with a result.
+* `get_risk_time()` and `get_surgery_risk()` take their denominators over every infant's
+  surveillance-end form, not only those whose form holds an antimicrobial-substance entry: a stay
+  without one is at risk just the same, and counted in its departments' patient-days and the risk
+  factors of the other stays, where it left them and its department's row out. The tables read
+  through these denominators, the rates of `calculate_department_data()` and
+  `calculate_reference_data()` among them, count the stays thus in. A stay without an entry
+  contributes no substance-days, its AWaRe columns `a_days`, `w_days`, and `r_days` at 0, and these
+  three columns stand on every stay of a dataset with the event forms imported, entries or none.
+* An antimicrobial-substance entry that records no days adds no days: every sum of substance-days,
+  per substance, ATC group, and AWaRe category, pooled or per department, counts the days that are
+  known, where one entry without days made its total missing and dropped the substance and its group
+  from the utilization table or failed the quartiles. A substance without an AWaRe category counts in
+  a category of its own, "Not classified" (`nc_days` beside `a_days`, `w_days`, and `r_days`), which
+  the risk-density table holds as a row and the substance and category totals name like Access,
+  Watch, and Reserve; the category totals always hold a row for each of the four categories, at 0
+   known days where no entry names it.
+ * Every table of the December edition that gives department quartiles takes them, their intervals,
+   and their gate over the same departments: those whose own denominator of the row is positive and
+   reaches the minimum, 50 of a day denominator or 5 of a count denominator, a department at a rate
+   of 0 where it holds none of the row's events. The incidence densities gain the departments without
+   the type's infections, which no longer leave a row of the table without an infection type, and
+   enter them at 0; the device-associated rates leave out the departments without days of the device;
+   the antibiotic utilization table takes the departments that used none of a substance or group at 0;
+   the risk-density table enters every department with the minimum of its patient-days; and the
+   secondary-BSI quartiles stand over each type's followed-up infections, their count taken per row.
+   Each of these tables gives the number of departments that enter a row's quartiles as
+   `quartile_departments`, whether or not the row shows them. A department below the minimum leaves
+   the row's quartiles, its count, and its gate but stays in the pooled rate, and a row with fewer
+   than five entering departments shows its pooled rate and interval only.
 * `get_resistance_test_rate_table()` gives, for each category, the share of the detections to which
   the list applies it that have a result, a blank counting as undocumented in the denominator, where
   it counted every slot holding a value of the category and left the blanks out. "Not listed" counts

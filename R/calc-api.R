@@ -318,12 +318,12 @@ calculate_department_data <- function(x, use_cache = TRUE) {
     dplyr::mutate(
       factor = factor(.data$factor,
         levels = c("cvc","pvc","vs","inv","niv","human_milk","probiotic",
-                   "kangaroo_care","ab","a","w","r"))
+                   "kangaroo_care","ab","a","w","r","nc"))
     ) |>
     (\(d) dplyr::bind_cols(d, poisson_ci_cols(d$days, rt$patient_days, multiplier = 100)))() |>
     (\(r) {
       expected_levels <- c("cvc","pvc","vs","inv","niv","human_milk","probiotic",
-                           "kangaroo_care","ab","a","w","r")
+                           "kangaroo_care","ab","a","w","r","nc")
       missing <- setdiff(expected_levels, as.character(r$factor))
       if (length(missing) > 0)
         r <- r |>
