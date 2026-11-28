@@ -13,7 +13,8 @@ test_that("calculate_department_data produces neoipcr_rep_ds", {
     "n_departments", "n_patients", "n_enrollments", "n_patient_days",
     "n_infections", "n_surgical_departments",
     "n_surgical_procedures", "n_surgical_patients",
-    "usage_density_rate_table", "antibiotic_utilization_table",
+    "usage_density_rate_table", "patients_exposed_table",
+    "antibiotic_utilization_table",
     "surgery_rate_table", "incidence_density_rate_table",
     "dev_ass_incidence_density_rate_table",
     "infectious_agent_detection_rate_per_agent_table",
@@ -25,6 +26,16 @@ test_that("calculate_department_data produces neoipcr_rep_ds", {
     "infectious_agent_detection_rate_per_inf_type_table",
     "resistance_test_rate_table")
   expect_true(all(expected_slots %in% names(result)))
+})
+
+test_that("calculate_reference_data carries the patients exposed and their days, stamped", {
+  ds <- make_calc_test_ds()
+  ref <- calculate_reference_data(ds, use_cache = FALSE)
+  expect_s3_class(ref$patients_exposed_table, "tbl_df")
+  # The table joins no other's unless its own stamps are carried: the
+  # version of its rate definitions rides with it, because
+  # `get_benchmark_data()` compares it for every table it joins.
+  expect_true("patients_exposed_table" %in% ref$metadata$rate_definitions$table)
 })
 
 test_that("both calculation functions carry both versions of the table of the infectious agents detected", {
@@ -608,7 +619,8 @@ test_that("get_benchmark_data joins a table only where the versions of its rate 
                   "dev_ass_incidence_density_rate_table", "n_infections",
                   "secondary_bsi_rate_table",
                   "infectious_agent_detection_rate_per_inf_type_table",
-                  "resistance_test_rate_table")) {
+                  "resistance_test_rate_table",
+                  "patients_exposed_table")) {
     expect_equal(nrow(matching$value[[table]]), nrow(ref[[table]]),
                  label = table)
     if ("n" %in% names(ref[[table]]))

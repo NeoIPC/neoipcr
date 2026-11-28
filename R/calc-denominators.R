@@ -150,6 +150,62 @@ get_risk_time <- function(x, group_cols = NULL, use_cache = TRUE) {
     cache(x, cache_key)
 }
 
+# The stored day columns of the eight exposure factors the reports' table of
+# exposed patients counts, in that table's order. The Access, Watch, and
+# Reserve days are substance-days of their own, summed from the antibiotic
+# entries by `get_aware_days()`, and enter the usage density table, not this
+# one.
+exposure_factor_day_columns <- c(
+  "cvc_days", "pvc_days", "inv_days", "niv_days", "ab_days",
+  "human_milk_days", "probiotic_days", "kangaroo_care_days")
+
+# The exposure days of the eight factors, per patient: one row per patient
+# and department, the day columns summed over the patient's completed stays.
+# Unlike `get_risk_time()`, this joins only the surveillance-end forms: a
+# stay without an antibiotic entry keeps its exposure days here, since
+# `get_risk_time()`'s inner join of `get_aware_days()` leaves such a stay
+# out of the patient-days it divides by.
+get_patient_exposure_days <- function(x, use_cache = TRUE) {
+  cache_key <- "patient_exposure_days"
+  if (use_cache && !is.null(r <- get_cached(x, cache_key)))
+    return(r)
+
+  x$patients |>
+    dplyr::inner_join(
+      x$enrollments |>
+        dplyr::select(
+          c(
+            "patient_key",
+            !tidyselect::any_of(c(names(x$patients))))
+        ),
+      dplyr::join_by("patient_key")) |>
+    dplyr::inner_join(
+      x$events |>
+        dplyr::select(
+          c(
+            "enrollment_key",
+            !tidyselect::any_of(c(names(x$patients), names(x$enrollments))))
+        ),
+      dplyr::join_by("enrollment_key")) |>
+    dplyr::inner_join(
+      x$surveillanceEndData |>
+        dplyr::select(
+          "event_key", tidyselect::all_of(exposure_factor_day_columns)),
+      dplyr::join_by("event_key")) |>
+    dplyr::group_by(dplyr::across(
+      tidyselect::any_of(c("patient_key", "department_key")))) |>
+    # The eight day counts are compulsory on a completed surveillance-end
+    # form, so a stay that leaves one blank records no days of that factor:
+    # a blank adds none of its stay's days, a patient whose forms are all
+    # blank counts as not exposed and stays in the denominator, and the
+    # patient's other stays still count the days that are known.
+    dplyr::summarise(
+      dplyr::across(tidyselect::all_of(exposure_factor_day_columns),
+                    ~ sum(.x, na.rm = TRUE)),
+      .groups = "drop") |>
+    cache(x, cache_key)
+}
+
 get_procedures <- function(x, group_cols = NULL, use_cache = TRUE) {
   if(is.null(group_cols))
     cache_key <- "procedures"

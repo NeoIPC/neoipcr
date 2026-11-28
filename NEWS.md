@@ -50,6 +50,16 @@ section above it for the next changes.
   user's name there, while the legacy APIs that Tracker Capture writes through still store the value
   the client sent, so attribution rests on the `createdBy` and `updatedBy` columns that `include_user`
   adds, of which a patient's attribute values have none.
+* `get_patients_exposed_table()` is a new export: one row per exposure factor — central venous
+  catheter, peripheral venous catheter, invasive and non-invasive ventilation, any antibiotic,
+  human milk, probiotics, and kangaroo care — and measure, giving the share of exposed patients
+  and the factor's days over those patients. The mean days carry no interval: a Poisson interval
+  on the exposed patients as exposures counts every day of one stay as an independent event, and
+  the package has no interval for a mean over clustered patients, so the mean days' `ci_lower` and
+  `ci_upper` and their quartiles' intervals are `NA`.
+* Both calculated datasets carry the new `patients_exposed_table` slot with the stamp of its
+  rate definitions; datasets calculated before it lack the slot, and `get_benchmark_data()`
+  joins the table on `factor` and `measure`, taking the rows of the datasets that hold it.
 * neoipcr classifies infectious-agent findings by tables built from a release of the NeoIPC
   infectious-agent list and its reporting classification in the Surveillance-Toolkit, the release
   that `neoipcr_supported_versions()` gives as the new element `infectious_agents`. The tables they

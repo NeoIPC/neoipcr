@@ -109,6 +109,7 @@ Where a row's return-class slug is scheduled for rename by task 1.2 (the class-s
 | 39 | `validation_summary` | [R/validation.R](R/validation.R) | `(findings)` | tibble (`rule_id`, `record_kind`, `n_flagged`, `n_exempted`) | external-stable | experimental | — | Counts a `validate()` result's flagged and exempted records per rule and record kind, as `import_dhis2()` stores them in `validationSummary`; reads the result's `findings_exempted` attribute and refuses a result without the attributes `validate()` sets (`neoipcr_invalid_validation_result`). |
 | 40 | `validation_exception_usage` | [R/validation-exceptions.R](R/validation-exceptions.R) | `(x, exceptions, findings)` | tibble (the list's records for the dataset's departments, with `matched` and `n_exempted`) | external-stable | experimental | — | Whether each record of an exception list matches the dataset, and how many records it exempted in a `validate()` result, `NA` for a rule the result did not run; a record for a department the dataset does not hold is left out, so a list with department codes needs a dataset that carries them (`neoipcr_validation_needs_facts`). For the upkeep of the list. |
 | 41 | `validation_rule_severities` | [R/validation.R](R/validation.R) | `()` | named character vector (`"error"` or `"warning"`, per rule id) | external-stable | experimental | — | Each rule's severity as the registry declares it, for consumers that present a warning differently from an error. The import's pass removes the patients an error flags and keeps those only a warning flags; `validationSummary$n_warned` counts every record a warning flags, whether or not an error removed its patient. |
+| 42 | `get_patients_exposed_table` | [R/calc-tables.R](R/calc-tables.R) | `(x, use_cache, include_quartiles)` | `neoipcr_tbl_pe` / `_pe_ref` | internal-stable | stable | — | The patients exposed to each of the eight exposure factors and their days: the share of exposed patients and the mean days per exposed patient, one row per factor and measure; the mean days carry no interval (§13.1.4). The pooled figures count each patient once also under a pseudonymized patients table, where a patient with stays in two departments gives two rows of the per-department figures. |
 
 ### §3.1. Naming patterns and inconsistencies (A1 findings, feed into §9)
 
@@ -119,15 +120,16 @@ Where a row's return-class slug is scheduled for rename by task 1.2 (the class-s
 
 ### §3.2. Classes not covered by task 1.2 (gap report)
 
-Audit A1 discovered three return-class slugs that are **not listed in task 1.2's rename table**:
+Audit A1 discovered three return-class slugs that are **not listed in task 1.2's rename table**; the exposed-patients table's classes, added after the audit, are likewise unlisted:
 
 | Current slug | Where returned | Meaning | Suggested addition to task 1.2 |
 |---|---|---|---|
 | `neoipcr_bnch_ds` | `get_benchmark_data()` | Merged benchmark dataset | `neoipcr_benchmark_ds` |
 | `neoipcr_tbl_rtr` / `neoipcr_tbl_rtr_ref` | `get_resistance_test_rate_table()` | Completeness of antimicrobial susceptibility testing | per §9.5 master |
 | `neoipcr_tbl_sec_bsi` / `neoipcr_tbl_sec_bsi_ref` | `get_secondary_bsi_rate_table()` | Secondary-BSI rates by infection type | per §9.5 master |
+| `neoipcr_tbl_pe` / `neoipcr_tbl_pe_ref` | `get_patients_exposed_table()` | Patients exposed to each factor and their days | per §9.5 master |
 
-**Recommendation**: add these rows to task 1.2 before it executes, so the rename is comprehensive. The two `neoipcr_tbl_*` slugs should adopt the §9.5 master-name scheme (D-I) rather than be renamed independently — see §9.5.6.
+**Recommendation**: add these rows to task 1.2 before it executes, so the rename is comprehensive. The `neoipcr_tbl_*` slugs should adopt the §9.5 master-name scheme (D-I) rather than be renamed independently — see §9.5.6.
 
 ---
 
@@ -195,12 +197,13 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 - `n_departments`, `n_patients`, `n_enrollments`, `n_patient_days` — summary counts.
 - `n_surgical_departments`, `n_surgical_patients`, `n_surgical_procedures` — surgery-specific counts.
 - `n_infections` — tibble (`inf_type`, `total`).
-- Fourteen result tables: `usage_density_rate_table`, `antibiotic_utilization_table`, `surgery_rate_table`, `incidence_density_rate_table`, `dev_ass_incidence_density_rate_table`, `infectious_agent_detection_rate_per_agent_table`, `infectious_agent_detection_rate_per_inf_type_table`, `abr_infection_rate_table`, `infectious_agent_resistance_rate_table`, `secondary_bsi_rate_table`, `resistance_test_rate_table`, and the full-ontology versions of the three tables whose rows are infectious agents, `infectious_agent_detection_rate_per_agent_ontology_table`, `abr_infection_rate_ontology_table`, and `infectious_agent_resistance_rate_ontology_table` — each a tibble with factors, counts, pooled rate, and its 95 % interval, whose rates §13 defines. **No quartile columns** — that's what distinguishes `neoipcr_rep_ds` from `neoipcr_ref_ds`.
+- Fifteen result tables: `usage_density_rate_table`, `patients_exposed_table`, `antibiotic_utilization_table`, `surgery_rate_table`, `incidence_density_rate_table`, `dev_ass_incidence_density_rate_table`, `infectious_agent_detection_rate_per_agent_table`, `infectious_agent_detection_rate_per_inf_type_table`, `abr_infection_rate_table`, `infectious_agent_resistance_rate_table`, `secondary_bsi_rate_table`, `resistance_test_rate_table`, and the full-ontology versions of the three tables whose rows are infectious agents, `infectious_agent_detection_rate_per_agent_ontology_table`, `abr_infection_rate_ontology_table`, and `infectious_agent_resistance_rate_ontology_table` — each a tibble with factors, counts, pooled rate, and its 95 % interval, whose rates §13 defines. **No quartile columns** — that's what distinguishes `neoipcr_rep_ds` from `neoipcr_ref_ds`.
 
 **Invariants**:
 
 - Computed via `calculate_department_data()`. Requires `include_patient`, `include_enrollment`, and `include_department` each at `"pseudo"` or `"full"`, and `include_event` at `"full"`: the infectious-agent figures read the findings' `pathogen_key` and `secondary_bsi`, which the `"pseudo"` tier leaves out because a rare infectious agent can single out a patient. Another dataset is refused with an error of class `neoipcr_unmet_import_options`.
 - `secondary_bsi_rate_table` also carries, beside each rate, the infections followed up for a secondary BSI (`followup_n`), all infections of the type (`total_n`), and the share followed up (`followup_pooled`).
+- `patients_exposed_table` gives one row per exposure factor (`factor`) and measure (`measure`): the `patients_exposed` share of the patients with at least one day of the factor over all patients, in percent, and the `mean_days` days of the factor over those exposed patients. The mean days carry no interval — `ci_lower` and `ci_upper` are `NA` — as no interval for a mean over clustered patients stands in the package.
 - `infectious_agent_detection_rate_per_inf_type_table` has the rows `bsi`, `hap`, and `ssi` (`inf`), none for NEC and none for all types together (§13.8.4). Each gives two shares: the share positive among the tested (`n` over `tested`, `pooled`, `ci_lower`, `ci_upper`) and the share tested (the tested over `total`, every infection of the type; `tested_pooled`, `tested_ci_lower`, `tested_ci_upper`). The share tested is `NA` for `bsi`, whose form does not record whether a blood culture was taken and whose `tested` and `total` both count every episode.
 - Summary counts inherit the user's `dataset_options` (display-purpose metadata).
 - Result tables carry pooled-rate + CI only — no department-level distribution statistics.
@@ -218,7 +221,7 @@ The four main classes span two shapes: dataset lists (`neoipcr_ds`, `neoipcr_rep
 **Delta from §4.2**:
 
 - Every result table gains `q1`, `q2`, `q3` (25th / 50th / 75th percentiles of department-level rates).
-- Tables for which bootstrap CIs are computed gain `q1_ci_lower` / `q1_ci_upper` / `q2_ci_lower` / `q2_ci_upper` / `q3_ci_lower` / `q3_ci_upper`.
+- Tables for which bootstrap CIs are computed gain `q1_ci_lower` / `q1_ci_upper` / `q2_ci_lower` / `q2_ci_upper` / `q3_ci_lower` / `q3_ci_upper`; the `mean_days` rows of `patients_exposed_table` keep those `NA`, as their pooled figure does.
 - `secondary_bsi_rate_table` gains `followup_q1` / `followup_q2` / `followup_q3`, the quartiles of the departments' shares of infections followed up, over the departments with at least 5 infections of the type, `NA` with fewer than 5 such departments.
 - `infectious_agent_detection_rate_per_inf_type_table` also gains the departments' quartiles of the share tested, `tested_q1` / `tested_q2` / `tested_q3`, with their bootstrap intervals (`tested_q1_ci_lower` and so on) and `tested_quartile_departments`, all `NA` for `bsi`. Each share's quartiles follow the rule of §13.1.1 over the share's own denominator, a department entering with at least 5 infections in it, at 0 without the share's events.
 - `metadata$dataset_options$department_filter` is the marker `"applied"` (or `NULL` for an empty filter), never the department codes; the emitted copy is asserted to name no department. `validationSummary` and `reconciliationSummary` are carried as in §4.2.

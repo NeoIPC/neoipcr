@@ -1538,6 +1538,209 @@ make_resistance_quartile_test_ds <- function() {
     patient_days = c(rep(100L, 5), 40L, 100L, 100L)))
 }
 
+# Exposure-days fixture: sixteen patients in three departments of six, six
+# and four patients, on seventeen completed stays — patient 1 of department 1
+# is readmitted, and its second stay carries no antibiotic entry. The days of
+# the eight exposure factors, summed over the stays:
+#   * CVC: seven patients, 31 days (patient 1's two stays carry 3 and 2 of
+#     them, so the readmission's days must sum in although its stay stands
+#     without an antibiotic entry);
+#   * PVC: two patients, 5 days; INV: one patient, 4 days;
+#     NIV: two patients, 7 days; any antibiotic: three patients, 12 days;
+#   * human milk: eight patients, 55 days — five of them, 40 days, in
+#     department 1, the one department of at least five exposed patients for
+#     one factor;
+#   * probiotics: no patient, no day; kangaroo care: two patients, 17 days.
+# Patients 11, 14 and 16 complete a stay with no exposure day.
+make_exposure_patients_test_ds <- function() {
+  md <- read_test_metadata(
+    dataset_options = dhis2_dataset_options(
+      include_department = "full",
+      include_country    = "full"))
+  md$departments      <- make_test_metadata_departments(3)
+  md$hospitals        <- make_test_metadata_hospitals(3)
+  md$countries        <- make_test_metadata_countries(3)
+  md$worldBankClasses <- make_test_metadata_wb_classes(3)
+  md$eventTypes       <- make_test_metadata_event_types()
+  md$dataset_options  <- dhis2_dataset_options(
+    include_department = "full",
+    include_country    = "full",
+    include_patient    = "full",
+    include_enrollment = "full",
+    include_event      = "full")
+
+  stay_patient    <- c(1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)
+  stay_department <- c(rep(1L, 7), rep(2L, 6), rep(3L, 4))
+
+  patients <- make_test_patients(16,
+    department_key = c(rep(1L, 6), rep(2L, 6), rep(3L, 4)))
+
+  enrollments <- make_test_enrollments(
+    n              = 17,
+    patient_keys   = stay_patient,
+    department_key = stay_department)
+
+  events <- make_test_events(
+    n               = 34,
+    enrollment_keys = rep(seq_len(17), each = 2),
+    patient_keys    = rep(stay_patient, each = 2),
+    event_type_keys = rep(c("adm", "end"), 17),
+    department_key  = rep(stay_department, each = 2))
+
+  make_test_ds(
+    metadata            = md,
+    patients            = patients,
+    enrollments         = enrollments,
+    events              = events,
+    surveillanceEndData = make_test_surveillance_end_data(
+      event_keys = seq.int(2, 34, by = 2),
+      patient_days =
+        c(8L, 5L, 12L, 22L, 14L, 9L, 6L, 11L, 4L, 8L, 5L, 6L, 7L, 4L, 5L, 5L, 4L),
+      cvc_days =
+        c(3L, 2L, 4L, 10L, 7L, 0L, 0L, 3L, 1L, 0L, 0L, 0L, 0L, 1L, 0L, 0L, 0L),
+      pvc_days = c(0L, 0L, 0L, 0L, 0L, 3L, 0L, 0L, 0L, 0L, 2L, 0L, 0L, 0L, 0L, 0L, 0L),
+      vs_days = rep(0L, 17),
+      inv_days = c(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 4L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
+      niv_days = c(0L, 1L, 6L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
+      ab_days = c(0L, 0L, 4L, 0L, 0L, 0L, 0L, 5L, 0L, 0L, 0L, 0L, 3L, 0L, 0L, 0L, 0L),
+      human_milk_days =
+        c(0L, 0L, 4L, 20L, 6L, 8L, 2L, 10L, 0L, 0L, 0L, 0L, 3L, 0L, 0L, 2L, 0L),
+      kangaroo_care_days =
+        c(0L, 0L, 0L, 0L, 12L, 0L, 0L, 0L, 0L, 5L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
+      probiotic_days = rep(0L, 17)),
+    # Stay 2, patient 1's readmission, holds no antibiotic entry: its event
+    # key is the one left out of the substance days.
+    substanceDays = make_test_substance_days(
+      event_keys = seq.int(2, 34, by = 2)[-2]))
+}
+
+# Exposure-days fixture for the departments' quartiles: thirty patients on
+# thirty completed stays, six in each of five departments, so five departments
+# reach the quartiles' denominator of five patients. CVC: one, two, three,
+# four and five exposed patients with six, eight, twelve, twenty and ten days
+# — fifteen patients, fifty-six days. Human milk: five, six, five, six and
+# five exposed patients with one, two, three, four and five days each —
+# twenty-seven patients, eighty-one days, mean days one to five by
+# department.
+make_exposure_quartiles_test_ds <- function() {
+  md <- read_test_metadata(
+    dataset_options = dhis2_dataset_options(
+      include_department = "full",
+      include_country    = "full"))
+  md$departments      <- make_test_metadata_departments(5)
+  md$hospitals        <- make_test_metadata_hospitals(5)
+  md$countries        <- make_test_metadata_countries(5)
+  md$worldBankClasses <- make_test_metadata_wb_classes(5)
+  md$eventTypes       <- make_test_metadata_event_types()
+  md$dataset_options  <- dhis2_dataset_options(
+    include_department = "full",
+    include_country    = "full",
+    include_patient    = "full",
+    include_enrollment = "full",
+    include_event      = "full")
+
+  patients <- make_test_patients(30,
+    department_key = rep(seq_len(5), each = 6))
+
+  enrollments <- make_test_enrollments(
+    n              = 30,
+    patient_keys   = seq_len(30),
+    department_key = rep(seq_len(5), each = 6))
+
+  events <- make_test_events(
+    n               = 60,
+    enrollment_keys = rep(seq_len(30), each = 2),
+    patient_keys    = rep(seq_len(30), each = 2),
+    event_type_keys = rep(c("adm", "end"), 30),
+    department_key  = rep(rep(seq_len(5), each = 6), each = 2))
+
+  make_test_ds(
+    metadata            = md,
+    patients            = patients,
+    enrollments         = enrollments,
+    events              = events,
+    surveillanceEndData = make_test_surveillance_end_data(
+      event_keys = seq.int(2, 60, by = 2),
+      patient_days = rep(10L, 30),
+      cvc_days = c(6L, rep(0L, 5), 4L, 4L, rep(0L, 4),
+                   4L, 4L, 4L, rep(0L, 3),
+                   5L, 5L, 5L, 5L, rep(0L, 2),
+                   2L, 2L, 2L, 2L, 2L, 0L),
+      pvc_days = rep(0L, 30),
+      vs_days = rep(0L, 30),
+      inv_days = rep(0L, 30),
+      niv_days = rep(0L, 30),
+      ab_days = rep(0L, 30),
+      human_milk_days = c(rep(1L, 5), 0L,
+                          rep(2L, 6),
+                          rep(3L, 5), 0L,
+                          rep(4L, 6),
+                          rep(5L, 5), 0L),
+      kangaroo_care_days = rep(0L, 30),
+      probiotic_days = rep(0L, 30)))
+}
+
+# Exposure-days fixture with the patients table pseudonymized: two patients
+# on three completed stays — patient 1 with one stay in each of two
+# departments, patient 1 readmission and patient 2 a single stay in the
+# first. The patients table of the pseudo tier carries no department, so the
+# only department left is the enrolment's, and patient 1 stands in two rows
+# of the per-department figures: the pooled figures must count that patient
+# once. CVC: patient 1 exposed 5 days over its two stays, patient 2 4.
+make_exposure_pseudo_patient_test_ds <- function() {
+  md <- read_test_metadata(
+    dataset_options = dhis2_dataset_options(
+      include_department = "full",
+      include_country    = "full"))
+  md$departments      <- make_test_metadata_departments(2)
+  md$hospitals        <- make_test_metadata_hospitals(2)
+  md$countries        <- make_test_metadata_countries(2)
+  md$worldBankClasses <- make_test_metadata_wb_classes(2)
+  md$eventTypes       <- make_test_metadata_event_types()
+  md$dataset_options  <- dhis2_dataset_options(
+    include_department = "full",
+    include_country    = "full",
+    include_patient    = "pseudo",
+    include_enrollment = "full",
+    include_event      = "full")
+
+  patients <- make_test_patients(2,
+    include_patient = "pseudo",
+    include_department = "full")
+
+  enrollments <- make_test_enrollments(
+    n                = 3,
+    patient_keys     = c(1L, 1L, 2L),
+    department_key   = c(1L, 2L, 1L),
+    include_patient  = "pseudo")
+
+  events <- make_test_events(
+    n               = 6,
+    enrollment_keys = rep(seq_len(3), each = 2),
+    patient_keys    = rep(c(1L, 1L, 2L), each = 2),
+    event_type_keys = rep(c("adm", "end"), 3),
+    department_key  = c(1L, 1L, 2L, 2L, 1L, 1L),
+    include_patient  = "pseudo")
+
+  make_test_ds(
+    metadata            = md,
+    patients            = patients,
+    enrollments         = enrollments,
+    events              = events,
+    surveillanceEndData = make_test_surveillance_end_data(
+      event_keys = c(2L, 4L, 6L),
+      patient_days = c(5L, 6L, 7L),
+      cvc_days = c(3L, 2L, 4L),
+      pvc_days = rep(0L, 3),
+      vs_days = rep(0L, 3),
+      inv_days = rep(0L, 3),
+      niv_days = rep(0L, 3),
+      ab_days = rep(0L, 3),
+      human_milk_days = rep(0L, 3),
+      kangaroo_care_days = rep(0L, 3),
+      probiotic_days = rep(0L, 3)))
+}
+
 
 #' Construct a minimal structurally valid neoipcr_ds object.
 #'
