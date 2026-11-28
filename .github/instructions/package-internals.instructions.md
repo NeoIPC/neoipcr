@@ -47,7 +47,12 @@ When a username is known (the `username` argument, `NEOIPC_DHIS2_USER`, or the p
 
 ### Token Format
 
-DHIS2 personal access tokens match the `d2pat_` prefix and 42 characters (48 in total). `read_token()` accepts either a raw token string or a file path containing the token, and validates **only** the prefix and the 48-character length. DHIS2 itself generates the body as a 32-character Base64 random part and a 10-digit CRC32 checksum (`ApiTokenServiceImpl.initToken`); the first body character can be a digit (it is **not** the letter-first UID form), and neither the leading character nor the checksum is verified on the 2.40 authentication path (`ApiTokenAuthManager` hashes and looks up the key). So a fixture token needs only the prefix and the length, no valid checksum.
+DHIS2 personal access tokens come in two versions, told apart by their shape:
+
+1. Version 1, which DHIS2 2.40 and earlier issue: `d2pat_`, 32 ASCII letters or digits, and a 10-digit CRC32 checksum; 48 characters (`ApiTokenServiceImpl.initToken` at 2.40.12). The first body character can be a digit — it is **not** the letter-first UID form — because 2.40 builds the random part from Base64 with `-` and `_` replaced by `x`. DHIS2 2.41 and later refuse every version-1 token, and neoipcr still supports 2.40, so it accepts this form: `NEOIPC-COMPAT(dhis2-version-1-token)` in `R/dhis2-connect.R` marks the alternative.
+2. Version 2, which DHIS2 2.41 and later issue: `d2p_`, 44 ASCII letters or digits, and a 6-character Base62 checksum; 54 characters (`ApiTokenType`, `ApiKeyTokenGenerator`, and `Base62` at 2.41.10).
+
+`read_token()` accepts either a raw token string or a file path containing the token, and validates **only** that the string has one of the two shapes, case-sensitively with anchors: an inline token with anything around it, a line break included, is refused, and a token file may end with one line break, which is stripped. The checksum is left to DHIS2, which checks it when the token is used, from 2.41 on; 2.40 checks none. So a fixture token needs only the shape, no valid checksum.
 
 ---
 

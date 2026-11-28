@@ -162,7 +162,11 @@ events_cols <- with_entity_gate(
 
     # Entity-level user fields. All four are gated by
     # `include_user != "no"`. DHIS2's Event.java carries them as:
-    #   - `storedBy`   : String (client-asserted username)
+    #   - `storedBy`   : String, the username written with the event —
+    #                    the client's on the legacy APIs Tracker Capture
+    #                    writes through, the authenticated user's on the
+    #                    tracker API from DHIS2 2.41.9 ("Per-attribute
+    #                    companion columns" in `schema-cols-shared.R`)
     #   - `createdBy`  : User (server-authenticated, fetched as
     #                    `createdBy[username]`)
     #   - `updatedBy`  : User (same pattern)

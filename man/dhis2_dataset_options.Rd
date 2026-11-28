@@ -116,8 +116,28 @@ participating departments narrows down which department a pseudonymized
 departments is the caller's explicit choice, as with
 \code{include_custom_attributes}.}
 
-\item{include_user}{Include the user metadata into the dataset. Possible
-values are "no", "pseudo" and "full"}
+\item{include_user}{Include the user metadata into the dataset:
+\code{metadata$users}, and the user columns the other tibbles carry — the
+entity-level \code{createdBy}, \code{updatedBy}, \code{completedBy}, and \code{storedBy} of
+enrollments and events, the \code{createdBy}, \code{updatedBy}, and \code{storedBy} of
+patients, the \code{storedBy} and \code{createdBy} of the notes, and the
+\verb{_storedBy}, \verb{_createdBy}, and \verb{_updatedBy} companion columns of a
+selected attribute or data value — each held as a \code{user_key} into
+\code{metadata$users} rather than a name. Possible values are "no", "pseudo"
+and "full": under "pseudo" \code{metadata$users} carries \code{user_key} alone,
+plus the DHIS2 user id where \code{"users"} is in \code{include_dhis2_ids}; under
+"full" also \code{username}, \code{firstName}, \code{surname}, \code{email},
+\code{lastLogin}, and \code{created}. A \code{storedBy} column holds what DHIS2
+returns, and its meaning depends on how the record was written: from
+DHIS2 2.41.9, and on the later lines from 2.42.6 and 2.43.1, a record
+written through the tracker API holds the authenticated user's name
+there, while the legacy APIs that Tracker Capture writes through still
+store the value the client sends, so one dataset can hold both meanings
+and attribution of a record rests on \code{createdBy} and \code{updatedBy}, which
+DHIS2 sets itself. A patient's attribute values carry \code{storedBy} and
+neither \code{createdBy} nor \code{updatedBy}: no attribute value is attributed
+through its \verb{_storedBy}, and the patient's own \code{createdBy} and
+\code{updatedBy} say who created and last updated the patient.}
 
 \item{include_patient}{Include the patient tibble into the dataset and
 expose the \code{patient_key} link column on downstream tibbles. Possible values

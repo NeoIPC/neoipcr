@@ -173,16 +173,22 @@ col_inherited_from <- function(col_name, opts_key, parent_cols,
 # ---- Per-attribute companion columns --------------------------------------
 #
 # DHIS2 tracker entities carry two different user-attribution claims
-# (client-asserted `storedBy` vs server-authenticated `createdBy`) and a
-# pair of server-assigned timestamps (`createdAt` / `updatedAt`). Each
-# user-entered attribute on an event, enrollment, or event-data value
-# picks up companion columns that mirror these claims, gated jointly by
-# the attribute's own inclusion predicate and by `include_user` /
-# `include_timestamps`.
+# (`storedBy`, the value written with the record, vs server-authenticated
+# `createdBy`) and a pair of server-assigned timestamps (`createdAt` /
+# `updatedAt`). Each user-entered attribute on an event, enrollment, or
+# event-data value picks up companion columns that mirror these claims,
+# gated jointly by the attribute's own inclusion predicate and by
+# `include_user` / `include_timestamps`.
 #
-# See [docs/dhis2-user-timestamp-semantics.md] for the source-backed
-# explanation of why `_storedBy` and `_createdBy` are distinct signals
-# (and why per-TEA attributes need a different variant below).
+# `storedBy` holds what DHIS2 returns, and its meaning depends on the API
+# the record was written through: from DHIS2 2.41.9, and on the later
+# lines from 2.42.6 and 2.43.1 (DHIS2's issue DHIS2-21537), a record
+# written through the tracker API holds the authenticated user's name
+# there, while the legacy APIs that Tracker Capture writes through —
+# `/api/events` for events, `/api/trackedEntityInstances` for patients
+# and their attribute values — still store the value the client sends.
+# One dataset can therefore hold both meanings, and attribution rests on
+# `createdBy` and `updatedBy`, which DHIS2 sets itself.
 #
 # Usage: wrap a base attribute column together with its inclusion
 # predicate; the helper returns a flat list of all the columns to splice
@@ -219,7 +225,11 @@ attribute_cols <- function(base_col, base_when)
 # Per-TEA-attribute variant — used on patients (tracked-entity attributes).
 # DHIS2's `Attribute.java` carries `createdAt` / `updatedAt` timestamps but
 # no per-attribute `createdBy` / `updatedBy` User objects, so `_storedBy`
-# is the only user-attribution companion at this level.
+# is the only companion at this level that could name a user — and no
+# attribute value is attributed through it: it holds what DHIS2 returns,
+# of the two meanings "Per-attribute companion columns" above gives. Who
+# created and last updated the patient stands in the patient's own
+# `createdBy` and `updatedBy`.
 tea_attribute_cols <- function(base_col, base_when)
 {
   name <- base_col$name

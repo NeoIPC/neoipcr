@@ -333,10 +333,11 @@ test_that("patients_cols: isTest gated on include_test_data (full mode only)", {
 # ---- Per-TEA companion columns (DHIS2 Attribute.java semantics) ------------
 
 test_that("patients_cols emits no _createdBy / _updatedBy on TEA attributes", {
-  # Per docs/dhis2-user-timestamp-semantics.md: Attribute.java has no
-  # per-attribute createdBy/updatedBy User objects. `tea_attribute_cols`
-  # encodes this by emitting only `_storedBy`, `_createdAt`,
-  # `_updatedAt`. Regression guard.
+  # DHIS2's tracker `Attribute` carries `storedBy` but no per-attribute
+  # `createdBy` / `updatedBy` User objects, as the per-attribute companion
+  # columns comment in `R/schema-cols-shared.R` also states.
+  # `tea_attribute_cols` encodes this by emitting only `_storedBy`,
+  # `_createdAt`, `_updatedAt`. Regression guard.
   declared <- purrr::map_chr(neoipcr:::patients_cols, "name")
   per_tea_attrs <- c(
     "patient_id", "sex", "birth_weight", "gest_age",

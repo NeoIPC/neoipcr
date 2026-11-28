@@ -74,9 +74,33 @@ print.neoipcr_dhis2_conopt <- function(x, ...)
   invisible(x)
 }
 
+# Whether a string has the shape of a DHIS2 personal access token, of either
+# version:
+#   1. version 1, which DHIS2 2.40 and earlier issue: `d2pat_`, 32 ASCII
+#      letters or digits, and 10 decimal digits; 48 characters
+#      (`ApiTokenServiceImpl.initToken()` at 2.40.12, whose Base64 text has
+#      its `-` and `_` replaced with `x`);
+#   2. version 2, which DHIS2 2.41 and later issue: `d2p_`, 44 ASCII letters
+#      or digits, and 6 more; 54 characters (`ApiTokenType`,
+#      `ApiKeyTokenGenerator`, and `Base62` at 2.41.10).
+# The checksum, a token's last 10 or 6 characters, is not checked here: DHIS2
+# checks it when the token is used, from 2.41 on; 2.40 checks none. Under
+# `perl = TRUE` the ranges go by code point, and the anchors `\\A` and `\\z`
+# hold the whole string: between `^` and `$`, a pattern accepts a token
+# followed by a line break, and the default engine does not know `\\A` and
+# `\\z`.
+# NEOIPC-COMPAT(dhis2-version-1-token): the version-1 alternative; remove it
+# once neoipcr_supported_versions() lists no DHIS2 2.40 release, since 2.41
+# and later refuse every version-1 token.
+is_token_shape <- function(token)
+{
+  grepl("\\A(?:d2pat_[A-Za-z0-9]{32}[0-9]{10}|d2p_[A-Za-z0-9]{44}[A-Za-z0-9]{6})\\z",
+        token, perl = TRUE)
+}
+
 read_token <- function(token)
 {
-  if(stringr::str_starts(token, "d2pat_") &&  nchar(token) == 48)
+  if(is_token_shape(token))
     return(token)
 
   fileInfo <- file.info(token, extra_cols = FALSE)
@@ -84,7 +108,7 @@ read_token <- function(token)
   {
     fileContent <- readChar(token, fileInfo$size) |>
       stringr::str_replace("\\r?\\n?$", "")
-    if(stringr::str_starts(fileContent, "d2pat_") && nchar(fileContent) == 48)
+    if(is_token_shape(fileContent))
       return(fileContent)
   }
   rlang::abort(gettext("Invalid DHIS2 personal access token."))

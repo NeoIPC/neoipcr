@@ -1,13 +1,17 @@
 # Tests for R/dhis2-connect.R — connection options, authentication, token
 # handling, and password resolution.
 
-# A syntactically valid test token for neoipcr's read_token(), which checks
-# only the `d2pat_` prefix and the 48-char total. Shaped to resemble a real
-# DHIS2 PAT (a mixed Base64-alphabet body rather than all digits; DHIS2's real
-# generator appends a 10-digit CRC32 to a 32-char random part). It is not a
-# checksum-valid token and never reaches a server — the tests are offline, and
-# DHIS2 does not verify the checksum on the auth path regardless.
+# A syntactically valid test token for neoipcr's read_token(), which checks a
+# token's shape: version 1 is `d2pat_`, 32 letters or digits, and 10 digits;
+# version 2 is `d2p_`, 44 letters or digits, and 6 more. Shaped to resemble
+# real DHIS2 personal access tokens (a mixed Base64-alphabet body rather
+# than all digits; DHIS2's real generators append a CRC32 checksum to the
+# random part). Neither is a checksum-valid token and neither ever reaches
+# a server — the tests are offline, and DHIS2 checks the checksum only
+# when the token is used.
 test_token <- "d2pat_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789012345"
+# The version-2 fixture of the shape DHIS2 2.41 and later issue.
+test_token_v2 <- "d2p_aB3dEfGhaB3dEfGhaB3dEfGhaB3dEfGhaB3dEfGhaB3dKx7Qm2"
 test_host  <- "dhis2.example.org"
 
 # --- dhis2_connection_options() ---
@@ -93,7 +97,12 @@ test_that("print method shows base URL", {
 # --- read_token() ---
 
 test_that("read_token accepts a valid inline token", {
+  # NEOIPC-COMPAT(dhis2-version-1-token): see read_token() in R/dhis2-connect.R
   expect_equal(neoipcr:::read_token(test_token), test_token)
+})
+
+test_that("read_token accepts a valid inline version-2 token", {
+  expect_equal(neoipcr:::read_token(test_token_v2), test_token_v2)
 })
 
 test_that("read_token rejects a token with wrong prefix", {
@@ -110,10 +119,78 @@ test_that("read_token rejects a token that is too short", {
 })
 
 test_that("read_token rejects a token with correct prefix but wrong length", {
+  # NEOIPC-COMPAT(dhis2-version-1-token): see read_token() in R/dhis2-connect.R
   # 49 chars total (one too many)
   expect_error(
     neoipcr:::read_token(
       "d2pat_7890123456789012345678901234567890123456789"),
+    "Invalid")
+})
+
+test_that("read_token rejects a version-1 prefix carrying a version-2 body", {
+  expect_error(
+    neoipcr:::read_token(
+      "d2pat_aB3dEfGhaB3dEfGhaB3dEfGhaB3dEfGhaB3dEfGhaB3dKx7Qm2"),
+    "Invalid")
+})
+
+test_that("read_token rejects a version-2 prefix carrying a version-1 body", {
+  expect_error(
+    neoipcr:::read_token(
+      "d2p_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789012345"),
+    "Invalid")
+})
+
+test_that("read_token rejects a version-1 token with a character outside its set", {
+  # NEOIPC-COMPAT(dhis2-version-1-token): see read_token() in R/dhis2-connect.R
+  # A `-` among the 32 random characters, and a letter among the 10 checksum digits.
+  expect_error(
+    neoipcr:::read_token(
+      "d2pat_aBcDeFgHiJkLmNo-qRsTuVwXyZ0123456789012345"),
+    "Invalid")
+  expect_error(
+    neoipcr:::read_token(
+      "d2pat_aBcDeFgHiJkLmNoPqRsTuVwXyZ012345678901234a"),
+    "Invalid")
+})
+
+test_that("read_token rejects a version-2 token with a character outside its set", {
+  # A `-` among the 44 random characters.
+  expect_error(
+    neoipcr:::read_token(
+      "d2p_aB3dEfGhaB3dEfGhaB3dE-GhaB3dEfGhaB3dEfGhaB3dKx7Qm2"),
+    "Invalid")
+})
+
+test_that("read_token rejects each version one character short and one long", {
+  # NEOIPC-COMPAT(dhis2-version-1-token): see read_token() in R/dhis2-connect.R
+  expect_error(
+    neoipcr:::read_token(substring(test_token, 1, 47)),
+    "Invalid")
+  expect_error(
+    neoipcr:::read_token(paste0(test_token, "7")),
+    "Invalid")
+  expect_error(
+    neoipcr:::read_token(substring(test_token_v2, 1, 53)),
+    "Invalid")
+  expect_error(
+    neoipcr:::read_token(paste0(test_token_v2, "7")),
+    "Invalid")
+})
+
+test_that("read_token rejects an inline token with a trailing space or line break", {
+  # NEOIPC-COMPAT(dhis2-version-1-token): see read_token() in R/dhis2-connect.R
+  expect_error(neoipcr:::read_token(paste0(test_token, " ")), "Invalid")
+  expect_error(neoipcr:::read_token(paste0(test_token, "\n")), "Invalid")
+  expect_error(neoipcr:::read_token(paste0(test_token_v2, " ")), "Invalid")
+  expect_error(neoipcr:::read_token(paste0(test_token_v2, "\n")), "Invalid")
+  # Whitespace standing inside a full-length string, where a check of prefix
+  # and length alone would let the token through.
+  expect_error(
+    neoipcr:::read_token(paste0(substring(test_token, 1, 47), " ")),
+    "Invalid")
+  expect_error(
+    neoipcr:::read_token(paste0(substring(test_token, 1, 47), "\n")),
     "Invalid")
 })
 
@@ -125,8 +202,14 @@ test_that("read_token rejects a non-existent file path", {
 })
 
 test_that("read_token reads a valid token from a file", {
+  # NEOIPC-COMPAT(dhis2-version-1-token): see read_token() in R/dhis2-connect.R
   tmp <- withr::local_tempfile(lines = test_token)
   expect_equal(neoipcr:::read_token(tmp), test_token)
+})
+
+test_that("read_token reads a valid version-2 token from a file", {
+  tmp <- withr::local_tempfile(lines = test_token_v2)
+  expect_equal(neoipcr:::read_token(tmp), test_token_v2)
 })
 
 test_that("read_token rejects a file containing an invalid token", {

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-11-28 00:01+0100\n"
+"POT-Creation-Date: 2026-11-28 06:51+0100\n"
 "PO-Revision-Date: 2025-05-27 16:56+0200\n"
 "Last-Translator: Brar Piening <brar.piening@charite.de>\n"
 "Language-Team: NeoIPC-Support <NeoIPC-Support@charite.de>\n"
@@ -214,65 +214,65 @@ msgstr ""
 msgid "Username: %s"
 msgstr ""
 
-#: R/dhis2-connect.R:90
+#: R/dhis2-connect.R:114
 msgid "Invalid DHIS2 personal access token."
 msgstr ""
 
-#: R/dhis2-connect.R:102
+#: R/dhis2-connect.R:126
 msgid "No password found"
 msgstr ""
 
-#: R/dhis2-connect.R:104
+#: R/dhis2-connect.R:128
 msgid "%s is set but %s is not."
 msgstr ""
 
-#: R/dhis2-connect.R:106
+#: R/dhis2-connect.R:130
 msgid "A username was given, but %s is not set."
 msgstr ""
 
-#: R/dhis2-connect.R:108
+#: R/dhis2-connect.R:132
 msgid ""
 "Set the %s environment variable, or use a personal access token (%s) instead."
 msgstr ""
 
-#: R/dhis2-connect.R:110
+#: R/dhis2-connect.R:134
 msgid ""
 "Interactive password prompting is only available in interactive R sessions."
 msgstr ""
 
-#: R/dhis2-connect.R:113
+#: R/dhis2-connect.R:137
 msgid "Please enter your password for %s:"
 msgstr ""
 
-#: R/dhis2-connect.R:116
+#: R/dhis2-connect.R:140
 msgid "No password provided"
 msgstr ""
 
-#: R/dhis2-connect.R:117 R/dhis2-connect.R:149
+#: R/dhis2-connect.R:141 R/dhis2-connect.R:173
 msgid ""
 "Please provide username and password, a personal access token, or a session "
 "ID to authenticate to DHIS2."
 msgstr ""
 
-#: R/dhis2-connect.R:137
+#: R/dhis2-connect.R:161
 msgid "No authentication credentials found"
 msgstr ""
 
-#: R/dhis2-connect.R:139
+#: R/dhis2-connect.R:163
 msgid "Set the %s, %s, or %s environment variable."
 msgstr ""
 
-#: R/dhis2-connect.R:141
+#: R/dhis2-connect.R:165
 msgid ""
 "Interactive username/password prompting is only available in interactive R "
 "sessions."
 msgstr ""
 
-#: R/dhis2-connect.R:145
+#: R/dhis2-connect.R:169
 msgid "Please enter your username for %s:"
 msgstr ""
 
-#: R/dhis2-connect.R:148
+#: R/dhis2-connect.R:172
 msgid "No username provided"
 msgstr ""
 
@@ -325,7 +325,7 @@ msgstr ""
 msgid "DHIS2 %s (the %s test-unit lookup) could not be performed: %s"
 msgstr ""
 
-#: R/dhis2-metadata.R:69 R/import-dhis2.R:283
+#: R/dhis2-metadata.R:69 R/import-dhis2.R:286
 msgid "unknown"
 msgstr ""
 
@@ -449,44 +449,44 @@ msgstr ""
 msgid "Add the column, or narrow the import to one department with %s."
 msgstr ""
 
-#: R/import-dhis2.R:204
+#: R/import-dhis2.R:221
 msgid ""
 "%s and %s matched no accessible %s org unit after metadata filtering; a "
 "tracker query with no org unit would be rejected by DHIS2."
 msgstr ""
 
-#: R/import-dhis2.R:208
+#: R/import-dhis2.R:225
 msgid ""
 "%s matched no accessible %s org unit after metadata filtering; a tracker "
 "query with no org unit would be rejected by DHIS2."
 msgstr ""
 
-#: R/import-dhis2.R:213
+#: R/import-dhis2.R:230
 msgid "If a test department was selected, set %s (it is %s)."
 msgstr ""
 
-#: R/import-dhis2.R:216
+#: R/import-dhis2.R:233
 msgid ""
 "A trial's member departments may lie outside the org units the account can "
 "see."
 msgstr ""
 
-#: R/import-dhis2.R:285
+#: R/import-dhis2.R:288
 msgid ""
 "DHIS2 %s returned HTTP %s.\n"
 "Response body:\n"
 "%s"
 msgstr ""
 
-#: R/import-dhis2.R:631
+#: R/import-dhis2.R:669
 msgid "DHIS2 version %s is outside neoipcr's supported range."
 msgstr ""
 
-#: R/import-dhis2.R:633
+#: R/import-dhis2.R:671
 msgid "Supported DHIS2 lines: %s."
 msgstr ""
 
-#: R/import-dhis2.R:636
+#: R/import-dhis2.R:674
 msgid ""
 "Reading an unsupported server is unverified: it may fail outright, or return "
 "incomplete data without reporting an error."
