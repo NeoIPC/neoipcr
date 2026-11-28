@@ -778,8 +778,9 @@ test_that("the count engine takes its widening at the level too", {
   # Two clusters of one shared denominator leave tau2 at 0, since the
   # weighted squared deviations 100 * 0.01^2 + 100 * 0.01^2 = 0.02 equal
   # (G - 1) * b = 0.02, and the equal denominators leave one degree of
-  # freedom. The CR2 variance is 2 * 100^-2 over the baseline 0.02 / 200:
-  # the base ratio is 0.5, so the effect is the widening alone, (t / z)^2
+  # freedom. The residuals (1, -1) and working variance 0.02 / 100 give a
+  # CR2 variance of 2 * 2 / 200^2 = 1e-4 over the baseline 0.02 / 200 =
+  # 1e-4, a base ratio of 1, so the effect is the widening alone, (t / z)^2
   # at the level's quantile.
   got <- neoipcr:::.design_effect(c(3, 1), c(100, 100), "poisson",
                                   conf.level = 0.90)
