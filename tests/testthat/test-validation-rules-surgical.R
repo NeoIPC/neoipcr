@@ -1,4 +1,4 @@
-# Tests for R/validation-rules-surgical.R — rules 19, 22-24.
+# Tests for R/validation-rules-surgical.R — rules 19, 22-24, 66-69.
 
 # --- Rule 19: SSI outside the follow-up window of every surgery ---
 
@@ -241,3 +241,296 @@ for (entry in ichi_rules) {
     })
   })
 }
+
+# --- Rules 66–69: the placement of a procedure among the groups ---
+# Rule 66 = class I with a tract-opening code of its own group, 67 = an
+# approach code is all that places the procedure, 68 = a code no group takes
+# or the conditional peritoneum code, 69 = a percutaneous abdominal drain
+# that asks whether the operation was in fact open.
+
+# One procedure with these codes and this wound class, on one patient and
+# enrolment.
+procedure_ds <- function(main = NA_character_, side1 = NA_character_,
+                         side2 = NA_character_, wound_class = "1") {
+  surgery_ds(
+    main_procedure_code   = main,
+    side_procedure_code_1 = side1,
+    side_procedure_code_2 = side2,
+    wound_class = factor(wound_class, levels = c("1", "2", "3", "4")))
+}
+
+test_that("rule 66 detects a class I procedure whose own group opens a tract", {
+  # The alimentary tract through an abdominal code, and the urinary tract
+  # through a urogenital one: a class I dressing of the closure does not
+  # make them clean.
+  result <- neoipcr:::validation_rule_66(procedure_ds("KBF.LI.AA"), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
+  expect_equal(result$rule_id, 66L)
+  expect_equal(result$event_key, 1L)
+  expect_named(result$context[[1]], c("wound_class", "procedure_code"))
+  expect_equal(as.character(result$context[[1]]$wound_class), "1")
+  expect_equal(result$context[[1]]$procedure_code, "KBF.LI.AA")
+  expect_equal(nrow(neoipcr:::validation_rule_66(
+    procedure_ds("NAM.MK.AA"), NULL)), 1L)
+  expect_equal(nrow(neoipcr:::validation_rule_66(
+    procedure_ds("JBA.MK.AA"), NULL)), 1L)
+  # A recorded tract-opening stem inside an expression is found as the bare
+  # code is, and reported by its stem.
+  result <- neoipcr:::validation_rule_66(procedure_ds("KBF.LI.AA&XK9K"), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$context[[1]]$procedure_code, "KBF.LI.AA")
+})
+
+test_that("rule 66 leaves a class I procedure alone when nothing of its group opens a tract", {
+  # A hernia repair opens no tract.
+  expect_equal(nrow(neoipcr:::validation_rule_66(
+    procedure_ds("PAM.MK.AA"), NULL)), 0L)
+  # A wound class higher than I is already placed with the classed wounds.
+  expect_equal(nrow(neoipcr:::validation_rule_66(
+    procedure_ds("KBF.LI.AA", wound_class = "2"), NULL)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_66(
+    procedure_ds("KBF.LI.AA", wound_class = "3"), NULL)), 0L)
+  # A code whose tract is unclear raises nothing.
+  expect_equal(nrow(neoipcr:::validation_rule_66(
+    procedure_ds("KBF.FA.AA"), NULL)), 0L)
+  # A tract opened by a code of another group is no code of this procedure's
+  # own group: the procedure joins the thoracic group, whose own code opens
+  # no tract.
+  expect_equal(nrow(neoipcr:::validation_rule_66(
+    procedure_ds("MCX.MK.AA", "KBF.LI.AA"), NULL)), 0L)
+  # A procedure no group takes is left to rule 68.
+  expect_equal(nrow(neoipcr:::validation_rule_66(
+    procedure_ds("ZZZ.ZZ.ZZ"), NULL)), 0L)
+  # A held pending code holds the procedure out of every group, so it has
+  # no own group whose tract could open: rule 68 asks about it.
+  expect_equal(nrow(neoipcr:::validation_rule_66(
+    procedure_ds("NMR.MK.AB", "KBF.LI.AA"), NULL)), 0L)
+  # A wound class that was not recorded decides nothing.
+  expect_equal(nrow(neoipcr:::validation_rule_66(
+    procedure_ds("KBF.LI.AA", wound_class = NA_character_), NULL)), 0L)
+})
+
+test_that("rule 66 honours exceptions", {
+  result <- neoipcr:::validation_rule_66(
+    procedure_ds("KBF.LI.AA"), make_test_exceptions(66L, event_key = 1L))
+  expect_equal(nrow(result), 0L)
+})
+
+test_that("rule 66 skips without a warning when the wound class or a code column is absent", {
+  ds <- procedure_ds("KBF.LI.AA")
+  ds$surgeryData$wound_class <- NULL
+  expect_no_warning(result <- neoipcr:::validation_rule_66(ds, NULL))
+  expect_null(result)
+  ds <- procedure_ds("KBF.LI.AA")
+  ds$surgeryData$main_procedure_code <- NULL
+  expect_no_warning(result <- neoipcr:::validation_rule_66(ds, NULL))
+  expect_null(result)
+})
+
+test_that("rule 67 detects a procedure an approach code alone places", {
+  # Only the approach was coded: the operation done through it is missing.
+  result <- neoipcr:::validation_rule_67(procedure_ds("PAK.FA.AA"), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
+  expect_equal(result$rule_id, 67L)
+  expect_equal(result$event_key, 1L)
+  expect_named(result$context[[1]], "procedure_code")
+  expect_equal(result$context[[1]]$procedure_code, "PAK.FA.AA")
+  # Codes that are no surgical procedure drop out first, so this procedure
+  # holds nothing but its approach code.
+  expect_equal(nrow(neoipcr:::validation_rule_67(
+    procedure_ds("PAK.JB.AE", "PAK.AE.AA"), NULL)), 1L)
+  # The approach stem inside an expression is found as the bare code is.
+  expect_equal(nrow(neoipcr:::validation_rule_67(
+    procedure_ds("PAK.FA.AA&XK9K"), NULL)), 1L)
+  # A pending code that places nothing holds nothing back: the operation
+  # behind the approach is still uncoded.
+  expect_equal(nrow(neoipcr:::validation_rule_67(
+    procedure_ds("PAK.FA.AA", "LZZ.DK.AH"), NULL)), 1L)
+})
+
+test_that("rule 67 leaves alone a procedure its operation places", {
+  expect_equal(nrow(neoipcr:::validation_rule_67(
+    procedure_ds("PAK.FA.AA", "KBF.LI.AA"), NULL)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_67(
+    procedure_ds("KBF.LI.AA"), NULL)), 0L)
+  # A procedure of no surgical procedure is placed by nothing, and one no
+  # group takes is rule 68's.
+  expect_equal(nrow(neoipcr:::validation_rule_67(
+    procedure_ds("BCC.GA.AA"), NULL)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_67(
+    procedure_ds("ZZZ.ZZ.ZZ"), NULL)), 0L)
+  # A held pending code holds the procedure out of every group, so it is
+  # no approach code's alone: the classifier places it in no group and
+  # rule 68 asks what was done.
+  expect_equal(nrow(neoipcr:::validation_rule_67(
+    procedure_ds("PAK.FA.AA", "NMR.MK.AB"), NULL)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_68(
+    procedure_ds("PAK.FA.AA", "NMR.MK.AB"), NULL)), 1L)
+})
+
+test_that("rule 67 honours exceptions", {
+  result <- neoipcr:::validation_rule_67(
+    procedure_ds("PAK.FA.AA"), make_test_exceptions(67L, event_key = 1L))
+  expect_equal(nrow(result), 0L)
+})
+
+test_that("rule 67 skips without a warning when no code column is present", {
+  ds <- procedure_ds("PAK.FA.AA")
+  ds$surgeryData$main_procedure_code <- NULL
+  expect_no_warning(result <- neoipcr:::validation_rule_67(ds, NULL))
+  expect_null(result)
+})
+
+test_that("rules 66 to 69 take a surgery form without the side codes", {
+  # An absent side-code column stands in as a missing value in every row,
+  # as in the surgical counts: a dataset from a form version without them
+  # is counted and asked about alike.
+  ds <- procedure_ds("PAK.FA.AA")
+  ds$surgeryData$side_procedure_code_1 <- NULL
+  ds$surgeryData$side_procedure_code_2 <- NULL
+  expect_equal(nrow(neoipcr:::validation_rule_67(ds, NULL)), 1L)
+  ds <- procedure_ds("NMR.MK.AB", "KBF.LI.AA")
+  ds$surgeryData$side_procedure_code_2 <- NULL
+  result <- neoipcr:::validation_rule_68(ds, NULL)
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$context[[1]]$procedure_code, "NMR.MK.AB")
+})
+
+test_that("rule 68 detects a code no group takes", {
+  # A code pending an answer, a valid code no rule places, and a held-pending
+  # code: each needs the partners to say what was done.
+  result <- neoipcr:::validation_rule_68(procedure_ds("KZZ.AD.AA"), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
+  expect_equal(result$rule_id, 68L)
+  expect_equal(result$event_key, 1L)
+  expect_named(result$context[[1]], "procedure_code")
+  expect_equal(result$context[[1]]$procedure_code, "KZZ.AD.AA")
+  expect_equal(nrow(neoipcr:::validation_rule_68(
+    procedure_ds("PZX.AA.JA"), NULL)), 1L)
+  expect_equal(nrow(neoipcr:::validation_rule_68(
+    procedure_ds("NMR.MK.AB"), NULL)), 1L)
+  # The pending code is asked about even where the procedure's other code
+  # places the procedure.
+  result <- neoipcr:::validation_rule_68(
+    procedure_ds("KBF.LI.AA", "LZZ.DK.AH"), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$context[[1]]$procedure_code, "LZZ.DK.AH")
+  # The grammar composes expressions of stems, and it is the stem that
+  # places: a stem no rule takes is asked about beside the stems that do
+  # place.
+  result <- neoipcr:::validation_rule_68(
+    procedure_ds("KBF.LI.AA&XK9K/ZZZ.ZZ.ZZ"), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$context[[1]]$procedure_code, "ZZZ.ZZ.ZZ")
+  # A value no grammar reads is left to rules 22 to 24, which report it as
+  # an error on the same form: this warning asks of valid codes only, and
+  # beside a valid ungrouped code it asks of that code.
+  expect_equal(nrow(neoipcr:::validation_rule_68(
+    procedure_ds("KBF.LI.AAA"), NULL)), 0L)
+  result <- neoipcr:::validation_rule_68(
+    procedure_ds("KBF.LI.AAA", "ZZZ.ZZ.ZZ"), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$context[[1]]$procedure_code, "ZZZ.ZZ.ZZ")
+})
+
+test_that("rule 68 detects the peritoneum code whose group turns on a shunt", {
+  # `KMA.FA.AA` counts as abdominal unless the procedure holds a shunt code,
+  # in which case it follows the shunt: the coding is asked about unless a
+  # shunt code settles it.
+  result <- neoipcr:::validation_rule_68(procedure_ds("KMA.FA.AA"), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$context[[1]]$procedure_code, "KMA.FA.AA")
+  # Beside a shunt code the placement is settled and nothing is asked.
+  expect_equal(nrow(neoipcr:::validation_rule_68(
+    procedure_ds("KMA.FA.AA", "AAE.LI.AA"), NULL)), 0L)
+  # Only a shunt settles it: a code of another group that wins the
+  # procedure says nothing about what was done at the peritoneum.
+  result <- neoipcr:::validation_rule_68(
+    procedure_ds("KMA.FA.AA", "HIK.MK.AA"), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$context[[1]]$procedure_code, "KMA.FA.AA")
+  # The umbilical vein repair was recorded only with an implant and is
+  # probably a patch closure: the same warning asks about it, whatever
+  # else the procedure holds and whether or not it places the procedure.
+  expect_equal(nrow(neoipcr:::validation_rule_68(
+    procedure_ds("KMA.MK.AA"), NULL)), 1L)
+  result <- neoipcr:::validation_rule_68(procedure_ds("KMA.MK.AA"), NULL)
+  expect_equal(result$context[[1]]$procedure_code, "KMA.MK.AA")
+  expect_equal(nrow(neoipcr:::validation_rule_68(
+    procedure_ds("KMA.MK.AA", "HIK.MK.AA"), NULL)), 1L)
+  # Beside a shunt the access is settled yet the repair keeps its query.
+  result <- neoipcr:::validation_rule_68(
+    procedure_ds("KMA.FA.AA", "AAE.LI.AA", "KMA.MK.AA"), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$context[[1]]$procedure_code, "KMA.MK.AA")
+})
+
+test_that("rule 68 leaves a procedure its codes place alone", {
+  expect_equal(nrow(neoipcr:::validation_rule_68(
+    procedure_ds("KBF.LI.AA"), NULL)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_68(
+    procedure_ds("KBF.LI.AA", "PAM.MK.AA", "BCC.GA.AA"), NULL)), 0L)
+  # A code that is no surgical procedure is not a code no group takes.
+  expect_equal(nrow(neoipcr:::validation_rule_68(
+    procedure_ds("BCC.GA.AA"), NULL)), 0L)
+})
+
+test_that("rule 68 honours exceptions", {
+  result <- neoipcr:::validation_rule_68(
+    procedure_ds("KZZ.AD.AA"), make_test_exceptions(68L, event_key = 1L))
+  expect_equal(nrow(result), 0L)
+})
+
+test_that("rule 68 skips without a warning when no code column is present", {
+  ds <- procedure_ds("KZZ.AD.AA")
+  ds$surgeryData$main_procedure_code <- NULL
+  expect_no_warning(result <- neoipcr:::validation_rule_68(ds, NULL))
+  expect_null(result)
+})
+
+test_that("rule 69 detects a percutaneous abdominal drain among the codes", {
+  # The percutaneous drainages of the abdomen are no surgical procedure: a
+  # procedure carrying one is asked about, since an open drainage coded as
+  # percutaneous would belong among the abdominal procedures.
+  result <- neoipcr:::validation_rule_69(procedure_ds("KMA.JB.AE"), NULL)
+  expect_equal(nrow(result), 1L)
+  expect_declared_context(result)
+  expect_equal(result$rule_id, 69L)
+  expect_equal(result$event_key, 1L)
+  expect_named(result$context[[1]], c("procedure_description", "procedure_code"))
+  expect_equal(result$context[[1]]$procedure_code, "KMA.JB.AE")
+  expect_equal(result$context[[1]]$procedure_description, "Test procedure")
+  expect_equal(nrow(neoipcr:::validation_rule_69(
+    procedure_ds("KBF.LI.AA", "PAK.JB.AE"), NULL)), 1L)
+  # The drain stem inside an expression is found as the bare code is.
+  expect_equal(nrow(neoipcr:::validation_rule_69(
+    procedure_ds("KMA.JB.AE&XK9K"), NULL)), 1L)
+})
+
+test_that("rule 69 leaves the other drains and the procedures without them alone", {
+  # The pleural drainage counts as surgery wherever it is coded.
+  expect_equal(nrow(neoipcr:::validation_rule_69(
+    procedure_ds("JCB.JB.AE"), NULL)), 0L)
+  expect_equal(nrow(neoipcr:::validation_rule_69(
+    procedure_ds("KBF.LI.AA"), NULL)), 0L)
+})
+
+test_that("rule 69 honours exceptions", {
+  result <- neoipcr:::validation_rule_69(
+    procedure_ds("KMA.JB.AE"), make_test_exceptions(69L, event_key = 1L))
+  expect_equal(nrow(result), 0L)
+})
+
+test_that("rule 69 skips without a warning when the description or a code column is absent", {
+  ds <- procedure_ds("KMA.JB.AE")
+  ds$surgeryData$procedure_description <- NULL
+  expect_no_warning(result <- neoipcr:::validation_rule_69(ds, NULL))
+  expect_null(result)
+  ds <- procedure_ds("KMA.JB.AE")
+  ds$surgeryData$main_procedure_code <- NULL
+  expect_no_warning(result <- neoipcr:::validation_rule_69(ds, NULL))
+  expect_null(result)
+})

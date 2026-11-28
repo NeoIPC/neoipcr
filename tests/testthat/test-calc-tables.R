@@ -200,12 +200,98 @@ test_that("antibiotic_utilization_table substance days match fixture", {
 
 test_that("surgery_rate_table counts match fixture", {
   result <- get_surgery_rate_table(calc_ds, use_cache = FALSE)
-  # 2 rows: overall + to_be_categorized (PZX.AA.JA not in ICHI list)
+  # 2 rows: overall + inguinal_umbilical_hernia_repair (fixture default code)
   expect_equal(nrow(result), 2L)
   overall <- result[result$pro_cat == "overall", ]
   expect_equal(overall$n, 1L)
   # rate = 1 / 3 patients * 100
   expect_equal(overall$pooled, 1 / 3 * 100, tolerance = 0.01)
+})
+
+test_that("a procedure held by a pending code stays out of the surgical counts", {
+  # The classifier places a procedure holding a pending code that names no
+  # operation nowhere, and the counts hold it out too: the table counts the
+  # procedures the classifier places.
+  held <- calc_ds
+  held$surgeryData$side_procedure_code_1 <- "NMR.MK.AB"
+  expect_equal(get_procedures(held, use_cache = FALSE)$n, 0L)
+  expect_equal(get_surgery_risk(held, use_cache = FALSE)$n_procedures, 0L)
+  # With its codes alone the procedure counts, so it is the held code that
+  # leaves it out.
+  expect_equal(get_procedures(calc_ds, use_cache = FALSE)$n, 1L)
+  expect_equal(get_surgery_risk(calc_ds, use_cache = FALSE)$n_procedures, 1L)
+})
+
+test_that("a procedure no group places stays out of the surgical counts", {
+  # A procedure only of codes no group takes asks what was done (rule 68);
+  # until its codes are placed, neither counting path counts it as a
+  # surgical procedure.
+  ungrouped <- calc_ds
+  ungrouped$surgeryData$main_procedure_code <- "PZX.AA.JA"
+  expect_equal(get_procedures(ungrouped, use_cache = FALSE)$n, 0L)
+  expect_equal(get_surgery_risk(ungrouped, use_cache = FALSE)$n_procedures,
+               0L)
+  # The fixture's own code places, so it is the ungrouped code that leaves
+  # the procedure out.
+  expect_equal(get_procedures(calc_ds, use_cache = FALSE)$n, 1L)
+  expect_equal(get_surgery_risk(calc_ds, use_cache = FALSE)$n_procedures, 1L)
+})
+
+test_that("a procedure its side code places counts in both paths", {
+  # Both counts judge the procedure over all three of its codes, as the
+  # classifier does: a main code no group takes beside a placing side
+  # code is a placed procedure and counts in each path alike.
+  sided <- calc_ds
+  sided$surgeryData$main_procedure_code <- "ZZZ.ZZ.ZZ"
+  sided$surgeryData$side_procedure_code_1 <- "PAM.MK.AA"
+  expect_equal(get_procedures(sided, use_cache = FALSE)$n, 1L)
+  expect_equal(get_surgery_risk(sided, use_cache = FALSE)$n_procedures, 1L)
+  # And the group it counts in is the classifier's over all its codes, not
+  # the main code's own: the procedure joins the hernia repair's row.
+  by_cat <- get_procedures(sided, group_cols = "pro_cat", use_cache = FALSE)
+  expect_identical(as.character(by_cat$pro_cat),
+                   "inguinal_umbilical_hernia_repair")
+  table <- get_surgery_rate_table(sided, use_cache = FALSE)
+  expect_true("inguinal_umbilical_hernia_repair" %in%
+                as.character(table$pro_cat))
+  expect_false("no_group" %in% as.character(table$pro_cat))
+})
+
+test_that("surgical cache entries carry the definitions version", {
+  ds <- make_calc_test_ds()
+  invisible(get_procedures(ds, use_cache = TRUE))
+  invisible(get_procedure_categories(ds, use_cache = TRUE))
+  invisible(get_surgery_risk(ds, use_cache = TRUE))
+  invisible(get_surgery_rate_table(ds, use_cache = TRUE))
+  v <- paste0("[.]v",
+              as.character(neoipcr:::.surgical_definitions_version()), "$")
+  # The tag carries each of the four surgical definitions, so one of them
+  # rising alone retires the entries too.
+  expect_equal(
+    length(strsplit(as.character(
+      neoipcr:::.surgical_definitions_version()), ".", fixed = TRUE)[[1]]),
+    4L)
+  keys <- ls(ds$.cache)
+  surgical <- keys[grepl(
+    "^(procedures|procedure_categories|surgery_risk|surgery_rate_table)",
+    keys)]
+  expect_true(length(surgical) >= 4L)
+  expect_true(all(grepl(v, surgical)))
+  # An entry restored with its dataset under the old untagged key answers
+  # nothing after the bump: the counts are recomputed, not mislabelled.
+  stale <- tibble::tibble(n = 999L)
+  ds$.cache$procedures <- stale
+  expect_false(identical(get_procedures(ds, use_cache = TRUE), stale))
+})
+
+test_that("the surgical counts take a surgery form without the side codes", {
+  # A dataset taken from a form version that carries no side codes counts
+  # by the codes it does carry, standing in missing values row by row.
+  ds <- calc_ds
+  ds$surgeryData$side_procedure_code_1 <- NULL
+  ds$surgeryData$side_procedure_code_2 <- NULL
+  expect_equal(get_procedures(ds, use_cache = FALSE)$n, 1L)
+  expect_equal(get_surgery_risk(ds, use_cache = FALSE)$n_procedures, 1L)
 })
 
 test_that("incidence_density_rate_table BSI count matches fixture", {

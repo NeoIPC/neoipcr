@@ -1,7 +1,7 @@
 # Tests for R/validation.R — validate() orchestrator and validation_rules registry.
 
-test_that("validation_rules registry has 61 entries with an id, a level and a function each", {
-  expect_equal(length(neoipcr:::validation_rules), 61L)
+test_that("validation_rules registry has 65 entries with an id, a level and a function each", {
+  expect_equal(length(neoipcr:::validation_rules), 65L)
   for (entry in neoipcr:::validation_rules) {
     expect_true(all(c("id", "level", "fun") %in% names(entry)))
     expect_true(is.integer(entry$id))
@@ -52,6 +52,12 @@ test_that("validation_rules registry has 61 entries with an id, a level and a fu
   expect_equal(neoipcr:::.rule_event_types(61L), "ssi")
   expect_equal(unname(levels["62"]), "enrollment")
   expect_equal(neoipcr:::.rule_event_types(62L), "end")
+  # The four procedure-placement warnings each concern the procedure form.
+  expect_equal(unname(levels[c("66", "67", "68", "69")]), rep("event", 4L))
+  expect_equal(neoipcr:::.rule_event_types(66L), "pro")
+  expect_equal(neoipcr:::.rule_event_types(67L), "pro")
+  expect_equal(neoipcr:::.rule_event_types(68L), "pro")
+  expect_equal(neoipcr:::.rule_event_types(69L), "pro")
   # Only the rules that measure an enrolment's age take the reference date.
   dated <- vapply(neoipcr:::validation_rules, \(r) isTRUE(r$dated), logical(1))
   expect_equal(neoipcr::validation_rule_ids()[dated], c(43L, 44L))
@@ -100,8 +106,9 @@ test_that("validate measures an open enrolment against the import's server date,
 test_that("validation_rule_ids is exported and lists the registry in order", {
   namespace <- readLines(system.file("NAMESPACE", package = "neoipcr"))
   expect_true("export(validation_rule_ids)" %in% namespace)
-  # Rule 16 is gone, so the ids keep their numbering with a gap at 16.
-  expect_identical(neoipcr::validation_rule_ids(), c(1:15, 17:62))
+  # Rule 16 is gone and ids 63 to 65 stand open for a rule of another form,
+  # so the ids keep their numbering with gaps.
+  expect_identical(neoipcr::validation_rule_ids(), c(1:15, 17:62, 66:69))
   expect_true("export(validation_rule_context_fields)" %in% namespace)
   fields <- neoipcr::validation_rule_context_fields()
   expect_identical(names(fields), as.character(neoipcr::validation_rule_ids()))
@@ -113,17 +120,22 @@ test_that("validation_rule_ids is exported and lists the registry in order", {
                   c("imaging_count", "clinical_count", "surgical_count"))
   expect_identical(fields[["61"]], "infection_type")
   expect_setequal(fields[["62"]], c("substance_code", "substance", "substance_days", "ab_days"))
+  expect_setequal(fields[["66"]], c("wound_class", "procedure_code"))
+  expect_identical(fields[["67"]], "procedure_code")
+  expect_identical(fields[["68"]], "procedure_code")
+  expect_setequal(fields[["69"]], c("procedure_description", "procedure_code"))
   expect_setequal(fields[["3"]], c("enrolledAt", "occurredAt"))
   expect_setequal(fields[["20"]], c("index", "secondary_bsi", "name"))
 })
 
-test_that("validation_rule_severities is exported and marks rules 43, 44, and 54 as warnings", {
+test_that("validation_rule_severities is exported and marks the warning rules", {
   namespace <- readLines(system.file("NAMESPACE", package = "neoipcr"))
   expect_true("export(validation_rule_severities)" %in% namespace)
   severities <- neoipcr::validation_rule_severities()
   expect_type(severities, "character")
   expect_identical(names(severities), as.character(neoipcr::validation_rule_ids()))
-  expect_identical(names(severities)[severities == "warning"], c("43", "44", "54"))
+  expect_identical(names(severities)[severities == "warning"],
+                   c("43", "44", "54", "66", "67", "68", "69"))
   expect_true(all(severities[severities != "warning"] == "error"))
   # Rule 54's pairs that prove a mistake are rule 62's, an error.
   expect_identical(severities[["62"]], "error")

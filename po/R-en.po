@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: neoipcr 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/NeoIPC/neoipcr/issues\n"
-"POT-Creation-Date: 2026-11-28 09:09+0100\n"
+"POT-Creation-Date: 2026-11-28 11:04+0100\n"
 "PO-Revision-Date: 2025-05-27 16:56+0200\n"
 "Last-Translator: Brar Piening <brar.piening@charite.de>\n"
 "Language-Team: NeoIPC-Support <NeoIPC-Support@charite.de>\n"
@@ -20,7 +20,7 @@ msgstr ""
 msgid "No dataset to benchmark: pass at least one calculated dataset."
 msgstr ""
 
-#: R/calc-api.R:955 R/calc-procedure-categories.R:45
+#: R/calc-api.R:955 R/calc-procedure-categories.R:689
 msgid "Procedure category"
 msgstr ""
 
@@ -44,79 +44,116 @@ msgstr "Q₂"
 msgid "Q3"
 msgstr "Q₃"
 
-#: R/calc-api.R:1214 R/infectious-agents.R:43
+#: R/calc-api.R:1227 R/infectious-agents.R:43
 msgid "Not in the list: %s."
 msgstr ""
 
-#: R/calc-api.R:1215
+#: R/calc-api.R:1228
 msgid ""
 "The infectious-agent tables count such a code in their Totals only, and no "
 "resistance category applies to it."
 msgstr ""
 
-#: R/calc-api.R:1348
+#: R/calc-api.R:1361
 msgid "the unnamed dataset"
 msgstr ""
 
-#: R/calc-api.R:1351
+#: R/calc-api.R:1364
 msgid "Left empty for %s: %s."
 msgstr ""
 
-#: R/calc-api.R:1359
+#: R/calc-api.R:1372
 msgid ""
 "%s was calculated before calculated datasets carried the versions of their "
 "rate definitions; calculate it again from its raw dataset to compare it."
 msgstr ""
 
-#: R/calc-api.R:1370
+#: R/calc-api.R:1383
 msgid ""
 "Each such table keeps the rows of the datasets joined into it; a figure "
 "takes no rows from a dataset for which it is left empty, and any other such "
 "table leaves that dataset's columns empty."
 msgstr ""
 
-#: R/calc-procedure-categories.R:45
-msgid "Procedure code"
+#: R/calc-procedure-categories.R:71
+msgid ""
+"Arguments to `get_procedure_group()` must share one length or have length 1."
 msgstr ""
 
-#: R/calc-procedure-categories.R:215
+#: R/calc-procedure-categories.R:72
+msgid "Lengths given: %d, %d and %d."
+msgstr ""
+
+#: R/calc-procedure-categories.R:612
 msgid "Overall"
 msgstr ""
 
-#: R/calc-procedure-categories.R:216
-msgid "Abdominal surgery"
-msgstr ""
-
-#: R/calc-procedure-categories.R:217
+#: R/calc-procedure-categories.R:613
 msgid "Neurosurgery"
 msgstr ""
 
-#: R/calc-procedure-categories.R:218
-msgid "Inguinal hernia surgery"
+#: R/calc-procedure-categories.R:615
+msgid "Cardiac and great-vessel surgery"
 msgstr ""
 
-#: R/calc-procedure-categories.R:219
-msgid "Cardiac- / large vessel surgery"
+#: R/calc-procedure-categories.R:616
+msgid "Non-cardiac thoracic surgery"
 msgstr ""
 
-#: R/calc-procedure-categories.R:220
-msgid "Lung- / pleural space- / thoracic surgery"
+#: R/calc-procedure-categories.R:617
+msgid "Abdominal surgery"
 msgstr ""
 
-#: R/calc-procedure-categories.R:221
-msgid "Oesophageal surgery"
+#: R/calc-procedure-categories.R:618
+msgid "Abdominal wall surgery"
 msgstr ""
 
-#: R/calc-procedure-categories.R:222
-msgid "Other"
+#: R/calc-procedure-categories.R:620
+msgid "Inguinal and umbilical hernia repair"
 msgstr ""
 
-#: R/calc-procedure-categories.R:223
+#: R/calc-procedure-categories.R:622
+msgid "Head, neck, and upper airway surgery"
+msgstr ""
+
+#: R/calc-procedure-categories.R:624
+msgid "Skin, soft tissue, perineal, and urogenital surgery"
+msgstr ""
+
+#: R/calc-procedure-categories.R:625
 msgid "Not a surgical procedure"
 msgstr ""
 
-#: R/calc-procedure-categories.R:224 R/calc-procedure-categories.R:231
+#: R/calc-procedure-categories.R:626
+msgid "Placed by no procedure group"
+msgstr ""
+
+#: R/calc-procedure-categories.R:633
+msgid "Cardiac- / large vessel surgery"
+msgstr ""
+
+#: R/calc-procedure-categories.R:634
+msgid "Lung- / pleural space- / thoracic surgery"
+msgstr ""
+
+#: R/calc-procedure-categories.R:635
+msgid "Oesophageal surgery"
+msgstr ""
+
+#: R/calc-procedure-categories.R:636
+msgid "Inguinal hernia surgery"
+msgstr ""
+
+#: R/calc-procedure-categories.R:637
+msgid "Other"
+msgstr ""
+
+#: R/calc-procedure-categories.R:638 R/calc-procedure-categories.R:639
 msgid "Not yet categorized"
+msgstr ""
+
+#: R/calc-procedure-categories.R:689
+msgid "Procedure code"
 msgstr ""
 
 #: R/calc-tables.R:163
@@ -129,27 +166,27 @@ msgid ""
 "calculate it again from its raw dataset."
 msgstr ""
 
-#: R/calc-tables.R:977
+#: R/calc-tables.R:980
 msgid "%s must be a data frame."
 msgstr ""
 
-#: R/calc-tables.R:982
+#: R/calc-tables.R:985
 msgid "%s lacks a required column:"
 msgstr ""
 
-#: R/calc-tables.R:984
+#: R/calc-tables.R:987
 msgid "%s lacks required columns:"
 msgstr ""
 
-#: R/calc-tables.R:988
+#: R/calc-tables.R:991
 msgid "%s and %s must be %s columns."
 msgstr ""
 
-#: R/calc-tables.R:991
+#: R/calc-tables.R:994
 msgid "Every window needs %s, with neither date missing."
 msgstr ""
 
-#: R/calc-tables.R:994
+#: R/calc-tables.R:997
 msgid "Every window must have a non-missing %s."
 msgstr ""
 
@@ -669,7 +706,7 @@ msgstr ""
 msgid "Import with %s."
 msgstr ""
 
-#: R/validation-exceptions.R:248 R/validation.R:377
+#: R/validation-exceptions.R:248 R/validation.R:388
 msgid "%s must be a data frame of exception records."
 msgstr ""
 
@@ -697,7 +734,7 @@ msgid ""
 "code, which this dataset does not carry."
 msgstr ""
 
-#: R/validation-exceptions.R:338 R/validation.R:524
+#: R/validation-exceptions.R:338 R/validation.R:535
 msgid "Got %s."
 msgstr ""
 
@@ -794,85 +831,85 @@ msgstr ""
 msgid "rules %s do not concern the %s their records name"
 msgstr ""
 
-#: R/validation.R:255
+#: R/validation.R:266
 msgid "%s must be a single %s."
 msgstr ""
 
-#: R/validation.R:271
+#: R/validation.R:282
 msgid ""
 "The age of an open enrolment is measured against the date the data was read, "
 "which this dataset does not carry."
 msgstr ""
 
-#: R/validation.R:272
+#: R/validation.R:283
 msgid "An import records it on %s; pass %s to %s otherwise."
 msgstr ""
 
-#: R/validation.R:330
+#: R/validation.R:341
 msgid "The validation pass could not run every rule on this dataset."
 msgstr ""
 
-#: R/validation.R:332
+#: R/validation.R:343
 msgid ""
 "Rule %s did not run: the dataset lacks what it reads, which the log names."
 msgstr ""
 
-#: R/validation.R:334
+#: R/validation.R:345
 msgid ""
 "Rules %s did not run: the dataset lacks what they read, which the log names "
 "for each."
 msgstr ""
 
-#: R/validation.R:336
+#: R/validation.R:347
 msgid ""
 "The pass needs the full enrolment and event tiers with every column they "
 "declare, and the events that are not completed whenever the enrolments that "
 "are not completed are requested."
 msgstr ""
 
-#: R/validation.R:378
+#: R/validation.R:389
 msgid "Pass the list %s returns, or the key form %s returns."
 msgstr ""
 
-#: R/validation.R:394
+#: R/validation.R:405
 msgid ""
 "an exception record must name the dataset record it exempts through at least "
 "one of %s"
 msgstr ""
 
-#: R/validation.R:397
+#: R/validation.R:408
 msgid "%s must hold integer keys or %s"
 msgstr ""
 
-#: R/validation.R:401
+#: R/validation.R:412
 msgid "%s in key form must name existing rules through integer keys."
 msgstr ""
 
-#: R/validation.R:520
+#: R/validation.R:531
 msgid "%s must be a result of %s."
 msgstr ""
 
-#: R/validation.R:522
+#: R/validation.R:533
 msgid "It carries no %s attribute."
 msgstr ""
 
-#: R/validation.R:919
+#: R/validation.R:930
 msgid "%s must be a vector of whole numbers naming validation rules."
 msgstr ""
 
-#: R/validation.R:925
+#: R/validation.R:936
 msgid "%s names validation rules that do not exist."
 msgstr ""
 
-#: R/validation.R:927
+#: R/validation.R:938
 msgid "Unknown rule id: %s."
 msgstr ""
 
-#: R/validation.R:929
+#: R/validation.R:940
 msgid "Unknown rule ids: %s."
 msgstr ""
 
-#: R/validation.R:930
+#: R/validation.R:941
 msgid "The rules are numbered %d to %d; see %s."
 msgstr ""
 

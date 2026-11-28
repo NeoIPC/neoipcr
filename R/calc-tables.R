@@ -497,7 +497,8 @@ get_surgery_rate_table <- function(x, use_cache = TRUE) {
   # if(is_neoipcr_ref_ds(x))
   #   return(x$surgery_rate_table)
 
-  if(use_cache && !is.null(r <- get_cached(x, "surgery_rate_table")))
+  cache_key <- paste0("surgery_rate_table.v", .surgical_definitions_version())
+  if(use_cache && !is.null(r <- get_cached(x, cache_key)))
     return(r)
 
   # Behind the cache lookup, as the refusal in
@@ -524,7 +525,7 @@ get_surgery_rate_table <- function(x, use_cache = TRUE) {
     (\(d) dplyr::bind_cols(d, poisson_ci_cols(d$n, d$n_patients, multiplier = 100)))() |>
     dplyr::select(!"n_patients") |>
     add_class("neoipcr_tbl_sr") |>
-    cache(x, "surgery_rate_table")
+    cache(x, cache_key)
 }
 
 
@@ -543,7 +544,9 @@ get_ref_surgery_rate_table <- function(ref, use_cache = TRUE) {
   if(is_neoipcr_ref_ds(ref))
     return(ref$surgery_rate_table)
 
-  if(use_cache && !is.null(r <- get_cached(ref, "ref_surgery_rate_table")))
+  cache_key <- paste0("ref_surgery_rate_table.v",
+                      .surgical_definitions_version())
+  if(use_cache && !is.null(r <- get_cached(ref, cache_key)))
     return(r)
 
   assert_hierarchy_pair(ref, fn_name = "get_ref_surgery_rate_table")
@@ -564,7 +567,7 @@ get_ref_surgery_rate_table <- function(ref, use_cache = TRUE) {
     return(
       dplyr::bind_cols(r, q1 = NA_real_, q2 = NA_real_, q3 = NA_real_) |>
         add_class("neoipcr_tbl_sr_ref") |>
-        cache(ref, "ref_surgery_rate_table"))
+        cache(ref, cache_key))
 
   # Department-level procedure data: n procedures + n_patients per dept per category
   dept_rates <- get_procedures(
@@ -647,7 +650,7 @@ get_ref_surgery_rate_table <- function(ref, use_cache = TRUE) {
     dplyr::left_join(boot_cis, by = "pro_cat") |>
     dplyr::select(!"drop_quartiles") |>
     add_class("neoipcr_tbl_sr_ref") |>
-    cache(ref, "ref_surgery_rate_table")
+    cache(ref, cache_key)
 }
 
 #' Get the table with incidence density rates of the infections with time

@@ -210,7 +210,18 @@ validation_rules <- list(
        context = "infection_type", fun = validation_rule_61),
   list(id = 62L, level = "enrollment", event_types = "end",
        context = c("substance_code", "substance", "substance_days", "ab_days"),
-       fun = validation_rule_62))
+       fun = validation_rule_62),
+  # The rule numbers skip 63 to 65: the ids keep their gaps.
+  list(id = 66L, level = "event", event_types = "pro", severity = "warning",
+       context = c("wound_class", "procedure_code"),
+       fun = validation_rule_66),
+  list(id = 67L, level = "event", event_types = "pro", severity = "warning",
+       context = "procedure_code", fun = validation_rule_67),
+  list(id = 68L, level = "event", event_types = "pro", severity = "warning",
+       context = "procedure_code", fun = validation_rule_68),
+  list(id = 69L, level = "event", event_types = "pro", severity = "warning",
+       context = c("procedure_description", "procedure_code"),
+       fun = validation_rule_69))
 
 # How long an enrolment may stay active after its enrolment date before
 # rules 43 and 44 question it. A neonatal stay past four months is

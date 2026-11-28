@@ -14,6 +14,27 @@ section above it for the next changes.
 
 # neoipcr (development version)
 
+* neoipcr places a surgical procedure in 1 of 8 procedure groups by the site its ICHI codes place it
+  at: neurosurgery; cardiac and great-vessel surgery; non-cardiac thoracic surgery; abdominal surgery;
+  abdominal wall surgery; inguinal and umbilical hernia repair; head, neck, and upper airway surgery;
+  and skin, soft tissue, perineal, and urogenital surgery. They replace the 7 surgical categories, so
+  `get_procedure_categories()` gives `pro_cat` as a group and the surgery table's rows and the
+  dataset's surgical counts divide by group. `get_procedure_group()` is the new export: a procedure
+  given by its main code and its two side codes returns as a factor level, with `not_surgery` for a
+  procedure all of whose codes are no surgical procedure and `no_group` for one its codes place
+  nowhere. Every code counts, whichever was entered as the main one; an approach code gives way to
+  the operation done through it; the placement of the recorded codes is the package's own table, and
+  the axes of target, action, and means place a valid code entered for the first time. A procedure
+  whose codes no group takes, and one holding the pending code `NMR.MK.AB` or `BAA.BA.AD`, leaves the
+  surgery table, the dataset's surgical counts, and the SSI rate's denominator until its codes say
+  what was done.
+* The import's validation pass gains 4 surgical warnings: a procedure recorded as wound class I
+  although a code of its own group opens a tract (rule 66), a procedure an approach code alone places
+  (67), a procedure holding a code no group takes or whose group depends on what was done beside it,
+  such as the peritoneum's `KMA.FA.AA` without a shunt code (68), and a procedure carrying one of the
+  percutaneous abdominal drainages `KMA.JB.AE` or `PAK.JB.AE`, which a primary drain placed through an
+  incision may have been coded as (69).
+
 * Events and the form-data tables carry their hierarchy keys as a symmetric pair over the organisation-unit chain:
   the side the record's own organisation unit shows, `event_department_key` with its `event_hospital_key`,
   `event_country_key`, and `event_world_bank_class_key`, beside the stay's side, `enrollment_department_key` and its
@@ -50,6 +71,7 @@ section above it for the next changes.
   user's name there, while the legacy APIs that Tracker Capture writes through still store the value
   the client sent, so attribution rests on the `createdBy` and `updatedBy` columns that `include_user`
   adds, of which a patient's attribute values have none.
+
 * neoipcr classifies infectious-agent findings by tables built from a release of the NeoIPC
   infectious-agent list and its reporting classification in the Surveillance-Toolkit, the release
   that `neoipcr_supported_versions()` gives as the new element `infectious_agents`. The tables they
